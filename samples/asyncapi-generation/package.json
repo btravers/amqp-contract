@@ -1,0 +1,21 @@
+{
+  "name": "@amqp-contract-samples/asyncapi-generation",
+  "version": "0.0.1",
+  "private": true,
+  "description": "AsyncAPI generation sample using amqp-contract",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "generate": "tsx src/generate.ts"
+  },
+  "dependencies": {
+    "@amqp-contract/asyncapi": "workspace:*",
+    "@amqp-contract/contract": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@amqp-contract/tsconfig": "workspace:*",
+    "tsx": "catalog:",
+    "typescript": "catalog:"
+  }
+}

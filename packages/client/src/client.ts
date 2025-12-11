@@ -1,4 +1,4 @@
-import type { Channel, Connection, Options } from 'amqplib';
+import type { Channel, Connection as AmqpConnection, Options } from 'amqplib';
 import type {
   ClientInferPublisherInput,
   ContractDefinition,
@@ -18,35 +18,33 @@ export interface PublishOptions {
  */
 export class AmqpClient<TContract extends ContractDefinition> {
   private channel: Channel | null = null;
-  private connection: Connection | null = null;
+  private connection: AmqpConnection | null = null;
 
   constructor(private readonly contract: TContract) {}
 
   /**
    * Connect to AMQP broker
    */
-  async connect(connection: Connection): Promise<void> {
+  async connect(connection: AmqpConnection): Promise<void> {
     this.connection = connection;
-    this.channel = await connection.createChannel();
+    this.channel = await (
+      connection as unknown as { createChannel(): Promise<Channel> }
+    ).createChannel();
 
     // Setup exchanges
-    if (this.contract.exchanges) {
+    if (this.contract.exchanges && this.channel) {
       for (const exchange of Object.values(this.contract.exchanges)) {
-        await this.channel.assertExchange(
-          exchange.name,
-          exchange.type,
-          {
-            durable: exchange.durable,
-            autoDelete: exchange.autoDelete,
-            internal: exchange.internal,
-            arguments: exchange.arguments,
-          }
-        );
+        await this.channel.assertExchange(exchange.name, exchange.type, {
+          durable: exchange.durable,
+          autoDelete: exchange.autoDelete,
+          internal: exchange.internal,
+          arguments: exchange.arguments,
+        });
       }
     }
 
     // Setup queues
-    if (this.contract.queues) {
+    if (this.contract.queues && this.channel) {
       for (const queue of Object.values(this.contract.queues)) {
         await this.channel.assertQueue(queue.name, {
           durable: queue.durable,
@@ -58,7 +56,7 @@ export class AmqpClient<TContract extends ContractDefinition> {
     }
 
     // Setup bindings
-    if (this.contract.bindings) {
+    if (this.contract.bindings && this.channel) {
       for (const binding of Object.values(this.contract.bindings)) {
         await this.channel.bindQueue(
           binding.queue,
@@ -100,24 +98,25 @@ export class AmqpClient<TContract extends ContractDefinition> {
 
     // Validate message using schema
     const validation = publisherDef.message['~standard'].validate(message);
-    if ('issues' in validation && validation.issues) {
-      throw new Error(
-        `Message validation failed: ${JSON.stringify(validation.issues)}`
-      );
+    if (
+      typeof validation === 'object' &&
+      validation !== null &&
+      'issues' in validation &&
+      validation.issues
+    ) {
+      throw new Error(`Message validation failed: ${JSON.stringify(validation.issues)}`);
     }
 
-    const validatedMessage = 'value' in validation ? validation.value : message;
+    const validatedMessage =
+      typeof validation === 'object' && validation !== null && 'value' in validation
+        ? validation.value
+        : message;
 
     // Publish message
     const routingKey = options?.routingKey ?? publisherDef.routingKey ?? '';
     const content = Buffer.from(JSON.stringify(validatedMessage));
 
-    return this.channel.publish(
-      publisherDef.exchange,
-      routingKey,
-      content,
-      options?.options
-    );
+    return this.channel.publish(publisherDef.exchange, routingKey, content, options?.options);
   }
 
   /**
@@ -129,7 +128,7 @@ export class AmqpClient<TContract extends ContractDefinition> {
       this.channel = null;
     }
     if (this.connection) {
-      await this.connection.close();
+      await (this.connection as unknown as { close(): Promise<void> }).close();
       this.connection = null;
     }
   }

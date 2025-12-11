@@ -4,13 +4,14 @@ packages:
   - tools/*
 
 catalog:
-  "@changesets/cli": 2.29.8
-  "@commitlint/cli": 20.2.0
-  "@commitlint/config-conventional": 20.2.0
-  "@standard-schema/spec": 1.0.0
-  "@types/node": 24.10.2
-  "@vitest/coverage-v8": 4.0.15
+  '@changesets/cli': 2.29.8
+  '@commitlint/cli': 20.2.0
+  '@commitlint/config-conventional': 20.2.0
+  '@standard-schema/spec': 1.0.0
+  '@types/node': 24.10.2
+  '@vitest/coverage-v8': 4.0.15
   amqplib: 0.10.5
+  '@types/amqplib': 0.10.8
   arktype: 2.1.28
   knip: 5.73.3
   lefthook: 2.0.9

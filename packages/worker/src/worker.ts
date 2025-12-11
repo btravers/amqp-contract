@@ -1,4 +1,4 @@
-import type { Channel, Connection, ConsumeMessage } from 'amqplib';
+import type { Channel, Connection as AmqpConnection, ConsumeMessage } from 'amqplib';
 import type {
   ContractDefinition,
   InferConsumerNames,
@@ -10,7 +10,7 @@ import type {
  */
 export class AmqpWorker<TContract extends ContractDefinition> {
   private channel: Channel | null = null;
-  private connection: Connection | null = null;
+  private connection: AmqpConnection | null = null;
   private consumerTags: string[] = [];
 
   constructor(
@@ -21,28 +21,26 @@ export class AmqpWorker<TContract extends ContractDefinition> {
   /**
    * Connect to AMQP broker
    */
-  async connect(connection: Connection): Promise<void> {
+  async connect(connection: AmqpConnection): Promise<void> {
     this.connection = connection;
-    this.channel = await connection.createChannel();
+    this.channel = await (
+      connection as unknown as { createChannel(): Promise<Channel> }
+    ).createChannel();
 
     // Setup exchanges
-    if (this.contract.exchanges) {
+    if (this.contract.exchanges && this.channel) {
       for (const exchange of Object.values(this.contract.exchanges)) {
-        await this.channel.assertExchange(
-          exchange.name,
-          exchange.type,
-          {
-            durable: exchange.durable,
-            autoDelete: exchange.autoDelete,
-            internal: exchange.internal,
-            arguments: exchange.arguments,
-          }
-        );
+        await this.channel.assertExchange(exchange.name, exchange.type, {
+          durable: exchange.durable,
+          autoDelete: exchange.autoDelete,
+          internal: exchange.internal,
+          arguments: exchange.arguments,
+        });
       }
     }
 
     // Setup queues
-    if (this.contract.queues) {
+    if (this.contract.queues && this.channel) {
       for (const queue of Object.values(this.contract.queues)) {
         await this.channel.assertQueue(queue.name, {
           durable: queue.durable,
@@ -54,7 +52,7 @@ export class AmqpWorker<TContract extends ContractDefinition> {
     }
 
     // Setup bindings
-    if (this.contract.bindings) {
+    if (this.contract.bindings && this.channel) {
       for (const binding of Object.values(this.contract.bindings)) {
         await this.channel.bindQueue(
           binding.queue,
@@ -69,9 +67,7 @@ export class AmqpWorker<TContract extends ContractDefinition> {
   /**
    * Start consuming messages for a specific consumer
    */
-  async consume<TName extends InferConsumerNames<TContract>>(
-    consumerName: TName
-  ): Promise<void> {
+  async consume<TName extends InferConsumerNames<TContract>>(consumerName: TName): Promise<void> {
     if (!this.channel) {
       throw new Error('Worker not connected. Call connect() first.');
     }
@@ -117,14 +113,22 @@ export class AmqpWorker<TContract extends ContractDefinition> {
 
           // Validate message using schema
           const validation = consumerDef.message['~standard'].validate(content);
-          if ('issues' in validation && validation.issues) {
+          if (
+            typeof validation === 'object' &&
+            validation !== null &&
+            'issues' in validation &&
+            validation.issues
+          ) {
             console.error('Message validation failed:', validation.issues);
             // Reject message with no requeue
             this.channel?.nack(msg, false, false);
             return;
           }
 
-          const validatedMessage = 'value' in validation ? validation.value : content;
+          const validatedMessage =
+            typeof validation === 'object' && validation !== null && 'value' in validation
+              ? validation.value
+              : content;
 
           // Call handler
           await handler(validatedMessage);
@@ -156,7 +160,7 @@ export class AmqpWorker<TContract extends ContractDefinition> {
     }
 
     const consumerNames = Object.keys(this.contract.consumers) as InferConsumerNames<TContract>[];
-    
+
     for (const consumerName of consumerNames) {
       await this.consume(consumerName);
     }
@@ -173,7 +177,7 @@ export class AmqpWorker<TContract extends ContractDefinition> {
     for (const tag of this.consumerTags) {
       await this.channel.cancel(tag);
     }
-    
+
     this.consumerTags = [];
   }
 
@@ -182,14 +186,14 @@ export class AmqpWorker<TContract extends ContractDefinition> {
    */
   async close(): Promise<void> {
     await this.stopConsuming();
-    
+
     if (this.channel) {
       await this.channel.close();
       this.channel = null;
     }
-    
+
     if (this.connection) {
-      await this.connection.close();
+      await (this.connection as unknown as { close(): Promise<void> }).close();
       this.connection = null;
     }
   }

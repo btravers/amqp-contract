@@ -119,15 +119,15 @@ function zodSchemaToAsyncAPI(schema: unknown): AsyncAPISchema {
   // In a real-world scenario, you'd need to properly traverse the Zod schema
   if (typeof schema === 'object' && schema !== null && '_def' in schema) {
     const def = (schema as { _def: { typeName: string } })._def;
-    
+
     if (def.typeName === 'ZodObject') {
-      const shape = (schema as { shape: Record<string, unknown> }).shape;
+      const shape = (schema as unknown as { shape: Record<string, unknown> }).shape;
       const properties: Record<string, AsyncAPISchema> = {};
       const required: string[] = [];
 
       for (const [key, value] of Object.entries(shape)) {
         properties[key] = zodSchemaToAsyncAPI(value);
-        
+
         // Check if optional (simplified check)
         if (value && typeof value === 'object' && '_def' in value) {
           const valueDef = (value as { _def: { typeName: string } })._def;
@@ -139,11 +139,16 @@ function zodSchemaToAsyncAPI(schema: unknown): AsyncAPISchema {
         }
       }
 
-      return {
+      const result: AsyncAPISchema = {
         type: 'object',
         properties,
-        required: required.length > 0 ? required : undefined,
       };
+
+      if (required.length > 0) {
+        result.required = required;
+      }
+
+      return result;
     } else if (def.typeName === 'ZodString') {
       return { type: 'string' };
     } else if (def.typeName === 'ZodNumber') {
@@ -151,7 +156,7 @@ function zodSchemaToAsyncAPI(schema: unknown): AsyncAPISchema {
     } else if (def.typeName === 'ZodBoolean') {
       return { type: 'boolean' };
     } else if (def.typeName === 'ZodArray') {
-      const element = (schema as { element: unknown }).element;
+      const element = (schema as unknown as { element: unknown }).element;
       return {
         type: 'array',
         items: zodSchemaToAsyncAPI(element),
@@ -176,20 +181,39 @@ export function generateAsyncAPI(
   // Generate channels from queues
   if (contract.queues) {
     for (const [queueName, queue] of Object.entries(contract.queues)) {
+      const binding: {
+        amqp?: {
+          is: 'queue';
+          queue?: {
+            name: string;
+            durable?: boolean;
+            exclusive?: boolean;
+            autoDelete?: boolean;
+          };
+        };
+      } = {
+        amqp: {
+          is: 'queue',
+          queue: {
+            name: queue.name,
+          },
+        },
+      };
+
+      if (queue.durable !== undefined) {
+        binding.amqp!.queue!.durable = queue.durable;
+      }
+      if (queue.exclusive !== undefined) {
+        binding.amqp!.queue!.exclusive = queue.exclusive;
+      }
+      if (queue.autoDelete !== undefined) {
+        binding.amqp!.queue!.autoDelete = queue.autoDelete;
+      }
+
       channels[queueName] = {
         address: queue.name,
         description: `Queue: ${queue.name}`,
-        bindings: {
-          amqp: {
-            is: 'queue',
-            queue: {
-              name: queue.name,
-              durable: queue.durable,
-              exclusive: queue.exclusive,
-              autoDelete: queue.autoDelete,
-            },
-          },
-        },
+        bindings: binding,
       };
     }
   }
@@ -197,31 +221,46 @@ export function generateAsyncAPI(
   // Generate channels from exchanges
   if (contract.exchanges) {
     for (const [exchangeName, exchange] of Object.entries(contract.exchanges)) {
+      const binding: {
+        amqp?: {
+          is: 'routingKey';
+          exchange?: {
+            name: string;
+            type: 'topic' | 'direct' | 'fanout' | 'headers';
+            durable?: boolean;
+            autoDelete?: boolean;
+          };
+        };
+      } = {
+        amqp: {
+          is: 'routingKey',
+          exchange: {
+            name: exchange.name,
+            type: exchange.type,
+          },
+        },
+      };
+
+      if (exchange.durable !== undefined) {
+        binding.amqp!.exchange!.durable = exchange.durable;
+      }
+      if (exchange.autoDelete !== undefined) {
+        binding.amqp!.exchange!.autoDelete = exchange.autoDelete;
+      }
+
       channels[exchangeName] = {
         address: exchange.name,
         description: `Exchange: ${exchange.name} (${exchange.type})`,
-        bindings: {
-          amqp: {
-            is: 'routingKey',
-            exchange: {
-              name: exchange.name,
-              type: exchange.type,
-              durable: exchange.durable,
-              autoDelete: exchange.autoDelete,
-            },
-          },
-        },
+        bindings: binding,
       };
     }
   }
 
   // Generate operations from publishers
   if (contract.publishers) {
-    for (const [publisherName, publisher] of Object.entries(
-      contract.publishers
-    )) {
+    for (const [publisherName, publisher] of Object.entries(contract.publishers)) {
       const messageName = `${publisherName}Message`;
-      
+
       messages[messageName] = {
         name: messageName,
         title: `${publisherName} message`,
@@ -242,7 +281,7 @@ export function generateAsyncAPI(
   if (contract.consumers) {
     for (const [consumerName, consumer] of Object.entries(contract.consumers)) {
       const messageName = `${consumerName}Message`;
-      
+
       messages[messageName] = {
         name: messageName,
         title: `${consumerName} message`,
@@ -259,18 +298,23 @@ export function generateAsyncAPI(
     }
   }
 
-  return {
+  const result: AsyncAPIDocument = {
     asyncapi: '3.0.0',
     info: {
       title: options.info.title ?? 'AMQP Contract API',
       version: options.info.version ?? '1.0.0',
       ...options.info,
     },
-    servers: options.servers,
     channels,
     operations,
     components: {
       messages,
     },
   };
+
+  if (options.servers) {
+    result.servers = options.servers;
+  }
+
+  return result;
 }
