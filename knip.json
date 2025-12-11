@@ -1,0 +1,19 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": ["tools/**/*.ts"],
+      "project": ["tools/**/*.ts"]
+    },
+    "packages/*": {
+      "entry": ["src/index.ts", "src/**/*.spec.ts", "vitest.config.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "samples/*": {
+      "entry": ["src/**/*.ts"],
+      "project": ["src/**/*.ts"]
+    }
+  },
+  "ignore": ["**/*.spec.ts", "**/vitest.config.ts", "dist/**"],
+  "ignoreDependencies": ["@amqp-contract/tsconfig"]
+}

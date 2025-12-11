@@ -1,0 +1,34 @@
+{
+  "name": "@amqp-contract/root",
+  "private": true,
+  "description": "Type-safe contract system for AMQP architecture",
+  "license": "MIT",
+  "author": "Benoit TRAVERS <benoit.travers.frgmail.com>",
+  "type": "module",
+  "scripts": {
+    "build": "turbo run build",
+    "changeset": "changeset",
+    "dev": "turbo run dev",
+    "format": "oxfmt .",
+    "lint": "oxlint .",
+    "prepare": "lefthook install",
+    "release": "pnpm build && changeset publish",
+    "setup": "pnpm install && pnpm build",
+    "sort-package-json": "sort-package-json '**/package.json' '!**/node_modules/**'",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "version": "changeset version"
+  },
+  "devDependencies": {
+    "@changesets/cli": "catalog:",
+    "@commitlint/cli": "catalog:",
+    "@commitlint/config-conventional": "catalog:",
+    "knip": "catalog:",
+    "lefthook": "catalog:",
+    "oxfmt": "catalog:",
+    "oxlint": "catalog:",
+    "sort-package-json": "catalog:",
+    "turbo": "catalog:"
+  },
+  "packageManager": "pnpm@10.25.0"
+}

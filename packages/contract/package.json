@@ -1,0 +1,62 @@
+{
+  "name": "@amqp-contract/contract",
+  "version": "0.0.1",
+  "description": "Contract builder for amqp-contract",
+  "keywords": [
+    "amqp",
+    "typescript",
+    "contract",
+    "rabbitmq"
+  ],
+  "homepage": "https://github.com/btravers/amqp-contract#readme",
+  "bugs": {
+    "url": "https://github.com/btravers/amqp-contract/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/btravers/amqp-contract.git",
+    "directory": "packages/contract"
+  },
+  "license": "MIT",
+  "author": "Benoit TRAVERS <benoit.travers.frgmail.com>",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown src/index.ts --format cjs,esm --dts --clean",
+    "dev": "tsdown src/index.ts --format cjs,esm --dts --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@standard-schema/spec": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@amqp-contract/tsconfig": "workspace:*",
+    "@vitest/coverage-v8": "catalog:",
+    "arktype": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "valibot": "catalog:",
+    "vitest": "catalog:"
+  }
+}
