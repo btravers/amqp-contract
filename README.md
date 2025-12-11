@@ -21,7 +21,7 @@ End-to-end type safety and automatic validation for AMQP messaging
 ## Quick Example
 
 ```typescript
-import { defineContract, defineExchange, defineQueue, definePublisher, defineConsumer } from '@amqp-contract/contract';
+import { defineContract, defineExchange, defineQueue, definePublisher, defineConsumer, defineBinding } from '@amqp-contract/contract';
 import { createClient } from '@amqp-contract/client';
 import { createWorker } from '@amqp-contract/worker';
 import { z } from 'zod';
