@@ -53,10 +53,8 @@
   "devDependencies": {
     "@amqp-contract/tsconfig": "workspace:*",
     "@vitest/coverage-v8": "catalog:",
-    "arktype": "catalog:",
     "tsdown": "catalog:",
     "typescript": "catalog:",
-    "valibot": "catalog:",
     "vitest": "catalog:"
   }
 }

@@ -48,8 +48,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@amqp-contract/contract": "workspace:*",
-    "@standard-schema/spec": "catalog:"
+    "@amqp-contract/contract": "workspace:*"
   },
   "devDependencies": {
     "@amqp-contract/tsconfig": "workspace:*",
@@ -59,8 +58,7 @@
     "amqplib": "catalog:",
     "tsdown": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:",
-    "zod": "catalog:"
+    "vitest": "catalog:"
   },
   "peerDependencies": {
     "amqplib": ">=0.10.0"

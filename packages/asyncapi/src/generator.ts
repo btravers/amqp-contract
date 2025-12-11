@@ -92,7 +92,7 @@ export interface AsyncAPISchema {
   enum?: unknown[];
 }
 
-export interface AsyncAPIRef {
+interface AsyncAPIRef {
   $ref: string;
 }
 

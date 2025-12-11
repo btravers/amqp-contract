@@ -13,7 +13,6 @@ catalog:
   "@vitest/coverage-v8": 4.0.15
   amqplib: 0.10.5
   "@types/amqplib": 0.10.8
-  arktype: 2.1.28
   knip: 5.73.3
   lefthook: 2.0.9
   oxfmt: 0.17.0
@@ -24,7 +23,6 @@ catalog:
   tsx: 4.21.0
   turbo: 2.6.3
   typescript: 5.9.3
-  valibot: 1.2.0
   vitepress: 1.6.4
   vitest: 4.0.15
   zod: 4.1.13
