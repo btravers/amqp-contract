@@ -3,7 +3,7 @@
   "private": true,
   "description": "Type-safe contract system for AMQP architecture",
   "license": "MIT",
-  "author": "Benoit TRAVERS <benoit.travers.frgmail.com>",
+  "author": "Benoit TRAVERS <benoit.travers.fr@gmail.com>",
   "type": "module",
   "scripts": {
     "build": "turbo run build",
