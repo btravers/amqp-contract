@@ -1,10 +1,11 @@
-import type { ContractDefinition } from '@amqp-contract/contract';
+import type { ContractDefinition } from "@amqp-contract/contract";
+import { match } from "ts-pattern";
 
 /**
  * AsyncAPI 3.0.0 Specification
  */
 export interface AsyncAPIDocument {
-  asyncapi: '3.0.0';
+  asyncapi: "3.0.0";
   info: AsyncAPIInfo;
   servers?: Record<string, AsyncAPIServer>;
   channels?: Record<string, AsyncAPIChannel>;
@@ -41,7 +42,7 @@ export interface AsyncAPIChannel {
   description?: string;
   bindings?: {
     amqp?: {
-      is: 'queue' | 'routingKey';
+      is: "queue" | "routingKey";
       queue?: {
         name: string;
         durable?: boolean;
@@ -50,7 +51,7 @@ export interface AsyncAPIChannel {
       };
       exchange?: {
         name: string;
-        type: 'topic' | 'direct' | 'fanout' | 'headers';
+        type: "topic" | "direct" | "fanout" | "headers";
         durable?: boolean;
         autoDelete?: boolean;
       };
@@ -59,7 +60,7 @@ export interface AsyncAPIChannel {
 }
 
 export interface AsyncAPIOperation {
-  action: 'send' | 'receive';
+  action: "send" | "receive";
   channel: AsyncAPIRef;
   messages?: AsyncAPIMessageRef[];
   description?: string;
@@ -104,7 +105,7 @@ export interface AsyncAPIComponents {
  * Options for generating AsyncAPI specification
  */
 export interface GenerateAsyncAPIOptions {
-  info: Omit<AsyncAPIInfo, 'title' | 'version'> & {
+  info: Omit<AsyncAPIInfo, "title" | "version"> & {
     title?: string;
     version?: string;
   };
@@ -112,26 +113,41 @@ export interface GenerateAsyncAPIOptions {
 }
 
 /**
- * Convert a Zod schema to AsyncAPI schema (simplified version)
+ * Convert a Zod schema to AsyncAPI schema
  */
 function zodSchemaToAsyncAPI(schema: unknown): AsyncAPISchema {
-  // This is a simplified implementation
-  // In a real-world scenario, you'd need to properly traverse the Zod schema
-  if (typeof schema === 'object' && schema !== null && '_def' in schema) {
-    const def = (schema as { _def: { typeName: string } })._def;
+  // Handle Zod 4.x structure
+  if (typeof schema !== "object" || schema === null || !("def" in schema && "type" in schema)) {
+    return { type: "object" };
+  }
 
-    if (def.typeName === 'ZodObject') {
-      const shape = (schema as unknown as { shape: Record<string, unknown> }).shape;
+  const zodSchema = schema as {
+    type: string;
+    def: { type: string; shape?: Record<string, unknown> };
+    shape?: Record<string, unknown>;
+  };
+
+  const schemaType = zodSchema.type || zodSchema.def?.type;
+
+  return match(schemaType)
+    .with("object", () => {
+      // Try to get shape from both locations
+      const shape =
+        zodSchema.shape || (zodSchema.def as { shape?: Record<string, unknown> })?.shape;
+      if (!shape) {
+        return { type: "object" as const };
+      }
+
       const properties: Record<string, AsyncAPISchema> = {};
       const required: string[] = [];
 
       for (const [key, value] of Object.entries(shape)) {
         properties[key] = zodSchemaToAsyncAPI(value);
 
-        // Check if optional (simplified check)
-        if (value && typeof value === 'object' && '_def' in value) {
-          const valueDef = (value as { _def: { typeName: string } })._def;
-          if (valueDef.typeName !== 'ZodOptional') {
+        // Check if optional - Zod 4.x uses different structure
+        if (value && typeof value === "object" && "type" in value) {
+          const valueType = (value as { type: string }).type;
+          if (valueType !== "optional") {
             required.push(key);
           }
         } else {
@@ -140,7 +156,7 @@ function zodSchemaToAsyncAPI(schema: unknown): AsyncAPISchema {
       }
 
       const result: AsyncAPISchema = {
-        type: 'object',
+        type: "object",
         properties,
       };
 
@@ -149,22 +165,20 @@ function zodSchemaToAsyncAPI(schema: unknown): AsyncAPISchema {
       }
 
       return result;
-    } else if (def.typeName === 'ZodString') {
-      return { type: 'string' };
-    } else if (def.typeName === 'ZodNumber') {
-      return { type: 'number' };
-    } else if (def.typeName === 'ZodBoolean') {
-      return { type: 'boolean' };
-    } else if (def.typeName === 'ZodArray') {
-      const element = (schema as unknown as { element: unknown }).element;
+    })
+    .with("string", () => ({ type: "string" as const }))
+    .with("number", () => ({ type: "number" as const }))
+    .with("boolean", () => ({ type: "boolean" as const }))
+    .with("array", () => {
+      // In Zod 4.x, array element is in def
+      const def = zodSchema.def as { element?: unknown };
+      const element = def?.element;
       return {
-        type: 'array',
-        items: zodSchemaToAsyncAPI(element),
+        type: "array" as const,
+        items: element ? zodSchemaToAsyncAPI(element) : { type: "object" as const },
       };
-    }
-  }
-
-  return { type: 'object' };
+    })
+    .otherwise(() => ({ type: "object" as const }));
 }
 
 /**
@@ -172,7 +186,7 @@ function zodSchemaToAsyncAPI(schema: unknown): AsyncAPISchema {
  */
 export function generateAsyncAPI(
   contract: ContractDefinition,
-  options: GenerateAsyncAPIOptions
+  options: GenerateAsyncAPIOptions,
 ): AsyncAPIDocument {
   const channels: Record<string, AsyncAPIChannel> = {};
   const operations: Record<string, AsyncAPIOperation> = {};
@@ -183,7 +197,7 @@ export function generateAsyncAPI(
     for (const [queueName, queue] of Object.entries(contract.queues)) {
       const binding: {
         amqp?: {
-          is: 'queue';
+          is: "queue";
           queue?: {
             name: string;
             durable?: boolean;
@@ -193,7 +207,7 @@ export function generateAsyncAPI(
         };
       } = {
         amqp: {
-          is: 'queue',
+          is: "queue",
           queue: {
             name: queue.name,
           },
@@ -223,17 +237,17 @@ export function generateAsyncAPI(
     for (const [exchangeName, exchange] of Object.entries(contract.exchanges)) {
       const binding: {
         amqp?: {
-          is: 'routingKey';
+          is: "routingKey";
           exchange?: {
             name: string;
-            type: 'topic' | 'direct' | 'fanout' | 'headers';
+            type: "topic" | "direct" | "fanout" | "headers";
             durable?: boolean;
             autoDelete?: boolean;
           };
         };
       } = {
         amqp: {
-          is: 'routingKey',
+          is: "routingKey",
           exchange: {
             name: exchange.name,
             type: exchange.type,
@@ -264,12 +278,12 @@ export function generateAsyncAPI(
       messages[messageName] = {
         name: messageName,
         title: `${publisherName} message`,
-        contentType: 'application/json',
+        contentType: "application/json",
         payload: zodSchemaToAsyncAPI(publisher.message),
       };
 
       operations[publisherName] = {
-        action: 'send',
+        action: "send",
         channel: { $ref: `#/channels/${publisher.exchange}` },
         messages: [{ $ref: `#/components/messages/${messageName}` }],
         description: `Publish message to ${publisher.exchange}`,
@@ -285,12 +299,12 @@ export function generateAsyncAPI(
       messages[messageName] = {
         name: messageName,
         title: `${consumerName} message`,
-        contentType: 'application/json',
+        contentType: "application/json",
         payload: zodSchemaToAsyncAPI(consumer.message),
       };
 
       operations[consumerName] = {
-        action: 'receive',
+        action: "receive",
         channel: { $ref: `#/channels/${consumer.queue}` },
         messages: [{ $ref: `#/components/messages/${messageName}` }],
         description: `Consume message from ${consumer.queue}`,
@@ -299,10 +313,10 @@ export function generateAsyncAPI(
   }
 
   const result: AsyncAPIDocument = {
-    asyncapi: '3.0.0',
+    asyncapi: "3.0.0",
     info: {
-      title: options.info.title ?? 'AMQP Contract API',
-      version: options.info.version ?? '1.0.0',
+      title: options.info.title ?? "AMQP Contract API",
+      version: options.info.version ?? "1.0.0",
       ...options.info,
     },
     channels,

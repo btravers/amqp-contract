@@ -1,0 +1,24 @@
+version: 2
+updates:
+  # pnpm packages
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    groups:
+      amqp:
+        patterns:
+          - "amqplib"
+          - "@types/amqplib"
+      dev-dependencies:
+        dependency-type: "development"
+    open-pull-requests-limit: 10
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
