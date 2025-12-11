@@ -19,7 +19,7 @@
     "directory": "packages/asyncapi"
   },
   "license": "MIT",
-  "author": "Benoit TRAVERS <benoit.travers.frgmail.com>",
+  "author": "Benoit TRAVERS <benoit.travers.fr@gmail.com>",
   "type": "module",
   "exports": {
     ".": {
