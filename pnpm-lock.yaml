@@ -83,7 +83,7 @@ importers:
         specifier: "catalog:"
         version: 20.2.0
       "@types/amqplib":
-        specifier: 0.10.8
+        specifier: "catalog:"
         version: 0.10.8
       knip:
         specifier: "catalog:"

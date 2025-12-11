@@ -32,6 +32,6 @@ pnpm build
 
 ## Prerequisites
 
-- Node.js 24+
+- Node.js 24.12.0+
 - pnpm
 - RabbitMQ (or other AMQP broker)
