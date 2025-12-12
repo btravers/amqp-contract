@@ -1,0 +1,2 @@
+# Lockfiles should not be formatted
+pnpm-lock.yaml
