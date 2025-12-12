@@ -1,28 +1,28 @@
 # @amqp-contract/arktype
 
-ArkType integration for amqp-contract. This package provides seamless integration between [ArkType](https://arktype.io/) schemas and amqp-contract.
+ArkType integration for amqp-contract. This package declares peer dependencies for [ArkType](https://arktype.io/) compatibility with amqp-contract.
 
 ## Installation
 
 ```bash
-npm install @amqp-contract/arktype
+npm install @amqp-contract/contract @amqp-contract/arktype arktype
 # or
-pnpm add @amqp-contract/arktype
+pnpm add @amqp-contract/contract @amqp-contract/arktype arktype
 # or
-yarn add @amqp-contract/arktype
+yarn add @amqp-contract/contract @amqp-contract/arktype arktype
 ```
 
 ## Usage
 
 ```typescript
+import { type } from 'arktype';
 import {
   defineContract,
   defineExchange,
   defineQueue,
   definePublisher,
   defineConsumer,
-  type,
-} from '@amqp-contract/arktype';
+} from '@amqp-contract/contract';
 
 // Define your schemas using ArkType
 const orderSchema = type({
@@ -51,6 +51,8 @@ const contract = defineContract({
 
 - **Type Safety**: Full TypeScript support with type inference from ArkType schemas
 - **Standard Schema**: Uses the Standard Schema specification for interoperability
+- **Peer Dependency Management**: Declares compatible ArkType versions as peer dependencies
+
 ## License
 
 MIT

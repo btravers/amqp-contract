@@ -1,28 +1,30 @@
 # @amqp-contract/zod
 
-Zod integration for amqp-contract. This package provides seamless integration between [Zod](https://zod.dev/) schemas and amqp-contract.
+Zod integration for amqp-contract. This package provides a schema converter for AsyncAPI generation and declares peer dependencies for [Zod](https://zod.dev/) compatibility with amqp-contract.
 
 ## Installation
 
 ```bash
-npm install @amqp-contract/zod
+npm install @amqp-contract/contract @amqp-contract/zod zod
 # or
-pnpm add @amqp-contract/zod
+pnpm add @amqp-contract/contract @amqp-contract/zod zod
 # or
-yarn add @amqp-contract/zod
+yarn add @amqp-contract/contract @amqp-contract/zod zod
 ```
 
 ## Usage
 
+### Basic Usage
+
 ```typescript
+import { z } from 'zod';
 import {
   defineContract,
   defineExchange,
   defineQueue,
   definePublisher,
   defineConsumer,
-  z,
-} from '@amqp-contract/zod';
+} from '@amqp-contract/contract';
 
 // Define your schemas using Zod
 const orderSchema = z.object({
@@ -47,11 +49,30 @@ const contract = defineContract({
 });
 ```
 
+### AsyncAPI Generation
+
+```typescript
+import { zodToJsonSchema } from '@amqp-contract/zod';
+import { generateAsyncAPI } from '@amqp-contract/asyncapi';
+
+// Convert Zod schemas to JSON Schema for AsyncAPI
+const jsonSchema = zodToJsonSchema(orderSchema);
+
+// Generate AsyncAPI specification
+const asyncAPISpec = generateAsyncAPI(contract, {
+  info: {
+    title: 'My API',
+    version: '1.0.0',
+  },
+});
+```
+
 ## Features
 
 - **Type Safety**: Full TypeScript support with type inference from Zod schemas
 - **Standard Schema**: Uses the Standard Schema specification for interoperability
-- **Convenience**: Re-exports both amqp-contract builders and Zod for easy imports
+- **AsyncAPI Support**: Provides `zodToJsonSchema` converter for AsyncAPI generation
+- **Peer Dependency Management**: Declares compatible Zod versions as peer dependencies
 
 ## License
 
