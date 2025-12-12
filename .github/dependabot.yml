@@ -13,6 +13,11 @@ updates:
           - "@types/amqplib"
       dev-dependencies:
         dependency-type: "development"
+    ignore:
+      # Only allow @types/node updates that match the Node.js major version (24.x)
+      # specified in .npmrc (use-node-version=24.12.0)
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     open-pull-requests-limit: 10
 
   # GitHub Actions
