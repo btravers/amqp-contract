@@ -1,1 +1,1 @@
-export { AmqpWorker, createWorker } from './worker.js';
+export { AmqpWorker, createWorker } from "./worker.js";

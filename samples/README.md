@@ -9,6 +9,7 @@ Example implementations demonstrating amqp-contract features.
 Type-safe AMQP messaging for order processing with multiple consumers.
 
 **Features:**
+
 - Type-safe publishers and consumers
 - Automatic validation with Zod
 - Multiple consumers for pub/sub pattern

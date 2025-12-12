@@ -13,6 +13,7 @@ import { defineContract, defineExchange, defineQueue } from '@amqp-contract/cont
 ```
 
 **Key exports:**
+
 - `defineContract` - Define a complete AMQP contract
 - `defineExchange` - Define an exchange
 - `defineQueue` - Define a queue
@@ -29,6 +30,7 @@ import { createClient } from '@amqp-contract/client';
 ```
 
 **Key exports:**
+
 - `createClient` - Create a type-safe AMQP client
 - `AmqpClient` - The client class type
 
@@ -41,6 +43,7 @@ import { createWorker } from '@amqp-contract/worker';
 ```
 
 **Key exports:**
+
 - `createWorker` - Create a type-safe AMQP worker
 - `AmqpWorker` - The worker class type
 
@@ -53,6 +56,7 @@ import { generateAsyncAPI } from '@amqp-contract/asyncapi';
 ```
 
 **Key exports:**
+
 - `generateAsyncAPI` - Generate AsyncAPI specification
 - Various TypeScript types for AsyncAPI documents
 

@@ -1,9 +1,9 @@
-import type { Channel, Connection as AmqpConnection, ConsumeMessage } from 'amqplib';
+import type { Channel, Connection as AmqpConnection, ConsumeMessage } from "amqplib";
 import type {
   ContractDefinition,
   InferConsumerNames,
   WorkerInferConsumerHandlers,
-} from '@amqp-contract/contract';
+} from "@amqp-contract/contract";
 
 /**
  * Type-safe AMQP worker for consuming messages
@@ -15,7 +15,7 @@ export class AmqpWorker<TContract extends ContractDefinition> {
 
   constructor(
     private readonly contract: TContract,
-    private readonly handlers: WorkerInferConsumerHandlers<TContract>
+    private readonly handlers: WorkerInferConsumerHandlers<TContract>,
   ) {}
 
   /**
@@ -57,8 +57,8 @@ export class AmqpWorker<TContract extends ContractDefinition> {
         await this.channel.bindQueue(
           binding.queue,
           binding.exchange,
-          binding.routingKey ?? '',
-          binding.arguments
+          binding.routingKey ?? "",
+          binding.arguments,
         );
       }
     }
@@ -69,22 +69,22 @@ export class AmqpWorker<TContract extends ContractDefinition> {
    */
   async consume<TName extends InferConsumerNames<TContract>>(consumerName: TName): Promise<void> {
     if (!this.channel) {
-      throw new Error('Worker not connected. Call connect() first.');
+      throw new Error("Worker not connected. Call connect() first.");
     }
 
     const consumers = this.contract.consumers as Record<string, unknown>;
     if (!consumers) {
-      throw new Error('No consumers defined in contract');
+      throw new Error("No consumers defined in contract");
     }
 
     const consumer = consumers[consumerName as string];
-    if (!consumer || typeof consumer !== 'object') {
+    if (!consumer || typeof consumer !== "object") {
       throw new Error(`Consumer "${String(consumerName)}" not found in contract`);
     }
 
     const consumerDef = consumer as {
       queue: string;
-      message: { '~standard': { validate: (value: unknown) => unknown } };
+      message: { "~standard": { validate: (value: unknown) => unknown } };
       prefetch?: number;
       noAck?: boolean;
     };
@@ -112,21 +112,21 @@ export class AmqpWorker<TContract extends ContractDefinition> {
           const content = JSON.parse(msg.content.toString());
 
           // Validate message using schema
-          const validation = consumerDef.message['~standard'].validate(content);
+          const validation = consumerDef.message["~standard"].validate(content);
           if (
-            typeof validation === 'object' &&
+            typeof validation === "object" &&
             validation !== null &&
-            'issues' in validation &&
+            "issues" in validation &&
             validation.issues
           ) {
-            console.error('Message validation failed:', validation.issues);
+            console.error("Message validation failed:", validation.issues);
             // Reject message with no requeue
             this.channel?.nack(msg, false, false);
             return;
           }
 
           const validatedMessage =
-            typeof validation === 'object' && validation !== null && 'value' in validation
+            typeof validation === "object" && validation !== null && "value" in validation
               ? validation.value
               : content;
 
@@ -138,14 +138,14 @@ export class AmqpWorker<TContract extends ContractDefinition> {
             this.channel?.ack(msg);
           }
         } catch (error) {
-          console.error('Error processing message:', error);
+          console.error("Error processing message:", error);
           // Reject message and requeue
           this.channel?.nack(msg, false, true);
         }
       },
       {
         noAck: consumerDef.noAck ?? false,
-      }
+      },
     );
 
     this.consumerTags.push(result.consumerTag);
@@ -156,7 +156,7 @@ export class AmqpWorker<TContract extends ContractDefinition> {
    */
   async consumeAll(): Promise<void> {
     if (!this.contract.consumers) {
-      throw new Error('No consumers defined in contract');
+      throw new Error("No consumers defined in contract");
     }
 
     const consumerNames = Object.keys(this.contract.consumers) as InferConsumerNames<TContract>[];
@@ -204,7 +204,7 @@ export class AmqpWorker<TContract extends ContractDefinition> {
  */
 export function createWorker<TContract extends ContractDefinition>(
   contract: TContract,
-  handlers: WorkerInferConsumerHandlers<TContract>
+  handlers: WorkerInferConsumerHandlers<TContract>,
 ): AmqpWorker<TContract> {
   return new AmqpWorker(contract, handlers);
 }

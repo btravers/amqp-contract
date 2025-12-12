@@ -105,7 +105,7 @@ Queues store messages until they're consumed:
 ```typescript
 defineQueue(
   'order-processing',  // name
-  { 
+  {
     durable: true,     // survives broker restart
     exclusive: false,  // can be accessed by other connections
   }

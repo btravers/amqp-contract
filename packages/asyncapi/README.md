@@ -50,6 +50,7 @@ writeFileSync('asyncapi.json', JSON.stringify(asyncAPISpec, null, 2));
 Generate an AsyncAPI 3.0.0 specification from an AMQP contract.
 
 **Parameters:**
+
 - `contract`: The AMQP contract definition
 - `options`: Configuration options
   - `info`: API information (title, version, description, etc.)

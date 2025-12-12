@@ -1,4 +1,4 @@
-import type { StandardSchemaV1 } from '@standard-schema/spec';
+import type { StandardSchemaV1 } from "@standard-schema/spec";
 
 /**
  * Any schema that conforms to Standard Schema v1
@@ -8,7 +8,7 @@ export type AnySchema = StandardSchemaV1;
 /**
  * Exchange types supported by AMQP
  */
-export type ExchangeType = 'direct' | 'fanout' | 'topic' | 'headers';
+export type ExchangeType = "direct" | "fanout" | "topic" | "headers";
 
 /**
  * Definition of an AMQP exchange
@@ -46,9 +46,7 @@ export interface BindingDefinition {
 /**
  * Definition of a message publisher
  */
-export interface PublisherDefinition<
-  TMessageSchema extends AnySchema = AnySchema,
-> {
+export interface PublisherDefinition<TMessageSchema extends AnySchema = AnySchema> {
   exchange: string;
   routingKey?: string;
   message: TMessageSchema;
@@ -72,26 +70,11 @@ export interface ConsumerDefinition<
  * Contract definition containing all AMQP resources
  */
 export interface ContractDefinition<
-  TExchanges extends Record<string, ExchangeDefinition> = Record<
-    string,
-    ExchangeDefinition
-  >,
-  TQueues extends Record<string, QueueDefinition> = Record<
-    string,
-    QueueDefinition
-  >,
-  TBindings extends Record<string, BindingDefinition> = Record<
-    string,
-    BindingDefinition
-  >,
-  TPublishers extends Record<string, PublisherDefinition> = Record<
-    string,
-    PublisherDefinition
-  >,
-  TConsumers extends Record<string, ConsumerDefinition> = Record<
-    string,
-    ConsumerDefinition
-  >,
+  TExchanges extends Record<string, ExchangeDefinition> = Record<string, ExchangeDefinition>,
+  TQueues extends Record<string, QueueDefinition> = Record<string, QueueDefinition>,
+  TBindings extends Record<string, BindingDefinition> = Record<string, BindingDefinition>,
+  TPublishers extends Record<string, PublisherDefinition> = Record<string, PublisherDefinition>,
+  TConsumers extends Record<string, ConsumerDefinition> = Record<string, ConsumerDefinition>,
 > {
   exchanges?: TExchanges;
   queues?: TQueues;
@@ -115,46 +98,46 @@ export type InferSchemaOutput<TSchema extends AnySchema> =
 /**
  * Infer publisher message input type
  */
-export type PublisherInferInput<TPublisher extends PublisherDefinition> =
-  InferSchemaInput<TPublisher['message']>;
+export type PublisherInferInput<TPublisher extends PublisherDefinition> = InferSchemaInput<
+  TPublisher["message"]
+>;
 
 /**
  * Infer consumer message input type
  */
-export type ConsumerInferInput<TConsumer extends ConsumerDefinition> =
-  InferSchemaInput<TConsumer['message']>;
+export type ConsumerInferInput<TConsumer extends ConsumerDefinition> = InferSchemaInput<
+  TConsumer["message"]
+>;
 
 /**
  * Infer consumer handler result type
  */
 export type ConsumerInferHandlerResult<TConsumer extends ConsumerDefinition> =
-  TConsumer['handlerResult'] extends AnySchema
-    ? InferSchemaOutput<TConsumer['handlerResult']>
+  TConsumer["handlerResult"] extends AnySchema
+    ? InferSchemaOutput<TConsumer["handlerResult"]>
     : void;
 
 /**
  * Consumer handler function type
  */
 export type ConsumerHandler<TConsumer extends ConsumerDefinition> = (
-  message: ConsumerInferInput<TConsumer>
-) =>
-  | ConsumerInferHandlerResult<TConsumer>
-  | Promise<ConsumerInferHandlerResult<TConsumer>>;
+  message: ConsumerInferInput<TConsumer>,
+) => ConsumerInferHandlerResult<TConsumer> | Promise<ConsumerInferHandlerResult<TConsumer>>;
 
 /**
  * Infer all publishers from contract
  */
 export type InferPublishers<TContract extends ContractDefinition> =
-  TContract['publishers'] extends Record<string, PublisherDefinition>
-    ? TContract['publishers']
+  TContract["publishers"] extends Record<string, PublisherDefinition>
+    ? TContract["publishers"]
     : never;
 
 /**
  * Infer all consumers from contract
  */
 export type InferConsumers<TContract extends ContractDefinition> =
-  TContract['consumers'] extends Record<string, ConsumerDefinition>
-    ? TContract['consumers']
+  TContract["consumers"] extends Record<string, ConsumerDefinition>
+    ? TContract["consumers"]
     : never;
 
 /**
@@ -220,10 +203,6 @@ export type WorkerInferConsumerHandler<
 /**
  * Map of all consumer handlers for a contract
  */
-export type WorkerInferConsumerHandlers<TContract extends ContractDefinition> =
-  {
-    [K in InferConsumerNames<TContract>]: WorkerInferConsumerHandler<
-      TContract,
-      K
-    >;
-  };
+export type WorkerInferConsumerHandlers<TContract extends ContractDefinition> = {
+  [K in InferConsumerNames<TContract>]: WorkerInferConsumerHandler<TContract, K>;
+};
