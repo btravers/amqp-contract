@@ -1,2 +1,2 @@
-# Lockfiles should not be formatted
+# Lockfiles should not be formatted by oxfmt
 pnpm-lock.yaml
