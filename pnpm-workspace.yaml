@@ -21,7 +21,7 @@ catalog:
   oxfmt: 0.17.0
   oxlint: 1.32.0
   sort-package-json: 3.5.1
-  tsdown: 0.17.2
+  tsdown: 0.17.3
   tsx: 4.21.0
   turbo: 2.6.3
   typescript: 5.9.3
