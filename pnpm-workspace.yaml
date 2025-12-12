@@ -13,7 +13,7 @@ catalog:
   "@standard-schema/spec": 1.0.0
   "@types/node": 24.10.2
   "@vitest/coverage-v8": 4.0.15
-  amqplib: 0.10.5
+  amqplib: 0.10.9
   "@types/amqplib": 0.10.8
   knip: 5.73.3
   lefthook: 2.0.9
