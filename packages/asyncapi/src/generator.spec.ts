@@ -28,7 +28,27 @@ describe("generateAsyncAPI", () => {
     });
 
     // THEN
-    expect(asyncAPI.asyncapi).toBe("3.0.0");
+    expect(asyncAPI).toMatchObject({
+      asyncapi: "3.0.0",
+      info: {
+        title: "Test API",
+        version: "1.0.0",
+      },
+      channels: {
+        orders: {
+          address: "orders",
+          bindings: {
+            amqp: {
+              is: "routingKey",
+              exchange: {
+                type: "topic",
+                durable: true,
+              },
+            },
+          },
+        },
+      },
+    });
   });
 
   it("should include info title from options", () => {
@@ -44,7 +64,13 @@ describe("generateAsyncAPI", () => {
     });
 
     // THEN
-    expect(asyncAPI.info.title).toBe("Test API");
+    expect(asyncAPI).toMatchObject({
+      asyncapi: "3.0.0",
+      info: {
+        title: "Test API",
+        version: "1.0.0",
+      },
+    });
   });
 
   it("should include info version from options", () => {
@@ -60,7 +86,13 @@ describe("generateAsyncAPI", () => {
     });
 
     // THEN
-    expect(asyncAPI.info.version).toBe("1.0.0");
+    expect(asyncAPI).toMatchObject({
+      asyncapi: "3.0.0",
+      info: {
+        title: "Test API",
+        version: "1.0.0",
+      },
+    });
   });
 
   it("should include info description from options", () => {
@@ -77,7 +109,14 @@ describe("generateAsyncAPI", () => {
     });
 
     // THEN
-    expect(asyncAPI.info.description).toBe("Test description");
+    expect(asyncAPI).toMatchObject({
+      asyncapi: "3.0.0",
+      info: {
+        title: "Test API",
+        version: "1.0.0",
+        description: "Test description",
+      },
+    });
   });
 
   it("should include servers from options", () => {
@@ -100,7 +139,20 @@ describe("generateAsyncAPI", () => {
     });
 
     // THEN
-    expect(asyncAPI.servers?.["dev"]?.host).toBe("localhost:5672");
+    expect(asyncAPI).toMatchObject({
+      asyncapi: "3.0.0",
+      info: {
+        title: "Test API",
+        version: "1.0.0",
+      },
+      servers: {
+        dev: {
+          host: "localhost:5672",
+          protocol: "amqp",
+          description: "Development server",
+        },
+      },
+    });
   });
 
   it("should generate channel for exchange", () => {
@@ -120,7 +172,13 @@ describe("generateAsyncAPI", () => {
     });
 
     // THEN
-    expect(asyncAPI.channels?.["orders"]?.address).toBe("orders");
+    expect(asyncAPI).toMatchObject({
+      channels: {
+        orders: {
+          address: "orders",
+        },
+      },
+    });
   });
 
   it("should generate channel with AMQP exchange binding", () => {
@@ -140,7 +198,21 @@ describe("generateAsyncAPI", () => {
     });
 
     // THEN
-    expect(asyncAPI.channels?.["orders"]?.bindings?.amqp?.exchange?.type).toBe("topic");
+    expect(asyncAPI).toMatchObject({
+      channels: {
+        orders: {
+          bindings: {
+            amqp: {
+              is: "routingKey",
+              exchange: {
+                type: "topic",
+                durable: true,
+              },
+            },
+          },
+        },
+      },
+    });
   });
 
   it("should generate channel for queue", () => {
@@ -160,7 +232,13 @@ describe("generateAsyncAPI", () => {
     });
 
     // THEN
-    expect(asyncAPI.channels?.["orderProcessing"]?.address).toBe("order-processing");
+    expect(asyncAPI).toMatchObject({
+      channels: {
+        orderProcessing: {
+          address: "order-processing",
+        },
+      },
+    });
   });
 
   it("should generate channel with AMQP queue binding", () => {
@@ -180,9 +258,21 @@ describe("generateAsyncAPI", () => {
     });
 
     // THEN
-    expect(asyncAPI.channels?.["orderProcessing"]?.bindings?.amqp?.queue?.name).toBe(
-      "order-processing",
-    );
+    expect(asyncAPI).toMatchObject({
+      channels: {
+        orderProcessing: {
+          bindings: {
+            amqp: {
+              is: "queue",
+              queue: {
+                name: "order-processing",
+                durable: true,
+              },
+            },
+          },
+        },
+      },
+    });
   });
 
   it("should generate send operation for publisher", () => {
@@ -210,7 +300,13 @@ describe("generateAsyncAPI", () => {
     });
 
     // THEN
-    expect(asyncAPI.operations?.["orderCreated"]?.action).toBe("send");
+    expect(asyncAPI).toMatchObject({
+      operations: {
+        orderCreated: {
+          action: "send",
+        },
+      },
+    });
   });
 
   it("should generate operation with channel reference for publisher", () => {
@@ -238,7 +334,15 @@ describe("generateAsyncAPI", () => {
     });
 
     // THEN
-    expect(asyncAPI.operations?.["orderCreated"]?.channel.$ref).toBe("#/channels/orders");
+    expect(asyncAPI).toMatchObject({
+      operations: {
+        orderCreated: {
+          channel: {
+            $ref: "#/channels/orders",
+          },
+        },
+      },
+    });
   });
 
   it("should generate receive operation for consumer", () => {
@@ -266,7 +370,13 @@ describe("generateAsyncAPI", () => {
     });
 
     // THEN
-    expect(asyncAPI.operations?.["processOrder"]?.action).toBe("receive");
+    expect(asyncAPI).toMatchObject({
+      operations: {
+        processOrder: {
+          action: "receive",
+        },
+      },
+    });
   });
 
   it("should generate operation with channel reference for consumer", () => {
@@ -294,7 +404,15 @@ describe("generateAsyncAPI", () => {
     });
 
     // THEN
-    expect(asyncAPI.operations?.["processOrder"]?.channel.$ref).toBe("#/channels/order-processing");
+    expect(asyncAPI).toMatchObject({
+      operations: {
+        processOrder: {
+          channel: {
+            $ref: "#/channels/order-processing",
+          },
+        },
+      },
+    });
   });
 
   it("should generate message schema with string property type", () => {
@@ -322,10 +440,22 @@ describe("generateAsyncAPI", () => {
     });
 
     // THEN
-    expect(
-      asyncAPI.components?.messages?.["orderCreatedMessage"]?.payload?.properties?.["orderId"]
-        ?.type,
-    ).toBe("string");
+    expect(asyncAPI).toMatchObject({
+      components: {
+        messages: {
+          orderCreatedMessage: {
+            payload: {
+              type: "object",
+              properties: {
+                orderId: {
+                  type: "string",
+                },
+              },
+            },
+          },
+        },
+      },
+    });
   });
 
   it("should generate message schema with number property type", () => {
@@ -353,9 +483,22 @@ describe("generateAsyncAPI", () => {
     });
 
     // THEN
-    expect(
-      asyncAPI.components?.messages?.["orderCreatedMessage"]?.payload?.properties?.["amount"]?.type,
-    ).toBe("number");
+    expect(asyncAPI).toMatchObject({
+      components: {
+        messages: {
+          orderCreatedMessage: {
+            payload: {
+              type: "object",
+              properties: {
+                amount: {
+                  type: "number",
+                },
+              },
+            },
+          },
+        },
+      },
+    });
   });
 
   it("should generate message schema with boolean property type", () => {
@@ -383,10 +526,22 @@ describe("generateAsyncAPI", () => {
     });
 
     // THEN
-    expect(
-      asyncAPI.components?.messages?.["orderCreatedMessage"]?.payload?.properties?.["isUrgent"]
-        ?.type,
-    ).toBe("boolean");
+    expect(asyncAPI).toMatchObject({
+      components: {
+        messages: {
+          orderCreatedMessage: {
+            payload: {
+              type: "object",
+              properties: {
+                isUrgent: {
+                  type: "boolean",
+                },
+              },
+            },
+          },
+        },
+      },
+    });
   });
 
   it("should generate message schema with array property type", () => {
@@ -414,9 +569,25 @@ describe("generateAsyncAPI", () => {
     });
 
     // THEN
-    expect(
-      asyncAPI.components?.messages?.["orderCreatedMessage"]?.payload?.properties?.["items"]?.type,
-    ).toBe("array");
+    expect(asyncAPI).toMatchObject({
+      components: {
+        messages: {
+          orderCreatedMessage: {
+            payload: {
+              type: "object",
+              properties: {
+                items: {
+                  type: "array",
+                  items: {
+                    type: "string",
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
   });
 
   it("should include required fields in message schema", () => {
@@ -445,10 +616,17 @@ describe("generateAsyncAPI", () => {
     });
 
     // THEN
-    expect(asyncAPI.components?.messages?.["orderCreatedMessage"]?.payload?.required).toEqual([
-      "orderId",
-      "amount",
-    ]);
+    expect(asyncAPI).toMatchObject({
+      components: {
+        messages: {
+          orderCreatedMessage: {
+            payload: {
+              required: ["orderId", "amount"],
+            },
+          },
+        },
+      },
+    });
   });
 
   it("should use default title when not provided", () => {
@@ -461,7 +639,12 @@ describe("generateAsyncAPI", () => {
     });
 
     // THEN
-    expect(asyncAPI.info.title).toBe("AMQP Contract API");
+    expect(asyncAPI).toMatchObject({
+      info: {
+        title: "AMQP Contract API",
+        version: "1.0.0",
+      },
+    });
   });
 
   it("should use default version when not provided", () => {
@@ -474,7 +657,12 @@ describe("generateAsyncAPI", () => {
     });
 
     // THEN
-    expect(asyncAPI.info.version).toBe("1.0.0");
+    expect(asyncAPI).toMatchObject({
+      info: {
+        title: "AMQP Contract API",
+        version: "1.0.0",
+      },
+    });
   });
 
   it("should not include servers when not provided", () => {
@@ -490,6 +678,13 @@ describe("generateAsyncAPI", () => {
     });
 
     // THEN
+    expect(asyncAPI).toMatchObject({
+      asyncapi: "3.0.0",
+      info: {
+        title: "Test API",
+        version: "1.0.0",
+      },
+    });
     expect(asyncAPI.servers).toBeUndefined();
   });
 
@@ -540,6 +735,84 @@ describe("generateAsyncAPI", () => {
     });
 
     // THEN
-    expect(asyncAPI.asyncapi).toBe("3.0.0");
+    expect(asyncAPI).toMatchObject({
+      asyncapi: "3.0.0",
+      info: {
+        title: "Test API",
+        version: "1.0.0",
+      },
+      servers: {
+        production: {
+          host: "rabbitmq.example.com:5672",
+          protocol: "amqp",
+        },
+      },
+      channels: {
+        orders: {
+          address: "orders",
+          bindings: {
+            amqp: {
+              is: "routingKey",
+              exchange: {
+                type: "topic",
+                durable: true,
+              },
+            },
+          },
+        },
+        orderProcessing: {
+          address: "order-processing",
+          bindings: {
+            amqp: {
+              is: "queue",
+              queue: {
+                name: "order-processing",
+                durable: true,
+              },
+            },
+          },
+        },
+      },
+      operations: {
+        orderCreated: {
+          action: "send",
+          channel: {
+            $ref: "#/channels/orders",
+          },
+        },
+        processOrder: {
+          action: "receive",
+          channel: {
+            $ref: "#/channels/order-processing",
+          },
+        },
+      },
+      components: {
+        messages: {
+          orderCreatedMessage: {
+            payload: {
+              type: "object",
+              properties: {
+                orderId: {
+                  type: "string",
+                },
+              },
+              required: ["orderId"],
+            },
+          },
+          processOrderMessage: {
+            payload: {
+              type: "object",
+              properties: {
+                orderId: {
+                  type: "string",
+                },
+              },
+              required: ["orderId"],
+            },
+          },
+        },
+      },
+    });
   });
 });
