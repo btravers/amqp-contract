@@ -82,6 +82,16 @@ out
 .nuxt
 dist
 
+# Build output
+**/dist/
+
+# Turbo
+.turbo/
+
+# VitePress
+website/docs/.vitepress/cache
+website/docs/.vitepress/dist
+
 # Gatsby files
 .cache/
 # Comment in the public line in if your project uses Gatsby and not Next.js

@@ -1,0 +1,19 @@
+pre-commit:
+  parallel: true
+  commands:
+    format:
+      glob: "*.{ts,tsx,js,jsx,json,yaml,yml}"
+      run: pnpm oxfmt {staged_files}
+      stage_fixed: true
+    lint:
+      glob: "*.{ts,tsx,js,jsx}"
+      run: pnpm oxlint {staged_files}
+    sort-package-json:
+      glob: "**/package.json"
+      run: pnpm sort-package-json {staged_files}
+      stage_fixed: true
+
+commit-msg:
+  commands:
+    commitlint:
+      run: pnpm exec commitlint --edit {1}

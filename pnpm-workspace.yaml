@@ -1,0 +1,30 @@
+packages:
+  - packages/*
+  - samples/*
+  - tools/*
+  - website
+
+strictPeerDependencies: false
+
+catalog:
+  "@changesets/cli": 2.29.8
+  "@commitlint/cli": 20.2.0
+  "@commitlint/config-conventional": 20.2.0
+  "@standard-schema/spec": 1.0.0
+  "@types/node": 24.10.2
+  "@vitest/coverage-v8": 4.0.15
+  amqplib: 0.10.5
+  "@types/amqplib": 0.10.8
+  knip: 5.73.3
+  lefthook: 2.0.9
+  oxfmt: 0.17.0
+  oxlint: 1.32.0
+  sort-package-json: 3.5.1
+  "ts-pattern": 5.9.0
+  tsdown: 0.17.2
+  tsx: 4.21.0
+  turbo: 2.6.3
+  typescript: 5.9.3
+  vitepress: 1.6.4
+  vitest: 4.0.15
+  zod: 4.1.13

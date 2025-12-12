@@ -1,0 +1,201 @@
+---
+layout: home
+
+hero:
+  name: "amqp-contract"
+  text: "Type-safe contracts for AMQP/RabbitMQ"
+  tagline: End-to-end type safety and automatic validation for AMQP messaging with AsyncAPI generation
+  image:
+    src: /logo.svg
+    alt: amqp-contract
+  actions:
+    - theme: brand
+      text: Get Started
+      link: /guide/getting-started
+    - theme: alt
+      text: View on GitHub
+      link: https://github.com/btravers/amqp-contract
+    - theme: alt
+      text: Examples
+      link: /examples/
+
+features:
+  - icon: 🔒
+    title: End-to-end Type Safety
+    details: Full TypeScript inference from contract to client and worker. No manual type annotations needed.
+  
+  - icon: ✅
+    title: Automatic Validation
+    details: Zod schemas validate all messages at network boundaries automatically. No runtime surprises.
+  
+  - icon: 🛠️
+    title: Compile-time Checks
+    details: TypeScript catches missing or incorrect implementations before runtime. Refactor with confidence.
+  
+  - icon: 🚀
+    title: Better Developer Experience
+    details: Full autocomplete, inline documentation, and refactoring support throughout your codebase.
+  
+  - icon: 📝
+    title: Contract-First Design
+    details: Define your AMQP interface once with Zod schemas — types and validation flow from there.
+  
+  - icon: 📄
+    title: AsyncAPI Generation
+    details: Automatically generate AsyncAPI 3.0 specifications from your contracts for documentation and tooling.
+---
+
+## The Problem
+
+Working with RabbitMQ/AMQP messaging is powerful, but comes with challenges:
+
+```typescript
+// ❌ No type safety
+channel.publish('orders', 'order.created', Buffer.from(JSON.stringify({
+  orderId: 'ORD-123'  // What fields? What types?
+})));
+
+channel.consume('order-processing', (msg) => {
+  const data = JSON.parse(msg.content.toString());  // unknown type
+  console.log(data.orderId);  // No autocomplete, no validation
+});
+
+// ❌ Manual validation everywhere
+// ❌ Runtime errors from wrong data
+// ❌ Scattered message definitions
+```
+
+## The Solution
+
+**amqp-contract** transforms your AMQP messaging with a contract-first approach:
+
+```typescript
+// ✅ Define once
+const contract = defineContract({
+  exchanges: {
+    orders: defineExchange('orders', 'topic', { durable: true }),
+  },
+  queues: {
+    orderProcessing: defineQueue('order-processing', { durable: true }),
+  },
+  publishers: {
+    orderCreated: definePublisher('orders', z.object({
+      orderId: z.string(),
+      customerId: z.string(),
+      amount: z.number(),
+    })),
+  },
+  consumers: {
+    processOrder: defineConsumer('order-processing', z.object({
+      orderId: z.string(),
+      customerId: z.string(),
+      amount: z.number(),
+    })),
+  },
+});
+
+// ✅ Type-safe client
+await client.publish('orderCreated', {
+  orderId: 'ORD-123',      // TypeScript knows!
+  customerId: 'CUST-456',
+  amount: 99.99,
+});
+
+// ✅ Type-safe worker
+const worker = createWorker(contract, {
+  processOrder: async (message) => {
+    console.log(message.orderId);  // ✅ Fully typed!
+  },
+});
+```
+
+## Quick Example
+
+See how easy it is to get started:
+
+::: code-group
+
+```typescript [contract.ts]
+import { defineContract, defineExchange, defineQueue, definePublisher, defineConsumer } from '@amqp-contract/contract';
+import { z } from 'zod';
+
+export const orderContract = defineContract({
+  exchanges: {
+    orders: defineExchange('orders', 'topic', { durable: true }),
+  },
+  queues: {
+    orderProcessing: defineQueue('order-processing', { durable: true }),
+  },
+  publishers: {
+    orderCreated: definePublisher('orders', z.object({
+      orderId: z.string(),
+      amount: z.number(),
+    })),
+  },
+  consumers: {
+    processOrder: defineConsumer('order-processing', z.object({
+      orderId: z.string(),
+      amount: z.number(),
+    })),
+  },
+});
+```
+
+```typescript [client.ts]
+import { createClient } from '@amqp-contract/client';
+import { connect } from 'amqplib';
+import { orderContract } from './contract';
+
+const connection = await connect('amqp://localhost');
+const client = createClient(orderContract);
+await client.connect(connection);
+
+// Type-safe publishing
+await client.publish('orderCreated', {
+  orderId: 'ORD-123',
+  amount: 99.99,
+});
+```
+
+```typescript [worker.ts]
+import { createWorker } from '@amqp-contract/worker';
+import { connect } from 'amqplib';
+import { orderContract } from './contract';
+
+const connection = await connect('amqp://localhost');
+
+const worker = createWorker(orderContract, {
+  processOrder: async (message) => {
+    console.log(`Processing order: ${message.orderId}`);
+    console.log(`Amount: $${message.amount}`);
+  },
+});
+
+await worker.connect(connection);
+await worker.consumeAll();
+```
+
+:::
+
+## AsyncAPI Generation
+
+Generate AsyncAPI 3.0 specifications automatically:
+
+```typescript
+import { generateAsyncAPI } from '@amqp-contract/asyncapi';
+
+const spec = generateAsyncAPI(orderContract, {
+  info: {
+    title: 'Order Processing API',
+    version: '1.0.0',
+  },
+  servers: {
+    production: {
+      host: 'rabbitmq.example.com:5672',
+      protocol: 'amqp',
+    },
+  },
+});
+
+// Use with AsyncAPI tooling, documentation, and code generation
+```
