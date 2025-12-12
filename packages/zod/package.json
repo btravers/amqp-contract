@@ -48,6 +48,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@amqp-contract/asyncapi": "workspace:*",
     "@amqp-contract/contract": "workspace:*"
   },
   "devDependencies": {

@@ -137,6 +137,9 @@ importers:
       "@amqp-contract/contract":
         specifier: workspace:*
         version: link:../contract
+      "@standard-schema/spec":
+        specifier: "catalog:"
+        version: 1.0.0
     devDependencies:
       "@amqp-contract/tsconfig":
         specifier: workspace:*
@@ -274,6 +277,9 @@ importers:
 
   packages/zod:
     dependencies:
+      "@amqp-contract/asyncapi":
+        specifier: workspace:*
+        version: link:../asyncapi
       "@amqp-contract/contract":
         specifier: workspace:*
         version: link:../contract

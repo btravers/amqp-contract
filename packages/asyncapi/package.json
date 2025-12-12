@@ -48,7 +48,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@amqp-contract/contract": "workspace:*"
+    "@amqp-contract/contract": "workspace:*",
+    "@standard-schema/spec": "catalog:"
   },
   "devDependencies": {
     "@amqp-contract/tsconfig": "workspace:*",
