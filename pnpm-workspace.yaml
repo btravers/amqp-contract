@@ -25,7 +25,7 @@ catalog:
   tsx: 4.21.0
   turbo: 2.6.3
   typescript: 5.9.3
-  valibot: 0.42.1
+  valibot: 1.2.0
   vitepress: 1.6.4
   vitest: 4.0.15
   zod: 4.1.13
