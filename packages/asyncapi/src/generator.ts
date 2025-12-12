@@ -1,5 +1,5 @@
 import type { ContractDefinition } from "@amqp-contract/contract";
-import { match } from "ts-pattern";
+import { standardSchemaToJsonSchema } from "./schema-converter.js";
 
 /**
  * AsyncAPI 3.0.0 Specification
@@ -113,75 +113,6 @@ export interface GenerateAsyncAPIOptions {
 }
 
 /**
- * Convert a Zod schema to AsyncAPI schema
- */
-function zodSchemaToAsyncAPI(schema: unknown): AsyncAPISchema {
-  // Handle Zod 4.x structure
-  if (typeof schema !== "object" || schema === null || !("def" in schema && "type" in schema)) {
-    return { type: "object" };
-  }
-
-  const zodSchema = schema as {
-    type: string;
-    def: { type: string; shape?: Record<string, unknown> };
-    shape?: Record<string, unknown>;
-  };
-
-  const schemaType = zodSchema.type || zodSchema.def?.type;
-
-  return match(schemaType)
-    .with("object", () => {
-      // Try to get shape from both locations
-      const shape =
-        zodSchema.shape || (zodSchema.def as { shape?: Record<string, unknown> })?.shape;
-      if (!shape) {
-        return { type: "object" as const };
-      }
-
-      const properties: Record<string, AsyncAPISchema> = {};
-      const required: string[] = [];
-
-      for (const [key, value] of Object.entries(shape)) {
-        properties[key] = zodSchemaToAsyncAPI(value);
-
-        // Check if optional - Zod 4.x uses different structure
-        if (value && typeof value === "object" && "type" in value) {
-          const valueType = (value as { type: string }).type;
-          if (valueType !== "optional") {
-            required.push(key);
-          }
-        } else {
-          required.push(key);
-        }
-      }
-
-      const result: AsyncAPISchema = {
-        type: "object",
-        properties,
-      };
-
-      if (required.length > 0) {
-        result.required = required;
-      }
-
-      return result;
-    })
-    .with("string", () => ({ type: "string" as const }))
-    .with("number", () => ({ type: "number" as const }))
-    .with("boolean", () => ({ type: "boolean" as const }))
-    .with("array", () => {
-      // In Zod 4.x, array element is in def
-      const def = zodSchema.def as { element?: unknown };
-      const element = def?.element;
-      return {
-        type: "array" as const,
-        items: element ? zodSchemaToAsyncAPI(element) : { type: "object" as const },
-      };
-    })
-    .otherwise(() => ({ type: "object" as const }));
-}
-
-/**
  * Generate AsyncAPI 3.0.0 specification from AMQP contract
  */
 export function generateAsyncAPI(
@@ -279,7 +210,7 @@ export function generateAsyncAPI(
         name: messageName,
         title: `${publisherName} message`,
         contentType: "application/json",
-        payload: zodSchemaToAsyncAPI(publisher.message),
+        payload: standardSchemaToJsonSchema(publisher.message),
       };
 
       operations[publisherName] = {
@@ -300,7 +231,7 @@ export function generateAsyncAPI(
         name: messageName,
         title: `${consumerName} message`,
         contentType: "application/json",
-        payload: zodSchemaToAsyncAPI(consumer.message),
+        payload: standardSchemaToJsonSchema(consumer.message),
       };
 
       operations[consumerName] = {

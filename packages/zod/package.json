@@ -1,13 +1,13 @@
 {
-  "name": "@amqp-contract/asyncapi",
+  "name": "@amqp-contract/zod",
   "version": "0.0.1",
-  "description": "AsyncAPI specification generator for amqp-contract",
+  "description": "Zod integration for amqp-contract",
   "keywords": [
     "amqp",
     "typescript",
     "contract",
-    "asyncapi",
-    "rabbitmq"
+    "rabbitmq",
+    "zod"
   ],
   "homepage": "https://github.com/btravers/amqp-contract#readme",
   "bugs": {
@@ -16,7 +16,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/btravers/amqp-contract.git",
-    "directory": "packages/asyncapi"
+    "directory": "packages/zod"
   },
   "license": "MIT",
   "author": "Benoit TRAVERS <benoit.travers.fr@gmail.com>",
@@ -52,11 +52,13 @@
   },
   "devDependencies": {
     "@amqp-contract/tsconfig": "workspace:*",
-    "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "tsdown": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
     "zod": "catalog:"
+  },
+  "peerDependencies": {
+    "zod": "^3.23.0 || ^4.0.0"
   }
 }
