@@ -51,7 +51,6 @@ const contract = defineContract({
 
 - **Type Safety**: Full TypeScript support with type inference from Valibot schemas
 - **Standard Schema**: Uses the Standard Schema specification for interoperability
-- **Convenience**: Re-exports both amqp-contract builders and Valibot for easy imports
 
 ## License
 
