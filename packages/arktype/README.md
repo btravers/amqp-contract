@@ -51,8 +51,6 @@ const contract = defineContract({
 
 - **Type Safety**: Full TypeScript support with type inference from ArkType schemas
 - **Standard Schema**: Uses the Standard Schema specification for interoperability
-- **Convenience**: Re-exports both amqp-contract builders and ArkType for easy imports
-
 ## License
 
 MIT
