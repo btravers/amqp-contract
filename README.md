@@ -6,14 +6,20 @@
 
 End-to-end type safety and automatic validation for AMQP messaging
 
+[![CI](https://github.com/btravers/amqp-contract/actions/workflows/ci.yml/badge.svg)](https://github.com/btravers/amqp-contract/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/@amqp-contract/contract.svg?logo=npm)](https://www.npmjs.com/package/@amqp-contract/contract)
+[![npm downloads](https://img.shields.io/npm/dm/@amqp-contract/contract.svg)](https://www.npmjs.com/package/@amqp-contract/contract)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?logo=typescript)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+[**Documentation**](https://btravers.github.io/amqp-contract) · [**Get Started**](https://btravers.github.io/amqp-contract/guide/getting-started) · [**Examples**](https://btravers.github.io/amqp-contract/examples/)
 
 </div>
 
 ## Features
 
 - ✅ **End-to-end type safety** — From contract to client and worker
-- ✅ **Automatic validation** — Zod schemas validate at all boundaries
+- ✅ **Automatic validation** — Zod schemas validate at all network boundaries
 - ✅ **Compile-time checks** — TypeScript catches missing or incorrect implementations
 - ✅ **AsyncAPI generation** — Generate AsyncAPI 3.0 specs from contracts
 - ✅ **Better DX** — Autocomplete, refactoring support, inline documentation
@@ -79,6 +85,16 @@ await worker.consumeAll();
 pnpm add @amqp-contract/contract @amqp-contract/client @amqp-contract/worker
 ```
 
+## Documentation
+
+📖 **[Read the full documentation →](https://btravers.github.io/amqp-contract)**
+
+- [Getting Started](https://btravers.github.io/amqp-contract/guide/getting-started)
+- [Core Concepts](https://btravers.github.io/amqp-contract/guide/core-concepts)
+- [AsyncAPI Generation](https://btravers.github.io/amqp-contract/guide/asyncapi-generation)
+- [API Reference](https://btravers.github.io/amqp-contract/api/)
+- [Examples](https://btravers.github.io/amqp-contract/examples/)
+
 ## Packages
 
 | Package | Description |
@@ -109,7 +125,7 @@ const spec = generateAsyncAPI(contract, {
 
 ## Contributing
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md).
+See [CONTRIBUTING.md](https://github.com/btravers/amqp-contract/blob/main/CONTRIBUTING.md).
 
 ## License
 
