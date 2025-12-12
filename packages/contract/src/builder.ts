@@ -7,7 +7,7 @@ import type {
   ExchangeType,
   PublisherDefinition,
   QueueDefinition,
-} from './types.js';
+} from "./types.js";
 
 /**
  * Define an AMQP exchange
@@ -15,7 +15,7 @@ import type {
 export function defineExchange(
   name: string,
   type: ExchangeType,
-  options?: Omit<ExchangeDefinition, 'name' | 'type'>
+  options?: Omit<ExchangeDefinition, "name" | "type">,
 ): ExchangeDefinition {
   return {
     name,
@@ -29,7 +29,7 @@ export function defineExchange(
  */
 export function defineQueue(
   name: string,
-  options?: Omit<QueueDefinition, 'name'>
+  options?: Omit<QueueDefinition, "name">,
 ): QueueDefinition {
   return {
     name,
@@ -43,7 +43,7 @@ export function defineQueue(
 export function defineBinding(
   queue: string,
   exchange: string,
-  options?: Omit<BindingDefinition, 'queue' | 'exchange'>
+  options?: Omit<BindingDefinition, "queue" | "exchange">,
 ): BindingDefinition {
   return {
     queue,
@@ -58,7 +58,7 @@ export function defineBinding(
 export function definePublisher<TMessageSchema extends AnySchema>(
   exchange: string,
   message: TMessageSchema,
-  options?: Omit<PublisherDefinition<TMessageSchema>, 'exchange' | 'message'>
+  options?: Omit<PublisherDefinition<TMessageSchema>, "exchange" | "message">,
 ): PublisherDefinition<TMessageSchema> {
   return {
     exchange,
@@ -76,10 +76,7 @@ export function defineConsumer<
 >(
   queue: string,
   message: TMessageSchema,
-  options?: Omit<
-    ConsumerDefinition<TMessageSchema, THandlerResultSchema>,
-    'queue' | 'message'
-  >
+  options?: Omit<ConsumerDefinition<TMessageSchema, THandlerResultSchema>, "queue" | "message">,
 ): ConsumerDefinition<TMessageSchema, THandlerResultSchema> {
   return {
     queue,
@@ -92,34 +89,13 @@ export function defineConsumer<
  * Define an AMQP contract
  */
 export function defineContract<
-  TExchanges extends Record<string, ExchangeDefinition> = Record<
-    string,
-    ExchangeDefinition
-  >,
-  TQueues extends Record<string, QueueDefinition> = Record<
-    string,
-    QueueDefinition
-  >,
-  TBindings extends Record<string, BindingDefinition> = Record<
-    string,
-    BindingDefinition
-  >,
-  TPublishers extends Record<string, PublisherDefinition> = Record<
-    string,
-    PublisherDefinition
-  >,
-  TConsumers extends Record<string, ConsumerDefinition> = Record<
-    string,
-    ConsumerDefinition
-  >,
+  TExchanges extends Record<string, ExchangeDefinition> = Record<string, ExchangeDefinition>,
+  TQueues extends Record<string, QueueDefinition> = Record<string, QueueDefinition>,
+  TBindings extends Record<string, BindingDefinition> = Record<string, BindingDefinition>,
+  TPublishers extends Record<string, PublisherDefinition> = Record<string, PublisherDefinition>,
+  TConsumers extends Record<string, ConsumerDefinition> = Record<string, ConsumerDefinition>,
 >(
-  definition: ContractDefinition<
-    TExchanges,
-    TQueues,
-    TBindings,
-    TPublishers,
-    TConsumers
-  >
+  definition: ContractDefinition<TExchanges, TQueues, TBindings, TPublishers, TConsumers>,
 ): ContractDefinition<TExchanges, TQueues, TBindings, TPublishers, TConsumers> {
   return definition;
 }

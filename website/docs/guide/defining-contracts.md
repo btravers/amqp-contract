@@ -37,6 +37,7 @@ const contract = defineContract({
 ```
 
 **Exchange Types:**
+
 - `direct` - Routes based on exact routing key match
 - `topic` - Routes based on routing key patterns
 - `fanout` - Routes to all bound queues

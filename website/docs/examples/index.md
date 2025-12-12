@@ -7,12 +7,14 @@ Explore practical examples of using amqp-contract.
 ### [Basic Order Processing](/examples/basic-order-processing)
 
 A complete example demonstrating:
+
 - Contract definition
 - Type-safe publishing
 - Type-safe consuming
 - Multiple consumers (pub/sub pattern)
 
 **Technologies:**
+
 - RabbitMQ
 - TypeScript
 - Zod schemas
@@ -20,11 +22,13 @@ A complete example demonstrating:
 ### [AsyncAPI Generation](/examples/asyncapi-generation)
 
 Learn how to generate AsyncAPI 3.0 specifications:
+
 - Generate from contracts
 - Server configurations
 - Documentation generation
 
 **Technologies:**
+
 - AsyncAPI 3.0
 - JSON/YAML output
 - Documentation tooling

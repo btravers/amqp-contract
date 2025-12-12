@@ -1,9 +1,9 @@
-import type { Channel, Connection as AmqpConnection, Options } from 'amqplib';
+import type { Channel, Connection as AmqpConnection, Options } from "amqplib";
 import type {
   ClientInferPublisherInput,
   ContractDefinition,
   InferPublisherNames,
-} from '@amqp-contract/contract';
+} from "@amqp-contract/contract";
 
 /**
  * Options for publishing a message
@@ -61,8 +61,8 @@ export class AmqpClient<TContract extends ContractDefinition> {
         await this.channel.bindQueue(
           binding.queue,
           binding.exchange,
-          binding.routingKey ?? '',
-          binding.arguments
+          binding.routingKey ?? "",
+          binding.arguments,
         );
       }
     }
@@ -74,46 +74,46 @@ export class AmqpClient<TContract extends ContractDefinition> {
   async publish<TName extends InferPublisherNames<TContract>>(
     publisherName: TName,
     message: ClientInferPublisherInput<TContract, TName>,
-    options?: PublishOptions
+    options?: PublishOptions,
   ): Promise<boolean> {
     if (!this.channel) {
-      throw new Error('Client not connected. Call connect() first.');
+      throw new Error("Client not connected. Call connect() first.");
     }
 
     const publishers = this.contract.publishers as Record<string, unknown>;
     if (!publishers) {
-      throw new Error('No publishers defined in contract');
+      throw new Error("No publishers defined in contract");
     }
 
     const publisher = publishers[publisherName as string];
-    if (!publisher || typeof publisher !== 'object') {
+    if (!publisher || typeof publisher !== "object") {
       throw new Error(`Publisher "${String(publisherName)}" not found in contract`);
     }
 
     const publisherDef = publisher as {
       exchange: string;
       routingKey?: string;
-      message: { '~standard': { validate: (value: unknown) => unknown } };
+      message: { "~standard": { validate: (value: unknown) => unknown } };
     };
 
     // Validate message using schema
-    const validation = publisherDef.message['~standard'].validate(message);
+    const validation = publisherDef.message["~standard"].validate(message);
     if (
-      typeof validation === 'object' &&
+      typeof validation === "object" &&
       validation !== null &&
-      'issues' in validation &&
+      "issues" in validation &&
       validation.issues
     ) {
       throw new Error(`Message validation failed: ${JSON.stringify(validation.issues)}`);
     }
 
     const validatedMessage =
-      typeof validation === 'object' && validation !== null && 'value' in validation
+      typeof validation === "object" && validation !== null && "value" in validation
         ? validation.value
         : message;
 
     // Publish message
-    const routingKey = options?.routingKey ?? publisherDef.routingKey ?? '';
+    const routingKey = options?.routingKey ?? publisherDef.routingKey ?? "";
     const content = Buffer.from(JSON.stringify(validatedMessage));
 
     return this.channel.publish(publisherDef.exchange, routingKey, content, options?.options);
@@ -138,7 +138,7 @@ export class AmqpClient<TContract extends ContractDefinition> {
  * Create a type-safe AMQP client from a contract
  */
 export function createClient<TContract extends ContractDefinition>(
-  contract: TContract
+  contract: TContract,
 ): AmqpClient<TContract> {
   return new AmqpClient(contract);
 }

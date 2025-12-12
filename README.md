@@ -97,12 +97,12 @@ pnpm add @amqp-contract/contract @amqp-contract/client @amqp-contract/worker
 
 ## Packages
 
-| Package | Description |
-|---------|-------------|
-| [@amqp-contract/contract](./packages/contract) | Contract builder and type definitions |
-| [@amqp-contract/client](./packages/client) | Type-safe client for publishing messages |
-| [@amqp-contract/worker](./packages/worker) | Type-safe worker for consuming messages |
-| [@amqp-contract/asyncapi](./packages/asyncapi) | AsyncAPI 3.0 specification generator |
+| Package                                        | Description                              |
+| ---------------------------------------------- | ---------------------------------------- |
+| [@amqp-contract/contract](./packages/contract) | Contract builder and type definitions    |
+| [@amqp-contract/client](./packages/client)     | Type-safe client for publishing messages |
+| [@amqp-contract/worker](./packages/worker)     | Type-safe worker for consuming messages  |
+| [@amqp-contract/asyncapi](./packages/asyncapi) | AsyncAPI 3.0 specification generator     |
 
 ## AsyncAPI Generation
 

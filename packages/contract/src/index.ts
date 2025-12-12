@@ -5,7 +5,7 @@ export {
   defineExchange,
   definePublisher,
   defineQueue,
-} from './builder.js';
+} from "./builder.js";
 
 export type {
   AnySchema,
@@ -35,4 +35,4 @@ export type {
   WorkerInferConsumerHandlerResult,
   WorkerInferConsumerHandlers,
   WorkerInferConsumerInput,
-} from './types.js';
+} from "./types.js";

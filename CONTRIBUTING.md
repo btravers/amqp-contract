@@ -5,16 +5,19 @@ Thank you for your interest in contributing to amqp-contract!
 ## Development Setup
 
 1. Install dependencies:
+
 ```bash
 pnpm install
 ```
 
 2. Build all packages:
+
 ```bash
 pnpm build
 ```
 
 3. Run tests:
+
 ```bash
 pnpm test
 ```
