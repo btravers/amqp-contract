@@ -151,7 +151,7 @@ await client.close();
 ```typescript
 interface CreateClientOptions<TContract> {
   contract: TContract;
-  connection: Connection;
+  connection: ChannelModel;
 }
 ```
 
