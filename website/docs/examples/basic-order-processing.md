@@ -125,18 +125,54 @@ pnpm --filter @amqp-contract-samples/basic-order-processing-client dev
 
 ### Expected Output
 
-The client publishes 5 messages, and you'll see the worker process them:
+The client publishes 5 messages, and you'll see the worker process them according to the routing patterns:
+
+**Client Output:**
 
 ```
-Client publishes:
-1. order.created → processOrder + notifyOrder
-2. order.updated → notifyOrder only
-3. order.shipped → shipOrder + notifyOrder
-4. order.created → processOrder + notifyOrder
-5. order.updated.urgent → handleUrgentOrder + notifyOrder
+1️⃣ Publishing NEW ORDER (order.created)
+   ✓ Published order ORD-001
+   → Will be received by: processing & notifications queues
+
+2️⃣ Publishing ORDER UPDATE (order.updated)
+   ✓ Published update for ORD-001
+   → Will be received by: notifications queue only
+
+3️⃣ Publishing ORDER SHIPPED (order.shipped)
+   ✓ Published shipment for ORD-001
+   → Will be received by: notifications & shipping queues
+
+4️⃣ Publishing ANOTHER NEW ORDER (order.created)
+   ✓ Published order ORD-002
+   → Will be received by: processing & notifications queues
+
+5️⃣ Publishing URGENT ORDER UPDATE (order.updated.urgent)
+   ✓ Published urgent update for ORD-002
+   → Will be received by: notifications & urgent queues
+```
+
+**Worker Output:**
+
+```
+Subscribed to:
+  • order.created     → processOrder handler
+  • order.#           → notifyOrder handler (all events)
+  • order.shipped     → shipOrder handler
+  • order.*.urgent    → handleUrgentOrder handler
+
+[PROCESSING] New order received (ORD-001)
+[NOTIFICATIONS] Event received (new_order: ORD-001)
+[NOTIFICATIONS] Event received (status_update: ORD-001)
+[SHIPPING] Shipment notification received (ORD-001)
+[NOTIFICATIONS] Event received (new_order: ORD-002)
+[PROCESSING] New order received (ORD-002)
+[URGENT] Priority order update received! (ORD-002)
+[NOTIFICATIONS] Event received (status_update: ORD-002)
 ```
 
 ## Contract Definition
+
+The contract is defined in a separate package (`@amqp-contract-samples/basic-order-processing-contract`) that is shared between the client and worker.
 
 ### Message Schemas
 
@@ -169,7 +205,7 @@ const orderStatusSchema = z.object({
 ### Contract Structure
 
 ```typescript
-const contract = defineContract({
+export const orderContract = defineContract({
   exchanges: {
     orders: defineExchange('orders', 'topic', { durable: true }),
   },
@@ -180,7 +216,18 @@ const contract = defineContract({
     orderUrgent: defineQueue('order-urgent', { durable: true }),
   },
   bindings: {
-    // Bindings connect queues to exchanges with routing keys
+    orderProcessingBinding: defineBinding('order-processing', 'orders', {
+      routingKey: 'order.created',
+    }),
+    orderNotificationsBinding: defineBinding('order-notifications', 'orders', {
+      routingKey: 'order.#',
+    }),
+    orderShippingBinding: defineBinding('order-shipping', 'orders', {
+      routingKey: 'order.shipped',
+    }),
+    orderUrgentBinding: defineBinding('order-urgent', 'orders', {
+      routingKey: 'order.*.urgent',
+    }),
   },
   publishers: {
     orderCreated: definePublisher('orders', orderSchema, {
@@ -189,32 +236,47 @@ const contract = defineContract({
     orderUpdated: definePublisher('orders', orderStatusSchema, {
       routingKey: 'order.updated',
     }),
-    // ... more publishers
+    orderShipped: definePublisher('orders', orderStatusSchema, {
+      routingKey: 'order.shipped',
+    }),
+    orderUrgentUpdate: definePublisher('orders', orderStatusSchema, {
+      routingKey: 'order.updated.urgent',
+    }),
   },
   consumers: {
-    processOrder: defineConsumer('order-processing', orderSchema),
-    notifyOrder: defineConsumer('order-notifications', z.union([orderSchema, orderStatusSchema])),
-    shipOrder: defineConsumer('order-shipping', orderStatusSchema),
-    handleUrgentOrder: defineConsumer('order-urgent', orderStatusSchema),
+    processOrder: defineConsumer('order-processing', orderSchema, {
+      prefetch: 10,
+    }),
+    notifyOrder: defineConsumer('order-notifications', z.union([orderSchema, orderStatusSchema]), {
+      prefetch: 5,
+    }),
+    shipOrder: defineConsumer('order-shipping', orderStatusSchema, {
+      prefetch: 5,
+    }),
+    handleUrgentOrder: defineConsumer('order-urgent', orderStatusSchema, {
+      prefetch: 20,
+    }),
   },
 });
 ```
 
 ## Client Implementation
 
+The client is in a separate package (`@amqp-contract-samples/basic-order-processing-client`) that imports the contract:
+
 ```typescript
 import { createClient } from '@amqp-contract/client';
 import { connect } from 'amqplib';
-import { contract } from './contract';
+import { orderContract } from '@amqp-contract-samples/basic-order-processing-contract';
 
 const connection = await connect('amqp://localhost');
-const client = createClient(contract);
+const client = createClient(orderContract);
 await client.connect(connection);
 
 // Publish new order
 await client.publish('orderCreated', {
-  orderId: 'ORD-123',
-  customerId: 'CUST-456',
+  orderId: 'ORD-001',
+  customerId: 'CUST-123',
   items: [
     { productId: 'PROD-A', quantity: 2, price: 29.99 },
   ],
@@ -224,22 +286,24 @@ await client.publish('orderCreated', {
 
 // Publish status update
 await client.publish('orderUpdated', {
-  orderId: 'ORD-123',
-  status: 'shipped',
+  orderId: 'ORD-001',
+  status: 'processing',
   updatedAt: new Date().toISOString(),
 });
 ```
 
 ## Worker Implementation
 
+The worker is in a separate package (`@amqp-contract-samples/basic-order-processing-worker`) that imports the contract:
+
 ```typescript
 import { createWorker } from '@amqp-contract/worker';
 import { connect } from 'amqplib';
-import { contract } from './contract';
+import { orderContract } from '@amqp-contract-samples/basic-order-processing-contract';
 
 const connection = await connect('amqp://localhost');
 
-const worker = createWorker(contract, {
+const worker = createWorker(orderContract, {
   processOrder: async (message) => {
     console.log(`[PROCESSING] Order ${message.orderId}`);
     console.log(`  Customer: ${message.customerId}`);
