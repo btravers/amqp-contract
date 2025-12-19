@@ -46,18 +46,18 @@ describe("AmqpWorker Integration", () => {
     });
 
     const messages: Array<{ id: string; message: string }> = [];
-    const worker = createWorker(contract, {
-      testConsumer: (msg) => {
-        messages.push(msg);
+    const worker = await createWorker({
+      contract,
+      handlers: {
+        testConsumer: (msg) => {
+          messages.push(msg);
+        },
       },
+      connection: workerConnection,
     });
 
-    await worker.connect(workerConnection);
-    await worker.consume("testConsumer");
-
     // WHEN - Publish a message using the client
-    const client = createClient(contract);
-    await client.connect(clientConnection);
+    const client = await createClient({ contract, connection: clientConnection });
     await client.publish("testPublisher", {
       id: "123",
       message: "Hello from integration test!",
@@ -106,18 +106,18 @@ describe("AmqpWorker Integration", () => {
     });
 
     const messages: Array<{ id: string; count: number }> = [];
-    const worker = createWorker(contract, {
-      testConsumer: (msg) => {
-        messages.push(msg);
+    const worker = await createWorker({
+      contract,
+      handlers: {
+        testConsumer: (msg) => {
+          messages.push(msg);
+        },
       },
+      connection: workerConnection,
     });
 
-    await worker.connect(workerConnection);
-    await worker.consume("testConsumer");
-
     // WHEN - Publish multiple messages
-    const client = createClient(contract);
-    await client.connect(clientConnection);
+    const client = await createClient({ contract, connection: clientConnection });
 
     await client.publish("testPublisher", { id: "1", count: 1 });
     await client.publish("testPublisher", { id: "2", count: 2 });
@@ -176,21 +176,21 @@ describe("AmqpWorker Integration", () => {
 
     const messages1: Array<{ id: string }> = [];
     const messages2: Array<{ id: string }> = [];
-    const worker = createWorker(contract, {
-      consumer1: (msg) => {
-        messages1.push(msg);
+    const worker = await createWorker({
+      contract,
+      handlers: {
+        consumer1: (msg) => {
+          messages1.push(msg);
+        },
+        consumer2: (msg) => {
+          messages2.push(msg);
+        },
       },
-      consumer2: (msg) => {
-        messages2.push(msg);
-      },
+      connection: workerConnection,
     });
 
-    await worker.connect(workerConnection);
-    await worker.consumeAll();
-
     // WHEN - Publish messages to both queues
-    const client = createClient(contract);
-    await client.connect(clientConnection);
+    const client = await createClient({ contract, connection: clientConnection });
 
     await client.publish("pub1", { id: "msg1" });
     await client.publish("pub2", { id: "msg2" });

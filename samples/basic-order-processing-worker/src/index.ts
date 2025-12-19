@@ -28,90 +28,92 @@ async function main() {
   logger.info("Connected to RabbitMQ");
 
   // Create type-safe worker with handlers for each consumer
-  const worker = createWorker(orderContract, {
-    // Handler for processing NEW orders (order.created)
-    processOrder: async (message) => {
-      logger.info(
-        {
-          orderId: message.orderId,
-          customerId: message.customerId,
-          items: message.items.length,
-          total: message.totalAmount,
-        },
-        "[PROCESSING] New order received",
-      );
-
-      // Simulate processing
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      logger.info({ orderId: message.orderId }, "Order processed successfully");
-    },
-
-    // Handler for ALL order notifications (order.#)
-    notifyOrder: async (message) => {
-      // Check if it's a new order or a status update
-      if ("items" in message) {
-        // It's a full order
+  const worker = await createWorker({
+    contract: orderContract,
+    handlers: {
+      // Handler for processing NEW orders (order.created)
+      processOrder: async (message) => {
         logger.info(
           {
-            type: "new_order",
             orderId: message.orderId,
             customerId: message.customerId,
+            items: message.items.length,
+            total: message.totalAmount,
           },
-          "[NOTIFICATIONS] Event received",
+          "[PROCESSING] New order received",
         );
-      } else {
-        // It's a status update
+
+        // Simulate processing
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        logger.info({ orderId: message.orderId }, "Order processed successfully");
+      },
+
+      // Handler for ALL order notifications (order.#)
+      notifyOrder: async (message) => {
+        // Check if it's a new order or a status update
+        if ("items" in message) {
+          // It's a full order
+          logger.info(
+            {
+              type: "new_order",
+              orderId: message.orderId,
+              customerId: message.customerId,
+            },
+            "[NOTIFICATIONS] Event received",
+          );
+        } else {
+          // It's a status update
+          logger.info(
+            {
+              type: "status_update",
+              orderId: message.orderId,
+              status: message.status,
+            },
+            "[NOTIFICATIONS] Event received",
+          );
+        }
+
+        // Simulate sending notification
+        await new Promise((resolve) => setTimeout(resolve, 300));
+
+        logger.info("Notification sent");
+      },
+
+      // Handler for SHIPPED orders (order.shipped)
+      shipOrder: async (message) => {
         logger.info(
           {
-            type: "status_update",
             orderId: message.orderId,
             status: message.status,
           },
-          "[NOTIFICATIONS] Event received",
+          "[SHIPPING] Shipment notification received",
         );
-      }
 
-      // Simulate sending notification
-      await new Promise((resolve) => setTimeout(resolve, 300));
+        // Simulate shipping preparation
+        await new Promise((resolve) => setTimeout(resolve, 400));
 
-      logger.info("Notification sent");
+        logger.info({ orderId: message.orderId }, "Shipping label prepared");
+      },
+
+      // Handler for URGENT orders (order.*.urgent)
+      handleUrgentOrder: async (message) => {
+        logger.warn(
+          {
+            orderId: message.orderId,
+            status: message.status,
+          },
+          "[URGENT] Priority order update received!",
+        );
+
+        // Simulate urgent processing
+        await new Promise((resolve) => setTimeout(resolve, 200));
+
+        logger.warn({ orderId: message.orderId }, "Urgent update handled");
+      },
     },
-
-    // Handler for SHIPPED orders (order.shipped)
-    shipOrder: async (message) => {
-      logger.info(
-        {
-          orderId: message.orderId,
-          status: message.status,
-        },
-        "[SHIPPING] Shipment notification received",
-      );
-
-      // Simulate shipping preparation
-      await new Promise((resolve) => setTimeout(resolve, 400));
-
-      logger.info({ orderId: message.orderId }, "Shipping label prepared");
-    },
-
-    // Handler for URGENT orders (order.*.urgent)
-    handleUrgentOrder: async (message) => {
-      logger.warn(
-        {
-          orderId: message.orderId,
-          status: message.status,
-        },
-        "[URGENT] Priority order update received!",
-      );
-
-      // Simulate urgent processing
-      await new Promise((resolve) => setTimeout(resolve, 200));
-
-      logger.warn({ orderId: message.orderId }, "Urgent update handled");
-    },
+    connection,
   });
-
-  await worker.connect(connection);
 
   logger.info("Worker ready, waiting for messages...");
   logger.info("=".repeat(60));
@@ -121,9 +123,6 @@ async function main() {
   logger.info("  • order.shipped     → shipOrder handler");
   logger.info("  • order.*.urgent    → handleUrgentOrder handler");
   logger.info("=".repeat(60));
-
-  // Start consuming all consumers
-  await worker.consumeAll();
 
   // Handle graceful shutdown
   process.on("SIGINT", async () => {

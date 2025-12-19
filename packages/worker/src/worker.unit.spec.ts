@@ -34,7 +34,7 @@ describe("AmqpWorker", () => {
   });
 
   describe("Type Inference", () => {
-    it("should infer consumer names correctly", () => {
+    it("should infer consumer names correctly", async () => {
       // GIVEN
       const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
 
@@ -57,7 +57,7 @@ describe("AmqpWorker", () => {
       };
 
       // WHEN
-      const worker = createWorker(contract, handlers);
+      const worker = await createWorker({ contract, handlers, connection: mockConnection });
 
       // THEN
       // Type inference test - this should compile without errors
@@ -91,12 +91,11 @@ describe("AmqpWorker", () => {
       });
 
       const handler = vi.fn();
-      const worker = createWorker(contract, {
-        processOrder: handler,
+      await createWorker({
+        contract,
+        handlers: { processOrder: handler },
+        connection: mockConnection,
       });
-
-      await worker.connect(mockConnection);
-      await worker.consume("processOrder");
 
       // WHEN
       // Simulate message
@@ -132,10 +131,8 @@ describe("AmqpWorker", () => {
         consumers: {},
       });
 
-      const worker = new AmqpWorker(contract, {});
-
       // WHEN
-      await worker.connect(mockConnection);
+      await createWorker({ contract, handlers: {}, connection: mockConnection });
 
       // THEN
       expect(mockConnection.createChannel).toHaveBeenCalled();
@@ -160,10 +157,8 @@ describe("AmqpWorker", () => {
         consumers: {},
       });
 
-      const worker = new AmqpWorker(contract, {});
-
       // WHEN
-      await worker.connect(mockConnection);
+      await createWorker({ contract, handlers: {}, connection: mockConnection });
 
       // THEN
       expect(mockChannel.assertQueue).toHaveBeenCalledWith("test-queue", {
@@ -198,10 +193,8 @@ describe("AmqpWorker", () => {
         consumers: {},
       });
 
-      const worker = new AmqpWorker(contract, {});
-
       // WHEN
-      await worker.connect(mockConnection);
+      await createWorker({ contract, handlers: {}, connection: mockConnection });
 
       // THEN
       expect(mockChannel.bindQueue).toHaveBeenCalledWith(
@@ -261,14 +254,11 @@ describe("AmqpWorker", () => {
       });
 
       const handler = vi.fn();
-      const worker = new AmqpWorker(contract, {
-        testConsumer: handler,
+      await createWorker({
+        contract,
+        handlers: { testConsumer: handler },
+        connection: mockConnection,
       });
-
-      await worker.connect(mockConnection);
-
-      // WHEN
-      await worker.consume("testConsumer");
 
       // THEN
       expect(mockChannel.consume).toHaveBeenCalledWith("test-queue", expect.any(Function), {
@@ -307,14 +297,12 @@ describe("AmqpWorker", () => {
         },
       });
 
-      const worker = new AmqpWorker(contract, {
-        testConsumer: vi.fn(),
-      });
-
-      await worker.connect(mockConnection);
-
       // WHEN
-      await worker.consume("testConsumer");
+      await createWorker({
+        contract,
+        handlers: { testConsumer: vi.fn() },
+        connection: mockConnection,
+      });
 
       // THEN
       expect(mockChannel.prefetch).toHaveBeenCalledWith(10);
@@ -339,12 +327,11 @@ describe("AmqpWorker", () => {
       });
 
       const handler = vi.fn();
-      const worker = new AmqpWorker(contract, {
-        testConsumer: handler,
+      await createWorker({
+        contract,
+        handlers: { testConsumer: handler },
+        connection: mockConnection,
       });
-
-      await worker.connect(mockConnection);
-      await worker.consume("testConsumer");
 
       // WHEN
       // Simulate invalid message
@@ -380,12 +367,11 @@ describe("AmqpWorker", () => {
       });
 
       const handler = vi.fn().mockRejectedValue(new Error("Handler error"));
-      const worker = new AmqpWorker(contract, {
-        testConsumer: handler,
+      await createWorker({
+        contract,
+        handlers: { testConsumer: handler },
+        connection: mockConnection,
       });
-
-      await worker.connect(mockConnection);
-      await worker.consume("testConsumer");
 
       // WHEN
       // Simulate message
@@ -422,12 +408,11 @@ describe("AmqpWorker", () => {
       });
 
       const handler = vi.fn();
-      const worker = new AmqpWorker(contract, {
-        testConsumer: handler,
+      await createWorker({
+        contract,
+        handlers: { testConsumer: handler },
+        connection: mockConnection,
       });
-
-      await worker.connect(mockConnection);
-      await worker.consume("testConsumer");
 
       // WHEN
       // Simulate message
@@ -463,12 +448,11 @@ describe("AmqpWorker", () => {
       });
 
       const handler = vi.fn();
-      const worker = new AmqpWorker(contract, {
-        testConsumer: handler,
+      await createWorker({
+        contract,
+        handlers: { testConsumer: handler },
+        connection: mockConnection,
       });
-
-      await worker.connect(mockConnection);
-      await worker.consume("testConsumer");
 
       // WHEN
       await mockConsumeCallback?.(null);
@@ -479,7 +463,7 @@ describe("AmqpWorker", () => {
   });
 
   describe("consumeAll", () => {
-    it("should consume all consumers", async () => {
+    it("should consume all consumers automatically on createWorker", async () => {
       // GIVEN
       const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
 
@@ -504,15 +488,15 @@ describe("AmqpWorker", () => {
         },
       });
 
-      const worker = new AmqpWorker(contract, {
-        consumer1: vi.fn(),
-        consumer2: vi.fn(),
-      });
-
-      await worker.connect(mockConnection);
-
       // WHEN
-      await worker.consumeAll();
+      await createWorker({
+        contract,
+        handlers: {
+          consumer1: vi.fn(),
+          consumer2: vi.fn(),
+        },
+        connection: mockConnection,
+      });
 
       // THEN
       expect(mockChannel.consume).toHaveBeenCalledTimes(2);
@@ -528,11 +512,10 @@ describe("AmqpWorker", () => {
         },
       });
 
-      const worker = new AmqpWorker(contract, {});
-      await worker.connect(mockConnection);
-
       // WHEN / THEN
-      await expect(worker.consumeAll()).rejects.toThrow("No consumers defined in contract");
+      await expect(
+        createWorker({ contract, handlers: {}, connection: mockConnection }),
+      ).rejects.toThrow("No consumers defined in contract");
     });
   });
 
@@ -555,12 +538,11 @@ describe("AmqpWorker", () => {
         },
       });
 
-      const worker = new AmqpWorker(contract, {
-        testConsumer: vi.fn(),
+      const worker = await createWorker({
+        contract,
+        handlers: { testConsumer: vi.fn() },
+        connection: mockConnection,
       });
-
-      await worker.connect(mockConnection);
-      await worker.consume("testConsumer");
 
       // WHEN
       await worker.stopConsuming();
@@ -601,12 +583,11 @@ describe("AmqpWorker", () => {
         },
       });
 
-      const worker = new AmqpWorker(contract, {
-        testConsumer: vi.fn(),
+      const worker = await createWorker({
+        contract,
+        handlers: { testConsumer: vi.fn() },
+        connection: mockConnection,
       });
-
-      await worker.connect(mockConnection);
-      await worker.consume("testConsumer");
 
       // WHEN
       await worker.close();
@@ -619,17 +600,35 @@ describe("AmqpWorker", () => {
   });
 
   describe("createWorker", () => {
-    it("should create a worker instance", () => {
+    it("should create a worker instance, connect and consumeAll automatically", async () => {
       // GIVEN
+      const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
+
       const contract = defineContract({
-        consumers: {},
+        queues: {
+          test: {
+            name: "test-queue",
+          },
+        },
+        consumers: {
+          testConsumer: {
+            queue: "test-queue",
+            message: TestMessage,
+          },
+        },
       });
 
       // WHEN
-      const worker = createWorker(contract, {});
+      const worker = await createWorker({
+        contract,
+        handlers: { testConsumer: vi.fn() },
+        connection: mockConnection,
+      });
 
       // THEN
       expect(worker).toBeInstanceOf(AmqpWorker);
+      expect(mockConnection.createChannel).toHaveBeenCalled();
+      expect(mockChannel.consume).toHaveBeenCalled();
     });
   });
 });

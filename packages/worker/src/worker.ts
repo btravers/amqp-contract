@@ -198,11 +198,23 @@ export class AmqpWorker<TContract extends ContractDefinition> {
 }
 
 /**
- * Create a type-safe AMQP worker from a contract
+ * Options for creating a worker
  */
-export function createWorker<TContract extends ContractDefinition>(
-  contract: TContract,
-  handlers: WorkerInferConsumerHandlers<TContract>,
-): AmqpWorker<TContract> {
-  return new AmqpWorker(contract, handlers);
+export interface CreateWorkerOptions<TContract extends ContractDefinition> {
+  contract: TContract;
+  handlers: WorkerInferConsumerHandlers<TContract>;
+  connection: ChannelModel;
+}
+
+/**
+ * Create a type-safe AMQP worker from a contract
+ * The worker will automatically connect and start consuming all messages
+ */
+export async function createWorker<TContract extends ContractDefinition>(
+  options: CreateWorkerOptions<TContract>,
+): Promise<AmqpWorker<TContract>> {
+  const worker = new AmqpWorker(options.contract, options.handlers);
+  await worker.connect(options.connection);
+  await worker.consumeAll();
+  return worker;
 }

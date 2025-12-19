@@ -133,10 +133,21 @@ export class AmqpClient<TContract extends ContractDefinition> {
 }
 
 /**
- * Create a type-safe AMQP client from a contract
+ * Options for creating a client
  */
-export function createClient<TContract extends ContractDefinition>(
-  contract: TContract,
-): AmqpClient<TContract> {
-  return new AmqpClient(contract);
+export interface CreateClientOptions<TContract extends ContractDefinition> {
+  contract: TContract;
+  connection: ChannelModel;
+}
+
+/**
+ * Create a type-safe AMQP client from a contract
+ * The client will automatically connect to the AMQP broker
+ */
+export async function createClient<TContract extends ContractDefinition>(
+  options: CreateClientOptions<TContract>,
+): Promise<AmqpClient<TContract>> {
+  const client = new AmqpClient(options.contract);
+  await client.connect(options.connection);
+  return client;
 }
