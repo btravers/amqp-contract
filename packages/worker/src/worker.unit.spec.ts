@@ -65,8 +65,9 @@ describe("AmqpWorker", () => {
 
       // THEN
       // Type inference test - this should compile without errors
-      type ConsumerNames = Parameters<typeof worker.consume>[0];
-      const name: ConsumerNames = "testConsumer";
+      // Since consume is private, we verify type inference through handlers
+      type HandlerKeys = keyof typeof handlers;
+      const name: HandlerKeys = "testConsumer";
       expect(name).toBe("testConsumer");
     });
 
@@ -211,38 +212,6 @@ describe("AmqpWorker", () => {
   });
 
   describe("consume", () => {
-    it("should throw error when not connected", async () => {
-      // GIVEN
-      const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
-
-      const contract = defineContract({
-        queues: {
-          test: {
-            name: "test-queue",
-          },
-        },
-        consumers: {
-          testConsumer: {
-            queue: "test-queue",
-            message: TestMessage,
-          },
-        },
-      });
-
-      const worker = await TypedAmqpWorker.create({
-        contract,
-        handlers: {
-          testConsumer: vi.fn(),
-        },
-        connection: mockConnection,
-      });
-
-      // WHEN / THEN
-      await expect(worker.consume("testConsumer")).rejects.toThrow(
-        "Worker not connected. Call connect() first.",
-      );
-    });
-
     it("should setup consumer and process messages", async () => {
       // GIVEN
       const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
