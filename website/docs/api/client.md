@@ -10,14 +10,14 @@ pnpm add @amqp-contract/client amqplib
 
 ## Main Exports
 
-### `createClient`
+### `TypedAmqpClient.create`
 
 Creates a type-safe AMQP client from a contract and automatically connects to RabbitMQ.
 
 **Signature:**
 
 ```typescript
-async function createClient<TContract>(
+static async create<TContract>(
   options: CreateClientOptions<TContract>
 ): Promise<AmqpClient<TContract>>
 ```
@@ -25,12 +25,12 @@ async function createClient<TContract>(
 **Example:**
 
 ```typescript
-import { createClient } from '@amqp-contract/client';
+import { TypedAmqpClient } from '@amqp-contract/client';
 import { connect } from 'amqplib';
 import { contract } from './contract';
 
 const connection = await connect('amqp://localhost');
-const client = await createClient({ contract, connection });
+const client = await TypedAmqpClient.create({ contract, connection });
 ```
 
 **Parameters:**
@@ -43,13 +43,13 @@ const client = await createClient({ contract, connection });
 
 ---
 
-## AmqpClient API
+## TypedAmqpClient API
 
 ### `connect`
 
 Connects the client to RabbitMQ.
 
-**Note:** When using `createClient()`, this method is called automatically. You only need to call this manually if you create an `AmqpClient` instance directly using `new AmqpClient()`.
+**Note:** When using `TypedAmqpClient.create()`, this method is called automatically. You only need to call this manually if you create an `AmqpClient` instance directly using `new AmqpClient()`.
 
 **Signature:**
 
@@ -60,11 +60,11 @@ async connect(connection: Connection): Promise<void>
 **Example:**
 
 ```typescript
-import { AmqpClient } from '@amqp-contract/client';
+import { TypedAmqpClient } from '@amqp-contract/client';
 import { connect } from 'amqplib';
 
 const connection = await connect('amqp://localhost');
-const client = new AmqpClient(contract);
+const client = new TypedAmqpClient(contract);
 await client.connect(connection);
 ```
 
@@ -181,7 +181,7 @@ interface PublishOptions {
 ## Basic Example
 
 ```typescript
-import { createClient } from '@amqp-contract/client';
+import { TypedAmqpClient } from '@amqp-contract/client';
 import { connect } from 'amqplib';
 import { contract } from './contract';
 
@@ -190,7 +190,7 @@ async function main() {
   const connection = await connect('amqp://localhost');
 
   // Create client (automatically connects)
-  const client = await createClient({ contract, connection });
+  const client = await TypedAmqpClient.create({ contract, connection });
 
   // Publish message
   await client.publish('orderCreated', {
@@ -279,7 +279,7 @@ connection.on('close', () => {
 });
 
 // Create and connect client
-const client = await createClient({ contract, connection });
+const client = await TypedAmqpClient.create({ contract, connection });
 
 // Use client...
 

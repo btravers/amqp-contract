@@ -39,7 +39,7 @@ await client.publish('orderCreated', {
 });
 
 // Worker handlers are fully typed
-const worker = await createWorker({
+const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => {

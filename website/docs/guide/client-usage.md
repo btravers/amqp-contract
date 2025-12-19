@@ -35,7 +35,7 @@ import { contract } from './contract';
 const connection = await connect('amqp://localhost');
 
 // Create client from contract (automatically connects)
-const client = await createClient({ contract, connection });
+const client = await TypedAmqpClient.create({ contract, connection });
 ```
 
 ## Publishing Messages
