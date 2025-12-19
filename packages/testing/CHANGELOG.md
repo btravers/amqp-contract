@@ -1,4 +1,4 @@
-# @amqp-contract/contract
+# @amqp-contract/testing
 
 ## 0.0.2
 
