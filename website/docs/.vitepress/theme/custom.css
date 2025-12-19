@@ -24,6 +24,9 @@
   --vp-c-brand-2: #ff9a1a;
   --vp-c-brand-3: #ff7a1a;
   --vp-c-brand-soft: rgba(255, 153, 0, 0.24);
+
+  /* Dark mode background colors */
+  --vp-c-bg-soft: #202127;
 }
 
 /**
