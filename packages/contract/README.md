@@ -2,6 +2,8 @@
 
 Contract builder for amqp-contract - Define type-safe AMQP messaging contracts.
 
+📖 **[Full documentation →](https://btravers.github.io/amqp-contract/api/contract)**
+
 ## Installation
 
 ```bash

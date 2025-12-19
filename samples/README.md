@@ -2,73 +2,42 @@
 
 Example implementations demonstrating amqp-contract features.
 
-## Available Samples
+📖 **[Full documentation and examples →](https://btravers.github.io/amqp-contract/examples/)**
 
-### [Basic Order Processing Contract](./basic-order-processing-contract)
-
-Shared contract definition for the order processing sample.
-
-### [Basic Order Processing Client](./basic-order-processing-client)
-
-Publisher application demonstrating the **RabbitMQ topic pattern**.
-
-**Features:**
-
-- 📦 Type-safe message publishing via contract
-- 🎯 Multiple routing key patterns
-- ✅ Environment validation with Zod
-- 📝 Structured logging with Pino
-
-### [Basic Order Processing Worker](./basic-order-processing-worker)
-
-Consumer application with multiple specialized handlers.
-
-**Features:**
-
-- 📦 Type-safe message consumption via contract
-- 🔀 Multiple consumers with wildcard routing (e.g., `order.#`, `order.*.urgent`)
-- ✅ Environment validation with Zod
-- 📝 Structured logging with Pino
-
-### [AsyncAPI Generation](./asyncapi-generation)
-
-Example of generating AsyncAPI documentation from contracts.
-
-## Running Samples
+## Quick Start
 
 ### Prerequisites
 
-1. Start RabbitMQ:
+Start RabbitMQ:
 
 ```bash
-docker run -d --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3-management
+docker run -d --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:4-management
 ```
 
-2. Install dependencies and build packages:
+### Running Examples
+
+1. Build packages:
 
 ```bash
 pnpm install
 pnpm build
 ```
 
-### Running Basic Order Processing Example
-
-1. Start the worker (in one terminal):
+2. Run the basic order processing example:
 
 ```bash
+# Terminal 1: Start the worker
 pnpm --filter @amqp-contract-samples/basic-order-processing-worker dev
-```
 
-2. Run the client (in another terminal):
-
-```bash
+# Terminal 2: Run the client
 pnpm --filter @amqp-contract-samples/basic-order-processing-client dev
 ```
 
-You'll see the worker receiving and processing messages based on the routing keys!
+## Available Samples
 
-## System Requirements
+| Sample                                                      | Description                                        |
+| ----------------------------------------------------------- | -------------------------------------------------- |
+| [Basic Order Processing](./basic-order-processing-contract) | Complete example with client, worker, and contract |
+| [AsyncAPI Generation](./asyncapi-generation)                | Generate AsyncAPI 3.0 specifications               |
 
-- Node.js 24.12.0+
-- pnpm
-- RabbitMQ (or other AMQP broker)
+For detailed documentation, examples, and tutorials, visit the **[amqp-contract website](https://btravers.github.io/amqp-contract/)**.

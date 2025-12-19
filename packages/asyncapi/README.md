@@ -2,6 +2,8 @@
 
 AsyncAPI 3.0.0 specification generator for amqp-contract.
 
+📖 **[Full documentation →](https://btravers.github.io/amqp-contract/api/asyncapi)**
+
 ## Installation
 
 ```bash

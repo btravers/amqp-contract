@@ -42,7 +42,7 @@ All examples are located in the `samples/` directory of the repository.
 1. RabbitMQ running on `localhost:5672`
 
 ```bash
-docker run -d --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3-management
+docker run -d --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:4-management
 ```
 
 2. Build the packages

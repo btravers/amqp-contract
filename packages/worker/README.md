@@ -2,6 +2,8 @@
 
 Type-safe AMQP worker for consuming messages using amqp-contract.
 
+📖 **[Full documentation →](https://btravers.github.io/amqp-contract/api/worker)**
+
 ## Installation
 
 ```bash

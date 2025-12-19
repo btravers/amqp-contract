@@ -2,6 +2,8 @@
 
 Type-safe AMQP client for publishing messages using amqp-contract.
 
+📖 **[Full documentation →](https://btravers.github.io/amqp-contract/api/client)**
+
 ## Installation
 
 ```bash

@@ -2,6 +2,8 @@
 
 Zod integration for amqp-contract. This package provides a schema converter for AsyncAPI generation and declares peer dependencies for [Zod](https://zod.dev/) compatibility with amqp-contract.
 
+📖 **[Full documentation →](https://btravers.github.io/amqp-contract/guide/getting-started)**
+
 ## Installation
 
 ```bash
