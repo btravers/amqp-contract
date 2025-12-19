@@ -57,7 +57,7 @@ describe("AmqpWorker", () => {
       };
 
       // WHEN
-      const worker = await TypedAmqpWorker.create({
+      await TypedAmqpWorker.create({
         contract,
         handlers,
         connection: mockConnection,
