@@ -70,8 +70,8 @@ catalogs:
       specifier: 4.0.15
       version: 4.0.15
     zod:
-      specifier: 4.1.13
-      version: 4.1.13
+      specifier: 4.2.1
+      version: 4.2.1
 
 importers:
 
@@ -162,7 +162,7 @@ importers:
         version: 4.0.15(@types/node@25.0.1)(jiti@2.6.1)(tsx@4.21.0)
       zod:
         specifier: 'catalog:'
-        version: 4.1.13
+        version: 4.2.1
 
   packages/client:
     dependencies:
@@ -218,7 +218,7 @@ importers:
         version: 4.0.15(@types/node@25.0.1)(jiti@2.6.1)(tsx@4.21.0)
       zod:
         specifier: 'catalog:'
-        version: 4.1.13
+        version: 4.2.1
 
   packages/valibot:
     dependencies:
@@ -302,7 +302,7 @@ importers:
         version: 4.0.15(@types/node@25.0.1)(jiti@2.6.1)(tsx@4.21.0)
       zod:
         specifier: 'catalog:'
-        version: 4.1.13
+        version: 4.2.1
 
   samples/asyncapi-generation:
     dependencies:
@@ -314,7 +314,7 @@ importers:
         version: link:../../packages/contract
       zod:
         specifier: 'catalog:'
-        version: 4.1.13
+        version: 4.2.1
     devDependencies:
       '@amqp-contract/tsconfig':
         specifier: workspace:*
@@ -342,7 +342,7 @@ importers:
         version: 0.10.9
       zod:
         specifier: 'catalog:'
-        version: 4.1.13
+        version: 4.2.1
     devDependencies:
       '@amqp-contract/tsconfig':
         specifier: workspace:*
@@ -3030,6 +3030,9 @@ packages:
   zod@4.1.13:
     resolution: {integrity: sha512-AvvthqfqrAhNH9dnfmrfKzX5upOdjUVJYFqNSlkmGf64gRaTzlPwz99IHYnVs28qYAybvAlBV+H7pn0saFY4Ig==}
 
+  zod@4.2.1:
+    resolution: {integrity: sha512-0wZ1IRqGGhMP76gLqz8EyfBXKk0J2qo2+H3fi4mcUP/KtTocoX08nmIAHl1Z2kJIZbZee8KOpBCSNPRgauucjw==}
+
   zwitch@2.0.4:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
 
@@ -5558,5 +5561,7 @@ snapshots:
   yocto-queue@1.2.2: {}
 
   zod@4.1.13: {}
+
+  zod@4.2.1: {}
 
   zwitch@2.0.4: {}

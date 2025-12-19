@@ -26,6 +26,6 @@ catalog:
   valibot: 1.2.0
   vitepress: 1.6.4
   vitest: 4.0.15
-  zod: 4.1.13
+  zod: 4.2.1
 
 strictPeerDependencies: false
