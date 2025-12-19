@@ -20,10 +20,10 @@
 
 .dark {
   /* Dark mode brand colors */
-  --vp-c-brand-1: #ff9900;
-  --vp-c-brand-2: #ff8800;
-  --vp-c-brand-3: #ff6600;
-  --vp-c-brand-soft: rgba(255, 102, 0, 0.16);
+  --vp-c-brand-1: #ffb347;
+  --vp-c-brand-2: #ff9a1a;
+  --vp-c-brand-3: #ff7a1a;
+  --vp-c-brand-soft: rgba(255, 153, 0, 0.24);
 }
 
 /**
