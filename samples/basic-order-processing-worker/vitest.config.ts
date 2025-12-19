@@ -11,13 +11,6 @@ export default defineConfig({
     projects: [
       {
         test: {
-          name: "unit",
-          include: ["src/**/*.spec.ts"],
-          exclude: ["src/**/*.integration.spec.ts"],
-        },
-      },
-      {
-        test: {
           name: "integration",
           globalSetup: "@amqp-contract/testing/global-setup",
           include: ["src/**/*.integration.spec.ts"],

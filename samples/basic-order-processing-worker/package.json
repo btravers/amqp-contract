@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -16,9 +18,11 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@amqp-contract/testing": "workspace:*",
     "@amqp-contract/tsconfig": "workspace:*",
     "@types/amqplib": "catalog:",
     "tsx": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

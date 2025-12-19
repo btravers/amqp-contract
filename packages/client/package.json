@@ -51,6 +51,7 @@
     "@amqp-contract/contract": "workspace:*"
   },
   "devDependencies": {
+    "@amqp-contract/testing": "workspace:*",
     "@amqp-contract/tsconfig": "workspace:*",
     "@types/amqplib": "catalog:",
     "@types/node": "catalog:",
