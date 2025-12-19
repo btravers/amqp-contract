@@ -34,7 +34,7 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
 
   /**
    * Create a type-safe AMQP client from a contract
-   * The client will automatically init to the AMQP broker
+   * The client will automatically connect to the AMQP broker
    */
   static async create<TContract extends ContractDefinition>(
     options: CreateClientOptions<TContract>,
