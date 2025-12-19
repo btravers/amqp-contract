@@ -79,7 +79,6 @@ describe("AmqpClient Integration", () => {
       await client.connect(amqpConnection);
 
       // WHEN / THEN
-      // @ts-expect-error - testing runtime validation with invalid data
       await expect(
         client.publish("testPublisher", {
           id: "123",

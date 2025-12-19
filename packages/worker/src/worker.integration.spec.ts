@@ -59,7 +59,9 @@ describe("AmqpWorker Integration", () => {
 
     const messages: Array<{ id: string; message: string }> = [];
     const worker = createWorker(contract, {
-      testConsumer: async (msg) => messages.push(msg),
+      testConsumer: (msg) => {
+        messages.push(msg);
+      },
     });
 
     await worker.connect(amqpConnection);
@@ -125,7 +127,9 @@ describe("AmqpWorker Integration", () => {
 
     const messages: Array<{ id: string; count: number }> = [];
     const worker = createWorker(contract, {
-      testConsumer: async (msg) => messages.push(msg),
+      testConsumer: (msg) => {
+        messages.push(msg);
+      },
     });
 
     await worker.connect(amqpConnection);
@@ -198,8 +202,12 @@ describe("AmqpWorker Integration", () => {
     const messages1: Array<{ id: string }> = [];
     const messages2: Array<{ id: string }> = [];
     const worker = createWorker(contract, {
-      consumer1: async (msg) => messages1.push(msg),
-      consumer2: async (msg) => messages2.push(msg),
+      consumer1: (msg) => {
+        messages1.push(msg);
+      },
+      consumer2: (msg) => {
+        messages2.push(msg);
+      },
     });
 
     await worker.connect(amqpConnection);

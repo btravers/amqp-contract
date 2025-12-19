@@ -24,7 +24,9 @@ describe("Basic Order Processing Worker Integration", () => {
 
     const processedOrders: Array<unknown> = [];
     const worker = createWorker(orderContract, {
-      processOrder: async (msg) => processedOrders.push(msg),
+      processOrder: (msg) => {
+        processedOrders.push(msg);
+      },
       notifyOrder: async () => {},
       shipOrder: async () => {},
       handleUrgentOrder: async () => {},
@@ -70,7 +72,9 @@ describe("Basic Order Processing Worker Integration", () => {
     const notifications: Array<unknown> = [];
     const worker = createWorker(orderContract, {
       processOrder: async () => {},
-      notifyOrder: async (msg) => notifications.push(msg),
+      notifyOrder: async (msg) => {
+        notifications.push(msg);
+      },
       shipOrder: async () => {},
       handleUrgentOrder: async () => {},
     });
@@ -121,8 +125,12 @@ describe("Basic Order Processing Worker Integration", () => {
     const processedOrders: Array<unknown> = [];
     const notifications: Array<unknown> = [];
     const worker = createWorker(orderContract, {
-      processOrder: async (msg) => processedOrders.push(msg),
-      notifyOrder: async (msg) => notifications.push(msg),
+      processOrder: async (msg) => {
+        processedOrders.push(msg);
+      },
+      notifyOrder: async (msg) => {
+        notifications.push(msg);
+      },
       shipOrder: async () => {},
       handleUrgentOrder: async () => {},
     });
