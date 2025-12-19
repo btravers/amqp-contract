@@ -11,17 +11,18 @@ describe("Basic Order Processing Worker Integration", () => {
   }) => {
     // GIVEN
     const processedOrders: Array<unknown> = [];
-    const worker = new TypedAmqpWorker(orderContract, {
-      processOrder: (msg) => {
-        processedOrders.push(msg);
+    const worker = await TypedAmqpWorker.create({
+      contract: orderContract,
+      handlers: {
+        processOrder: (msg) => {
+          processedOrders.push(msg);
+        },
+        notifyOrder: async () => {},
+        shipOrder: async () => {},
+        handleUrgentOrder: async () => {},
       },
-      notifyOrder: async () => {},
-      shipOrder: async () => {},
-      handleUrgentOrder: async () => {},
+      connection: workerConnection,
     });
-
-    await worker.init(workerConnection);
-    await worker.consume("processOrder");
 
     const client = await TypedAmqpClient.create({
       contract: orderContract,
@@ -55,24 +56,25 @@ describe("Basic Order Processing Worker Integration", () => {
   }) => {
     // GIVEN
     const notifications: Array<unknown> = [];
-    const worker = new TypedAmqpWorker(orderContract, {
-      processOrder: async () => {},
-      notifyOrder: async (msg) => {
-        notifications.push(msg);
+    const worker = await TypedAmqpWorker.create({
+      contract: orderContract,
+      handlers: {
+        processOrder: async () => {},
+        notifyOrder: async (msg) => {
+          notifications.push(msg);
+        },
+        shipOrder: async () => {},
+        handleUrgentOrder: async () => {},
       },
-      shipOrder: async () => {},
-      handleUrgentOrder: async () => {},
+      connection: workerConnection,
     });
-
-    await worker.init(workerConnection);
-    await worker.consume("notifyOrder");
 
     const client = await TypedAmqpClient.create({
       contract: orderContract,
       connection: clientConnection,
     });
 
-    // WHEN - Publish different types of order events
+    // WHEN
     const newOrder = {
       orderId: "TEST-002",
       customerId: "CUST-456",
@@ -90,7 +92,7 @@ describe("Basic Order Processing Worker Integration", () => {
     await client.publish("orderCreated", newOrder);
     await client.publish("orderUpdated", orderUpdate);
 
-    // THEN - Should receive both events
+    // THEN
     await new Promise((resolve) => setTimeout(resolve, 500));
     expect(notifications.length).toBeGreaterThanOrEqual(2);
 
@@ -106,21 +108,20 @@ describe("Basic Order Processing Worker Integration", () => {
     // GIVEN
     const processedOrders: Array<unknown> = [];
     const notifications: Array<unknown> = [];
-    const worker = new TypedAmqpWorker(orderContract, {
-      processOrder: async (msg) => {
-        processedOrders.push(msg);
+    const worker = await TypedAmqpWorker.create({
+      contract: orderContract,
+      handlers: {
+        processOrder: async (msg) => {
+          processedOrders.push(msg);
+        },
+        notifyOrder: async (msg) => {
+          notifications.push(msg);
+        },
+        shipOrder: async () => {},
+        handleUrgentOrder: async () => {},
       },
-      notifyOrder: async (msg) => {
-        notifications.push(msg);
-      },
-      shipOrder: async () => {},
-      handleUrgentOrder: async () => {},
+      connection: workerConnection,
     });
-
-    await worker.init(workerConnection);
-
-    // WHEN - Start all consumers
-    await worker.consumeAll();
 
     const client = await TypedAmqpClient.create({
       contract: orderContract,
@@ -135,9 +136,10 @@ describe("Basic Order Processing Worker Integration", () => {
       createdAt: new Date().toISOString(),
     };
 
+    // WHEN
     await client.publish("orderCreated", newOrder);
 
-    // THEN - All relevant handlers should be called
+    // THEN
     await new Promise((resolve) => setTimeout(resolve, 800));
     expect(processedOrders.length).toBeGreaterThanOrEqual(1);
     expect(notifications.length).toBeGreaterThan(0); // Receives all events
