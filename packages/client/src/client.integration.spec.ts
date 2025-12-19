@@ -1,13 +1,28 @@
-import { describe, expect } from "vitest";
-import { it } from "@amqp-contract/testing/extension";
+import { describe, expect, it, afterEach } from "vitest";
+import { getAmqpConnection } from "@amqp-contract/testing/extension";
 import { createClient } from "./client.js";
 import { defineContract, defineExchange, definePublisher } from "@amqp-contract/contract";
 import { z } from "zod";
+import type { ChannelModel } from "amqplib";
 
 describe("AmqpClient Integration", () => {
+  let amqpConnection: ChannelModel;
+
+  afterEach(async () => {
+    if (amqpConnection) {
+      try {
+        await amqpConnection.close();
+      } catch {
+        // Connection may already be closed
+      }
+    }
+  });
+
   describe("end-to-end publishing", () => {
-    it("should publish messages to a real RabbitMQ instance", async ({ amqpConnection }) => {
+    it("should publish messages to a real RabbitMQ instance", async () => {
       // GIVEN
+      amqpConnection = await getAmqpConnection();
+
       const TestMessage = z.object({
         id: z.string(),
         message: z.string(),
@@ -40,8 +55,10 @@ describe("AmqpClient Integration", () => {
       await client.close();
     });
 
-    it("should validate messages before publishing", async ({ amqpConnection }) => {
+    it("should validate messages before publishing", async () => {
       // GIVEN
+      amqpConnection = await getAmqpConnection();
+
       const TestMessage = z.object({
         id: z.string(),
         count: z.number().positive(),
@@ -74,8 +91,10 @@ describe("AmqpClient Integration", () => {
       await client.close();
     });
 
-    it("should handle custom routing keys", async ({ amqpConnection }) => {
+    it("should handle custom routing keys", async () => {
       // GIVEN
+      amqpConnection = await getAmqpConnection();
+
       const TestMessage = z.object({
         content: z.string(),
       });
@@ -110,8 +129,10 @@ describe("AmqpClient Integration", () => {
   });
 
   describe("topology setup", () => {
-    it("should setup exchanges, queues, and bindings", async ({ amqpConnection }) => {
+    it("should setup exchanges, queues, and bindings", async () => {
       // GIVEN
+      amqpConnection = await getAmqpConnection();
+
       const TestMessage = z.object({ id: z.string() });
 
       const contract = defineContract({
