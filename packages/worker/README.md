@@ -20,38 +20,40 @@ import { contract } from './contract';
 // Connect to RabbitMQ
 const connection = await connect('amqp://localhost');
 
-// Create worker from contract with handlers
-const worker = createWorker(contract, {
-  processOrder: async (message) => {
-    console.log('Processing order:', message.orderId);
-    // Your business logic here
+// Create worker from contract with handlers (automatically connects and starts consuming)
+const worker = await createWorker({
+  contract,
+  handlers: {
+    processOrder: async (message) => {
+      console.log('Processing order:', message.orderId);
+      // Your business logic here
+    },
   },
+  connection,
 });
 
-await worker.connect(connection);
+// Worker is already consuming messages
 
-// Start consuming all consumers
-await worker.consumeAll();
-
-// Or start consuming a specific consumer
-// await worker.consume('processOrder');
-
-// Stop consuming when needed
-// await worker.stopConsuming();
-
-// Clean up
+// Clean up when needed
 // await worker.close();
 ```
 
 ## API
 
-### `createWorker(contract, handlers)`
+### `createWorker(options)`
 
-Create a type-safe AMQP worker from a contract with message handlers.
+Create a type-safe AMQP worker from a contract with message handlers. Automatically connects and starts consuming all messages.
+
+**Parameters:**
+- `options.contract` - Contract definition
+- `options.handlers` - Object with handler functions for each consumer
+- `options.connection` - amqplib Connection object
 
 ### `AmqpWorker.connect(connection)`
 
 Connect to an AMQP broker and set up all exchanges, queues, and bindings defined in the contract.
+
+**Note:** When using `createWorker()`, this is called automatically.
 
 ### `AmqpWorker.consume(consumerName)`
 
@@ -60,6 +62,8 @@ Start consuming messages for a specific consumer.
 ### `AmqpWorker.consumeAll()`
 
 Start consuming messages for all consumers defined in the contract.
+
+**Note:** When using `createWorker()`, this is called automatically.
 
 ### `AmqpWorker.stopConsuming()`
 

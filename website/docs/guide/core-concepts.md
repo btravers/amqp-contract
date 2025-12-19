@@ -30,6 +30,7 @@ const contract = defineContract({
 });
 
 // Client knows the exact shape
+const client = await createClient({ contract, connection });
 await client.publish('orderCreated', {
   orderId: 'ORD-123',  // ✅ TypeScript knows this field
   amount: 99.99,        // ✅ TypeScript knows this field
@@ -37,11 +38,15 @@ await client.publish('orderCreated', {
 });
 
 // Worker handlers are fully typed
-const worker = createWorker(contract, {
-  processOrder: async (message) => {
-    message.orderId;  // ✅ string (autocomplete works!)
-    message.amount;   // ✅ number
+const worker = await createWorker({
+  contract,
+  handlers: {
+    processOrder: async (message) => {
+      message.orderId;  // ✅ string (autocomplete works!)
+      message.amount;   // ✅ number
+    },
   },
+  connection,
 });
 ```
 
@@ -56,6 +61,7 @@ Invalid messages are rejected with clear error messages.
 
 ```typescript
 // This will throw a validation error:
+const client = await createClient({ contract, connection });
 await client.publish('orderCreated', {
   orderId: 'ORD-123',
   amount: 'not-a-number',  // ❌ Validation error!

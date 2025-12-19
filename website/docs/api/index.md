@@ -75,14 +75,18 @@ const contract = defineContract({
 });
 
 // Client knows about 'orderCreated' and its schema
-const client = createClient(contract);
+const client = await createClient({ contract, connection });
 await client.publish('orderCreated', { orderId: 'ORD-123' });
 
 // Worker handler is fully typed
-const worker = createWorker(contract, {
-  processOrder: async (message) => {
-    message.orderId; // string
+const worker = await createWorker({
+  contract,
+  handlers: {
+    processOrder: async (message) => {
+      message.orderId; // string
+    },
   },
+  connection,
 });
 ```
 

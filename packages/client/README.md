@@ -20,9 +20,8 @@ import { contract } from './contract';
 // Connect to RabbitMQ
 const connection = await connect('amqp://localhost');
 
-// Create client from contract
-const client = createClient(contract);
-await client.connect(connection);
+// Create client from contract (automatically connects)
+const client = await createClient({ contract, connection });
 
 // Publish message with type safety
 await client.publish('orderCreated', {
@@ -36,13 +35,19 @@ await client.close();
 
 ## API
 
-### `createClient(contract)`
+### `createClient(options)`
 
-Create a type-safe AMQP client from a contract.
+Create a type-safe AMQP client from a contract. Automatically connects to RabbitMQ.
+
+**Parameters:**
+- `options.contract` - Contract definition
+- `options.connection` - amqplib Connection object
 
 ### `AmqpClient.connect(connection)`
 
 Connect to an AMQP broker and set up all exchanges, queues, and bindings defined in the contract.
+
+**Note:** When using `createClient()`, this is called automatically.
 
 ### `AmqpClient.publish(publisherName, message, options?)`
 

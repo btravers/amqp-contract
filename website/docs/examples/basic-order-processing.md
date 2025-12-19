@@ -270,8 +270,7 @@ import { connect } from 'amqplib';
 import { orderContract } from '@amqp-contract-samples/basic-order-processing-contract';
 
 const connection = await connect('amqp://localhost');
-const client = createClient(orderContract);
-await client.connect(connection);
+const client = await createClient({ contract: orderContract, connection });
 
 // Publish new order
 await client.publish('orderCreated', {
@@ -303,28 +302,29 @@ import { orderContract } from '@amqp-contract-samples/basic-order-processing-con
 
 const connection = await connect('amqp://localhost');
 
-const worker = createWorker(orderContract, {
-  processOrder: async (message) => {
-    console.log(`[PROCESSING] Order ${message.orderId}`);
-    console.log(`  Customer: ${message.customerId}`);
-    console.log(`  Total: $${message.totalAmount}`);
-  },
+const worker = await createWorker({
+  contract: orderContract,
+  handlers: {
+    processOrder: async (message) => {
+      console.log(`[PROCESSING] Order ${message.orderId}`);
+      console.log(`  Customer: ${message.customerId}`);
+      console.log(`  Total: $${message.totalAmount}`);
+    },
 
-  notifyOrder: async (message) => {
-    console.log(`[NOTIFICATION] Order ${message.orderId} event`);
-  },
+    notifyOrder: async (message) => {
+      console.log(`[NOTIFICATION] Order ${message.orderId} event`);
+    },
 
-  shipOrder: async (message) => {
-    console.log(`[SHIPPING] Order ${message.orderId} - ${message.status}`);
-  },
+    shipOrder: async (message) => {
+      console.log(`[SHIPPING] Order ${message.orderId} - ${message.status}`);
+    },
 
-  handleUrgentOrder: async (message) => {
-    console.log(`[URGENT] Order ${message.orderId} - ${message.status}`);
+    handleUrgentOrder: async (message) => {
+      console.log(`[URGENT] Order ${message.orderId} - ${message.status}`);
+    },
   },
+  connection,
 });
-
-await worker.connect(connection);
-await worker.consumeAll();
 ```
 
 ## Message Routing Table
