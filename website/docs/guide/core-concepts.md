@@ -61,6 +61,12 @@ Messages are automatically validated at network boundaries:
 Invalid messages are rejected with clear error messages.
 
 ```typescript
+import { createClient } from '@amqp-contract/client';
+import { connect } from 'amqplib';
+
+// Assuming contract is defined earlier
+const connection = await connect('amqp://localhost');
+
 // This will throw a validation error:
 const client = await createClient({ contract, connection });
 await client.publish('orderCreated', {

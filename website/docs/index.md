@@ -94,6 +94,9 @@ const contract = defineContract({
   },
 });
 
+// Connect to RabbitMQ
+const connection = await connect('amqp://localhost');
+
 // ✅ Type-safe client
 const client = await createClient({ contract, connection });
 await client.publish('orderCreated', {

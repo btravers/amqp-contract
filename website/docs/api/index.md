@@ -65,6 +65,12 @@ import { generateAsyncAPI } from '@amqp-contract/asyncapi';
 All packages leverage TypeScript's type inference:
 
 ```typescript
+import { defineContract, definePublisher } from '@amqp-contract/contract';
+import { createClient } from '@amqp-contract/client';
+import { createWorker } from '@amqp-contract/worker';
+import { connect } from 'amqplib';
+import { z } from 'zod';
+
 // Types are inferred from the contract
 const contract = defineContract({
   publishers: {
@@ -73,6 +79,9 @@ const contract = defineContract({
     })),
   },
 });
+
+// Connect to RabbitMQ
+const connection = await connect('amqp://localhost');
 
 // Client knows about 'orderCreated' and its schema
 const client = await createClient({ contract, connection });
