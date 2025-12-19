@@ -13,7 +13,7 @@ catalog:
   "@types/node": 25.0.1
   "@vitest/coverage-v8": 4.0.15
   amqplib: 0.10.9
-  arktype: 2.1.28
+  arktype: 2.1.29
   knip: 5.73.4
   lefthook: 2.0.11
   oxfmt: 0.17.0
