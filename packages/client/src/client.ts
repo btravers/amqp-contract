@@ -53,7 +53,9 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     options?: PublishOptions,
   ): Promise<boolean> {
     if (!this.channel) {
-      throw new Error("Client not connected. Call init() first.");
+      throw new Error(
+        "Client not initialized. Create the client using TypedAmqpClient.create() to establish a connection.",
+      );
     }
 
     const publishers = this.contract.publishers as Record<string, unknown>;
