@@ -128,6 +128,7 @@ pnpm --filter @amqp-contract-samples/basic-order-processing-client dev
 The client publishes 5 messages, and you'll see the worker process them according to the routing patterns:
 
 **Client Output:**
+
 ```
 1️⃣ Publishing NEW ORDER (order.created)
    ✓ Published order ORD-001
@@ -151,6 +152,7 @@ The client publishes 5 messages, and you'll see the worker process them accordin
 ```
 
 **Worker Output:**
+
 ```
 Subscribed to:
   • order.created     → processOrder handler
