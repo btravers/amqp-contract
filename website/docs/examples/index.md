@@ -53,26 +53,37 @@ pnpm build
 
 ### Run an Example
 
-```bash
-# Terminal 1: Start consumer
-pnpm --filter @amqp-contract-samples/basic-order-processing dev:consumer
+The basic order processing example is split into three packages:
 
-# Terminal 2: Run publisher
-pnpm --filter @amqp-contract-samples/basic-order-processing dev:publisher
+```bash
+# Terminal 1: Start the worker
+pnpm --filter @amqp-contract-samples/basic-order-processing-worker dev
+
+# Terminal 2: Run the client
+pnpm --filter @amqp-contract-samples/basic-order-processing-client dev
 ```
 
 ## Example Structure
 
-Each example follows this structure:
+The basic order processing example is structured as three separate packages for better separation of concerns:
 
 ```
-samples/example-name/
-├── src/
-│   ├── contract.ts    # Contract definition
-│   ├── publisher.ts   # Message publisher
-│   └── consumer.ts    # Message consumer
-├── package.json
-└── README.md
+samples/
+├── basic-order-processing-contract/
+│   ├── src/
+│   │   └── index.ts       # Shared contract definition
+│   ├── package.json
+│   └── README.md
+├── basic-order-processing-client/
+│   ├── src/
+│   │   └── index.ts       # Message publisher
+│   ├── package.json
+│   └── README.md
+└── basic-order-processing-worker/
+    ├── src/
+    │   └── index.ts       # Message consumer
+    ├── package.json
+    └── README.md
 ```
 
 ## Next Steps
