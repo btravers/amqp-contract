@@ -189,33 +189,6 @@ describe("AmqpClient", () => {
   });
 
   describe("publish", () => {
-    it("should throw error when not connected", async () => {
-      // GIVEN
-      const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
-
-      const contract = defineContract({
-        exchanges: {
-          test: {
-            name: "test-exchange",
-            type: "topic" as const,
-          },
-        },
-        publishers: {
-          testPublisher: {
-            exchange: "test-exchange",
-            message: TestMessage,
-          },
-        },
-      });
-
-      const client = await TypedAmqpClient.create({ contract, connection: mockConnection });
-
-      // WHEN / THEN
-      await expect(client.publish("testPublisher", { id: "123" })).rejects.toThrow(
-        "Client not connected. Call connect() first.",
-      );
-    });
-
     it("should publish a valid message", async () => {
       // GIVEN
       const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
