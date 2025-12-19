@@ -191,7 +191,7 @@ export class AmqpWorker<TContract extends ContractDefinition> {
     }
 
     if (this.connection) {
-      await (this.connection as unknown as { close(): Promise<void> }).close();
+      await this.connection.close();
       this.connection = null;
     }
   }
