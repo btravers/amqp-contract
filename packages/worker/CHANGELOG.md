@@ -1,5 +1,13 @@
 # @amqp-contract/worker
 
+## 0.0.5
+
+### Patch Changes
+
+- Refactor to use factory pattern with static create() methods. Remove unnecessary type casts and improve internal implementation.
+- Updated dependencies
+  - @amqp-contract/contract@0.0.5
+
 ## 0.0.4
 
 ### Patch Changes
