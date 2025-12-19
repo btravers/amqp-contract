@@ -118,7 +118,9 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     consumerName: TName,
   ): Promise<void> {
     if (!this.channel) {
-      throw new Error("Worker not connected. Call connect() first.");
+      throw new Error(
+        "Worker not initialized. Use TypedAmqpWorker.create() to obtain an initialized worker instance.",
+      );
     }
 
     const consumers = this.contract.consumers as Record<string, unknown>;
