@@ -1,6 +1,6 @@
 {
   "name": "@amqp-contract/testing",
-  "version": "0.0.2",
+  "version": "0.0.4",
   "description": "Testing utilities for AMQP contracts with testcontainers",
   "license": "MIT",
   "type": "module",
