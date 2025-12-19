@@ -21,7 +21,7 @@
       "entry": ["*.json"]
     },
     "website": {
-      "entry": ["docs/.vitepress/config.ts"]
+      "entry": ["docs/.vitepress/config.ts", "docs/.vitepress/theme/index.ts"]
     }
   },
   "ignore": ["coverage/**", "**/dist/**"],
