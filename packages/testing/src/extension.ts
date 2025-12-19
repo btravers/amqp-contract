@@ -9,11 +9,21 @@ export const it = vitestIt.extend<{
   workerConnection: async ({}, use) => {
     const connection = await createAmqpConnection();
     await use(connection);
+    try {
+      await connection.close();
+    } catch {
+      // Connection may already be closed
+    }
   },
   // oxlint-disable-next-line no-empty-pattern
   clientConnection: async ({}, use) => {
     const connection = await createAmqpConnection();
     await use(connection);
+    try {
+      await connection.close();
+    } catch {
+      // Connection may already be closed
+    }
   },
 });
 
