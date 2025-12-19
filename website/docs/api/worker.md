@@ -142,7 +142,7 @@ await worker.close();
 ```typescript
 type MessageHandler<TMessage> = (
   message: TMessage,
-  context: HandlerContext
+  context?: HandlerContext
 ) => Promise<void> | void
 ```
 
