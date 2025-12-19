@@ -12,36 +12,43 @@ pnpm add @amqp-contract/worker amqplib
 
 ### `createWorker`
 
-Creates a type-safe AMQP worker from a contract with message handlers.
+Creates a type-safe AMQP worker from a contract with message handlers. Automatically connects to RabbitMQ and starts consuming all messages.
 
 **Signature:**
 
 ```typescript
-function createWorker<TContract>(
-  contract: TContract,
-  handlers: Handlers<TContract>
-): AmqpWorker<TContract>
+async function createWorker<TContract>(
+  options: CreateWorkerOptions<TContract>
+): Promise<AmqpWorker<TContract>>
 ```
 
 **Example:**
 
 ```typescript
 import { createWorker } from '@amqp-contract/worker';
+import { connect } from 'amqplib';
 import { contract } from './contract';
 
-const worker = createWorker(contract, {
-  processOrder: async (message) => {
-    console.log('Processing:', message.orderId);
+const connection = await connect('amqp://localhost');
+const worker = await createWorker({
+  contract,
+  handlers: {
+    processOrder: async (message) => {
+      console.log('Processing:', message.orderId);
+    },
   },
+  connection,
 });
 ```
 
 **Parameters:**
 
-- `contract` - Contract definition created with `defineContract`
-- `handlers` - Object with handler functions for each consumer
+- `options` - Configuration object:
+  - `contract` - Contract definition created with `defineContract`
+  - `handlers` - Object with handler functions for each consumer
+  - `connection` - amqplib Connection object
 
-**Returns:** Type-safe AMQP worker
+**Returns:** Promise that resolves to a type-safe AMQP worker
 
 ---
 
@@ -50,6 +57,8 @@ const worker = createWorker(contract, {
 ### `connect`
 
 Connects the worker to RabbitMQ.
+
+**Note:** When using `createWorker()`, this method is called automatically. You only need to call this manually if you create an `AmqpWorker` instance directly using `new AmqpWorker()`.
 
 **Signature:**
 
@@ -60,9 +69,11 @@ async connect(connection: Connection): Promise<void>
 **Example:**
 
 ```typescript
+import { AmqpWorker } from '@amqp-contract/worker';
 import { connect } from 'amqplib';
 
 const connection = await connect('amqp://localhost');
+const worker = new AmqpWorker(contract, handlers);
 await worker.connect(connection);
 ```
 
@@ -75,6 +86,8 @@ await worker.connect(connection);
 ### `consumeAll`
 
 Starts consuming from all queues defined in the contract.
+
+**Note:** When using `createWorker()`, this method is called automatically. You only need to call this manually if you create an `AmqpWorker` instance directly and want to start all consumers at once.
 
 **Signature:**
 
@@ -135,6 +148,20 @@ await worker.close();
 
 ---
 
+## Types
+
+### `CreateWorkerOptions`
+
+```typescript
+import type { ChannelModel } from "amqplib";
+
+interface CreateWorkerOptions<TContract> {
+  contract: TContract;
+  handlers: Handlers<TContract>;
+  connection: ChannelModel;
+}
+```
+
 ## Message Handlers
 
 ### Handler Signature
@@ -179,26 +206,26 @@ async function main() {
   // Connect to RabbitMQ
   const connection = await connect('amqp://localhost');
 
-  // Create worker with handlers
-  const worker = createWorker(contract, {
-    processOrder: async (message) => {
-      console.log(`Processing order ${message.orderId}`);
-      console.log(`Customer: ${message.customerId}`);
-      console.log(`Amount: $${message.amount}`);
+  // Create worker with handlers (automatically connects and starts consuming)
+  const worker = await createWorker({
+    contract,
+    handlers: {
+      processOrder: async (message) => {
+        console.log(`Processing order ${message.orderId}`);
+        console.log(`Customer: ${message.customerId}`);
+        console.log(`Amount: $${message.amount}`);
 
-      // Your business logic here
-      await saveToDatabase(message);
-    },
+        // Your business logic here
+        await saveToDatabase(message);
+      },
 
-    notifyOrder: async (message) => {
-      console.log(`Sending notification for ${message.orderId}`);
-      await sendEmail(message);
+      notifyOrder: async (message) => {
+        console.log(`Sending notification for ${message.orderId}`);
+        await sendEmail(message);
+      },
     },
+    connection,
   });
-
-  // Connect and start consuming
-  await worker.connect(connection);
-  await worker.consumeAll();
 
   console.log('Worker ready, waiting for messages...');
 }
@@ -209,20 +236,24 @@ main();
 ## Manual Acknowledgment
 
 ```typescript
-const worker = createWorker(contract, {
-  processOrder: async (message, { ack, nack }) => {
-    try {
-      await processOrder(message);
+const worker = await createWorker({
+  contract,
+  handlers: {
+    processOrder: async (message, { ack, nack }) => {
+      try {
+        await processOrder(message);
 
-      // Explicitly acknowledge
-      ack();
-    } catch (error) {
-      console.error('Processing failed:', error);
+        // Explicitly acknowledge
+        ack();
+      } catch (error) {
+        console.error('Processing failed:', error);
 
-      // Reject and requeue
-      nack({ requeue: true });
-    }
+        // Reject and requeue
+        nack({ requeue: true });
+      }
+    },
   },
+  connection,
 });
 ```
 
@@ -231,41 +262,54 @@ const worker = createWorker(contract, {
 By default, errors in handlers are caught and logged:
 
 ```typescript
-const worker = createWorker(contract, {
-  processOrder: async (message) => {
-    // If this throws, the message is NOT acknowledged
-    // and remains in the queue
-    await riskyOperation(message);
+const worker = await createWorker({
+  contract,
+  handlers: {
+    processOrder: async (message) => {
+      // If this throws, the message is NOT acknowledged
+      // and remains in the queue
+      await riskyOperation(message);
+    },
   },
+  connection,
 });
 ```
 
 With manual acknowledgment for better control:
 
 ```typescript
-const worker = createWorker(contract, {
-  processOrder: async (message, { ack, nack, reject }) => {
-    try {
-      await processOrder(message);
-      ack();
-    } catch (error) {
-      if (isRetryable(error)) {
-        // Requeue for retry
-        nack({ requeue: true });
-      } else {
-        // Permanent failure, don't requeue
-        nack({ requeue: false });
+const worker = await createWorker({
+  contract,
+  handlers: {
+    processOrder: async (message, { ack, nack, reject }) => {
+      try {
+        await processOrder(message);
+        ack();
+      } catch (error) {
+        if (isRetryable(error)) {
+          // Requeue for retry
+          nack({ requeue: true });
+        } else {
+          // Permanent failure, don't requeue
+          nack({ requeue: false });
+        }
       }
-    }
+    },
   },
+  connection,
 });
 ```
 
 ## Selective Consumption
 
-Start only specific consumers:
+If you need to start only specific consumers, use the `AmqpWorker` class directly:
 
 ```typescript
+import { AmqpWorker } from '@amqp-contract/worker';
+
+const worker = new AmqpWorker(contract, handlers);
+await worker.connect(connection);
+
 // Start only the processing consumer
 await worker.consume('processOrder');
 
@@ -301,25 +345,27 @@ process.on('SIGINT', shutdown);
 Run multiple workers for different consumers:
 
 ```typescript
-const processingWorker = createWorker(contract, {
-  processOrder: async (message) => {
-    // Heavy processing
-    await processOrder(message);
+const processingWorker = await createWorker({
+  contract,
+  handlers: {
+    processOrder: async (message) => {
+      // Heavy processing
+      await processOrder(message);
+    },
   },
+  connection: connection1,
 });
 
-const notificationWorker = createWorker(contract, {
-  notifyOrder: async (message) => {
-    // Fast notifications
-    await sendNotification(message);
+const notificationWorker = await createWorker({
+  contract,
+  handlers: {
+    notifyOrder: async (message) => {
+      // Fast notifications
+      await sendNotification(message);
+    },
   },
+  connection: connection2,
 });
-
-await processingWorker.connect(connection1);
-await processingWorker.consumeAll();
-
-await notificationWorker.connect(connection2);
-await notificationWorker.consumeAll();
 ```
 
 ## Retry Logic
@@ -327,20 +373,24 @@ await notificationWorker.consumeAll();
 Implement custom retry logic:
 
 ```typescript
-const worker = createWorker(contract, {
-  processOrder: async (message, { ack, nack }) => {
-    try {
-      await processOrder(message);
-      ack();
-    } catch (error) {
-      console.error('Processing failed:', error);
+const worker = await createWorker({
+  contract,
+  handlers: {
+    processOrder: async (message, { ack, nack }) => {
+      try {
+        await processOrder(message);
+        ack();
+      } catch (error) {
+        console.error('Processing failed:', error);
 
-      // Requeue for retry (simple approach)
-      // For sophisticated retry logic, use dead letter queues
-      // with TTL to track retry attempts
-      nack({ requeue: true });
-    }
+        // Requeue for retry (simple approach)
+        // For sophisticated retry logic, use dead letter queues
+        // with TTL to track retry attempts
+        nack({ requeue: true });
+      }
+    },
   },
+  connection,
 });
 ```
 
@@ -386,16 +436,20 @@ const contract = defineContract({
 The worker provides full type inference for consumer handlers:
 
 ```typescript
-const worker = createWorker(contract, {
-  processOrder: async (message) => {
-    // message is fully typed based on the schema
-    message.orderId;     // string
-    message.amount;      // number
-    message.items;       // array
-  },
+const worker = await createWorker({
+  contract,
+  handlers: {
+    processOrder: async (message) => {
+      // message is fully typed based on the schema
+      message.orderId;     // string
+      message.amount;      // number
+      message.items;       // array
+    },
 
-  // ❌ TypeScript error: missing required handler
-  // notifyOrder: ...
+    // ❌ TypeScript error: missing required handler
+    // notifyOrder: ...
+  },
+  connection,
 });
 ```
 
@@ -409,31 +463,32 @@ import { contract } from './contract';
 async function main() {
   const connection = await connect('amqp://localhost');
 
-  const worker = createWorker(contract, {
-    processOrder: async (message, { ack, nack }) => {
-      try {
-        console.log(`[PROCESS] Order ${message.orderId}`);
+  const worker = await createWorker({
+    contract,
+    handlers: {
+      processOrder: async (message, { ack, nack }) => {
+        try {
+          console.log(`[PROCESS] Order ${message.orderId}`);
 
-        // Your business logic
-        await saveToDatabase(message);
-        await sendConfirmationEmail(message);
+          // Your business logic
+          await saveToDatabase(message);
+          await sendConfirmationEmail(message);
 
-        ack();
-        console.log(`[PROCESS] Order ${message.orderId} completed`);
-      } catch (error) {
-        console.error(`[PROCESS] Error:`, error);
-        nack({ requeue: true });
-      }
+          ack();
+          console.log(`[PROCESS] Order ${message.orderId} completed`);
+        } catch (error) {
+          console.error(`[PROCESS] Error:`, error);
+          nack({ requeue: true });
+        }
+      },
+
+      notifyOrder: async (message) => {
+        console.log(`[NOTIFY] Order ${message.orderId} event`);
+        await sendNotification(message);
+      },
     },
-
-    notifyOrder: async (message) => {
-      console.log(`[NOTIFY] Order ${message.orderId} event`);
-      await sendNotification(message);
-    },
+    connection,
   });
-
-  await worker.connect(connection);
-  await worker.consumeAll();
 
   console.log('Worker ready, waiting for messages...');
 

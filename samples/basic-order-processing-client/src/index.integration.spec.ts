@@ -6,8 +6,7 @@ import { orderContract } from "@amqp-contract-samples/basic-order-processing-con
 describe("Basic Order Processing Client Integration", () => {
   it("should publish a new order successfully", async ({ clientConnection }) => {
     // GIVEN
-    const client = createClient(orderContract);
-    await client.connect(clientConnection);
+    const client = await createClient({ contract: orderContract, connection: clientConnection });
 
     const newOrder = {
       orderId: "TEST-001",
@@ -32,8 +31,7 @@ describe("Basic Order Processing Client Integration", () => {
 
   it("should publish order status updates", async ({ clientConnection }) => {
     // GIVEN
-    const client = createClient(orderContract);
-    await client.connect(clientConnection);
+    const client = await createClient({ contract: orderContract, connection: clientConnection });
 
     const orderUpdate = {
       orderId: "TEST-001",
@@ -53,8 +51,7 @@ describe("Basic Order Processing Client Integration", () => {
 
   it("should validate order schema before publishing", async ({ clientConnection }) => {
     // GIVEN
-    const client = createClient(orderContract);
-    await client.connect(clientConnection);
+    const client = await createClient({ contract: orderContract, connection: clientConnection });
 
     const invalidOrder = {
       orderId: "TEST-001",

@@ -24,8 +24,7 @@ describe("AmqpClient Integration", () => {
         },
       });
 
-      const client = createClient(contract);
-      await client.connect(clientConnection);
+      const client = await createClient({ contract, connection: clientConnection });
 
       // WHEN
       const result = await client.publish("testPublisher", {
@@ -58,8 +57,7 @@ describe("AmqpClient Integration", () => {
         },
       });
 
-      const client = createClient(contract);
-      await client.connect(clientConnection);
+      const client = await createClient({ contract, connection: clientConnection });
 
       // WHEN / THEN
       await expect(
@@ -90,8 +88,7 @@ describe("AmqpClient Integration", () => {
         },
       });
 
-      const client = createClient(contract);
-      await client.connect(clientConnection);
+      const client = await createClient({ contract, connection: clientConnection });
 
       // WHEN
       const result = await client.publish(
@@ -137,10 +134,8 @@ describe("AmqpClient Integration", () => {
         },
       });
 
-      const client = createClient(contract);
-
       // WHEN
-      await client.connect(clientConnection);
+      const client = await createClient({ contract, connection: clientConnection });
 
       // THEN - No errors should be thrown during topology setup
       expect(client).toBeDefined();

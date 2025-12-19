@@ -25,7 +25,7 @@ describe("AmqpClient", () => {
   });
 
   describe("Type Inference", () => {
-    it("should infer publisher names correctly", () => {
+    it("should infer publisher names correctly", async () => {
       // GIVEN
       const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
 
@@ -46,7 +46,7 @@ describe("AmqpClient", () => {
       });
 
       // WHEN
-      const client = createClient(contract);
+      const client = await createClient({ contract, connection: mockConnection });
 
       // THEN
       // Type inference test - this should compile without errors
@@ -82,8 +82,7 @@ describe("AmqpClient", () => {
         },
       });
 
-      const client = createClient(contract);
-      await client.connect(mockConnection);
+      const client = await createClient({ contract, connection: mockConnection });
 
       // WHEN
       // Type inference test - message type should be inferred correctly
@@ -116,10 +115,8 @@ describe("AmqpClient", () => {
         },
       });
 
-      const client = new AmqpClient(contract);
-
       // WHEN
-      await client.connect(mockConnection);
+      await createClient({ contract, connection: mockConnection });
 
       // THEN
       expect(mockConnection.createChannel).toHaveBeenCalled();
@@ -143,10 +140,8 @@ describe("AmqpClient", () => {
         },
       });
 
-      const client = new AmqpClient(contract);
-
       // WHEN
-      await client.connect(mockConnection);
+      await createClient({ contract, connection: mockConnection });
 
       // THEN
       expect(mockChannel.assertQueue).toHaveBeenCalledWith("test-queue", {
@@ -180,10 +175,8 @@ describe("AmqpClient", () => {
         },
       });
 
-      const client = new AmqpClient(contract);
-
       // WHEN
-      await client.connect(mockConnection);
+      await createClient({ contract, connection: mockConnection });
 
       // THEN
       expect(mockChannel.bindQueue).toHaveBeenCalledWith(
@@ -243,8 +236,7 @@ describe("AmqpClient", () => {
         },
       });
 
-      const client = new AmqpClient(contract);
-      await client.connect(mockConnection);
+      const client = await createClient({ contract, connection: mockConnection });
 
       // WHEN
       const result = await client.publish("testPublisher", { id: "123" });
@@ -279,8 +271,7 @@ describe("AmqpClient", () => {
         },
       });
 
-      const client = new AmqpClient(contract);
-      await client.connect(mockConnection);
+      const client = await createClient({ contract, connection: mockConnection });
 
       // WHEN
       await client.publish("testPublisher", { id: "123" }, { routingKey: "test.custom" });
@@ -313,8 +304,7 @@ describe("AmqpClient", () => {
         },
       });
 
-      const client = new AmqpClient(contract);
-      await client.connect(mockConnection);
+      const client = await createClient({ contract, connection: mockConnection });
 
       // WHEN / THEN
       // @ts-expect-error - testing runtime validation with invalid data
@@ -334,8 +324,7 @@ describe("AmqpClient", () => {
         },
       });
 
-      const client = new AmqpClient(contract);
-      await client.connect(mockConnection);
+      const client = await createClient({ contract, connection: mockConnection });
 
       // WHEN
       await client.close();
@@ -364,7 +353,7 @@ describe("AmqpClient", () => {
   });
 
   describe("createClient", () => {
-    it("should create a client instance", () => {
+    it("should create a client instance and connect automatically", async () => {
       // GIVEN
       const contract = defineContract({
         exchanges: {
@@ -376,10 +365,11 @@ describe("AmqpClient", () => {
       });
 
       // WHEN
-      const client = createClient(contract);
+      const client = await createClient({ contract, connection: mockConnection });
 
       // THEN
       expect(client).toBeInstanceOf(AmqpClient);
+      expect(mockConnection.createChannel).toHaveBeenCalled();
     });
   });
 });

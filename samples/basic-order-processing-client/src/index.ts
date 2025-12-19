@@ -28,8 +28,7 @@ async function main() {
   logger.info("Connected to RabbitMQ");
 
   // Create type-safe client
-  const client = createClient(orderContract);
-  await client.connect(connection);
+  const client = await createClient({ contract: orderContract, connection });
 
   logger.info("Client ready");
   logger.info("=".repeat(60));

@@ -1,6 +1,6 @@
 import { describe, expect } from "vitest";
 import { it } from "@amqp-contract/testing/extension";
-import { createWorker } from "@amqp-contract/worker";
+import { AmqpWorker } from "@amqp-contract/worker";
 import { createClient } from "@amqp-contract/client";
 import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
 
@@ -11,7 +11,7 @@ describe("Basic Order Processing Worker Integration", () => {
   }) => {
     // GIVEN
     const processedOrders: Array<unknown> = [];
-    const worker = createWorker(orderContract, {
+    const worker = new AmqpWorker(orderContract, {
       processOrder: (msg) => {
         processedOrders.push(msg);
       },
@@ -23,8 +23,7 @@ describe("Basic Order Processing Worker Integration", () => {
     await worker.connect(workerConnection);
     await worker.consume("processOrder");
 
-    const client = createClient(orderContract);
-    await client.connect(clientConnection);
+    const client = await createClient({ contract: orderContract, connection: clientConnection });
 
     const newOrder = {
       orderId: "TEST-001",
@@ -53,7 +52,7 @@ describe("Basic Order Processing Worker Integration", () => {
   }) => {
     // GIVEN
     const notifications: Array<unknown> = [];
-    const worker = createWorker(orderContract, {
+    const worker = new AmqpWorker(orderContract, {
       processOrder: async () => {},
       notifyOrder: async (msg) => {
         notifications.push(msg);
@@ -65,8 +64,7 @@ describe("Basic Order Processing Worker Integration", () => {
     await worker.connect(workerConnection);
     await worker.consume("notifyOrder");
 
-    const client = createClient(orderContract);
-    await client.connect(clientConnection);
+    const client = await createClient({ contract: orderContract, connection: clientConnection });
 
     // WHEN - Publish different types of order events
     const newOrder = {
@@ -102,7 +100,7 @@ describe("Basic Order Processing Worker Integration", () => {
     // GIVEN
     const processedOrders: Array<unknown> = [];
     const notifications: Array<unknown> = [];
-    const worker = createWorker(orderContract, {
+    const worker = new AmqpWorker(orderContract, {
       processOrder: async (msg) => {
         processedOrders.push(msg);
       },
@@ -118,8 +116,7 @@ describe("Basic Order Processing Worker Integration", () => {
     // WHEN - Start all consumers
     await worker.consumeAll();
 
-    const client = createClient(orderContract);
-    await client.connect(clientConnection);
+    const client = await createClient({ contract: orderContract, connection: clientConnection });
 
     const newOrder = {
       orderId: "TEST-003",
