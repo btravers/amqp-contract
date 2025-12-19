@@ -209,13 +209,13 @@ packages/[package-name]/
    import type { StandardSchemaV1 } from '@standard-schema/spec';
 
    async function validateAndPublish(schema: StandardSchemaV1, data: unknown) {
-     const result = await schema['~standard'].validate(data);
-     if (result.issues === undefined) {
-       // Validation succeeded
-       return result.value;
+     const validation = await schema['~standard'].validate(data);
+     if (validation.issues) {
+       // Validation failed
+       throw new Error(`Validation failed: ${JSON.stringify(validation.issues)}`);
      }
-     // Handle validation issues
-     throw new Error(`Validation failed: ${JSON.stringify(result.issues)}`);
+     // Validation succeeded
+     return validation.value;
    }
    ```
 
