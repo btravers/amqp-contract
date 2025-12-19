@@ -50,26 +50,6 @@ Create a type-safe AMQP worker from a contract with message handlers. Automatica
 - `options.handlers` - Object with handler functions for each consumer
 - `options.connection` - amqplib Connection object
 
-### `TypedAmqpWorker.connect(connection)`
-
-Connect to an AMQP broker and set up all exchanges, queues, and bindings defined in the contract.
-
-**Note:** When using `TypedAmqpWorker.create()`, this is called automatically.
-
-### `TypedAmqpWorker.consume(consumerName)`
-
-Start consuming messages for a specific consumer.
-
-### `TypedAmqpWorker.consumeAll()`
-
-Start consuming messages for all consumers defined in the contract.
-
-**Note:** When using `TypedAmqpWorker.create()`, this is called automatically.
-
-### `TypedAmqpWorker.stopConsuming()`
-
-Stop consuming messages from all consumers.
-
 ### `TypedAmqpWorker.close()`
 
 Stop consuming and close the channel and connection.
