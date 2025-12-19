@@ -5,19 +5,19 @@ import { defineContract, defineMessage } from "@amqp-contract/contract";
 import { z } from "zod";
 
 // Mock types for testing
-const mockChannel: Channel = {
+const mockChannel = {
   assertExchange: vi.fn().mockResolvedValue(undefined),
   assertQueue: vi.fn().mockResolvedValue(undefined),
   bindQueue: vi.fn().mockResolvedValue(undefined),
   publish: vi.fn().mockReturnValue(true),
   close: vi.fn().mockResolvedValue(undefined),
   prefetch: vi.fn().mockResolvedValue(undefined),
-};
+} as unknown as Channel;
 
-const mockConnection: ChannelModel = {
+const mockConnection = {
   createChannel: vi.fn().mockResolvedValue(mockChannel),
   close: vi.fn().mockResolvedValue(undefined),
-};
+} as unknown as ChannelModel;
 
 describe("AmqpClient", () => {
   beforeEach(() => {

@@ -7,7 +7,7 @@ import { z } from "zod";
 // Mock types for testing
 let mockConsumeCallback: ((msg: ConsumeMessage | null) => Promise<void>) | null = null;
 
-const mockChannel: Channel = {
+const mockChannel = {
   assertExchange: vi.fn().mockResolvedValue(undefined),
   assertQueue: vi.fn().mockResolvedValue(undefined),
   bindQueue: vi.fn().mockResolvedValue(undefined),
@@ -20,12 +20,12 @@ const mockChannel: Channel = {
   nack: vi.fn(),
   cancel: vi.fn().mockResolvedValue(undefined),
   close: vi.fn().mockResolvedValue(undefined),
-};
+} as unknown as Channel;
 
-const mockConnection: ChannelModel = {
+const mockConnection = {
   createChannel: vi.fn().mockResolvedValue(mockChannel),
   close: vi.fn().mockResolvedValue(undefined),
-};
+} as unknown as ChannelModel;
 
 describe("AmqpWorker", () => {
   beforeEach(() => {
