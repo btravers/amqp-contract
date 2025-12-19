@@ -116,8 +116,7 @@ import { orderContract } from './contract';
 
 async function main() {
   const connection = await connect('amqp://localhost');
-  const client = createClient(orderContract);
-  await client.connect(connection);
+  const client = await createClient({ contract: orderContract, connection });
 
   // Type-safe publishing with validation
   await client.publish('orderCreated', {
@@ -150,23 +149,24 @@ import { orderContract } from './contract';
 async function main() {
   const connection = await connect('amqp://localhost');
 
-  const worker = createWorker(orderContract, {
-    processOrder: async (message) => {
-      // message is fully typed!
-      console.log(`Processing order: ${message.orderId}`);
-      console.log(`Customer: ${message.customerId}`);
-      console.log(`Amount: $${message.amount}`);
-      console.log(`Items: ${message.items.length}`);
+  const worker = await createWorker({
+    contract: orderContract,
+    handlers: {
+      processOrder: async (message) => {
+        // message is fully typed!
+        console.log(`Processing order: ${message.orderId}`);
+        console.log(`Customer: ${message.customerId}`);
+        console.log(`Amount: $${message.amount}`);
+        console.log(`Items: ${message.items.length}`);
 
-      // Your business logic here
-      for (const item of message.items) {
-        console.log(`  - ${item.productId} x${item.quantity}`);
-      }
+        // Your business logic here
+        for (const item of message.items) {
+          console.log(`  - ${item.productId} x${item.quantity}`);
+        }
+      },
     },
+    connection,
   });
-
-  await worker.connect(connection);
-  await worker.consumeAll();
 
   console.log('Worker ready, waiting for messages...');
 }

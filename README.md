@@ -62,21 +62,22 @@ const contract = defineContract({
 });
 
 // Client - fully typed publishing
-const client = createClient(contract);
-await client.connect(connection);
+const client = await createClient({ contract, connection });
 await client.publish('orderCreated', {
   orderId: 'ORD-123',  // ✅ TypeScript knows!
   amount: 99.99,
 });
 
 // Worker - fully typed consuming
-const worker = createWorker(contract, {
-  processOrder: async (message) => {
-    console.log(message.orderId);  // ✅ TypeScript knows!
+const worker = await createWorker({
+  contract,
+  handlers: {
+    processOrder: async (message) => {
+      console.log(message.orderId);  // ✅ TypeScript knows!
+    },
   },
+  connection,
 });
-await worker.connect(connection);
-await worker.consumeAll();
 ```
 
 ## Installation

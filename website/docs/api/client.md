@@ -279,8 +279,7 @@ connection.on('close', () => {
 });
 
 // Create and connect client
-const client = createClient(contract);
-await client.connect(connection);
+const client = await createClient({ contract, connection });
 
 // Use client...
 

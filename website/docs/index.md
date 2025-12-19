@@ -94,7 +94,11 @@ const contract = defineContract({
   },
 });
 
+// Connect to RabbitMQ
+const connection = await connect('amqp://localhost');
+
 // ✅ Type-safe client
+const client = await createClient({ contract, connection });
 await client.publish('orderCreated', {
   orderId: 'ORD-123',      // TypeScript knows!
   customerId: 'CUST-456',
@@ -102,10 +106,14 @@ await client.publish('orderCreated', {
 });
 
 // ✅ Type-safe worker
-const worker = createWorker(contract, {
-  processOrder: async (message) => {
-    console.log(message.orderId);  // ✅ Fully typed!
+const worker = await createWorker({
+  contract,
+  handlers: {
+    processOrder: async (message) => {
+      console.log(message.orderId);  // ✅ Fully typed!
+    },
   },
+  connection,
 });
 ```
 
@@ -147,8 +155,7 @@ import { connect } from 'amqplib';
 import { orderContract } from './contract';
 
 const connection = await connect('amqp://localhost');
-const client = createClient(orderContract);
-await client.connect(connection);
+const client = await createClient({ contract: orderContract, connection });
 
 // Type-safe publishing
 await client.publish('orderCreated', {
@@ -164,15 +171,16 @@ import { orderContract } from './contract';
 
 const connection = await connect('amqp://localhost');
 
-const worker = createWorker(orderContract, {
-  processOrder: async (message) => {
-    console.log(`Processing order: ${message.orderId}`);
-    console.log(`Amount: $${message.amount}`);
+const worker = await createWorker({
+  contract: orderContract,
+  handlers: {
+    processOrder: async (message) => {
+      console.log(`Processing order: ${message.orderId}`);
+      console.log(`Amount: $${message.amount}`);
+    },
   },
+  connection,
 });
-
-await worker.connect(connection);
-await worker.consumeAll();
 ```
 
 :::
