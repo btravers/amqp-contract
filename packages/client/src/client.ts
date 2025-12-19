@@ -6,6 +6,14 @@ import type {
 } from "@amqp-contract/contract";
 
 /**
+ * Options for creating a client
+ */
+export interface CreateClientOptions<TContract extends ContractDefinition> {
+  contract: TContract;
+  connection: ChannelModel;
+}
+
+/**
  * Options for publishing a message
  */
 export interface PublishOptions {
@@ -16,54 +24,24 @@ export interface PublishOptions {
 /**
  * Type-safe AMQP client for publishing messages
  */
-export class AmqpClient<TContract extends ContractDefinition> {
+export class TypedAmqpClient<TContract extends ContractDefinition> {
   private channel: Channel | null = null;
-  private connection: ChannelModel | null = null;
 
-  constructor(private readonly contract: TContract) {}
+  private constructor(
+    private readonly contract: TContract,
+    private readonly connection: ChannelModel,
+  ) {}
 
   /**
-   * Connect to AMQP broker
+   * Create a type-safe AMQP client from a contract
+   * The client will automatically init to the AMQP broker
    */
-  async connect(connection: ChannelModel): Promise<void> {
-    this.connection = connection;
-    this.channel = await connection.createChannel();
-
-    // Setup exchanges
-    if (this.contract.exchanges && this.channel) {
-      for (const exchange of Object.values(this.contract.exchanges)) {
-        await this.channel.assertExchange(exchange.name, exchange.type, {
-          durable: exchange.durable,
-          autoDelete: exchange.autoDelete,
-          internal: exchange.internal,
-          arguments: exchange.arguments,
-        });
-      }
-    }
-
-    // Setup queues
-    if (this.contract.queues && this.channel) {
-      for (const queue of Object.values(this.contract.queues)) {
-        await this.channel.assertQueue(queue.name, {
-          durable: queue.durable,
-          exclusive: queue.exclusive,
-          autoDelete: queue.autoDelete,
-          arguments: queue.arguments,
-        });
-      }
-    }
-
-    // Setup bindings
-    if (this.contract.bindings && this.channel) {
-      for (const binding of Object.values(this.contract.bindings)) {
-        await this.channel.bindQueue(
-          binding.queue,
-          binding.exchange,
-          binding.routingKey ?? "",
-          binding.arguments,
-        );
-      }
-    }
+  static async create<TContract extends ContractDefinition>(
+    options: CreateClientOptions<TContract>,
+  ): Promise<TypedAmqpClient<TContract>> {
+    const client = new TypedAmqpClient(options.contract, options.connection);
+    await client.init();
+    return client;
   }
 
   /**
@@ -75,7 +53,7 @@ export class AmqpClient<TContract extends ContractDefinition> {
     options?: PublishOptions,
   ): Promise<boolean> {
     if (!this.channel) {
-      throw new Error("Client not connected. Call connect() first.");
+      throw new Error("Client not connected. Call init() first.");
     }
 
     const publishers = this.contract.publishers as Record<string, unknown>;
@@ -123,31 +101,51 @@ export class AmqpClient<TContract extends ContractDefinition> {
   async close(): Promise<void> {
     if (this.channel) {
       await this.channel.close();
-      this.channel = null;
     }
-    if (this.connection) {
-      await this.connection.close();
-      this.connection = null;
+
+    await this.connection.close();
+  }
+
+  /**
+   * Connect to AMQP broker
+   */
+  private async init(): Promise<void> {
+    this.channel = await this.connection.createChannel();
+
+    // Setup exchanges
+    if (this.contract.exchanges) {
+      for (const exchange of Object.values(this.contract.exchanges)) {
+        await this.channel.assertExchange(exchange.name, exchange.type, {
+          durable: exchange.durable,
+          autoDelete: exchange.autoDelete,
+          internal: exchange.internal,
+          arguments: exchange.arguments,
+        });
+      }
+    }
+
+    // Setup queues
+    if (this.contract.queues) {
+      for (const queue of Object.values(this.contract.queues)) {
+        await this.channel.assertQueue(queue.name, {
+          durable: queue.durable,
+          exclusive: queue.exclusive,
+          autoDelete: queue.autoDelete,
+          arguments: queue.arguments,
+        });
+      }
+    }
+
+    // Setup bindings
+    if (this.contract.bindings) {
+      for (const binding of Object.values(this.contract.bindings)) {
+        await this.channel.bindQueue(
+          binding.queue,
+          binding.exchange,
+          binding.routingKey ?? "",
+          binding.arguments,
+        );
+      }
     }
   }
-}
-
-/**
- * Options for creating a client
- */
-export interface CreateClientOptions<TContract extends ContractDefinition> {
-  contract: TContract;
-  connection: ChannelModel;
-}
-
-/**
- * Create a type-safe AMQP client from a contract
- * The client will automatically connect to the AMQP broker
- */
-export async function createClient<TContract extends ContractDefinition>(
-  options: CreateClientOptions<TContract>,
-): Promise<AmqpClient<TContract>> {
-  const client = new AmqpClient(options.contract);
-  await client.connect(options.connection);
-  return client;
 }

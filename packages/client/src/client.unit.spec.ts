@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { AmqpClient, createClient } from "./client";
+import { TypedAmqpClient } from "./client";
 import type { ChannelModel, Channel } from "amqplib";
 import { defineContract, defineMessage } from "@amqp-contract/contract";
 import { z } from "zod";
@@ -46,7 +46,7 @@ describe("AmqpClient", () => {
       });
 
       // WHEN
-      const client = await createClient({ contract, connection: mockConnection });
+      const client = await TypedAmqpClient.create({ contract, connection: mockConnection });
 
       // THEN
       // Type inference test - this should compile without errors
@@ -82,7 +82,7 @@ describe("AmqpClient", () => {
         },
       });
 
-      const client = await createClient({ contract, connection: mockConnection });
+      const client = await TypedAmqpClient.create({ contract, connection: mockConnection });
 
       // WHEN
       // Type inference test - message type should be inferred correctly
@@ -116,7 +116,7 @@ describe("AmqpClient", () => {
       });
 
       // WHEN
-      await createClient({ contract, connection: mockConnection });
+      await TypedAmqpClient.create({ contract, connection: mockConnection });
 
       // THEN
       expect(mockConnection.createChannel).toHaveBeenCalled();
@@ -141,7 +141,7 @@ describe("AmqpClient", () => {
       });
 
       // WHEN
-      await createClient({ contract, connection: mockConnection });
+      await TypedAmqpClient.create({ contract, connection: mockConnection });
 
       // THEN
       expect(mockChannel.assertQueue).toHaveBeenCalledWith("test-queue", {
@@ -176,7 +176,7 @@ describe("AmqpClient", () => {
       });
 
       // WHEN
-      await createClient({ contract, connection: mockConnection });
+      await TypedAmqpClient.create({ contract, connection: mockConnection });
 
       // THEN
       expect(mockChannel.bindQueue).toHaveBeenCalledWith(
@@ -208,7 +208,7 @@ describe("AmqpClient", () => {
         },
       });
 
-      const client = new AmqpClient(contract);
+      const client = await TypedAmqpClient.create({ contract, connection: mockConnection });
 
       // WHEN / THEN
       await expect(client.publish("testPublisher", { id: "123" })).rejects.toThrow(
@@ -236,7 +236,7 @@ describe("AmqpClient", () => {
         },
       });
 
-      const client = await createClient({ contract, connection: mockConnection });
+      const client = await TypedAmqpClient.create({ contract, connection: mockConnection });
 
       // WHEN
       const result = await client.publish("testPublisher", { id: "123" });
@@ -271,7 +271,7 @@ describe("AmqpClient", () => {
         },
       });
 
-      const client = await createClient({ contract, connection: mockConnection });
+      const client = await TypedAmqpClient.create({ contract, connection: mockConnection });
 
       // WHEN
       await client.publish("testPublisher", { id: "123" }, { routingKey: "test.custom" });
@@ -304,7 +304,7 @@ describe("AmqpClient", () => {
         },
       });
 
-      const client = await createClient({ contract, connection: mockConnection });
+      const client = await TypedAmqpClient.create({ contract, connection: mockConnection });
 
       // WHEN / THEN
       // @ts-expect-error - testing runtime validation with invalid data
@@ -324,7 +324,7 @@ describe("AmqpClient", () => {
         },
       });
 
-      const client = await createClient({ contract, connection: mockConnection });
+      const client = await TypedAmqpClient.create({ contract, connection: mockConnection });
 
       // WHEN
       await client.close();
@@ -345,14 +345,14 @@ describe("AmqpClient", () => {
         },
       });
 
-      const client = new AmqpClient(contract);
+      const client = await TypedAmqpClient.create({ contract, connection: mockConnection });
 
       // WHEN / THEN
       await expect(client.close()).resolves.toBeUndefined();
     });
   });
 
-  describe("createClient", () => {
+  describe("TypedAmqpClient.create", () => {
     it("should create a client instance and connect automatically", async () => {
       // GIVEN
       const contract = defineContract({
@@ -365,10 +365,10 @@ describe("AmqpClient", () => {
       });
 
       // WHEN
-      const client = await createClient({ contract, connection: mockConnection });
+      const client = await TypedAmqpClient.create({ contract, connection: mockConnection });
 
       // THEN
-      expect(client).toBeInstanceOf(AmqpClient);
+      expect(client).toBeInstanceOf(TypedAmqpClient);
       expect(mockConnection.createChannel).toHaveBeenCalled();
     });
   });
