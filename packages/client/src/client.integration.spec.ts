@@ -6,7 +6,7 @@ import { z } from "zod";
 
 describe("AmqpClient Integration", () => {
   describe("end-to-end publishing", () => {
-    it("should publish messages to a real RabbitMQ instance", async ({ amqpConnection }) => {
+    it("should publish messages to a real RabbitMQ instance", async ({ clientConnection }) => {
       // GIVEN
       const TestMessage = z.object({
         id: z.string(),
@@ -25,7 +25,7 @@ describe("AmqpClient Integration", () => {
       });
 
       const client = createClient(contract);
-      await client.connect(amqpConnection);
+      await client.connect(clientConnection);
 
       // WHEN
       const result = await client.publish("testPublisher", {
@@ -40,7 +40,7 @@ describe("AmqpClient Integration", () => {
       await client.close();
     });
 
-    it("should validate messages before publishing", async ({ amqpConnection }) => {
+    it("should validate messages before publishing", async ({ clientConnection }) => {
       // GIVEN
       const TestMessage = z.object({
         id: z.string(),
@@ -59,7 +59,7 @@ describe("AmqpClient Integration", () => {
       });
 
       const client = createClient(contract);
-      await client.connect(amqpConnection);
+      await client.connect(clientConnection);
 
       // WHEN / THEN
       await expect(
@@ -73,7 +73,7 @@ describe("AmqpClient Integration", () => {
       await client.close();
     });
 
-    it("should handle custom routing keys", async ({ amqpConnection }) => {
+    it("should handle custom routing keys", async ({ clientConnection }) => {
       // GIVEN
       const TestMessage = z.object({
         content: z.string(),
@@ -91,7 +91,7 @@ describe("AmqpClient Integration", () => {
       });
 
       const client = createClient(contract);
-      await client.connect(amqpConnection);
+      await client.connect(clientConnection);
 
       // WHEN
       const result = await client.publish(
@@ -109,7 +109,7 @@ describe("AmqpClient Integration", () => {
   });
 
   describe("topology setup", () => {
-    it("should setup exchanges, queues, and bindings", async ({ amqpConnection }) => {
+    it("should setup exchanges, queues, and bindings", async ({ clientConnection }) => {
       // GIVEN
       const TestMessage = z.object({ id: z.string() });
 
@@ -140,7 +140,7 @@ describe("AmqpClient Integration", () => {
       const client = createClient(contract);
 
       // WHEN
-      await client.connect(amqpConnection);
+      await client.connect(clientConnection);
 
       // THEN - No errors should be thrown during topology setup
       expect(client).toBeDefined();
