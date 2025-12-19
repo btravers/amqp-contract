@@ -45,6 +45,7 @@ const worker = await createWorker({
 Create a type-safe AMQP worker from a contract with message handlers. Automatically connects and starts consuming all messages.
 
 **Parameters:**
+
 - `options.contract` - Contract definition
 - `options.handlers` - Object with handler functions for each consumer
 - `options.connection` - amqplib Connection object

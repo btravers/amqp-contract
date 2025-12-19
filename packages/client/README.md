@@ -40,6 +40,7 @@ await client.close();
 Create a type-safe AMQP client from a contract. Automatically connects to RabbitMQ.
 
 **Parameters:**
+
 - `options.contract` - Contract definition
 - `options.connection` - amqplib Connection object
 
