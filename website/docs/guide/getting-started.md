@@ -49,6 +49,7 @@ import {
   defineContract,
   defineExchange,
   defineQueue,
+  defineBinding,
   definePublisher,
   defineConsumer,
 } from '@amqp-contract/contract';
