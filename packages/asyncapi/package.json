@@ -4,10 +4,10 @@
   "description": "AsyncAPI specification generator for amqp-contract",
   "keywords": [
     "amqp",
-    "typescript",
-    "contract",
     "asyncapi",
-    "rabbitmq"
+    "contract",
+    "rabbitmq",
+    "typescript"
   ],
   "homepage": "https://github.com/btravers/amqp-contract#readme",
   "bugs": {

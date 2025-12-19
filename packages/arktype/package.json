@@ -4,10 +4,10 @@
   "description": "ArkType integration for amqp-contract",
   "keywords": [
     "amqp",
-    "typescript",
+    "arktype",
     "contract",
     "rabbitmq",
-    "arktype"
+    "typescript"
   ],
   "homepage": "https://github.com/btravers/amqp-contract#readme",
   "bugs": {

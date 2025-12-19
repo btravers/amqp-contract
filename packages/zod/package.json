@@ -4,9 +4,9 @@
   "description": "Zod integration for amqp-contract",
   "keywords": [
     "amqp",
-    "typescript",
     "contract",
     "rabbitmq",
+    "typescript",
     "zod"
   ],
   "homepage": "https://github.com/btravers/amqp-contract#readme",

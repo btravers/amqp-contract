@@ -4,10 +4,10 @@
   "description": "Client utilities for publishing messages using amqp-contract",
   "keywords": [
     "amqp",
-    "typescript",
-    "contract",
     "client",
-    "rabbitmq"
+    "contract",
+    "rabbitmq",
+    "typescript"
   ],
   "homepage": "https://github.com/btravers/amqp-contract#readme",
   "bugs": {
