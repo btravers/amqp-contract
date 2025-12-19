@@ -126,7 +126,7 @@ export class AmqpClient<TContract extends ContractDefinition> {
       this.channel = null;
     }
     if (this.connection) {
-      await (this.connection as unknown as { close(): Promise<void> }).close();
+      await this.connection.close();
       this.connection = null;
     }
   }
