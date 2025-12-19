@@ -496,55 +496,6 @@ describe("AmqpWorker", () => {
     });
   });
 
-  describe("stopConsuming", () => {
-    it("should cancel all consumers", async () => {
-      // GIVEN
-      const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
-
-      const contract = defineContract({
-        queues: {
-          test: {
-            name: "test-queue",
-          },
-        },
-        consumers: {
-          testConsumer: {
-            queue: "test-queue",
-            message: TestMessage,
-          },
-        },
-      });
-
-      const worker = await TypedAmqpWorker.create({
-        contract,
-        handlers: { testConsumer: vi.fn() },
-        connection: mockConnection,
-      });
-
-      // WHEN
-      await worker.stopConsuming();
-
-      // THEN
-      expect(mockChannel.cancel).toHaveBeenCalledWith("test-tag");
-    });
-
-    it("should handle stopConsuming when not connected", async () => {
-      // GIVEN
-      const contract = defineContract({
-        consumers: {},
-      });
-
-      const worker = await TypedAmqpWorker.create({
-        contract,
-        handlers: {},
-        connection: mockConnection,
-      });
-
-      // WHEN / THEN
-      await expect(worker.stopConsuming()).resolves.toBeUndefined();
-    });
-  });
-
   describe("close", () => {
     it("should stop consuming and close connections", async () => {
       // GIVEN
