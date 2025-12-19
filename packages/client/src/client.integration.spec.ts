@@ -1,6 +1,6 @@
 import { describe, expect } from "vitest";
 import { it } from "@amqp-contract/testing/extension";
-import { createClient } from "./client.js";
+import { TypedAmqpClient } from "./client.js";
 import { defineContract, defineExchange, definePublisher } from "@amqp-contract/contract";
 import { z } from "zod";
 
@@ -24,7 +24,7 @@ describe("AmqpClient Integration", () => {
         },
       });
 
-      const client = await createClient({ contract, connection: clientConnection });
+      const client = await TypedAmqpClient.create({ contract, connection: clientConnection });
 
       // WHEN
       const result = await client.publish("testPublisher", {
@@ -57,7 +57,7 @@ describe("AmqpClient Integration", () => {
         },
       });
 
-      const client = await createClient({ contract, connection: clientConnection });
+      const client = await TypedAmqpClient.create({ contract, connection: clientConnection });
 
       // WHEN / THEN
       await expect(
@@ -88,7 +88,7 @@ describe("AmqpClient Integration", () => {
         },
       });
 
-      const client = await createClient({ contract, connection: clientConnection });
+      const client = await TypedAmqpClient.create({ contract, connection: clientConnection });
 
       // WHEN
       const result = await client.publish(
@@ -135,7 +135,7 @@ describe("AmqpClient Integration", () => {
       });
 
       // WHEN
-      const client = await createClient({ contract, connection: clientConnection });
+      const client = await TypedAmqpClient.create({ contract, connection: clientConnection });
 
       // THEN - No errors should be thrown during topology setup
       expect(client).toBeDefined();

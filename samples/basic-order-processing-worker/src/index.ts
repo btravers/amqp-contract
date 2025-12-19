@@ -1,4 +1,4 @@
-import { createWorker } from "@amqp-contract/worker";
+import { TypedAmqpWorker } from "@amqp-contract/worker";
 import { connect } from "amqplib";
 import pino from "pino";
 import { z } from "zod";
@@ -28,7 +28,7 @@ async function main() {
   logger.info("Connected to RabbitMQ");
 
   // Create type-safe worker with handlers for each consumer
-  const worker = await createWorker({
+  const worker = await TypedAmqpWorker.create({
     contract: orderContract,
     handlers: {
       // Handler for processing NEW orders (order.created)
