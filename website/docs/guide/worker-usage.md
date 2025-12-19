@@ -279,29 +279,27 @@ const contract = defineContract({
 
 ### Retry Logic
 
-Implement custom retry logic:
+Implement custom retry logic with requeuing:
 
 ```typescript
 const worker = createWorker(contract, {
   processOrder: async (message, { ack, nack }) => {
-    const maxRetries = 3;
-    const retryCount = message.properties?.headers?.['x-retry-count'] || 0;
-
     try {
       await processOrder(message);
       ack();
     } catch (error) {
-      if (retryCount < maxRetries) {
-        // Requeue with incremented retry count
-        nack({ requeue: true });
-      } else {
-        // Max retries reached, reject permanently
-        nack({ requeue: false });
-      }
+      console.error('Processing failed:', error);
+
+      // Requeue for retry (simple approach)
+      // For more sophisticated retry logic, use dead letter queues
+      // with TTL and message headers to track retry count
+      nack({ requeue: true });
     }
   },
 });
 ```
+
+**Note:** For production-grade retry logic with retry counting, configure [Dead Letter Queues](#dead-letter-queues) with message TTL and use a separate retry exchange to track attempts.
 
 ## Complete Example
 

@@ -36,8 +36,9 @@ const spec = generateAsyncAPI(contract, {
   },
   servers: {
     production: {
-      host: 'rabbitmq.example.com:5672',
-      protocol: 'amqp',
+      host: 'rabbitmq.example.com:5671',
+      protocol: 'amqps',
+      description: 'Production RabbitMQ server (TLS)',
     },
   },
 });
@@ -121,9 +122,9 @@ interface ServerObject {
 ```typescript
 servers: {
   production: {
-    host: 'prod.rabbitmq.com:5672',
-    protocol: 'amqp',
-    description: 'Production RabbitMQ server',
+    host: 'prod.rabbitmq.com:5671',
+    protocol: 'amqps',
+    description: 'Production RabbitMQ server (TLS)',
     tags: [
       { name: 'production' },
       { name: 'stable' },
@@ -331,15 +332,15 @@ const spec = generateAsyncAPI(contract, {
   },
   servers: {
     production: {
-      host: 'prod.rabbitmq.com:5672',
-      protocol: 'amqp',
-      description: 'Production RabbitMQ server',
+      host: 'prod.rabbitmq.com:5671',
+      protocol: 'amqps',
+      description: 'Production RabbitMQ server (TLS)',
       tags: [{ name: 'production' }],
     },
     staging: {
-      host: 'staging.rabbitmq.com:5672',
-      protocol: 'amqp',
-      description: 'Staging environment',
+      host: 'staging.rabbitmq.com:5671',
+      protocol: 'amqps',
+      description: 'Staging environment (TLS)',
       tags: [{ name: 'staging' }],
     },
     development: {
@@ -420,7 +421,7 @@ asyncapi generate fromFile asyncapi.json @asyncapi/python-paho-template -o gener
 servers: {
   production: {
     host: '{environment}.rabbitmq.com:{port}',
-    protocol: 'amqp',
+    protocol: 'amqps',
     variables: {
       environment: {
         default: 'prod',
@@ -428,8 +429,8 @@ servers: {
         description: 'Environment name',
       },
       port: {
-        default: '5672',
-        description: 'AMQP port',
+        default: '5671',
+        description: 'AMQPS port (TLS)',
       },
     },
   },
@@ -441,8 +442,9 @@ servers: {
 ```typescript
 servers: {
   production: {
-    host: 'prod.rabbitmq.com:5672',
-    protocol: 'amqp',
+    host: 'prod.rabbitmq.com:5671',
+    protocol: 'amqps',
+    description: 'Production server (TLS)',
     security: [
       { user: [] },
       { apiKey: [] },

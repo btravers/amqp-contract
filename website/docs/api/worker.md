@@ -324,34 +324,27 @@ await notificationWorker.consumeAll();
 
 ## Retry Logic
 
-Implement custom retry logic with headers:
+Implement custom retry logic:
 
 ```typescript
 const worker = createWorker(contract, {
   processOrder: async (message, { ack, nack }) => {
-    const maxRetries = 3;
-    const retryCount = message.properties?.headers?.['x-retry-count'] || 0;
-
     try {
       await processOrder(message);
       ack();
     } catch (error) {
-      console.error(`Error (attempt ${retryCount + 1}):`, error);
+      console.error('Processing failed:', error);
 
-      if (retryCount < maxRetries) {
-        // Increment retry count and requeue
-        // Note: You'll need to republish with updated headers
-        nack({ requeue: false });
-        // Republish logic here...
-      } else {
-        // Max retries exceeded
-        console.error('Max retries exceeded, moving to DLQ');
-        nack({ requeue: false });
-      }
+      // Requeue for retry (simple approach)
+      // For sophisticated retry logic, use dead letter queues
+      // with TTL to track retry attempts
+      nack({ requeue: true });
     }
   },
 });
 ```
+
+**Note:** For production-grade retry logic with retry counting, configure [Dead Letter Queues](#dead-letter-queues) with message TTL and routing.
 
 ## Dead Letter Queues
 
