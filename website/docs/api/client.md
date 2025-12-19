@@ -293,12 +293,12 @@ await connection.close();
 You can create multiple clients from the same or different contracts:
 
 ```typescript
-const orderClient = await createClient({
+const orderClient = await TypedAmqpClient.create({
   contract: orderContract,
   connection,
 });
 
-const paymentClient = await createClient({
+const paymentClient = await TypedAmqpClient.create({
   contract: paymentContract,
   connection,
 });

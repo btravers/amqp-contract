@@ -345,7 +345,7 @@ process.on('SIGINT', shutdown);
 Run multiple workers for different consumers:
 
 ```typescript
-const processingWorker = await createWorker({
+const processingWorker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => {
@@ -356,7 +356,7 @@ const processingWorker = await createWorker({
   connection: connection1,
 });
 
-const notificationWorker = await createWorker({
+const notificationWorker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     notifyOrder: async (message) => {

@@ -116,7 +116,7 @@ import { orderContract } from './contract';
 
 async function main() {
   const connection = await connect('amqp://localhost');
-  const client = await createClient({ contract: orderContract, connection });
+  const client = await TypedAmqpClient.create({ contract: orderContract, connection });
 
   // Type-safe publishing with validation
   await client.publish('orderCreated', {
