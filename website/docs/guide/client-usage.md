@@ -27,7 +27,7 @@ yarn add @amqp-contract/client amqplib
 Create a type-safe client from your contract. The client automatically connects to RabbitMQ:
 
 ```typescript
-import { createClient } from '@amqp-contract/client';
+import { TypedAmqpClient } from '@amqp-contract/client';
 import { connect } from 'amqplib';
 import { contract } from './contract';
 
@@ -35,7 +35,7 @@ import { contract } from './contract';
 const connection = await connect('amqp://localhost');
 
 // Create client from contract (automatically connects)
-const client = await createClient({ contract, connection });
+const client = await TypedAmqpClient.create({ contract, connection });
 ```
 
 ## Publishing Messages
@@ -147,9 +147,9 @@ try {
 You can create multiple clients from the same contract:
 
 ```typescript
-const client1 = await createClient({ contract, connection: connection1 });
+const client1 = await TypedAmqpClient.create({ contract, connection: connection1 });
 
-const client2 = await createClient({ contract, connection: connection2 });
+const client2 = await TypedAmqpClient.create({ contract, connection: connection2 });
 ```
 
 ### Reusing Connections
@@ -159,12 +159,12 @@ Share a single connection across clients:
 ```typescript
 const connection = await connect('amqp://localhost');
 
-const orderClient = await createClient({
+const orderClient = await TypedAmqpClient.create({
   contract: orderContract,
   connection,
 });
 
-const paymentClient = await createClient({
+const paymentClient = await TypedAmqpClient.create({
   contract: paymentContract,
   connection,
 });
@@ -181,7 +181,7 @@ const paymentClient = await createClient({
 ## Complete Example
 
 ```typescript
-import { createClient } from '@amqp-contract/client';
+import { TypedAmqpClient } from '@amqp-contract/client';
 import { connect } from 'amqplib';
 import { contract } from './contract';
 
@@ -192,7 +192,7 @@ async function main() {
   try {
     // Connect
     connection = await connect('amqp://localhost');
-    client = await createClient({ contract, connection });
+    client = await TypedAmqpClient.create({ contract, connection });
 
     // Publish messages
     await client.publish('orderCreated', {

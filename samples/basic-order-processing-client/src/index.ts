@@ -1,4 +1,4 @@
-import { createClient } from "@amqp-contract/client";
+import { TypedAmqpClient } from "@amqp-contract/client";
 import { connect } from "amqplib";
 import pino from "pino";
 import { z } from "zod";
@@ -28,7 +28,7 @@ async function main() {
   logger.info("Connected to RabbitMQ");
 
   // Create type-safe client
-  const client = await createClient({ contract: orderContract, connection });
+  const client = await TypedAmqpClient.create({ contract: orderContract, connection });
 
   logger.info("Client ready");
   logger.info("=".repeat(60));

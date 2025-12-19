@@ -28,8 +28,8 @@ End-to-end type safety and automatic validation for AMQP messaging
 
 ```typescript
 import { defineContract, defineExchange, defineQueue, definePublisher, defineConsumer, defineBinding } from '@amqp-contract/contract';
-import { createClient } from '@amqp-contract/client';
-import { createWorker } from '@amqp-contract/worker';
+import { TypedAmqpClient } from '@amqp-contract/client';
+import { TypedAmqpWorker } from '@amqp-contract/worker';
 import { z } from 'zod';
 
 // Define contract once
@@ -62,14 +62,14 @@ const contract = defineContract({
 });
 
 // Client - fully typed publishing
-const client = await createClient({ contract, connection });
+const client = await TypedAmqpClient.create({ contract, connection });
 await client.publish('orderCreated', {
   orderId: 'ORD-123',  // ✅ TypeScript knows!
   amount: 99.99,
 });
 
 // Worker - fully typed consuming
-const worker = await createWorker({
+const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => {

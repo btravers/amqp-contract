@@ -26,26 +26,26 @@ import { defineContract, defineExchange, defineQueue } from '@amqp-contract/cont
 Type-safe client for publishing messages.
 
 ```typescript
-import { createClient } from '@amqp-contract/client';
+import { TypedAmqpClient } from '@amqp-contract/client';
 ```
 
 **Key exports:**
 
-- `createClient` - Create a type-safe AMQP client
-- `AmqpClient` - The client class type
+- `TypedAmqpClient.create` - Create a type-safe AMQP client
+- `TypedAmqpClient` - The client class type
 
 ### [@amqp-contract/worker](/api/worker)
 
 Type-safe worker for consuming messages.
 
 ```typescript
-import { createWorker } from '@amqp-contract/worker';
+import { TypedAmqpWorker } from '@amqp-contract/worker';
 ```
 
 **Key exports:**
 
-- `createWorker` - Create a type-safe AMQP worker
-- `AmqpWorker` - The worker class type
+- `TypedAmqpWorker.create` - Create a type-safe AMQP worker
+- `TypedAmqpWorker` - The worker class type
 
 ### [@amqp-contract/asyncapi](/api/asyncapi)
 
@@ -66,8 +66,8 @@ All packages leverage TypeScript's type inference:
 
 ```typescript
 import { defineContract, definePublisher } from '@amqp-contract/contract';
-import { createClient } from '@amqp-contract/client';
-import { createWorker } from '@amqp-contract/worker';
+import { TypedAmqpClient } from '@amqp-contract/client';
+import { TypedAmqpWorker } from '@amqp-contract/worker';
 import { connect } from 'amqplib';
 import { z } from 'zod';
 
@@ -84,11 +84,11 @@ const contract = defineContract({
 const connection = await connect('amqp://localhost');
 
 // Client knows about 'orderCreated' and its schema
-const client = await createClient({ contract, connection });
+const client = await TypedAmqpClient.create({ contract, connection });
 await client.publish('orderCreated', { orderId: 'ORD-123' });
 
 // Worker handler is fully typed
-const worker = await createWorker({
+const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => {

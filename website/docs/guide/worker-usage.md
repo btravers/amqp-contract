@@ -27,7 +27,7 @@ yarn add @amqp-contract/worker amqplib
 Create a type-safe worker with message handlers. The worker automatically connects to RabbitMQ and starts consuming all messages:
 
 ```typescript
-import { createWorker } from '@amqp-contract/worker';
+import { TypedAmqpWorker } from '@amqp-contract/worker';
 import { connect } from 'amqplib';
 import { contract } from './contract';
 
@@ -35,7 +35,7 @@ import { contract } from './contract';
 const connection = await connect('amqp://localhost');
 
 // Create worker with handlers (automatically connects and starts consuming)
-const worker = await createWorker({
+const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => {
@@ -55,7 +55,7 @@ const worker = await createWorker({
 Each handler receives validated, fully-typed messages:
 
 ```typescript
-const worker = await createWorker({
+const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => {
@@ -84,7 +84,7 @@ The worker enforces:
 
 ```typescript
 // ❌ TypeScript error: missing handler for 'processOrder'
-const worker = await createWorker({
+const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     // notifyOrder is defined, but processOrder is missing
@@ -94,7 +94,7 @@ const worker = await createWorker({
 });
 
 // ✅ All handlers present
-const worker = await createWorker({
+const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => { ... },
@@ -108,10 +108,10 @@ const worker = await createWorker({
 
 ### Automatic Consumption
 
-By default, `createWorker` automatically starts all consumers defined in the contract:
+By default, `TypedAmqpWorker.create` automatically starts all consumers defined in the contract:
 
 ```typescript
-const worker = await createWorker({
+const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => { ... },
@@ -125,12 +125,12 @@ console.log('Worker ready, waiting for messages...');
 
 ### Manual Consumption
 
-If you need more control, you can create a worker using the `AmqpWorker` class directly and call `consume()` for specific consumers:
+If you need more control, you can create a worker using the `TypedAmqpWorker` class directly and call `consume()` for specific consumers:
 
 ```typescript
-import { AmqpWorker } from '@amqp-contract/worker';
+import { TypedAmqpWorker } from '@amqp-contract/worker';
 
-const worker = new AmqpWorker(contract, {
+const worker = new TypedAmqpWorker(contract, {
   processOrder: async (message) => { ... },
   notifyOrder: async (message) => { ... },
 });
@@ -151,7 +151,7 @@ await worker.consume('notifyOrder');
 By default, messages are automatically acknowledged after successful processing:
 
 ```typescript
-const worker = await createWorker({
+const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => {
@@ -168,7 +168,7 @@ const worker = await createWorker({
 For more control, use manual acknowledgment:
 
 ```typescript
-const worker = await createWorker({
+const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message, { ack, nack, reject }) => {
@@ -211,7 +211,7 @@ reject({ requeue: false });
 Errors in handlers are caught and logged:
 
 ```typescript
-const worker = await createWorker({
+const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => {
@@ -291,7 +291,7 @@ process.on('SIGINT', shutdown);
 Run multiple workers for different consumers:
 
 ```typescript
-const processingWorker = await createWorker({
+const processingWorker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => { ... },
@@ -299,7 +299,7 @@ const processingWorker = await createWorker({
   connection: connection1,
 });
 
-const notificationWorker = await createWorker({
+const notificationWorker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     notifyOrder: async (message) => { ... },
@@ -331,7 +331,7 @@ const contract = defineContract({
 Implement custom retry logic with requeuing:
 
 ```typescript
-const worker = await createWorker({
+const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message, { ack, nack }) => {
@@ -357,7 +357,7 @@ const worker = await createWorker({
 ## Complete Example
 
 ```typescript
-import { createWorker } from '@amqp-contract/worker';
+import { TypedAmqpWorker } from '@amqp-contract/worker';
 import { connect } from 'amqplib';
 import { contract } from './contract';
 
@@ -366,7 +366,7 @@ async function main() {
   const connection = await connect('amqp://localhost');
 
   // Create worker with handlers (automatically connects and starts consuming)
-  const worker = await createWorker({
+  const worker = await TypedAmqpWorker.create({
     contract,
     handlers: {
       processOrder: async (message, { ack, nack }) => {

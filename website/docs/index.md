@@ -98,7 +98,7 @@ const contract = defineContract({
 const connection = await connect('amqp://localhost');
 
 // ✅ Type-safe client
-const client = await createClient({ contract, connection });
+const client = await TypedAmqpClient.create({ contract, connection });
 await client.publish('orderCreated', {
   orderId: 'ORD-123',      // TypeScript knows!
   customerId: 'CUST-456',
@@ -106,7 +106,7 @@ await client.publish('orderCreated', {
 });
 
 // ✅ Type-safe worker
-const worker = await createWorker({
+const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => {
@@ -150,12 +150,12 @@ export const orderContract = defineContract({
 ```
 
 ```typescript [client.ts]
-import { createClient } from '@amqp-contract/client';
+import { TypedAmqpClient } from '@amqp-contract/client';
 import { connect } from 'amqplib';
 import { orderContract } from './contract';
 
 const connection = await connect('amqp://localhost');
-const client = await createClient({ contract: orderContract, connection });
+const client = await TypedAmqpClient.create({ contract: orderContract, connection });
 
 // Type-safe publishing
 await client.publish('orderCreated', {
@@ -165,13 +165,13 @@ await client.publish('orderCreated', {
 ```
 
 ```typescript [worker.ts]
-import { createWorker } from '@amqp-contract/worker';
+import { TypedAmqpWorker } from '@amqp-contract/worker';
 import { connect } from 'amqplib';
 import { orderContract } from './contract';
 
 const connection = await connect('amqp://localhost');
 
-const worker = await createWorker({
+const worker = await TypedAmqpWorker.create({
   contract: orderContract,
   handlers: {
     processOrder: async (message) => {

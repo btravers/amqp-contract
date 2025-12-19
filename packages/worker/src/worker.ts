@@ -6,27 +6,61 @@ import type {
 } from "@amqp-contract/contract";
 
 /**
+ * Options for creating a worker
+ */
+export interface CreateWorkerOptions<TContract extends ContractDefinition> {
+  contract: TContract;
+  handlers: WorkerInferConsumerHandlers<TContract>;
+  connection: ChannelModel;
+}
+
+/**
  * Type-safe AMQP worker for consuming messages
  */
-export class AmqpWorker<TContract extends ContractDefinition> {
+export class TypedAmqpWorker<TContract extends ContractDefinition> {
   private channel: Channel | null = null;
-  private connection: ChannelModel | null = null;
   private consumerTags: string[] = [];
 
-  constructor(
+  private constructor(
     private readonly contract: TContract,
     private readonly handlers: WorkerInferConsumerHandlers<TContract>,
+    private readonly connection: ChannelModel,
   ) {}
+
+  /**
+   * Create a type-safe AMQP worker from a contract
+   * The worker will automatically connect and start consuming all messages
+   */
+  static async create<TContract extends ContractDefinition>(
+    options: CreateWorkerOptions<TContract>,
+  ): Promise<TypedAmqpWorker<TContract>> {
+    const worker = new TypedAmqpWorker(options.contract, options.handlers, options.connection);
+    await worker.init();
+    await worker.consumeAll();
+    return worker;
+  }
+
+  /**
+   * Close the connection
+   */
+  async close(): Promise<void> {
+    await this.stopConsuming();
+
+    if (this.channel) {
+      await this.channel.close();
+    }
+
+    await this.connection.close();
+  }
 
   /**
    * Connect to AMQP broker
    */
-  async connect(connection: ChannelModel): Promise<void> {
-    this.connection = connection;
-    this.channel = await connection.createChannel();
+  private async init(): Promise<void> {
+    this.channel = await this.connection.createChannel();
 
     // Setup exchanges
-    if (this.contract.exchanges && this.channel) {
+    if (this.contract.exchanges) {
       for (const exchange of Object.values(this.contract.exchanges)) {
         await this.channel.assertExchange(exchange.name, exchange.type, {
           durable: exchange.durable,
@@ -38,7 +72,7 @@ export class AmqpWorker<TContract extends ContractDefinition> {
     }
 
     // Setup queues
-    if (this.contract.queues && this.channel) {
+    if (this.contract.queues) {
       for (const queue of Object.values(this.contract.queues)) {
         await this.channel.assertQueue(queue.name, {
           durable: queue.durable,
@@ -50,7 +84,7 @@ export class AmqpWorker<TContract extends ContractDefinition> {
     }
 
     // Setup bindings
-    if (this.contract.bindings && this.channel) {
+    if (this.contract.bindings) {
       for (const binding of Object.values(this.contract.bindings)) {
         await this.channel.bindQueue(
           binding.queue,
@@ -63,11 +97,30 @@ export class AmqpWorker<TContract extends ContractDefinition> {
   }
 
   /**
+   * Start consuming messages for all consumers
+   */
+  private async consumeAll(): Promise<void> {
+    if (!this.contract.consumers) {
+      throw new Error("No consumers defined in contract");
+    }
+
+    const consumerNames = Object.keys(this.contract.consumers) as InferConsumerNames<TContract>[];
+
+    for (const consumerName of consumerNames) {
+      await this.consume(consumerName);
+    }
+  }
+
+  /**
    * Start consuming messages for a specific consumer
    */
-  async consume<TName extends InferConsumerNames<TContract>>(consumerName: TName): Promise<void> {
+  private async consume<TName extends InferConsumerNames<TContract>>(
+    consumerName: TName,
+  ): Promise<void> {
     if (!this.channel) {
-      throw new Error("Worker not connected. Call connect() first.");
+      throw new Error(
+        "Worker not initialized. Use TypedAmqpWorker.create() to obtain an initialized worker instance.",
+      );
     }
 
     const consumers = this.contract.consumers as Record<string, unknown>;
@@ -150,24 +203,9 @@ export class AmqpWorker<TContract extends ContractDefinition> {
   }
 
   /**
-   * Start consuming messages for all consumers
-   */
-  async consumeAll(): Promise<void> {
-    if (!this.contract.consumers) {
-      throw new Error("No consumers defined in contract");
-    }
-
-    const consumerNames = Object.keys(this.contract.consumers) as InferConsumerNames<TContract>[];
-
-    for (const consumerName of consumerNames) {
-      await this.consume(consumerName);
-    }
-  }
-
-  /**
    * Stop consuming messages
    */
-  async stopConsuming(): Promise<void> {
+  private async stopConsuming(): Promise<void> {
     if (!this.channel) {
       return;
     }
@@ -178,43 +216,4 @@ export class AmqpWorker<TContract extends ContractDefinition> {
 
     this.consumerTags = [];
   }
-
-  /**
-   * Close the connection
-   */
-  async close(): Promise<void> {
-    await this.stopConsuming();
-
-    if (this.channel) {
-      await this.channel.close();
-      this.channel = null;
-    }
-
-    if (this.connection) {
-      await (this.connection as unknown as { close(): Promise<void> }).close();
-      this.connection = null;
-    }
-  }
-}
-
-/**
- * Options for creating a worker
- */
-export interface CreateWorkerOptions<TContract extends ContractDefinition> {
-  contract: TContract;
-  handlers: WorkerInferConsumerHandlers<TContract>;
-  connection: ChannelModel;
-}
-
-/**
- * Create a type-safe AMQP worker from a contract
- * The worker will automatically connect and start consuming all messages
- */
-export async function createWorker<TContract extends ContractDefinition>(
-  options: CreateWorkerOptions<TContract>,
-): Promise<AmqpWorker<TContract>> {
-  const worker = new AmqpWorker(options.contract, options.handlers);
-  await worker.connect(options.connection);
-  await worker.consumeAll();
-  return worker;
 }

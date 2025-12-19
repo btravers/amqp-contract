@@ -1,7 +1,7 @@
 import { describe, expect } from "vitest";
 import { it } from "@amqp-contract/testing/extension";
-import { createWorker } from "./worker.js";
-import { createClient } from "@amqp-contract/client";
+import { TypedAmqpWorker } from "./worker.js";
+import { TypedAmqpClient } from "@amqp-contract/client";
 import {
   defineContract,
   defineExchange,
@@ -46,7 +46,7 @@ describe("AmqpWorker Integration", () => {
     });
 
     const messages: Array<{ id: string; message: string }> = [];
-    const worker = await createWorker({
+    const worker = await TypedAmqpWorker.create({
       contract,
       handlers: {
         testConsumer: (msg) => {
@@ -57,7 +57,7 @@ describe("AmqpWorker Integration", () => {
     });
 
     // WHEN - Publish a message using the client
-    const client = await createClient({ contract, connection: clientConnection });
+    const client = await TypedAmqpClient.create({ contract, connection: clientConnection });
     await client.publish("testPublisher", {
       id: "123",
       message: "Hello from integration test!",
@@ -106,7 +106,7 @@ describe("AmqpWorker Integration", () => {
     });
 
     const messages: Array<{ id: string; count: number }> = [];
-    const worker = await createWorker({
+    const worker = await TypedAmqpWorker.create({
       contract,
       handlers: {
         testConsumer: (msg) => {
@@ -117,7 +117,7 @@ describe("AmqpWorker Integration", () => {
     });
 
     // WHEN - Publish multiple messages
-    const client = await createClient({ contract, connection: clientConnection });
+    const client = await TypedAmqpClient.create({ contract, connection: clientConnection });
 
     await client.publish("testPublisher", { id: "1", count: 1 });
     await client.publish("testPublisher", { id: "2", count: 2 });
@@ -176,7 +176,7 @@ describe("AmqpWorker Integration", () => {
 
     const messages1: Array<{ id: string }> = [];
     const messages2: Array<{ id: string }> = [];
-    const worker = await createWorker({
+    const worker = await TypedAmqpWorker.create({
       contract,
       handlers: {
         consumer1: (msg) => {
@@ -190,7 +190,7 @@ describe("AmqpWorker Integration", () => {
     });
 
     // WHEN - Publish messages to both queues
-    const client = await createClient({ contract, connection: clientConnection });
+    const client = await TypedAmqpClient.create({ contract, connection: clientConnection });
 
     await client.publish("pub1", { id: "msg1" });
     await client.publish("pub2", { id: "msg2" });

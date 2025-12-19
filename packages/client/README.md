@@ -13,7 +13,7 @@ pnpm add @amqp-contract/client amqplib
 ## Usage
 
 ```typescript
-import { createClient } from '@amqp-contract/client';
+import { TypedAmqpClient } from '@amqp-contract/client';
 import { connect } from 'amqplib';
 import { contract } from './contract';
 
@@ -21,7 +21,7 @@ import { contract } from './contract';
 const connection = await connect('amqp://localhost');
 
 // Create client from contract (automatically connects)
-const client = await createClient({ contract, connection });
+const client = await TypedAmqpClient.create({ contract, connection });
 
 // Publish message with type safety
 await client.publish('orderCreated', {
@@ -35,7 +35,7 @@ await client.close();
 
 ## API
 
-### `createClient(options)`
+### `TypedAmqpClient.create(options)`
 
 Create a type-safe AMQP client from a contract. Automatically connects to RabbitMQ.
 
@@ -44,17 +44,11 @@ Create a type-safe AMQP client from a contract. Automatically connects to Rabbit
 - `options.contract` - Contract definition
 - `options.connection` - amqplib Connection object
 
-### `AmqpClient.connect(connection)`
-
-Connect to an AMQP broker and set up all exchanges, queues, and bindings defined in the contract.
-
-**Note:** When using `createClient()`, this is called automatically.
-
-### `AmqpClient.publish(publisherName, message, options?)`
+### `TypedAmqpClient.publish(publisherName, message, options?)`
 
 Publish a message using a defined publisher. The message will be validated against the schema and type-checked at compile time.
 
-### `AmqpClient.close()`
+### `TypedAmqpClient.close()`
 
 Close the channel and connection.
 
