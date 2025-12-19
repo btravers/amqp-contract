@@ -38,9 +38,9 @@ const spec = generateAsyncAPI(contract, {
   },
   servers: {
     production: {
-      host: 'rabbitmq.example.com:5672',
-      protocol: 'amqp',
-      description: 'Production RabbitMQ server',
+      host: 'rabbitmq.example.com:5671',
+      protocol: 'amqps',
+      description: 'Production RabbitMQ server (TLS)',
     },
     development: {
       host: 'localhost:5672',
