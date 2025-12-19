@@ -8,7 +8,7 @@ Consumer application demonstrating type-safe AMQP message consumption with multi
 
 ```bash
 # Start RabbitMQ
-docker run -d --name rabbitmq -p 5672:5672 rabbitmq:3-management
+docker run -d --name rabbitmq -p 5672:5672 rabbitmq:4-management
 
 # Run the worker
 pnpm --filter @amqp-contract-samples/basic-order-processing-worker dev
