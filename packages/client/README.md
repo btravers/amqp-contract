@@ -44,12 +44,6 @@ Create a type-safe AMQP client from a contract. Automatically connects to Rabbit
 - `options.contract` - Contract definition
 - `options.connection` - amqplib Connection object
 
-### `TypedAmqpClient.connect(connection)`
-
-Connect to an AMQP broker and set up all exchanges, queues, and bindings defined in the contract.
-
-**Note:** When using `TypedAmqpClient.create()`, this is called automatically.
-
 ### `TypedAmqpClient.publish(publisherName, message, options?)`
 
 Publish a message using a defined publisher. The message will be validated against the schema and type-checked at compile time.
