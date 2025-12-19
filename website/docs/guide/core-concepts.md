@@ -61,7 +61,7 @@ Messages are automatically validated at network boundaries:
 Invalid messages are rejected with clear error messages.
 
 ```typescript
-import { TypedAmqpClient.create } from '@amqp-contract/client';
+import { TypedAmqpClient } from '@amqp-contract/client';
 import { connect } from 'amqplib';
 
 // Assuming contract is defined earlier

@@ -125,12 +125,12 @@ console.log('Worker ready, waiting for messages...');
 
 ### Manual Consumption
 
-If you need more control, you can create a worker using the `AmqpWorker` class directly and call `consume()` for specific consumers:
+If you need more control, you can create a worker using the `TypedAmqpWorker` class directly and call `consume()` for specific consumers:
 
 ```typescript
-import { AmqpWorker } from '@amqp-contract/worker';
+import { TypedAmqpWorker } from '@amqp-contract/worker';
 
-const worker = new AmqpWorker(contract, {
+const worker = new TypedAmqpWorker(contract, {
   processOrder: async (message) => { ... },
   notifyOrder: async (message) => { ... },
 });

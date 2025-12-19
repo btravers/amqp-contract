@@ -19,7 +19,7 @@ Creates a type-safe AMQP worker from a contract with message handlers. Automatic
 ```typescript
 static async create<TContract>(
   options: CreateWorkerOptions<TContract>
-): Promise<AmqpWorker<TContract>>
+): Promise<TypedAmqpWorker<TContract>>
 ```
 
 **Example:**
@@ -58,7 +58,7 @@ const worker = await TypedAmqpWorker.create({
 
 Connects the worker to RabbitMQ.
 
-**Note:** When using `TypedAmqpWorker.create()`, this method is called automatically. You only need to call this manually if you create an `AmqpWorker` instance directly using `new AmqpWorker()`.
+**Note:** When using `TypedAmqpWorker.create()`, this method is called automatically. You only need to call this manually if you create a `TypedAmqpWorker` instance directly using `new TypedAmqpWorker()`.
 
 **Signature:**
 
@@ -302,7 +302,7 @@ const worker = await TypedAmqpWorker.create({
 
 ## Selective Consumption
 
-If you need to start only specific consumers, use the `AmqpWorker` class directly:
+If you need to start only specific consumers, use the `TypedAmqpWorker` class directly:
 
 ```typescript
 import { TypedAmqpWorker } from '@amqp-contract/worker';

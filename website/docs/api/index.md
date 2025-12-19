@@ -32,7 +32,7 @@ import { TypedAmqpClient } from '@amqp-contract/client';
 **Key exports:**
 
 - `TypedAmqpClient.create` - Create a type-safe AMQP client
-- `AmqpClient` - The client class type
+- `TypedAmqpClient` - The client class type
 
 ### [@amqp-contract/worker](/api/worker)
 
@@ -45,7 +45,7 @@ import { TypedAmqpWorker } from '@amqp-contract/worker';
 **Key exports:**
 
 - `TypedAmqpWorker.create` - Create a type-safe AMQP worker
-- `AmqpWorker` - The worker class type
+- `TypedAmqpWorker` - The worker class type
 
 ### [@amqp-contract/asyncapi](/api/asyncapi)
 

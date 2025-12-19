@@ -27,7 +27,7 @@ yarn add @amqp-contract/client amqplib
 Create a type-safe client from your contract. The client automatically connects to RabbitMQ:
 
 ```typescript
-import { TypedAmqpClient.create } from '@amqp-contract/client';
+import { TypedAmqpClient } from '@amqp-contract/client';
 import { connect } from 'amqplib';
 import { contract } from './contract';
 
@@ -181,7 +181,7 @@ const paymentClient = await TypedAmqpClient.create({
 ## Complete Example
 
 ```typescript
-import { TypedAmqpClient.create } from '@amqp-contract/client';
+import { TypedAmqpClient } from '@amqp-contract/client';
 import { connect } from 'amqplib';
 import { contract } from './contract';
 

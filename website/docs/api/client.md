@@ -19,7 +19,7 @@ Creates a type-safe AMQP client from a contract and automatically connects to Ra
 ```typescript
 static async create<TContract>(
   options: CreateClientOptions<TContract>
-): Promise<AmqpClient<TContract>>
+): Promise<TypedAmqpClient<TContract>>
 ```
 
 **Example:**
@@ -49,7 +49,7 @@ const client = await TypedAmqpClient.create({ contract, connection });
 
 Connects the client to RabbitMQ.
 
-**Note:** When using `TypedAmqpClient.create()`, this method is called automatically. You only need to call this manually if you create an `AmqpClient` instance directly using `new AmqpClient()`.
+**Note:** When using `TypedAmqpClient.create()`, this method is called automatically. You only need to call this manually if you create a `TypedAmqpClient` instance directly using `new TypedAmqpClient()`.
 
 **Signature:**
 
