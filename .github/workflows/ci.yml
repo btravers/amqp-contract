@@ -79,7 +79,7 @@ jobs:
         run: pnpm exec knip --reporter github-actions
 
   test:
-    name: Test
+    name: Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -96,5 +96,26 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: coverage-report
+          path: ./**/coverage/
+          retention-days: 30
+
+  test-integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Run integration tests
+        run: pnpm test:integration -- --coverage --reporter=default --reporter=github-actions
+
+      - name: Upload Integration Coverage Report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: integration-coverage-report
           path: ./**/coverage/
           retention-days: 30

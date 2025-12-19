@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx src/index.ts",
+    "test:integration": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -16,9 +17,13 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@amqp-contract/client": "workspace:*",
+    "@amqp-contract/testing": "workspace:*",
     "@amqp-contract/tsconfig": "workspace:*",
     "@types/amqplib": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "tsx": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }
