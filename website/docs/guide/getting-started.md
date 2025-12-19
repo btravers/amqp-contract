@@ -110,13 +110,13 @@ Use the type-safe client to publish messages:
 
 ```typescript
 // publisher.ts
-import { createClient } from '@amqp-contract/client';
+import { TypedAmqpClient } from '@amqp-contract/client';
 import { connect } from 'amqplib';
 import { orderContract } from './contract';
 
 async function main() {
   const connection = await connect('amqp://localhost');
-  const client = await createClient({ contract: orderContract, connection });
+  const client = await TypedAmqpClient.create({ contract: orderContract, connection });
 
   // Type-safe publishing with validation
   await client.publish('orderCreated', {
@@ -142,14 +142,14 @@ Create a worker with type-safe message handlers:
 
 ```typescript
 // consumer.ts
-import { createWorker } from '@amqp-contract/worker';
+import { TypedAmqpWorker } from '@amqp-contract/worker';
 import { connect } from 'amqplib';
 import { orderContract } from './contract';
 
 async function main() {
   const connection = await connect('amqp://localhost');
 
-  const worker = await createWorker({
+  const worker = await TypedAmqpWorker.create({
     contract: orderContract,
     handlers: {
       processOrder: async (message) => {

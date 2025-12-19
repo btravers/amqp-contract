@@ -31,7 +31,7 @@ const contract = defineContract({
 
 // Client knows the exact shape
 // connection is an amqplib Connection object
-const client = await createClient({ contract, connection });
+const client = await TypedAmqpClient.create({ contract, connection });
 await client.publish('orderCreated', {
   orderId: 'ORD-123',  // ✅ TypeScript knows this field
   amount: 99.99,        // ✅ TypeScript knows this field
@@ -39,7 +39,7 @@ await client.publish('orderCreated', {
 });
 
 // Worker handlers are fully typed
-const worker = await createWorker({
+const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => {
@@ -61,14 +61,14 @@ Messages are automatically validated at network boundaries:
 Invalid messages are rejected with clear error messages.
 
 ```typescript
-import { createClient } from '@amqp-contract/client';
+import { TypedAmqpClient } from '@amqp-contract/client';
 import { connect } from 'amqplib';
 
 // Assuming contract is defined earlier
 const connection = await connect('amqp://localhost');
 
 // This will throw a validation error:
-const client = await createClient({ contract, connection });
+const client = await TypedAmqpClient.create({ contract, connection });
 await client.publish('orderCreated', {
   orderId: 'ORD-123',
   amount: 'not-a-number',  // ❌ Validation error!

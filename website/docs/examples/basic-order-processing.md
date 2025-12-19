@@ -265,12 +265,12 @@ export const orderContract = defineContract({
 The client is in a separate package (`@amqp-contract-samples/basic-order-processing-client`) that imports the contract:
 
 ```typescript
-import { createClient } from '@amqp-contract/client';
+import { TypedAmqpClient } from '@amqp-contract/client';
 import { connect } from 'amqplib';
 import { orderContract } from '@amqp-contract-samples/basic-order-processing-contract';
 
 const connection = await connect('amqp://localhost');
-const client = await createClient({ contract: orderContract, connection });
+const client = await TypedAmqpClient.create({ contract: orderContract, connection });
 
 // Publish new order
 await client.publish('orderCreated', {
@@ -296,13 +296,13 @@ await client.publish('orderUpdated', {
 The worker is in a separate package (`@amqp-contract-samples/basic-order-processing-worker`) that imports the contract:
 
 ```typescript
-import { createWorker } from '@amqp-contract/worker';
+import { TypedAmqpWorker } from '@amqp-contract/worker';
 import { connect } from 'amqplib';
 import { orderContract } from '@amqp-contract-samples/basic-order-processing-contract';
 
 const connection = await connect('amqp://localhost');
 
-const worker = await createWorker({
+const worker = await TypedAmqpWorker.create({
   contract: orderContract,
   handlers: {
     processOrder: async (message) => {
