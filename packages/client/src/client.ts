@@ -1,4 +1,4 @@
-import type { Channel, Connection as AmqpConnection, Options } from "amqplib";
+import type { Channel, ChannelModel, Options } from "amqplib";
 import type {
   ClientInferPublisherInput,
   ContractDefinition,
@@ -18,18 +18,16 @@ export interface PublishOptions {
  */
 export class AmqpClient<TContract extends ContractDefinition> {
   private channel: Channel | null = null;
-  private connection: AmqpConnection | null = null;
+  private connection: ChannelModel | null = null;
 
   constructor(private readonly contract: TContract) {}
 
   /**
    * Connect to AMQP broker
    */
-  async connect(connection: AmqpConnection): Promise<void> {
+  async connect(connection: ChannelModel): Promise<void> {
     this.connection = connection;
-    this.channel = await (
-      connection as unknown as { createChannel(): Promise<Channel> }
-    ).createChannel();
+    this.channel = await connection.createChannel();
 
     // Setup exchanges
     if (this.contract.exchanges && this.channel) {

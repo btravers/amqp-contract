@@ -2,11 +2,11 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    globals: true,
-    environment: "node",
+    reporters: ["default"],
     coverage: {
-      reporter: ["text", "json", "html"],
-      exclude: ["**/*.spec.ts", "**/dist/**", "**/node_modules/**"],
+      provider: "v8",
+      reporter: ["text", "json", "json-summary", "html"],
+      include: ["src/**"],
     },
   },
 });

@@ -1,4 +1,4 @@
-import type { Channel, Connection as AmqpConnection, ConsumeMessage } from "amqplib";
+import type { Channel, ChannelModel, ConsumeMessage } from "amqplib";
 import type {
   ContractDefinition,
   InferConsumerNames,
@@ -10,7 +10,7 @@ import type {
  */
 export class AmqpWorker<TContract extends ContractDefinition> {
   private channel: Channel | null = null;
-  private connection: AmqpConnection | null = null;
+  private connection: ChannelModel | null = null;
   private consumerTags: string[] = [];
 
   constructor(
@@ -21,11 +21,9 @@ export class AmqpWorker<TContract extends ContractDefinition> {
   /**
    * Connect to AMQP broker
    */
-  async connect(connection: AmqpConnection): Promise<void> {
+  async connect(connection: ChannelModel): Promise<void> {
     this.connection = connection;
-    this.channel = await (
-      connection as unknown as { createChannel(): Promise<Channel> }
-    ).createChannel();
+    this.channel = await connection.createChannel();
 
     // Setup exchanges
     if (this.contract.exchanges && this.channel) {

@@ -10,6 +10,29 @@ import type {
 } from "./types.js";
 
 /**
+ * Message schema with metadata
+ */
+export interface MessageSchema<TSchema extends AnySchema = AnySchema> extends AnySchema {
+  readonly name: string;
+  readonly schema: TSchema;
+  readonly "~standard": TSchema["~standard"];
+}
+
+/**
+ * Define a message schema with metadata
+ */
+export function defineMessage<TSchema extends AnySchema>(
+  name: string,
+  schema: TSchema,
+): MessageSchema<TSchema> {
+  return {
+    name,
+    schema,
+    "~standard": schema["~standard"],
+  };
+}
+
+/**
  * Define an AMQP exchange
  */
 export function defineExchange(

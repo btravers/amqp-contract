@@ -3,6 +3,7 @@ export {
   defineConsumer,
   defineContract,
   defineExchange,
+  defineMessage,
   definePublisher,
   defineQueue,
 } from "./builder.js";
@@ -36,3 +37,5 @@ export type {
   WorkerInferConsumerHandlers,
   WorkerInferConsumerInput,
 } from "./types.js";
+
+export type { MessageSchema } from "./builder.js";

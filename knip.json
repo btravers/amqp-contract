@@ -1,18 +1,29 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
+  "ignoreExportsUsedInFile": true,
+  "vitest": {
+    "config": ["**/vitest.config.ts"]
+  },
   "workspaces": {
     "packages/*": {
-      "entry": ["src/index.ts", "src/**/*.spec.ts", "vitest.config.ts"],
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "packages/testing": {
+      "entry": ["src/global-setup.ts"],
       "project": ["src/**/*.ts"]
     },
     "samples/*": {
-      "entry": ["src/**/*.ts"],
+      "entry": ["src/index.ts"],
       "project": ["src/**/*.ts"]
     },
+    "tools/*": {
+      "entry": ["*.json"]
+    },
     "website": {
-      "entry": ["docs/.vitepress/config.ts"],
-      "project": ["docs/.vitepress/**/*.ts"]
+      "entry": ["docs/.vitepress/config.ts"]
     }
   },
-  "ignore": ["**/*.spec.ts", "**/vitest.config.ts", "dist/**"]
+  "ignore": ["coverage/**", "**/dist/**"],
+  "ignoreDependencies": ["pino-pretty"]
 }

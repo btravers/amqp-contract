@@ -127,18 +127,16 @@ export type ConsumerHandler<TConsumer extends ConsumerDefinition> = (
 /**
  * Infer all publishers from contract
  */
-export type InferPublishers<TContract extends ContractDefinition> =
-  TContract["publishers"] extends Record<string, PublisherDefinition>
-    ? TContract["publishers"]
-    : never;
+export type InferPublishers<TContract extends ContractDefinition> = NonNullable<
+  TContract["publishers"]
+>;
 
 /**
  * Infer all consumers from contract
  */
-export type InferConsumers<TContract extends ContractDefinition> =
-  TContract["consumers"] extends Record<string, ConsumerDefinition>
-    ? TContract["consumers"]
-    : never;
+export type InferConsumers<TContract extends ContractDefinition> = NonNullable<
+  TContract["consumers"]
+>;
 
 /**
  * Infer publisher names from contract
