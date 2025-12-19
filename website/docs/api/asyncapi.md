@@ -290,18 +290,18 @@ z.number().positive().int()
 
 ### Type Mappings
 
-| Zod Type | JSON Schema Type |
-|----------|------------------|
-| `z.string()` | `{ "type": "string" }` |
-| `z.number()` | `{ "type": "number" }` |
-| `z.number().int()` | `{ "type": "integer" }` |
-| `z.boolean()` | `{ "type": "boolean" }` |
-| `z.array(T)` | `{ "type": "array", "items": T }` |
-| `z.object({...})` | `{ "type": "object", "properties": {...} }` |
-| `z.enum([...])` | `{ "enum": [...] }` |
-| `z.union([...])` | `{ "oneOf": [...] }` |
-| `z.optional()` | Removes from `required` array |
-| `z.nullable()` | `{ "type": ["...", "null"] }` |
+| Zod Type           | JSON Schema Type                            |
+| ------------------ | ------------------------------------------- |
+| `z.string()`       | `{ "type": "string" }`                      |
+| `z.number()`       | `{ "type": "number" }`                      |
+| `z.number().int()` | `{ "type": "integer" }`                     |
+| `z.boolean()`      | `{ "type": "boolean" }`                     |
+| `z.array(T)`       | `{ "type": "array", "items": T }`           |
+| `z.object({...})`  | `{ "type": "object", "properties": {...} }` |
+| `z.enum([...])`    | `{ "enum": [...] }`                         |
+| `z.union([...])`   | `{ "oneOf": [...] }`                        |
+| `z.optional()`     | Removes from `required` array               |
+| `z.nullable()`     | `{ "type": ["...", "null"] }`               |
 
 ---
 

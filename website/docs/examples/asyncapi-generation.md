@@ -279,16 +279,16 @@ amqp-contract automatically converts Zod schemas to JSON Schema:
 
 ### Zod Types → JSON Schema
 
-| Zod Type | JSON Schema Type |
-|----------|------------------|
-| `z.string()` | `{ "type": "string" }` |
-| `z.number()` | `{ "type": "number" }` |
-| `z.boolean()` | `{ "type": "boolean" }` |
-| `z.array(T)` | `{ "type": "array", "items": T }` |
+| Zod Type          | JSON Schema Type                            |
+| ----------------- | ------------------------------------------- |
+| `z.string()`      | `{ "type": "string" }`                      |
+| `z.number()`      | `{ "type": "number" }`                      |
+| `z.boolean()`     | `{ "type": "boolean" }`                     |
+| `z.array(T)`      | `{ "type": "array", "items": T }`           |
 | `z.object({...})` | `{ "type": "object", "properties": {...} }` |
-| `z.enum([...])` | `{ "enum": [...] }` |
-| `z.union([...])` | `{ "oneOf": [...] }` |
-| `z.optional()` | Removes from `required` array |
+| `z.enum([...])`   | `{ "enum": [...] }`                         |
+| `z.union([...])`  | `{ "oneOf": [...] }`                        |
+| `z.optional()`    | Removes from `required` array               |
 
 ### Validation Rules
 
@@ -407,11 +407,11 @@ jobs:
       - uses: actions/checkout@v3
       - uses: pnpm/action-setup@v2
       - uses: actions/setup-node@v3
-      
+
       - run: pnpm install
       - run: pnpm build
       - run: pnpm generate:asyncapi
-      
+
       - name: Commit generated files
         run: |
           git config user.name github-actions

@@ -7,6 +7,7 @@ Shared contract definition demonstrating the AMQP topic exchange pattern.
 ## Overview
 
 This package defines the contract for:
+
 - Message schemas (Order, OrderStatus)
 - Exchanges and queues
 - Publishers and consumers

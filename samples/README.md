@@ -35,9 +35,9 @@ pnpm --filter @amqp-contract-samples/basic-order-processing-client dev
 
 ## Available Samples
 
-| Sample | Description |
-|--------|-------------|
+| Sample                                                      | Description                                        |
+| ----------------------------------------------------------- | -------------------------------------------------- |
 | [Basic Order Processing](./basic-order-processing-contract) | Complete example with client, worker, and contract |
-| [AsyncAPI Generation](./asyncapi-generation) | Generate AsyncAPI 3.0 specifications |
+| [AsyncAPI Generation](./asyncapi-generation)                | Generate AsyncAPI 3.0 specifications               |
 
 For detailed documentation, examples, and tutorials, visit the **[amqp-contract website](https://btravers.github.io/amqp-contract/)**.

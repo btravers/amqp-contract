@@ -15,12 +15,14 @@ pnpm --filter @amqp-contract-samples/asyncapi-generation generate
 ```
 
 This generates:
+
 - `asyncapi.json` - AsyncAPI 3.0.0 specification in JSON
 - `asyncapi.yaml` - YAML format
 
 ## Using the Specification
 
 Use the generated spec with:
+
 - [AsyncAPI Studio](https://studio.asyncapi.com/) - Visual editor
 - [AsyncAPI Generator](https://github.com/asyncapi/generator) - Code generation
 - [AsyncAPI CLI](https://github.com/asyncapi/cli) - Command-line tools

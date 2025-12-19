@@ -16,9 +16,9 @@ pnpm --filter @amqp-contract-samples/basic-order-processing-client dev
 
 ## Environment Variables
 
-| Variable    | Default                 | Description                     |
-| ----------- | ----------------------- | ------------------------------- |
-| `AMQP_URL`  | `amqp://localhost:5672` | RabbitMQ connection URL         |
-| `LOG_LEVEL` | `info`                  | Log level (info, debug, etc.)   |
+| Variable    | Default                 | Description                   |
+| ----------- | ----------------------- | ----------------------------- |
+| `AMQP_URL`  | `amqp://localhost:5672` | RabbitMQ connection URL       |
+| `LOG_LEVEL` | `info`                  | Log level (info, debug, etc.) |
 
 For detailed documentation, visit the **[website](https://btravers.github.io/amqp-contract/examples/basic-order-processing)**.

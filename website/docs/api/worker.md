@@ -178,18 +178,18 @@ import { contract } from './contract';
 async function main() {
   // Connect to RabbitMQ
   const connection = await connect('amqp://localhost');
-  
+
   // Create worker with handlers
   const worker = createWorker(contract, {
     processOrder: async (message) => {
       console.log(`Processing order ${message.orderId}`);
       console.log(`Customer: ${message.customerId}`);
       console.log(`Amount: $${message.amount}`);
-      
+
       // Your business logic here
       await saveToDatabase(message);
     },
-    
+
     notifyOrder: async (message) => {
       console.log(`Sending notification for ${message.orderId}`);
       await sendEmail(message);
@@ -199,7 +199,7 @@ async function main() {
   // Connect and start consuming
   await worker.connect(connection);
   await worker.consumeAll();
-  
+
   console.log('Worker ready, waiting for messages...');
 }
 
@@ -213,12 +213,12 @@ const worker = createWorker(contract, {
   processOrder: async (message, { ack, nack }) => {
     try {
       await processOrder(message);
-      
+
       // Explicitly acknowledge
       ack();
     } catch (error) {
       console.error('Processing failed:', error);
-      
+
       // Reject and requeue
       nack({ requeue: true });
     }
@@ -280,13 +280,13 @@ setTimeout(() => {
 ```typescript
 async function shutdown() {
   console.log('Shutting down...');
-  
+
   // Stop consuming new messages
   await worker.close();
-  
+
   // Close connection
   await connection.close();
-  
+
   console.log('Shutdown complete');
   process.exit(0);
 }
@@ -331,13 +331,13 @@ const worker = createWorker(contract, {
   processOrder: async (message, { ack, nack }) => {
     const maxRetries = 3;
     const retryCount = message.properties?.headers?.['x-retry-count'] || 0;
-    
+
     try {
       await processOrder(message);
       ack();
     } catch (error) {
       console.error(`Error (attempt ${retryCount + 1}):`, error);
-      
+
       if (retryCount < maxRetries) {
         // Increment retry count and requeue
         // Note: You'll need to republish with updated headers
@@ -400,7 +400,7 @@ const worker = createWorker(contract, {
     message.amount;      // number
     message.items;       // array
   },
-  
+
   // ❌ TypeScript error: missing required handler
   // notifyOrder: ...
 });
@@ -415,16 +415,16 @@ import { contract } from './contract';
 
 async function main() {
   const connection = await connect('amqp://localhost');
-  
+
   const worker = createWorker(contract, {
     processOrder: async (message, { ack, nack }) => {
       try {
         console.log(`[PROCESS] Order ${message.orderId}`);
-        
+
         // Your business logic
         await saveToDatabase(message);
         await sendConfirmationEmail(message);
-        
+
         ack();
         console.log(`[PROCESS] Order ${message.orderId} completed`);
       } catch (error) {
@@ -432,7 +432,7 @@ async function main() {
         nack({ requeue: true });
       }
     },
-    
+
     notifyOrder: async (message) => {
       console.log(`[NOTIFY] Order ${message.orderId} event`);
       await sendNotification(message);
@@ -441,9 +441,9 @@ async function main() {
 
   await worker.connect(connection);
   await worker.consumeAll();
-  
+
   console.log('Worker ready, waiting for messages...');
-  
+
   // Graceful shutdown
   const shutdown = async () => {
     console.log('Shutting down...');
@@ -451,7 +451,7 @@ async function main() {
     await connection.close();
     process.exit(0);
   };
-  
+
   process.on('SIGTERM', shutdown);
   process.on('SIGINT', shutdown);
 }

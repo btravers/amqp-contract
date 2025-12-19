@@ -59,7 +59,7 @@ const worker = createWorker(contract, {
     console.log(message.orderId);       // string
     console.log(message.amount);        // number
     console.log(message.items);         // array
-    
+
     // Full autocomplete and type checking
     for (const item of message.items) {
       console.log(`${item.productId}: ${item.quantity}`);
@@ -138,7 +138,7 @@ const worker = createWorker(contract, {
     try {
       // Your business logic
       await processOrder(message);
-      
+
       // Explicitly acknowledge
       ack();
     } catch (error) {
@@ -226,13 +226,13 @@ Properly close the worker on shutdown:
 ```typescript
 async function shutdown() {
   console.log('Shutting down...');
-  
+
   // Stop consuming new messages
   await worker.close();
-  
+
   // Close the connection
   await connection.close();
-  
+
   console.log('Shutdown complete');
   process.exit(0);
 }
@@ -286,7 +286,7 @@ const worker = createWorker(contract, {
   processOrder: async (message, { ack, nack }) => {
     const maxRetries = 3;
     const retryCount = message.properties?.headers?.['x-retry-count'] || 0;
-    
+
     try {
       await processOrder(message);
       ack();
@@ -313,17 +313,17 @@ import { contract } from './contract';
 async function main() {
   // Connect to RabbitMQ
   const connection = await connect('amqp://localhost');
-  
+
   // Create worker with handlers
   const worker = createWorker(contract, {
     processOrder: async (message, { ack, nack }) => {
       try {
         console.log(`Processing order ${message.orderId}`);
-        
+
         // Your business logic
         await saveToDatabase(message);
         await sendConfirmation(message.customerId);
-        
+
         // Acknowledge success
         ack();
       } catch (error) {
@@ -331,7 +331,7 @@ async function main() {
         nack({ requeue: true });
       }
     },
-    
+
     notifyOrder: async (message) => {
       console.log(`Sending notification for ${message.orderId}`);
       await sendEmail(message);
@@ -341,9 +341,9 @@ async function main() {
   // Connect and start consuming
   await worker.connect(connection);
   await worker.consumeAll();
-  
+
   console.log('Worker ready, waiting for messages...');
-  
+
   // Graceful shutdown
   const shutdown = async () => {
     console.log('Shutting down...');
@@ -351,7 +351,7 @@ async function main() {
     await connection.close();
     process.exit(0);
   };
-  
+
   process.on('SIGTERM', shutdown);
   process.on('SIGINT', shutdown);
 }

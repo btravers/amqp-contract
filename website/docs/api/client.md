@@ -171,7 +171,7 @@ import { contract } from './contract';
 async function main() {
   // Connect to RabbitMQ
   const connection = await connect('amqp://localhost');
-  
+
   // Create client
   const client = createClient(contract);
   await client.connect(connection);

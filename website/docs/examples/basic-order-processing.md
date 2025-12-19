@@ -245,15 +245,15 @@ const worker = createWorker(contract, {
     console.log(`  Customer: ${message.customerId}`);
     console.log(`  Total: $${message.totalAmount}`);
   },
-  
+
   notifyOrder: async (message) => {
     console.log(`[NOTIFICATION] Order ${message.orderId} event`);
   },
-  
+
   shipOrder: async (message) => {
     console.log(`[SHIPPING] Order ${message.orderId} - ${message.status}`);
   },
-  
+
   handleUrgentOrder: async (message) => {
     console.log(`[URGENT] Order ${message.orderId} - ${message.status}`);
   },
@@ -265,12 +265,12 @@ await worker.consumeAll();
 
 ## Message Routing Table
 
-| Message Published      | Routing Key            | Queues Receiving                              | Handlers Triggered                    |
-| ---------------------- | ---------------------- | --------------------------------------------- | ------------------------------------- |
-| New Order              | `order.created`        | ✅ order-processing<br>✅ order-notifications | processOrder<br>notifyOrder           |
-| Regular Update         | `order.updated`        | ✅ order-notifications                        | notifyOrder                           |
-| Shipped Order          | `order.shipped`        | ✅ order-notifications<br>✅ order-shipping   | notifyOrder<br>shipOrder              |
-| Urgent Update          | `order.updated.urgent` | ✅ order-notifications<br>✅ order-urgent     | notifyOrder<br>handleUrgentOrder      |
+| Message Published | Routing Key            | Queues Receiving                              | Handlers Triggered               |
+| ----------------- | ---------------------- | --------------------------------------------- | -------------------------------- |
+| New Order         | `order.created`        | ✅ order-processing<br>✅ order-notifications | processOrder<br>notifyOrder      |
+| Regular Update    | `order.updated`        | ✅ order-notifications                        | notifyOrder                      |
+| Shipped Order     | `order.shipped`        | ✅ order-notifications<br>✅ order-shipping   | notifyOrder<br>shipOrder         |
+| Urgent Update     | `order.updated.urgent` | ✅ order-notifications<br>✅ order-urgent     | notifyOrder<br>handleUrgentOrder |
 
 ## Key Takeaways
 
