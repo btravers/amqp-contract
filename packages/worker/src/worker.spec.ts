@@ -35,6 +35,7 @@ describe("AmqpWorker", () => {
 
   describe("Type Inference", () => {
     it("should infer consumer names correctly", () => {
+      // GIVEN
       const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
 
       const contract = defineContract({
@@ -55,8 +56,10 @@ describe("AmqpWorker", () => {
         testConsumer: vi.fn(),
       };
 
+      // WHEN
       const worker = createWorker(contract, handlers);
 
+      // THEN
       // Type inference test - this should compile without errors
       type ConsumerNames = Parameters<typeof worker.consume>[0];
       const name: ConsumerNames = "testConsumer";
@@ -64,6 +67,7 @@ describe("AmqpWorker", () => {
     });
 
     it("should infer handler message types correctly", async () => {
+      // GIVEN
       const OrderMessage = defineMessage(
         "OrderMessage",
         z.object({
@@ -94,6 +98,7 @@ describe("AmqpWorker", () => {
       await worker.connect(mockConnection);
       await worker.consume("processOrder");
 
+      // WHEN
       // Simulate message
       const mockMessage = {
         content: Buffer.from(JSON.stringify({ orderId: "123", amount: 100 })),
@@ -103,6 +108,7 @@ describe("AmqpWorker", () => {
 
       await mockConsumeCallback?.(mockMessage);
 
+      // THEN
       // Type inference test - handler should receive correctly typed message
       expect(handler).toHaveBeenCalledWith({
         orderId: "123",
@@ -113,6 +119,7 @@ describe("AmqpWorker", () => {
 
   describe("connect", () => {
     it("should connect and setup exchanges", async () => {
+      // GIVEN
       const contract = defineContract({
         exchanges: {
           test: {
@@ -126,8 +133,11 @@ describe("AmqpWorker", () => {
       });
 
       const worker = new AmqpWorker(contract, {});
+
+      // WHEN
       await worker.connect(mockConnection);
 
+      // THEN
       expect(mockConnection.createChannel).toHaveBeenCalled();
       expect(mockChannel.assertExchange).toHaveBeenCalledWith("test-exchange", "topic", {
         durable: true,
@@ -138,6 +148,7 @@ describe("AmqpWorker", () => {
     });
 
     it("should setup queues when defined", async () => {
+      // GIVEN
       const contract = defineContract({
         queues: {
           testQueue: {
@@ -150,8 +161,11 @@ describe("AmqpWorker", () => {
       });
 
       const worker = new AmqpWorker(contract, {});
+
+      // WHEN
       await worker.connect(mockConnection);
 
+      // THEN
       expect(mockChannel.assertQueue).toHaveBeenCalledWith("test-queue", {
         durable: true,
         exclusive: false,
@@ -161,6 +175,7 @@ describe("AmqpWorker", () => {
     });
 
     it("should setup bindings when defined", async () => {
+      // GIVEN
       const contract = defineContract({
         exchanges: {
           test: {
@@ -184,8 +199,11 @@ describe("AmqpWorker", () => {
       });
 
       const worker = new AmqpWorker(contract, {});
+
+      // WHEN
       await worker.connect(mockConnection);
 
+      // THEN
       expect(mockChannel.bindQueue).toHaveBeenCalledWith(
         "test-queue",
         "test-exchange",
@@ -197,6 +215,7 @@ describe("AmqpWorker", () => {
 
   describe("consume", () => {
     it("should throw error when not connected", async () => {
+      // GIVEN
       const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
 
       const contract = defineContract({
@@ -217,12 +236,14 @@ describe("AmqpWorker", () => {
         testConsumer: vi.fn(),
       });
 
+      // WHEN / THEN
       await expect(worker.consume("testConsumer")).rejects.toThrow(
         "Worker not connected. Call connect() first.",
       );
     });
 
     it("should setup consumer and process messages", async () => {
+      // GIVEN
       const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
 
       const contract = defineContract({
@@ -245,8 +266,11 @@ describe("AmqpWorker", () => {
       });
 
       await worker.connect(mockConnection);
+
+      // WHEN
       await worker.consume("testConsumer");
 
+      // THEN
       expect(mockChannel.consume).toHaveBeenCalledWith("test-queue", expect.any(Function), {
         noAck: false,
       });
@@ -265,6 +289,7 @@ describe("AmqpWorker", () => {
     });
 
     it("should set prefetch when specified", async () => {
+      // GIVEN
       const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
 
       const contract = defineContract({
@@ -287,12 +312,16 @@ describe("AmqpWorker", () => {
       });
 
       await worker.connect(mockConnection);
+
+      // WHEN
       await worker.consume("testConsumer");
 
+      // THEN
       expect(mockChannel.prefetch).toHaveBeenCalledWith(10);
     });
 
     it("should nack invalid messages", async () => {
+      // GIVEN
       const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
 
       const contract = defineContract({
@@ -317,6 +346,7 @@ describe("AmqpWorker", () => {
       await worker.connect(mockConnection);
       await worker.consume("testConsumer");
 
+      // WHEN
       // Simulate invalid message
       const mockMessage = {
         content: Buffer.from(JSON.stringify({ id: 123 })), // Invalid: id should be string
@@ -326,11 +356,13 @@ describe("AmqpWorker", () => {
 
       await mockConsumeCallback?.(mockMessage);
 
+      // THEN
       expect(handler).not.toHaveBeenCalled();
       expect(mockChannel.nack).toHaveBeenCalledWith(mockMessage, false, false);
     });
 
     it("should nack and requeue on handler error", async () => {
+      // GIVEN
       const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
 
       const contract = defineContract({
@@ -355,6 +387,7 @@ describe("AmqpWorker", () => {
       await worker.connect(mockConnection);
       await worker.consume("testConsumer");
 
+      // WHEN
       // Simulate message
       const mockMessage = {
         content: Buffer.from(JSON.stringify({ id: "123" })),
@@ -364,11 +397,13 @@ describe("AmqpWorker", () => {
 
       await mockConsumeCallback?.(mockMessage);
 
+      // THEN
       expect(handler).toHaveBeenCalled();
       expect(mockChannel.nack).toHaveBeenCalledWith(mockMessage, false, true);
     });
 
     it("should not ack in noAck mode", async () => {
+      // GIVEN
       const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
 
       const contract = defineContract({
@@ -394,6 +429,7 @@ describe("AmqpWorker", () => {
       await worker.connect(mockConnection);
       await worker.consume("testConsumer");
 
+      // WHEN
       // Simulate message
       const mockMessage = {
         content: Buffer.from(JSON.stringify({ id: "123" })),
@@ -403,11 +439,13 @@ describe("AmqpWorker", () => {
 
       await mockConsumeCallback?.(mockMessage);
 
+      // THEN
       expect(handler).toHaveBeenCalled();
       expect(mockChannel.ack).not.toHaveBeenCalled();
     });
 
     it("should handle null messages", async () => {
+      // GIVEN
       const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
 
       const contract = defineContract({
@@ -432,14 +470,17 @@ describe("AmqpWorker", () => {
       await worker.connect(mockConnection);
       await worker.consume("testConsumer");
 
+      // WHEN
       await mockConsumeCallback?.(null);
 
+      // THEN
       expect(handler).not.toHaveBeenCalled();
     });
   });
 
   describe("consumeAll", () => {
     it("should consume all consumers", async () => {
+      // GIVEN
       const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
 
       const contract = defineContract({
@@ -469,12 +510,16 @@ describe("AmqpWorker", () => {
       });
 
       await worker.connect(mockConnection);
+
+      // WHEN
       await worker.consumeAll();
 
+      // THEN
       expect(mockChannel.consume).toHaveBeenCalledTimes(2);
     });
 
     it("should throw error when no consumers defined", async () => {
+      // GIVEN
       const contract = defineContract({
         queues: {
           test: {
@@ -486,12 +531,14 @@ describe("AmqpWorker", () => {
       const worker = new AmqpWorker(contract, {});
       await worker.connect(mockConnection);
 
+      // WHEN / THEN
       await expect(worker.consumeAll()).rejects.toThrow("No consumers defined in contract");
     });
   });
 
   describe("stopConsuming", () => {
     it("should cancel all consumers", async () => {
+      // GIVEN
       const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
 
       const contract = defineContract({
@@ -514,23 +561,30 @@ describe("AmqpWorker", () => {
 
       await worker.connect(mockConnection);
       await worker.consume("testConsumer");
+
+      // WHEN
       await worker.stopConsuming();
 
+      // THEN
       expect(mockChannel.cancel).toHaveBeenCalledWith("test-tag");
     });
 
     it("should handle stopConsuming when not connected", async () => {
+      // GIVEN
       const contract = defineContract({
         consumers: {},
       });
 
       const worker = new AmqpWorker(contract, {});
+
+      // WHEN / THEN
       await expect(worker.stopConsuming()).resolves.toBeUndefined();
     });
   });
 
   describe("close", () => {
     it("should stop consuming and close connections", async () => {
+      // GIVEN
       const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
 
       const contract = defineContract({
@@ -553,8 +607,11 @@ describe("AmqpWorker", () => {
 
       await worker.connect(mockConnection);
       await worker.consume("testConsumer");
+
+      // WHEN
       await worker.close();
 
+      // THEN
       expect(mockChannel.cancel).toHaveBeenCalled();
       expect(mockChannel.close).toHaveBeenCalled();
       expect(mockConnection.close).toHaveBeenCalled();
@@ -563,11 +620,15 @@ describe("AmqpWorker", () => {
 
   describe("createWorker", () => {
     it("should create a worker instance", () => {
+      // GIVEN
       const contract = defineContract({
         consumers: {},
       });
 
+      // WHEN
       const worker = createWorker(contract, {});
+
+      // THEN
       expect(worker).toBeInstanceOf(AmqpWorker);
     });
   });

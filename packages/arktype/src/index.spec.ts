@@ -4,11 +4,13 @@ import { defineContract, definePublisher, defineExchange } from "@amqp-contract/
 
 describe("@amqp-contract/arktype", () => {
   it("should work with arktype schemas", () => {
+    // GIVEN
     const schema = type({
       id: "string",
       name: "string",
     });
 
+    // WHEN
     const contract = defineContract({
       exchanges: {
         test: defineExchange("test", "topic"),
@@ -18,6 +20,7 @@ describe("@amqp-contract/arktype", () => {
       },
     });
 
+    // THEN
     expect(contract.publishers?.testPublisher.message).toBe(schema);
   });
 });

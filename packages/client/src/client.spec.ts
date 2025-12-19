@@ -26,6 +26,7 @@ describe("AmqpClient", () => {
 
   describe("Type Inference", () => {
     it("should infer publisher names correctly", () => {
+      // GIVEN
       const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
 
       const contract = defineContract({
@@ -44,8 +45,10 @@ describe("AmqpClient", () => {
         },
       });
 
+      // WHEN
       const client = createClient(contract);
 
+      // THEN
       // Type inference test - this should compile without errors
       type PublisherNames = Parameters<typeof client.publish>[0];
       const name: PublisherNames = "testPublisher";
@@ -53,6 +56,7 @@ describe("AmqpClient", () => {
     });
 
     it("should infer message types correctly", async () => {
+      // GIVEN
       const OrderMessage = defineMessage(
         "OrderMessage",
         z.object({
@@ -81,12 +85,14 @@ describe("AmqpClient", () => {
       const client = createClient(contract);
       await client.connect(mockConnection);
 
+      // WHEN
       // Type inference test - message type should be inferred correctly
       await client.publish("createOrder", {
         orderId: "123",
         amount: 100,
       });
 
+      // THEN
       expect(mockChannel.publish).toHaveBeenCalledWith(
         "orders",
         "order.created",
@@ -98,6 +104,7 @@ describe("AmqpClient", () => {
 
   describe("connect", () => {
     it("should connect and setup exchanges", async () => {
+      // GIVEN
       const contract = defineContract({
         exchanges: {
           test: {
@@ -110,8 +117,11 @@ describe("AmqpClient", () => {
       });
 
       const client = new AmqpClient(contract);
+
+      // WHEN
       await client.connect(mockConnection);
 
+      // THEN
       expect(mockConnection.createChannel).toHaveBeenCalled();
       expect(mockChannel.assertExchange).toHaveBeenCalledWith("test-exchange", "topic", {
         durable: true,
@@ -122,6 +132,7 @@ describe("AmqpClient", () => {
     });
 
     it("should setup queues when defined", async () => {
+      // GIVEN
       const contract = defineContract({
         queues: {
           testQueue: {
@@ -133,8 +144,11 @@ describe("AmqpClient", () => {
       });
 
       const client = new AmqpClient(contract);
+
+      // WHEN
       await client.connect(mockConnection);
 
+      // THEN
       expect(mockChannel.assertQueue).toHaveBeenCalledWith("test-queue", {
         durable: true,
         exclusive: false,
@@ -144,6 +158,7 @@ describe("AmqpClient", () => {
     });
 
     it("should setup bindings when defined", async () => {
+      // GIVEN
       const contract = defineContract({
         exchanges: {
           test: {
@@ -166,8 +181,11 @@ describe("AmqpClient", () => {
       });
 
       const client = new AmqpClient(contract);
+
+      // WHEN
       await client.connect(mockConnection);
 
+      // THEN
       expect(mockChannel.bindQueue).toHaveBeenCalledWith(
         "test-queue",
         "test-exchange",
@@ -179,6 +197,7 @@ describe("AmqpClient", () => {
 
   describe("publish", () => {
     it("should throw error when not connected", async () => {
+      // GIVEN
       const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
 
       const contract = defineContract({
@@ -198,12 +217,14 @@ describe("AmqpClient", () => {
 
       const client = new AmqpClient(contract);
 
+      // WHEN / THEN
       await expect(client.publish("testPublisher", { id: "123" })).rejects.toThrow(
         "Client not connected. Call connect() first.",
       );
     });
 
     it("should publish a valid message", async () => {
+      // GIVEN
       const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
 
       const contract = defineContract({
@@ -225,8 +246,10 @@ describe("AmqpClient", () => {
       const client = new AmqpClient(contract);
       await client.connect(mockConnection);
 
+      // WHEN
       const result = await client.publish("testPublisher", { id: "123" });
 
+      // THEN
       expect(result).toBe(true);
       expect(mockChannel.publish).toHaveBeenCalledWith(
         "test-exchange",
@@ -237,6 +260,7 @@ describe("AmqpClient", () => {
     });
 
     it("should use custom routing key from options", async () => {
+      // GIVEN
       const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
 
       const contract = defineContract({
@@ -258,8 +282,10 @@ describe("AmqpClient", () => {
       const client = new AmqpClient(contract);
       await client.connect(mockConnection);
 
+      // WHEN
       await client.publish("testPublisher", { id: "123" }, { routingKey: "test.custom" });
 
+      // THEN
       expect(mockChannel.publish).toHaveBeenCalledWith(
         "test-exchange",
         "test.custom",
@@ -269,6 +295,7 @@ describe("AmqpClient", () => {
     });
 
     it("should validate message and throw on invalid data", async () => {
+      // GIVEN
       const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
 
       const contract = defineContract({
@@ -289,6 +316,7 @@ describe("AmqpClient", () => {
       const client = new AmqpClient(contract);
       await client.connect(mockConnection);
 
+      // WHEN / THEN
       // @ts-expect-error - testing runtime validation with invalid data
       await expect(client.publish("testPublisher", { id: 123 })).rejects.toThrow();
     });
@@ -296,6 +324,7 @@ describe("AmqpClient", () => {
 
   describe("close", () => {
     it("should close channel and connection", async () => {
+      // GIVEN
       const contract = defineContract({
         exchanges: {
           test: {
@@ -307,13 +336,17 @@ describe("AmqpClient", () => {
 
       const client = new AmqpClient(contract);
       await client.connect(mockConnection);
+
+      // WHEN
       await client.close();
 
+      // THEN
       expect(mockChannel.close).toHaveBeenCalled();
       expect(mockConnection.close).toHaveBeenCalled();
     });
 
     it("should handle close when not connected", async () => {
+      // GIVEN
       const contract = defineContract({
         exchanges: {
           test: {
@@ -324,12 +357,15 @@ describe("AmqpClient", () => {
       });
 
       const client = new AmqpClient(contract);
+
+      // WHEN / THEN
       await expect(client.close()).resolves.toBeUndefined();
     });
   });
 
   describe("createClient", () => {
     it("should create a client instance", () => {
+      // GIVEN
       const contract = defineContract({
         exchanges: {
           test: {
@@ -339,7 +375,10 @@ describe("AmqpClient", () => {
         },
       });
 
+      // WHEN
       const client = createClient(contract);
+
+      // THEN
       expect(client).toBeInstanceOf(AmqpClient);
     });
   });

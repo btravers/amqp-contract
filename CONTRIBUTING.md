@@ -30,6 +30,18 @@ pnpm test
 - `packages/asyncapi` - AsyncAPI specification generator
 - `samples/` - Example implementations
 
+## Coding Guidelines
+
+📋 **[Read the complete coding guidelines](.github/copilot-instructions.md)**
+
+This project uses AI-assisted code review with GitHub Copilot. Our guidelines document:
+
+- TypeScript & type safety requirements
+- AMQP/RabbitMQ patterns & best practices
+- Code style & formatting rules
+- Testing conventions
+- Error handling patterns
+
 ## Commit Convention
 
 We follow [Conventional Commits](https://www.conventionalcommits.org/):
