@@ -452,6 +452,9 @@ importers:
         specifier: 'catalog:'
         version: 4.2.1
     devDependencies:
+      '@amqp-contract/client':
+        specifier: workspace:*
+        version: link:../../packages/client
       '@amqp-contract/testing':
         specifier: workspace:*
         version: link:../../packages/testing
