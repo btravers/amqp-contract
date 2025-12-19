@@ -24,7 +24,7 @@ export default async function setup({ provide }: TestProject) {
       RABBITMQ_DEFAULT_PASS: "guest",
     })
     .withHealthCheck({
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"],
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"],
       interval: 1_000,
       retries: 30,
       startPeriod: 3_000,
