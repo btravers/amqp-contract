@@ -153,10 +153,12 @@ await worker.close();
 ### `CreateWorkerOptions`
 
 ```typescript
+import type { ChannelModel } from "amqplib";
+
 interface CreateWorkerOptions<TContract> {
   contract: TContract;
   handlers: Handlers<TContract>;
-  connection: Connection;
+  connection: ChannelModel;
 }
 ```
 
