@@ -54,82 +54,6 @@ const worker = await TypedAmqpWorker.create({
 
 ## TypedAmqpWorker API
 
-### `connect`
-
-Connects the worker to RabbitMQ.
-
-**Note:** When using `TypedAmqpWorker.create()`, this method is called automatically. You only need to call this manually if you create a `TypedAmqpWorker` instance directly using `new TypedAmqpWorker()`.
-
-**Signature:**
-
-```typescript
-async connect(connection: Connection): Promise<void>
-```
-
-**Example:**
-
-```typescript
-import { TypedAmqpWorker } from '@amqp-contract/worker';
-import { connect } from 'amqplib';
-
-const connection = await connect('amqp://localhost');
-const worker = new TypedAmqpWorker(contract, handlers);
-await worker.connect(connection);
-```
-
-**Parameters:**
-
-- `connection` - amqplib Connection object
-
----
-
-### `consumeAll`
-
-Starts consuming from all queues defined in the contract.
-
-**Note:** When using `TypedAmqpWorker.create()`, this method is called automatically. You only need to call this manually if you create an `AmqpWorker` instance directly and want to start all consumers at once.
-
-**Signature:**
-
-```typescript
-async consumeAll(): Promise<void>
-```
-
-**Example:**
-
-```typescript
-await worker.consumeAll();
-console.log('Worker ready, waiting for messages...');
-```
-
----
-
-### `consume`
-
-Starts consuming from specific queues.
-
-**Signature:**
-
-```typescript
-async consume(...consumers: Array<keyof Consumers>): Promise<void>
-```
-
-**Example:**
-
-```typescript
-// Consume from specific consumer
-await worker.consume('processOrder');
-
-// Consume from multiple consumers
-await worker.consume('processOrder', 'notifyOrder');
-```
-
-**Parameters:**
-
-- `...consumers` - Consumer names (from contract)
-
----
-
 ### `close`
 
 Closes the worker and stops consuming.
@@ -298,25 +222,6 @@ const worker = await TypedAmqpWorker.create({
   },
   connection,
 });
-```
-
-## Selective Consumption
-
-If you need to start only specific consumers, use the `TypedAmqpWorker` class directly:
-
-```typescript
-import { TypedAmqpWorker } from '@amqp-contract/worker';
-
-const worker = new TypedAmqpWorker(contract, handlers);
-await worker.connect(connection);
-
-// Start only the processing consumer
-await worker.consume('processOrder');
-
-// Start notification consumer later
-setTimeout(() => {
-  worker.consume('notifyOrder');
-}, 5000);
 ```
 
 ## Graceful Shutdown
