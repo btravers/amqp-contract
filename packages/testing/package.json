@@ -1,0 +1,35 @@
+{
+  "name": "@amqp-contract/testing",
+  "version": "0.0.1",
+  "description": "Testing utilities for AMQP contracts with testcontainers",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    "./global-setup": {
+      "types": "./dist/global-setup.d.mts",
+      "import": "./dist/global-setup.mjs"
+    },
+    "./extension": {
+      "types": "./dist/extension.d.mts",
+      "import": "./dist/extension.mjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown src/global-setup.ts src/extension.ts --format esm --dts --clean",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "amqplib": "catalog:",
+    "testcontainers": "catalog:"
+  },
+  "devDependencies": {
+    "@amqp-contract/tsconfig": "workspace:*",
+    "@types/amqplib": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
