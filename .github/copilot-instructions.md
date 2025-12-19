@@ -210,7 +210,7 @@ packages/[package-name]/
 
    async function validateAndPublish(schema: StandardSchemaV1, data: unknown) {
      const result = await schema['~standard'].validate(data);
-     if (!result.issues) {
+     if (result.issues === undefined) {
        // Validation succeeded
        return result.value;
      }
