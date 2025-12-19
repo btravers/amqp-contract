@@ -1,25 +1,11 @@
-import { describe, expect, it, afterEach } from "vitest";
-import { getAmqpConnection } from "@amqp-contract/testing/extension";
+import { describe, expect } from "vitest";
+import { it } from "@amqp-contract/testing/extension";
 import { createClient } from "@amqp-contract/client";
 import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
-import type { ChannelModel } from "amqplib";
 
 describe("Basic Order Processing Client Integration", () => {
-  let amqpConnection: ChannelModel;
-
-  afterEach(async () => {
-    if (amqpConnection) {
-      try {
-        await amqpConnection.close();
-      } catch {
-        // Connection may already be closed
-      }
-    }
-  });
-
-  it("should publish a new order successfully", async () => {
+  it("should publish a new order successfully", async ({ amqpConnection }) => {
     // GIVEN
-    amqpConnection = await getAmqpConnection();
     const client = createClient(orderContract);
     await client.connect(amqpConnection);
 
@@ -44,9 +30,8 @@ describe("Basic Order Processing Client Integration", () => {
     await client.close();
   });
 
-  it("should publish order status updates", async () => {
+  it("should publish order status updates", async ({ amqpConnection }) => {
     // GIVEN
-    amqpConnection = await getAmqpConnection();
     const client = createClient(orderContract);
     await client.connect(amqpConnection);
 
@@ -66,9 +51,8 @@ describe("Basic Order Processing Client Integration", () => {
     await client.close();
   });
 
-  it("should validate order schema before publishing", async () => {
+  it("should validate order schema before publishing", async ({ amqpConnection }) => {
     // GIVEN
-    amqpConnection = await getAmqpConnection();
     const client = createClient(orderContract);
     await client.connect(amqpConnection);
 

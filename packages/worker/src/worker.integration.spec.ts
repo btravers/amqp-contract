@@ -1,5 +1,5 @@
-import { describe, expect, it, afterEach } from "vitest";
-import { getAmqpConnection } from "@amqp-contract/testing/extension";
+import { describe, expect } from "vitest";
+import { it } from "@amqp-contract/testing/extension";
 import { createWorker } from "./worker.js";
 import { createClient } from "@amqp-contract/client";
 import {
@@ -11,33 +11,10 @@ import {
   defineConsumer,
 } from "@amqp-contract/contract";
 import { z } from "zod";
-import type { ChannelModel } from "amqplib";
 
 describe("AmqpWorker Integration", () => {
-  let amqpConnection: ChannelModel;
-  let clientConnection: ChannelModel;
-
-  afterEach(async () => {
-    if (amqpConnection) {
-      try {
-        await amqpConnection.close();
-      } catch {
-        // Connection may already be closed
-      }
-    }
-    if (clientConnection) {
-      try {
-        await clientConnection.close();
-      } catch {
-        // Connection may already be closed
-      }
-    }
-  });
-
-  it("should consume messages from a real RabbitMQ instance", async () => {
+  it("should consume messages from a real RabbitMQ instance", async ({ amqpConnection }) => {
     // GIVEN
-    amqpConnection = await getAmqpConnection();
-
     const TestMessage = z.object({
       id: z.string(),
       message: z.string(),
@@ -76,9 +53,8 @@ describe("AmqpWorker Integration", () => {
     await worker.consume("testConsumer");
 
     // WHEN - Publish a message using the client
-    clientConnection = await getAmqpConnection();
     const client = createClient(contract);
-    await client.connect(clientConnection);
+    await client.connect(amqpConnection);
     await client.publish("testPublisher", {
       id: "123",
       message: "Hello from integration test!",
@@ -97,10 +73,8 @@ describe("AmqpWorker Integration", () => {
     await client.close();
   });
 
-  it("should handle multiple messages", async () => {
+  it("should handle multiple messages", async ({ amqpConnection }) => {
     // GIVEN
-    amqpConnection = await getAmqpConnection();
-
     const TestMessage = z.object({
       id: z.string(),
       count: z.number(),
@@ -139,9 +113,8 @@ describe("AmqpWorker Integration", () => {
     await worker.consume("testConsumer");
 
     // WHEN - Publish multiple messages
-    clientConnection = await getAmqpConnection();
     const client = createClient(contract);
-    await client.connect(clientConnection);
+    await client.connect(amqpConnection);
 
     await client.publish("testPublisher", { id: "1", count: 1 });
     await client.publish("testPublisher", { id: "2", count: 2 });
@@ -161,10 +134,8 @@ describe("AmqpWorker Integration", () => {
     await client.close();
   });
 
-  it("should consume all consumers with consumeAll", async () => {
+  it("should consume all consumers with consumeAll", async ({ amqpConnection }) => {
     // GIVEN
-    amqpConnection = await getAmqpConnection();
-
     const TestMessage = z.object({ id: z.string() });
 
     const contract = defineContract({
@@ -212,9 +183,8 @@ describe("AmqpWorker Integration", () => {
     await worker.consumeAll();
 
     // WHEN - Publish messages to both queues
-    clientConnection = await getAmqpConnection();
     const client = createClient(contract);
-    await client.connect(clientConnection);
+    await client.connect(amqpConnection);
 
     await client.publish("pub1", { id: "msg1" });
     await client.publish("pub2", { id: "msg2" });
