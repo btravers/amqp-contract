@@ -1,7 +1,7 @@
 {
   "extends": "@amqp-contract/tsconfig/base.json",
   "compilerOptions": {
-    "rootDir": "./docs",
+    "rootDir": "./docs"
   },
-  "include": ["docs/**/*"],
+  "include": ["docs/**/*"]
 }

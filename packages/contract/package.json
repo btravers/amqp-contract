@@ -4,9 +4,9 @@
   "description": "Contract builder for amqp-contract",
   "keywords": [
     "amqp",
-    "typescript",
     "contract",
-    "rabbitmq"
+    "rabbitmq",
+    "typescript"
   ],
   "homepage": "https://github.com/btravers/amqp-contract#readme",
   "bugs": {

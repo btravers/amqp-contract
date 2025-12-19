@@ -4,10 +4,10 @@
   "description": "Worker utilities for consuming messages using amqp-contract",
   "keywords": [
     "amqp",
-    "typescript",
     "contract",
-    "worker",
-    "rabbitmq"
+    "rabbitmq",
+    "typescript",
+    "worker"
   ],
   "homepage": "https://github.com/btravers/amqp-contract#readme",
   "bugs": {

@@ -4,9 +4,9 @@
   "description": "Valibot integration for amqp-contract",
   "keywords": [
     "amqp",
-    "typescript",
     "contract",
     "rabbitmq",
+    "typescript",
     "valibot"
   ],
   "homepage": "https://github.com/btravers/amqp-contract#readme",
