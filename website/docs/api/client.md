@@ -12,30 +12,34 @@ pnpm add @amqp-contract/client amqplib
 
 ### `createClient`
 
-Creates a type-safe AMQP client from a contract.
+Creates a type-safe AMQP client from a contract and automatically connects to RabbitMQ.
 
 **Signature:**
 
 ```typescript
-function createClient<TContract>(
-  contract: TContract
-): AmqpClient<TContract>
+async function createClient<TContract>(
+  options: CreateClientOptions<TContract>
+): Promise<AmqpClient<TContract>>
 ```
 
 **Example:**
 
 ```typescript
 import { createClient } from '@amqp-contract/client';
+import { connect } from 'amqplib';
 import { contract } from './contract';
 
-const client = createClient(contract);
+const connection = await connect('amqp://localhost');
+const client = await createClient({ contract, connection });
 ```
 
 **Parameters:**
 
-- `contract` - Contract definition created with `defineContract`
+- `options` - Configuration object:
+  - `contract` - Contract definition created with `defineContract`
+  - `connection` - amqplib Connection object
 
-**Returns:** Type-safe AMQP client
+**Returns:** Promise that resolves to a type-safe AMQP client
 
 ---
 
@@ -44,6 +48,8 @@ const client = createClient(contract);
 ### `connect`
 
 Connects the client to RabbitMQ.
+
+**Note:** When using `createClient()`, this method is called automatically. You only need to call this manually if you create an `AmqpClient` instance directly using `new AmqpClient()`.
 
 **Signature:**
 
@@ -54,9 +60,11 @@ async connect(connection: Connection): Promise<void>
 **Example:**
 
 ```typescript
+import { AmqpClient } from '@amqp-contract/client';
 import { connect } from 'amqplib';
 
 const connection = await connect('amqp://localhost');
+const client = new AmqpClient(contract);
 await client.connect(connection);
 ```
 
@@ -138,6 +146,15 @@ await client.close();
 
 ## Types
 
+### `CreateClientOptions`
+
+```typescript
+interface CreateClientOptions<TContract> {
+  contract: TContract;
+  connection: Connection;
+}
+```
+
 ### `PublishOptions`
 
 ```typescript
@@ -172,9 +189,8 @@ async function main() {
   // Connect to RabbitMQ
   const connection = await connect('amqp://localhost');
 
-  // Create client
-  const client = createClient(contract);
-  await client.connect(connection);
+  // Create client (automatically connects)
+  const client = await createClient({ contract, connection });
 
   // Publish message
   await client.publish('orderCreated', {
@@ -278,11 +294,15 @@ await connection.close();
 You can create multiple clients from the same or different contracts:
 
 ```typescript
-const orderClient = createClient(orderContract);
-await orderClient.connect(connection);
+const orderClient = await createClient({
+  contract: orderContract,
+  connection,
+});
 
-const paymentClient = createClient(paymentContract);
-await paymentClient.connect(connection);
+const paymentClient = await createClient({
+  contract: paymentContract,
+  connection,
+});
 
 // Use both clients
 await orderClient.publish('orderCreated', orderMessage);

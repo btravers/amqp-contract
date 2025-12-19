@@ -24,7 +24,7 @@ yarn add @amqp-contract/client amqplib
 
 ## Creating a Client
 
-Create a type-safe client from your contract:
+Create a type-safe client from your contract. The client automatically connects to RabbitMQ:
 
 ```typescript
 import { createClient } from '@amqp-contract/client';
@@ -34,9 +34,8 @@ import { contract } from './contract';
 // Connect to RabbitMQ
 const connection = await connect('amqp://localhost');
 
-// Create client from contract
-const client = createClient(contract);
-await client.connect(connection);
+// Create client from contract (automatically connects)
+const client = await createClient({ contract, connection });
 ```
 
 ## Publishing Messages
@@ -148,11 +147,9 @@ try {
 You can create multiple clients from the same contract:
 
 ```typescript
-const client1 = createClient(contract);
-await client1.connect(connection1);
+const client1 = await createClient({ contract, connection: connection1 });
 
-const client2 = createClient(contract);
-await client2.connect(connection2);
+const client2 = await createClient({ contract, connection: connection2 });
 ```
 
 ### Reusing Connections
@@ -162,11 +159,15 @@ Share a single connection across clients:
 ```typescript
 const connection = await connect('amqp://localhost');
 
-const orderClient = createClient(orderContract);
-await orderClient.connect(connection);
+const orderClient = await createClient({
+  contract: orderContract,
+  connection,
+});
 
-const paymentClient = createClient(paymentContract);
-await paymentClient.connect(connection);
+const paymentClient = await createClient({
+  contract: paymentContract,
+  connection,
+});
 ```
 
 ## Best Practices
@@ -191,8 +192,7 @@ async function main() {
   try {
     // Connect
     connection = await connect('amqp://localhost');
-    client = createClient(contract);
-    await client.connect(connection);
+    client = await createClient({ contract, connection });
 
     // Publish messages
     await client.publish('orderCreated', {
