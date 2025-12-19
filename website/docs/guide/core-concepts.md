@@ -30,6 +30,7 @@ const contract = defineContract({
 });
 
 // Client knows the exact shape
+// connection is an amqplib Connection object
 const client = await createClient({ contract, connection });
 await client.publish('orderCreated', {
   orderId: 'ORD-123',  // ✅ TypeScript knows this field
