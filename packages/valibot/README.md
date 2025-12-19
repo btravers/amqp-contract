@@ -2,6 +2,8 @@
 
 Valibot integration for amqp-contract. This package declares peer dependencies for [Valibot](https://valibot.dev/) compatibility with amqp-contract.
 
+📖 **[Full documentation →](https://btravers.github.io/amqp-contract/guide/getting-started)**
+
 ## Installation
 
 ```bash

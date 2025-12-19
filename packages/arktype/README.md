@@ -2,6 +2,8 @@
 
 ArkType integration for amqp-contract. This package declares peer dependencies for [ArkType](https://arktype.io/) compatibility with amqp-contract.
 
+📖 **[Full documentation →](https://btravers.github.io/amqp-contract/guide/getting-started)**
+
 ## Installation
 
 ```bash

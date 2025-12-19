@@ -2,6 +2,8 @@
 
 Testing utilities for AMQP contracts using testcontainers.
 
+📖 **[Full documentation →](https://btravers.github.io/amqp-contract/guide/getting-started)**
+
 ## Features
 
 - 🐳 Automatically starts RabbitMQ container for tests
