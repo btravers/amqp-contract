@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx src/index.ts",
-    "test:integration": "vitest run --project integration",
+    "test:integration": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
