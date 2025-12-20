@@ -16,11 +16,6 @@ Learn about amqp-contract and how it brings end-to-end type safety to AMQP messa
 
 ---
 
-## Publishing to dev.to
-
-A dev.to-compatible version of articles is available in the repository root at `/blog-devto/`.
-See the README there for instructions on how to publish to dev.to.
-
 ## About
 
 This blog features articles about:
