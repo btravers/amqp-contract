@@ -22,12 +22,10 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "amqplib": "catalog:",
     "testcontainers": "catalog:"
   },
   "devDependencies": {
     "@amqp-contract/tsconfig": "workspace:*",
-    "@types/amqplib": "catalog:",
     "tsdown": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
