@@ -6,10 +6,12 @@ This directory contains blog articles for the amqp-contract project.
 
 ### Introducing amqp-contract
 
-- **Website version**: [`introducing-amqp-contract.md`](./introducing-amqp-contract.md)
+- **Website version**: [`website/docs/blog/introducing-amqp-contract.md`](../website/docs/blog/introducing-amqp-contract.md)
 - **dev.to version**: [`introducing-amqp-contract-devto.md`](./introducing-amqp-contract-devto.md)
 
 The introduction article that explains the project, its features, and how to get started.
+
+**Published on website**: [https://btravers.github.io/amqp-contract/blog/introducing-amqp-contract](https://btravers.github.io/amqp-contract/blog/introducing-amqp-contract)
 
 ## Publishing to dev.to
 
