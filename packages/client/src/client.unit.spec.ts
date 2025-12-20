@@ -286,7 +286,7 @@ describe("AmqpClient", () => {
   });
 
   describe("close", () => {
-    it("should close channel and connection", async () => {
+    it("should close channel but not connection", async () => {
       // GIVEN
       const contract = defineContract({
         exchanges: {
@@ -304,7 +304,7 @@ describe("AmqpClient", () => {
 
       // THEN
       expect(mockChannel.close).toHaveBeenCalled();
-      expect(mockConnection.close).toHaveBeenCalled();
+      expect(mockConnection.close).not.toHaveBeenCalled();
     });
 
     it("should handle close when not connected", async () => {
