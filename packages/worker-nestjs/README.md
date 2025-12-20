@@ -2,8 +2,6 @@
 
 NestJS integration for [@amqp-contract/worker](../worker). Type-safe AMQP message consumption with automatic lifecycle management.
 
-📖 **[Full documentation →](https://btravers.github.io/amqp-contract/api/worker-nestjs)**
-
 ## Installation
 
 ```bash

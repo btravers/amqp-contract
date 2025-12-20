@@ -2,8 +2,6 @@
 
 NestJS integration for [@amqp-contract/client](../client). Type-safe AMQP message publishing with automatic lifecycle management.
 
-📖 **[Full documentation →](https://btravers.github.io/amqp-contract/api/client-nestjs)**
-
 ## Installation
 
 ```bash
