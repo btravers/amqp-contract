@@ -1,5 +1,4 @@
 import { TypedAmqpWorker } from "@amqp-contract/worker";
-import { connect } from "amqplib";
 import pino from "pino";
 import { z } from "zod";
 import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
@@ -22,11 +21,6 @@ const logger = pino({
 });
 
 async function main() {
-  // Connect to RabbitMQ
-  const connection = await connect(env.AMQP_URL);
-
-  logger.info("Connected to RabbitMQ");
-
   // Create type-safe worker with handlers for each consumer
   const worker = await TypedAmqpWorker.create({
     contract: orderContract,
@@ -112,7 +106,7 @@ async function main() {
         logger.warn({ orderId: message.orderId }, "Urgent update handled");
       },
     },
-    connection,
+    connection: env.AMQP_URL,
   });
 
   logger.info("Worker ready, waiting for messages...");
@@ -128,7 +122,6 @@ async function main() {
   process.on("SIGINT", async () => {
     logger.info("Shutting down worker...");
     await worker.close();
-    await connection.close();
     process.exit(0);
   });
 }

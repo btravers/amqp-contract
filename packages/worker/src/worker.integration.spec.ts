@@ -13,7 +13,7 @@ import {
 import { z } from "zod";
 
 describe("AmqpWorker Integration", () => {
-  it("should consume messages from a real RabbitMQ instance", async ({ amqpConnection }) => {
+  it("should consume messages from a real RabbitMQ instance", async ({ amqpConnectionUrl }) => {
     // GIVEN
     const TestMessage = z.object({
       id: z.string(),
@@ -50,11 +50,11 @@ describe("AmqpWorker Integration", () => {
           messages.push(msg);
         },
       },
-      connection: amqpConnection,
+      connection: amqpConnectionUrl,
     });
 
     // WHEN - Publish a message using the client
-    const client = await TypedAmqpClient.create({ contract, connection: amqpConnection });
+    const client = await TypedAmqpClient.create({ contract, connection: amqpConnectionUrl });
     await client.publish("testPublisher", {
       id: "123",
       message: "Hello from integration test!",
@@ -73,7 +73,7 @@ describe("AmqpWorker Integration", () => {
     await client.close();
   });
 
-  it("should handle multiple messages", async ({ amqpConnection }) => {
+  it("should handle multiple messages", async ({ amqpConnectionUrl }) => {
     // GIVEN
     const TestMessage = z.object({
       id: z.string(),
@@ -110,11 +110,11 @@ describe("AmqpWorker Integration", () => {
           messages.push(msg);
         },
       },
-      connection: amqpConnection,
+      connection: amqpConnectionUrl,
     });
 
     // WHEN - Publish multiple messages
-    const client = await TypedAmqpClient.create({ contract, connection: amqpConnection });
+    const client = await TypedAmqpClient.create({ contract, connection: amqpConnectionUrl });
 
     await client.publish("testPublisher", { id: "1", count: 1 });
     await client.publish("testPublisher", { id: "2", count: 2 });
@@ -134,7 +134,7 @@ describe("AmqpWorker Integration", () => {
     await client.close();
   });
 
-  it("should consume all consumers with consumeAll", async ({ amqpConnection }) => {
+  it("should consume all consumers with consumeAll", async ({ amqpConnectionUrl }) => {
     // GIVEN
     const TestMessage = z.object({ id: z.string() });
 
@@ -180,11 +180,11 @@ describe("AmqpWorker Integration", () => {
           messages2.push(msg);
         },
       },
-      connection: amqpConnection,
+      connection: amqpConnectionUrl,
     });
 
     // WHEN - Publish messages to both queues
-    const client = await TypedAmqpClient.create({ contract, connection: amqpConnection });
+    const client = await TypedAmqpClient.create({ contract, connection: amqpConnectionUrl });
 
     await client.publish("pub1", { id: "msg1" });
     await client.publish("pub2", { id: "msg2" });

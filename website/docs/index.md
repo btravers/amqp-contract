@@ -94,11 +94,11 @@ const contract = defineContract({
   },
 });
 
-// Connect to RabbitMQ
-const connection = await connect('amqp://localhost');
-
 // ✅ Type-safe client
-const client = await TypedAmqpClient.create({ contract, connection });
+const client = await TypedAmqpClient.create({
+  contract,
+  connection: 'amqp://localhost'
+});
 await client.publish('orderCreated', {
   orderId: 'ORD-123',      // TypeScript knows!
   customerId: 'CUST-456',
@@ -113,6 +113,8 @@ const worker = await TypedAmqpWorker.create({
       console.log(message.orderId);  // ✅ Fully typed!
     },
   },
+  connection: 'amqp://localhost',
+});
   connection,
 });
 ```

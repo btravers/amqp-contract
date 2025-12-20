@@ -9,15 +9,15 @@ Install the required packages:
 ::: code-group
 
 ```bash [pnpm]
-pnpm add @amqp-contract/worker amqplib
+pnpm add @amqp-contract/worker
 ```
 
 ```bash [npm]
-npm install @amqp-contract/worker amqplib
+npm install @amqp-contract/worker
 ```
 
 ```bash [yarn]
-yarn add @amqp-contract/worker amqplib
+yarn add @amqp-contract/worker
 ```
 
 :::
@@ -28,11 +28,7 @@ Create a type-safe worker with message handlers. The worker automatically connec
 
 ```typescript
 import { TypedAmqpWorker } from '@amqp-contract/worker';
-import { connect } from 'amqplib';
 import { contract } from './contract';
-
-// Connect to RabbitMQ
-const connection = await connect('amqp://localhost');
 
 // Create worker with handlers (automatically connects and starts consuming)
 const worker = await TypedAmqpWorker.create({
@@ -46,7 +42,7 @@ const worker = await TypedAmqpWorker.create({
       console.log('Sending notification for:', message.orderId);
     },
   },
-  connection,
+  connection: 'amqp://localhost',
 });
 ```
 
@@ -358,13 +354,9 @@ const worker = await TypedAmqpWorker.create({
 
 ```typescript
 import { TypedAmqpWorker } from '@amqp-contract/worker';
-import { connect } from 'amqplib';
 import { contract } from './contract';
 
 async function main() {
-  // Connect to RabbitMQ
-  const connection = await connect('amqp://localhost');
-
   // Create worker with handlers (automatically connects and starts consuming)
   const worker = await TypedAmqpWorker.create({
     contract,
@@ -390,7 +382,7 @@ async function main() {
         await sendEmail(message);
       },
     },
-    connection,
+    connection: 'amqp://localhost',
   });
 
   console.log('Worker ready, waiting for messages...');
@@ -398,8 +390,7 @@ async function main() {
   // Graceful shutdown
   const shutdown = async () => {
     console.log('Shutting down...');
-    await worker.close();
-    await connection.close();
+    await worker.close(); // Closes worker, channel, and connection
     process.exit(0);
   };
 

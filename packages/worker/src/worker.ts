@@ -1,4 +1,5 @@
-import type { Channel, ChannelModel, ConsumeMessage } from "amqplib";
+import { connect } from "amqplib";
+import type { Channel, ChannelModel, ConsumeMessage, Options } from "amqplib";
 import type {
   ContractDefinition,
   InferConsumerNames,
@@ -11,7 +12,7 @@ import type {
 export interface CreateWorkerOptions<TContract extends ContractDefinition> {
   contract: TContract;
   handlers: WorkerInferConsumerHandlers<TContract>;
-  connection: ChannelModel;
+  connection: string | Options.Connect;
 }
 
 /**
@@ -19,12 +20,13 @@ export interface CreateWorkerOptions<TContract extends ContractDefinition> {
  */
 export class TypedAmqpWorker<TContract extends ContractDefinition> {
   private channel: Channel | null = null;
+  private connection: ChannelModel | null = null;
   private consumerTags: string[] = [];
 
   private constructor(
     private readonly contract: TContract,
     private readonly handlers: WorkerInferConsumerHandlers<TContract>,
-    private readonly connection: ChannelModel,
+    private readonly connectionOptions: string | Options.Connect,
   ) {}
 
   /**
@@ -50,12 +52,18 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       await this.channel.close();
       this.channel = null;
     }
+
+    if (this.connection) {
+      await this.connection.close();
+      this.connection = null;
+    }
   }
 
   /**
    * Connect to AMQP broker
    */
   private async init(): Promise<void> {
+    this.connection = await connect(this.connectionOptions);
     this.channel = await this.connection.createChannel();
 
     // Setup exchanges

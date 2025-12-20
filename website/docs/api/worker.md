@@ -5,7 +5,7 @@ Type-safe AMQP worker for consuming messages.
 ## Installation
 
 ```bash
-pnpm add @amqp-contract/worker amqplib
+pnpm add @amqp-contract/worker
 ```
 
 ## Main Exports
@@ -26,10 +26,8 @@ static async create<TContract>(
 
 ```typescript
 import { TypedAmqpWorker } from '@amqp-contract/worker';
-import { connect } from 'amqplib';
 import { contract } from './contract';
 
-const connection = await connect('amqp://localhost');
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
@@ -37,7 +35,7 @@ const worker = await TypedAmqpWorker.create({
       console.log('Processing:', message.orderId);
     },
   },
-  connection,
+  connection: 'amqp://localhost',
 });
 ```
 
@@ -46,7 +44,7 @@ const worker = await TypedAmqpWorker.create({
 - `options` - Configuration object:
   - `contract` - Contract definition created with `defineContract`
   - `handlers` - Object with handler functions for each consumer
-  - `connection` - amqplib Connection object
+  - `connection` - AMQP connection URL (string) or connection options (Options.Connect)
 
 **Returns:** Promise that resolves to a type-safe AMQP worker
 
@@ -56,7 +54,7 @@ const worker = await TypedAmqpWorker.create({
 
 ### `close`
 
-Closes the worker and stops consuming.
+Closes the worker, stops consuming, and closes the connection.
 
 **Signature:**
 
@@ -77,12 +75,10 @@ await worker.close();
 ### `CreateWorkerOptions`
 
 ```typescript
-import type { ChannelModel } from "amqplib";
-
 interface CreateWorkerOptions<TContract> {
   contract: TContract;
   handlers: Handlers<TContract>;
-  connection: ChannelModel;
+  connection: string | Options.Connect;
 }
 ```
 
@@ -123,13 +119,9 @@ interface HandlerContext {
 
 ```typescript
 import { TypedAmqpWorker } from '@amqp-contract/worker';
-import { connect } from 'amqplib';
 import { contract } from './contract';
 
 async function main() {
-  // Connect to RabbitMQ
-  const connection = await connect('amqp://localhost');
-
   // Create worker with handlers (automatically connects and starts consuming)
   const worker = await TypedAmqpWorker.create({
     contract,
@@ -148,7 +140,7 @@ async function main() {
         await sendEmail(message);
       },
     },
-    connection,
+    connection: 'amqp://localhost',
   });
 
   console.log('Worker ready, waiting for messages...');

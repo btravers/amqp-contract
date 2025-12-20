@@ -9,15 +9,15 @@ Install the required packages:
 ::: code-group
 
 ```bash [pnpm]
-pnpm add @amqp-contract/client amqplib
+pnpm add @amqp-contract/client
 ```
 
 ```bash [npm]
-npm install @amqp-contract/client amqplib
+npm install @amqp-contract/client
 ```
 
 ```bash [yarn]
-yarn add @amqp-contract/client amqplib
+yarn add @amqp-contract/client
 ```
 
 :::
@@ -28,14 +28,13 @@ Create a type-safe client from your contract. The client automatically connects 
 
 ```typescript
 import { TypedAmqpClient } from '@amqp-contract/client';
-import { connect } from 'amqplib';
 import { contract } from './contract';
 
-// Connect to RabbitMQ
-const connection = await connect('amqp://localhost');
-
 // Create client from contract (automatically connects)
-const client = await TypedAmqpClient.create({ contract, connection });
+const client = await TypedAmqpClient.create({
+  contract,
+  connection: 'amqp://localhost'
+});
 ```
 
 ## Publishing Messages
@@ -174,25 +173,25 @@ const paymentClient = await TypedAmqpClient.create({
 
 1. **Validate Early** - Let Zod catch invalid data before publishing
 2. **Handle Errors** - Always wrap publish calls in try-catch
-3. **Reuse Connections** - Share connections when possible
-4. **Close Cleanly** - Always close clients and connections on shutdown
+3. **Reuse Clients** - Share clients when possible for the same contract
+4. **Close Cleanly** - Always close clients on shutdown (closes both channel and connection)
 5. **Use Persistent Messages** - Set `persistent: true` for important messages
 
 ## Complete Example
 
 ```typescript
 import { TypedAmqpClient } from '@amqp-contract/client';
-import { connect } from 'amqplib';
 import { contract } from './contract';
 
 async function main() {
-  let connection;
   let client;
 
   try {
     // Connect
-    connection = await connect('amqp://localhost');
-    client = await TypedAmqpClient.create({ contract, connection });
+    client = await TypedAmqpClient.create({
+      contract,
+      connection: 'amqp://localhost'
+    });
 
     // Publish messages
     await client.publish('orderCreated', {
@@ -208,9 +207,8 @@ async function main() {
   } catch (error) {
     console.error('Error:', error);
   } finally {
-    // Cleanup
+    // Cleanup - closes both channel and connection
     await client?.close();
-    await connection?.close();
   }
 }
 

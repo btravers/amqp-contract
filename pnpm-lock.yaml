@@ -234,9 +234,6 @@ importers:
 
   packages/testing:
     dependencies:
-      amqplib:
-        specifier: 'catalog:'
-        version: 0.10.9
       testcontainers:
         specifier: 'catalog:'
         version: 11.10.0
@@ -244,9 +241,6 @@ importers:
       '@amqp-contract/tsconfig':
         specifier: workspace:*
         version: link:../../tools/tsconfig
-      '@types/amqplib':
-        specifier: 'catalog:'
-        version: 0.10.8
       tsdown:
         specifier: 'catalog:'
         version: 0.18.1(oxc-resolver@11.16.0)(typescript@5.9.3)

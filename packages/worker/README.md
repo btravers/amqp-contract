@@ -7,18 +7,14 @@ Type-safe AMQP worker for consuming messages using amqp-contract.
 ## Installation
 
 ```bash
-pnpm add @amqp-contract/worker amqplib
+pnpm add @amqp-contract/worker
 ```
 
 ## Usage
 
 ```typescript
 import { TypedAmqpWorker } from '@amqp-contract/worker';
-import { connect } from 'amqplib';
 import { contract } from './contract';
-
-// Connect to RabbitMQ
-const connection = await connect('amqp://localhost');
 
 // Create worker from contract with handlers (automatically connects and starts consuming)
 const worker = await TypedAmqpWorker.create({
@@ -29,7 +25,7 @@ const worker = await TypedAmqpWorker.create({
       // Your business logic here
     },
   },
-  connection,
+  connection: 'amqp://localhost',
 });
 
 // Worker is already consuming messages
@@ -48,7 +44,7 @@ Create a type-safe AMQP worker from a contract with message handlers. Automatica
 
 - `options.contract` - Contract definition
 - `options.handlers` - Object with handler functions for each consumer
-- `options.connection` - amqplib Connection object
+- `options.connection` - AMQP connection URL (string) or connection options (Options.Connect)
 
 ### `TypedAmqpWorker.close()`
 
