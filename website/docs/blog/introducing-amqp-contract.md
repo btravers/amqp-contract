@@ -163,6 +163,7 @@ async function publishOrder() {
 
   console.log('Order published with validation!');
   await client.close();
+  await connection.close();
 }
 ```
 
@@ -210,6 +211,14 @@ async function startWorker() {
   });
 
   console.log('Worker started, waiting for messages...');
+
+  // Graceful shutdown
+  process.on('SIGINT', async () => {
+    console.log('Shutting down worker...');
+    await worker.close();
+    await connection.close();
+    process.exit(0);
+  });
 }
 ```
 
