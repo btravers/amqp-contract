@@ -15,6 +15,7 @@ export default defineConfig({
       { text: "Guide", link: "/guide/getting-started" },
       { text: "API", link: "/api/" },
       { text: "Examples", link: "/examples/" },
+      { text: "Blog", link: "/blog/" },
     ],
 
     sidebar: {
@@ -64,6 +65,18 @@ export default defineConfig({
             {
               text: "AsyncAPI Generation",
               link: "/examples/asyncapi-generation",
+            },
+          ],
+        },
+      ],
+      "/blog/": [
+        {
+          text: "Blog",
+          items: [
+            { text: "Overview", link: "/blog/" },
+            {
+              text: "Introducing amqp-contract",
+              link: "/blog/introducing-amqp-contract",
             },
           ],
         },
