@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TypedAmqpWorker } from "./worker";
 import type { Channel, ConsumeMessage } from "amqplib";
+import { connect } from "amqplib";
 import { defineContract, defineMessage } from "@amqp-contract/contract";
 import { z } from "zod";
 
@@ -37,8 +38,7 @@ describe("AmqpWorker", () => {
     vi.clearAllMocks();
     mockConsumeCallback = null;
     // Setup default mock implementation
-    const { connect } = require("amqplib");
-    connect.mockResolvedValue(mockConnection);
+    vi.mocked(connect).mockResolvedValue(mockConnection);
   });
 
   describe("Type Inference", () => {
@@ -505,7 +505,7 @@ describe("AmqpWorker", () => {
   });
 
   describe("close", () => {
-    it("should stop consuming and close channel but not connection", async () => {
+    it("should stop consuming and close channel and connection", async () => {
       // GIVEN
       const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
 
@@ -535,7 +535,7 @@ describe("AmqpWorker", () => {
       // THEN
       expect(mockChannel.cancel).toHaveBeenCalled();
       expect(mockChannel.close).toHaveBeenCalled();
-      expect(mockConnection.close).not.toHaveBeenCalled();
+      expect(mockConnection.close).toHaveBeenCalled();
     });
   });
 

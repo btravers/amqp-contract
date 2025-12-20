@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TypedAmqpClient } from "./client";
 import type { Channel } from "amqplib";
+import { connect } from "amqplib";
 import { defineContract, defineMessage } from "@amqp-contract/contract";
 import { z } from "zod";
 
@@ -28,8 +29,7 @@ describe("AmqpClient", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // Setup default mock implementation
-    const { connect } = require("amqplib");
-    connect.mockResolvedValue(mockConnection);
+    vi.mocked(connect).mockResolvedValue(mockConnection);
   });
 
   describe("Type Inference", () => {
@@ -294,7 +294,7 @@ describe("AmqpClient", () => {
   });
 
   describe("close", () => {
-    it("should close channel but not connection", async () => {
+    it("should close channel and connection", async () => {
       // GIVEN
       const contract = defineContract({
         exchanges: {
@@ -312,7 +312,7 @@ describe("AmqpClient", () => {
 
       // THEN
       expect(mockChannel.close).toHaveBeenCalled();
-      expect(mockConnection.close).not.toHaveBeenCalled();
+      expect(mockConnection.close).toHaveBeenCalled();
     });
 
     it("should handle close when not connected", async () => {
