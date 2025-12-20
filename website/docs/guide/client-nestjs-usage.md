@@ -374,45 +374,109 @@ export class OrderService {
 
 ## Integration Patterns
 
-### REST API to AMQP
+### oRPC Integration
 
-Transform HTTP requests into AMQP messages:
+Use oRPC for type-safe RPC that aligns with amqp-contract's contract-first philosophy:
 
 ```typescript
-// order.controller.ts
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
+// order.router.ts
+import { initServer } from '@orpc/server';
+import { z } from 'zod';
+import { AmqpClientService } from '@amqp-contract/client-nestjs';
+import type { contract } from './contract';
+
+// Define oRPC router with type-safe schema
+export const orderRouter = initServer.router({
+  createOrder: initServer
+    .input(
+      z.object({
+        customerId: z.string(),
+        amount: z.number().positive(),
+        items: z.array(
+          z.object({
+            productId: z.string(),
+            quantity: z.number().int().positive(),
+            price: z.number().positive(),
+          })
+        ),
+      })
+    )
+    .output(
+      z.object({
+        orderId: z.string(),
+        message: z.string(),
+      })
+    )
+    .handler(async ({ input, context }) => {
+      const client = context.client as AmqpClientService<typeof contract>;
+
+      const orderId = generateOrderId();
+
+      await client.publish('orderCreated', {
+        orderId,
+        ...input,
+      });
+
+      return {
+        orderId,
+        message: 'Order submitted for processing',
+      };
+    }),
+});
+
+// order.module.ts
+import { Module } from '@nestjs/common';
+import { AmqpClientModule } from '@amqp-contract/client-nestjs';
+import { contract } from './contract';
+import { OrderController } from './order.controller';
 import { OrderService } from './order.service';
 
-interface CreateOrderDto {
-  customerId: string;
-  amount: number;
-  items: Array<{
-    productId: string;
-    quantity: number;
-    price: number;
-  }>;
-}
+@Module({
+  imports: [
+    AmqpClientModule.forRoot({
+      contract,
+      connection: 'amqp://localhost',
+    }),
+  ],
+  controllers: [OrderController],
+  providers: [OrderService],
+})
+export class OrderModule {}
+
+// order.controller.ts - Expose oRPC router as NestJS controller
+import { Controller, All, Req, Res } from '@nestjs/common';
+import { Request, Response } from 'express';
+import { createServerAdapter } from '@orpc/server/node';
+import { AmqpClientService } from '@amqp-contract/client-nestjs';
+import { orderRouter } from './order.router';
+import type { contract } from './contract';
 
 @Controller('orders')
 export class OrderController {
-  constructor(private readonly orderService: OrderService) {}
+  private handler: ReturnType<typeof createServerAdapter>;
 
-  @Post()
-  @HttpCode(HttpStatus.ACCEPTED)
-  async createOrder(@Body() dto: CreateOrderDto) {
-    const result = await this.orderService.createOrder(
-      dto.customerId,
-      dto.amount,
-      dto.items
-    );
+  constructor(
+    private readonly client: AmqpClientService<typeof contract>,
+  ) {
+    this.handler = createServerAdapter({
+      router: orderRouter,
+      context: { client: this.client },
+    });
+  }
 
-    return {
-      message: 'Order submitted for processing',
-      ...result,
-    };
+  @All('*')
+  async handleRpc(@Req() req: Request, @Res() res: Response) {
+    return this.handler(req, res);
   }
 }
 ```
+
+This pattern provides:
+
+- **End-to-end type safety** from client to server
+- **Contract-first design** similar to amqp-contract
+- **Automatic validation** with shared schemas
+- **Better DX** with full TypeScript inference
 
 ### Event Publishing Service
 
