@@ -131,7 +131,7 @@ await client.close();
 ```typescript
 interface CreateClientOptions<TContract> {
   contract: TContract;
-  connection: ChannelModel;
+  connection: string | Options.Connect;
 }
 ```
 
@@ -162,15 +162,14 @@ interface PublishOptions {
 
 ```typescript
 import { TypedAmqpClient } from '@amqp-contract/client';
-import { connect } from 'amqplib';
 import { contract } from './contract';
 
 async function main() {
-  // Connect to RabbitMQ
-  const connection = await connect('amqp://localhost');
-
   // Create client (automatically connects)
-  const client = await TypedAmqpClient.create({ contract, connection });
+  const client = await TypedAmqpClient.create({ 
+    contract, 
+    connection: 'amqp://localhost' 
+  });
 
   // Publish message
   await client.publish('orderCreated', {
@@ -187,7 +186,6 @@ async function main() {
 
   // Cleanup
   await client.close();
-  await connection.close();
 }
 
 main();
@@ -241,31 +239,29 @@ try {
 ## Connection Management
 
 ```typescript
-import { connect } from 'amqplib';
-
-// Create connection
-const connection = await connect('amqp://localhost', {
-  heartbeat: 30,
-  timeout: 5000,
+// Create connection with options
+const client = await TypedAmqpClient.create({
+  contract,
+  connection: {
+    protocol: 'amqp',
+    hostname: 'localhost',
+    port: 5672,
+    username: 'guest',
+    password: 'guest',
+    heartbeat: 30,
+  }
 });
 
-// Handle connection errors
-connection.on('error', (err) => {
-  console.error('Connection error:', err);
+// Or use a connection string
+const client = await TypedAmqpClient.create({
+  contract,
+  connection: 'amqp://guest:guest@localhost:5672?heartbeat=30'
 });
-
-connection.on('close', () => {
-  console.log('Connection closed');
-});
-
-// Create and connect client
-const client = await TypedAmqpClient.create({ contract, connection });
 
 // Use client...
 
-// Cleanup
+// Cleanup - closes both channel and connection
 await client.close();
-await connection.close();
 ```
 
 ## Multiple Clients
@@ -275,17 +271,21 @@ You can create multiple clients from the same or different contracts:
 ```typescript
 const orderClient = await TypedAmqpClient.create({
   contract: orderContract,
-  connection,
+  connection: 'amqp://localhost',
 });
 
 const paymentClient = await TypedAmqpClient.create({
   contract: paymentContract,
-  connection,
+  connection: 'amqp://localhost',
 });
 
 // Use both clients
 await orderClient.publish('orderCreated', orderMessage);
 await paymentClient.publish('paymentProcessed', paymentMessage);
+
+// Cleanup
+await orderClient.close();
+await paymentClient.close();
 ```
 
 ## Type Inference
