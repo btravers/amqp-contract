@@ -497,7 +497,7 @@ describe("AmqpWorker", () => {
   });
 
   describe("close", () => {
-    it("should stop consuming and close connections", async () => {
+    it("should stop consuming and close channel but not connection", async () => {
       // GIVEN
       const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
 
@@ -527,7 +527,7 @@ describe("AmqpWorker", () => {
       // THEN
       expect(mockChannel.cancel).toHaveBeenCalled();
       expect(mockChannel.close).toHaveBeenCalled();
-      expect(mockConnection.close).toHaveBeenCalled();
+      expect(mockConnection.close).not.toHaveBeenCalled();
     });
   });
 

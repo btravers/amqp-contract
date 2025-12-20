@@ -98,14 +98,13 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
   }
 
   /**
-   * Close the connection
+   * Close the channel
    */
   async close(): Promise<void> {
     if (this.channel) {
       await this.channel.close();
+      this.channel = null;
     }
-
-    await this.connection.close();
   }
 
   /**

@@ -5,10 +5,7 @@ import { TypedAmqpClient } from "@amqp-contract/client";
 import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
 
 describe("Basic Order Processing Worker Integration", () => {
-  it("should process new orders from order.created queue", async ({
-    workerConnection,
-    clientConnection,
-  }) => {
+  it("should process new orders from order.created queue", async ({ amqpConnection }) => {
     // GIVEN
     const processedOrders: Array<unknown> = [];
     const worker = await TypedAmqpWorker.create({
@@ -21,12 +18,12 @@ describe("Basic Order Processing Worker Integration", () => {
         shipOrder: async () => {},
         handleUrgentOrder: async () => {},
       },
-      connection: workerConnection,
+      connection: amqpConnection,
     });
 
     const client = await TypedAmqpClient.create({
       contract: orderContract,
-      connection: clientConnection,
+      connection: amqpConnection,
     });
 
     const newOrder = {
@@ -50,10 +47,7 @@ describe("Basic Order Processing Worker Integration", () => {
     await client.close();
   });
 
-  it("should receive notifications for all order events", async ({
-    workerConnection,
-    clientConnection,
-  }) => {
+  it("should receive notifications for all order events", async ({ amqpConnection }) => {
     // GIVEN
     const notifications: Array<unknown> = [];
     const worker = await TypedAmqpWorker.create({
@@ -66,12 +60,12 @@ describe("Basic Order Processing Worker Integration", () => {
         shipOrder: async () => {},
         handleUrgentOrder: async () => {},
       },
-      connection: workerConnection,
+      connection: amqpConnection,
     });
 
     const client = await TypedAmqpClient.create({
       contract: orderContract,
-      connection: clientConnection,
+      connection: amqpConnection,
     });
 
     // WHEN
@@ -101,10 +95,7 @@ describe("Basic Order Processing Worker Integration", () => {
     await client.close();
   });
 
-  it("should start all consumers with consumeAll", async ({
-    workerConnection,
-    clientConnection,
-  }) => {
+  it("should start all consumers with consumeAll", async ({ amqpConnection }) => {
     // GIVEN
     const processedOrders: Array<unknown> = [];
     const notifications: Array<unknown> = [];
@@ -120,12 +111,12 @@ describe("Basic Order Processing Worker Integration", () => {
         shipOrder: async () => {},
         handleUrgentOrder: async () => {},
       },
-      connection: workerConnection,
+      connection: amqpConnection,
     });
 
     const client = await TypedAmqpClient.create({
       contract: orderContract,
-      connection: clientConnection,
+      connection: amqpConnection,
     });
 
     const newOrder = {

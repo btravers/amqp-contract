@@ -4,11 +4,11 @@ import { TypedAmqpClient } from "@amqp-contract/client";
 import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
 
 describe("Basic Order Processing Client Integration", () => {
-  it("should publish a new order successfully", async ({ clientConnection }) => {
+  it("should publish a new order successfully", async ({ amqpConnection }) => {
     // GIVEN
     const client = await TypedAmqpClient.create({
       contract: orderContract,
-      connection: clientConnection,
+      connection: amqpConnection,
     });
 
     const newOrder = {
@@ -32,11 +32,11 @@ describe("Basic Order Processing Client Integration", () => {
     await client.close();
   });
 
-  it("should publish order status updates", async ({ clientConnection }) => {
+  it("should publish order status updates", async ({ amqpConnection }) => {
     // GIVEN
     const client = await TypedAmqpClient.create({
       contract: orderContract,
-      connection: clientConnection,
+      connection: amqpConnection,
     });
 
     const orderUpdate = {
@@ -55,11 +55,11 @@ describe("Basic Order Processing Client Integration", () => {
     await client.close();
   });
 
-  it("should validate order schema before publishing", async ({ clientConnection }) => {
+  it("should validate order schema before publishing", async ({ amqpConnection }) => {
     // GIVEN
     const client = await TypedAmqpClient.create({
       contract: orderContract,
-      connection: clientConnection,
+      connection: amqpConnection,
     });
 
     const invalidOrder = {

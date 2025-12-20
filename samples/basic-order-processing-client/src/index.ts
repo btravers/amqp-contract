@@ -110,6 +110,7 @@ async function main() {
 
   // Clean up
   await client.close();
+  await connection.close();
   logger.info("Publisher stopped");
   process.exit(0);
 }
