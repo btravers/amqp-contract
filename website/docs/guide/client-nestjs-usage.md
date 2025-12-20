@@ -40,10 +40,10 @@ First, define your AMQP contract with publishers:
 
 ```typescript
 // contract.ts
-import { 
-  defineContract, 
-  defineExchange, 
-  definePublisher 
+import {
+  defineContract,
+  defineExchange,
+  definePublisher
 } from '@amqp-contract/contract';
 import { z } from 'zod';
 
@@ -107,14 +107,14 @@ export class OrderService {
 
   async createOrder(customerId: string, amount: number, items: any[]) {
     const orderId = this.generateOrderId();
-    
+
     await this.client.publish('orderCreated', {
       orderId,
       customerId,
       amount,
       items,
     });
-    
+
     console.log(`Order ${orderId} published`);
     return { orderId };
   }
@@ -310,7 +310,7 @@ export class OrderService {
         amount,
         items,
       });
-      
+
       return { orderId };
     } catch (error) {
       if (error.name === 'ZodError') {
@@ -344,7 +344,7 @@ export class OrderService {
 
   async createOrder(orderId: string, amount: number) {
     this.logger.log(`Publishing order ${orderId}`);
-    
+
     try {
       await this.client.publish('orderCreated', {
         orderId,
@@ -357,7 +357,7 @@ export class OrderService {
           'x-timestamp': new Date().toISOString(),
         },
       });
-      
+
       this.logger.log(`Order ${orderId} published successfully`);
       return { orderId };
     } catch (error) {
@@ -404,7 +404,7 @@ export class OrderController {
       dto.amount,
       dto.items
     );
-    
+
     return {
       message: 'Order submitted for processing',
       ...result,
@@ -433,7 +433,7 @@ export class OrderEventService {
 
   async publishOrderCreated(order: any) {
     this.logger.log(`Publishing OrderCreated event for ${order.orderId}`);
-    
+
     await this.client.publish('orderCreated', order, {
       persistent: true,
       headers: {
@@ -447,7 +447,7 @@ export class OrderEventService {
 
   async publishOrderUpdated(order: any) {
     this.logger.log(`Publishing OrderUpdated event for ${order.orderId}`);
-    
+
     await this.client.publish('orderUpdated', order, {
       persistent: true,
       headers: {
@@ -461,7 +461,7 @@ export class OrderEventService {
 
   async publishOrderCancelled(orderId: string) {
     this.logger.log(`Publishing OrderCancelled event for ${orderId}`);
-    
+
     await this.client.publish('orderCancelled', { orderId }, {
       persistent: true,
       headers: {
@@ -587,7 +587,7 @@ describe('Order API (e2e)', () => {
   beforeAll(async () => {
     connection = await connect('amqp://localhost');
     channel = await connection.createChannel();
-    
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -620,7 +620,7 @@ describe('Order API (e2e)', () => {
         amount: 99.99,
         items: [],
       })
-      .expect(201);
+      .expect(202);
 
     expect(response.body).toHaveProperty('orderId');
 
@@ -657,10 +657,10 @@ See a full working example:
 ::: code-group
 
 ```typescript [contract.ts]
-import { 
-  defineContract, 
-  defineExchange, 
-  definePublisher 
+import {
+  defineContract,
+  defineExchange,
+  definePublisher
 } from '@amqp-contract/contract';
 import { z } from 'zod';
 
@@ -700,7 +700,7 @@ export class OrderService {
 
   async createOrder(customerId: string, amount: number, items: any[]) {
     const orderId = this.generateOrderId();
-    
+
     this.logger.log(`Creating order ${orderId} for customer ${customerId}`);
 
     try {
@@ -722,7 +722,7 @@ export class OrderService {
       return { orderId };
     } catch (error) {
       this.logger.error(`Failed to publish order ${orderId}`, error.stack);
-      
+
       if (error.name === 'ZodError') {
         throw new BadRequestException('Invalid order data');
       }
@@ -731,7 +731,7 @@ export class OrderService {
   }
 
   private generateOrderId(): string {
-    return `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    return `ORD-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
   }
 }
 ```
@@ -762,7 +762,7 @@ export class OrderController {
       dto.amount,
       dto.items
     );
-    
+
     return {
       message: 'Order submitted for processing',
       ...result,
@@ -804,17 +804,17 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
-  
+
   const app = await NestFactory.create(AppModule);
-  
+
   // Enable validation
   app.useGlobalPipes(new ValidationPipe());
-  
+
   // Enable graceful shutdown
   app.enableShutdownHooks();
-  
+
   await app.listen(3000);
-  
+
   logger.log('Application is running on: http://localhost:3000');
   logger.log('AMQP client connected and ready to publish');
 }

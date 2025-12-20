@@ -116,7 +116,7 @@ AmqpWorkerModule.forRoot({
       // message is fully typed
       console.log(`Order ID: ${message.orderId}`);
       console.log(`Amount: $${message.amount}`);
-      
+
       // Your business logic
       await saveOrderToDatabase(message);
     },
@@ -224,6 +224,77 @@ export class OrderService {
 export class AppModule {}
 ```
 
+### Extracting Handlers to a Service
+
+When you have multiple handlers, it's recommended to extract them into a dedicated service for better organization and testability:
+
+```typescript
+// message-handlers.service.ts
+import { Injectable, Logger } from '@nestjs/common';
+import type { WorkerInferConsumerHandlers } from '@amqp-contract/contract';
+import type { contract } from './contract';
+import { OrderService } from './order.service';
+import { NotificationService } from './notification.service';
+
+@Injectable()
+export class MessageHandlersService {
+  private readonly logger = new Logger(MessageHandlersService.name);
+
+  constructor(
+    private readonly orderService: OrderService,
+    private readonly notificationService: NotificationService,
+  ) {}
+
+  getHandlers(): WorkerInferConsumerHandlers<typeof contract> {
+    return {
+      processOrder: async (message, { ack, nack }) => {
+        try {
+          this.logger.log(`Processing order ${message.orderId}`);
+          await this.orderService.processOrder(message);
+          ack();
+        } catch (error) {
+          this.logger.error(`Failed to process order ${message.orderId}`, error);
+          nack({ requeue: true });
+        }
+      },
+      notifyOrder: async (message, { ack, nack }) => {
+        try {
+          this.logger.log(`Sending notification for ${message.orderId}`);
+          await this.notificationService.sendOrderNotification(message);
+          ack();
+        } catch (error) {
+          this.logger.error(`Failed to send notification for ${message.orderId}`, error);
+          nack({ requeue: false }); // Don't requeue notification failures
+        }
+      },
+    };
+  }
+}
+
+// app.module.ts
+@Module({
+  imports: [
+    AmqpWorkerModule.forRootAsync({
+      useFactory: (handlersService: MessageHandlersService) => ({
+        contract,
+        handlers: handlersService.getHandlers(),
+        connection: 'amqp://localhost',
+      }),
+      inject: [MessageHandlersService],
+    }),
+  ],
+  providers: [MessageHandlersService, OrderService, NotificationService],
+})
+export class AppModule {}
+```
+
+This pattern provides:
+
+- **Better organization** - All handlers in one place
+- **Easier testing** - Test handlers independently
+- **Reusability** - Share handler logic across modules
+- **Type safety** - Leverage `WorkerInferConsumerHandlers` for full type inference
+
 ### Multiple Workers
 
 You can configure multiple workers in different modules:
@@ -308,7 +379,7 @@ AmqpWorkerModule.forRoot({
       message.customerId;   // string
       message.amount;       // number
       message.items;        // array of items
-      
+
       // Full autocomplete support
       message.items.forEach(item => {
         console.log(`${item.productId}: ${item.quantity}`);
@@ -453,10 +524,10 @@ import { OrderService } from './order.service';
           processOrder: async (message, { ack, nack }) => {
             try {
               console.log(`Processing order ${message.orderId}`);
-              
+
               await orderService.saveOrder(message);
               await orderService.sendConfirmation(message.customerId);
-              
+
               ack();
               console.log(`Order ${message.orderId} processed successfully`);
             } catch (error) {
@@ -482,10 +553,10 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  
+
   // Enable graceful shutdown
   app.enableShutdownHooks();
-  
+
   await app.listen(3000);
   console.log('Application is running on: http://localhost:3000');
   console.log('Worker is consuming messages from RabbitMQ');
@@ -498,21 +569,23 @@ bootstrap();
 
 ## Comparison with @amqp-contract/worker
 
-| Feature | @amqp-contract/worker | @amqp-contract/worker-nestjs |
-|---------|----------------------|----------------------------|
-| **Framework** | Framework-agnostic | NestJS-specific |
-| **Lifecycle** | Manual connect/close | Automatic via NestJS lifecycle |
-| **DI Integration** | None | Full NestJS dependency injection |
-| **Configuration** | Direct API calls | forRoot/forRootAsync pattern |
-| **Shutdown** | Manual | Automatic via enableShutdownHooks |
+| Feature            | @amqp-contract/worker | @amqp-contract/worker-nestjs      |
+| ------------------ | --------------------- | --------------------------------- |
+| **Framework**      | Framework-agnostic    | NestJS-specific                   |
+| **Lifecycle**      | Manual connect/close  | Automatic via NestJS lifecycle    |
+| **DI Integration** | None                  | Full NestJS dependency injection  |
+| **Configuration**  | Direct API calls      | forRoot/forRootAsync pattern      |
+| **Shutdown**       | Manual                | Automatic via enableShutdownHooks |
 
 Use `@amqp-contract/worker-nestjs` when:
+
 - ✅ Building a NestJS application
 - ✅ Want automatic lifecycle management
 - ✅ Need dependency injection in handlers
 - ✅ Following NestJS conventions
 
 Use `@amqp-contract/worker` when:
+
 - ✅ Not using NestJS
 - ✅ Need more manual control
 - ✅ Want framework independence
