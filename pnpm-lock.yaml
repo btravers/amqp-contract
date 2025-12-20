@@ -16,8 +16,8 @@ catalogs:
       specifier: 20.2.0
       version: 20.2.0
     '@nestjs/common':
-      specifier: 11.0.10
-      version: 11.0.10
+      specifier: 11.0.16
+      version: 11.0.16
     '@standard-schema/spec':
       specifier: 1.1.0
       version: 1.1.0
@@ -230,7 +230,7 @@ importers:
         version: link:../../tools/tsconfig
       '@nestjs/common':
         specifier: 'catalog:'
-        version: 11.0.10(reflect-metadata@0.2.2)(rxjs@7.8.1)
+        version: 11.0.16(reflect-metadata@0.2.2)(rxjs@7.8.1)
       '@types/amqplib':
         specifier: 'catalog:'
         version: 0.10.8
@@ -385,7 +385,7 @@ importers:
         version: link:../../tools/tsconfig
       '@nestjs/common':
         specifier: 'catalog:'
-        version: 11.0.10(reflect-metadata@0.2.2)(rxjs@7.8.1)
+        version: 11.0.16(reflect-metadata@0.2.2)(rxjs@7.8.1)
       '@types/amqplib':
         specifier: 'catalog:'
         version: 0.10.8
@@ -1215,11 +1215,12 @@ packages:
   '@napi-rs/wasm-runtime@1.1.0':
     resolution: {integrity: sha512-Fq6DJW+Bb5jaWE69/qOE0D1TUN9+6uWhCeZpdnSBk14pjLcCWR7Q8n49PTSPHazM37JqrsdpEthXy2xn6jWWiA==}
 
-  '@nestjs/common@11.0.10':
-    resolution: {integrity: sha512-pzGXp14KF2Q4CDZGQgPK4l8zEg7i6cNkb+10yc8ZA5K41cLe3ZbWW1YxtY2e/glHauOJwTLSVjH4tiRVtOTizg==}
+  '@nestjs/common@11.0.16':
+    resolution: {integrity: sha512-agvuQ8su4aZ+PVxAmY89odG1eR97HEQvxPmTMdDqyvDWzNerl7WQhUEd+j4/UyNWcF1or1UVcrtPj52x+eUSsA==}
     peerDependencies:
       class-transformer: '*'
       class-validator: '*'
+      file-type: ^20.4.1
       reflect-metadata: ^0.1.12 || ^0.2.0
       rxjs: ^7.1.0
     peerDependenciesMeta:
@@ -4324,7 +4325,7 @@ snapshots:
       '@tybys/wasm-util': 0.10.1
     optional: true
 
-  '@nestjs/common@11.0.10(reflect-metadata@0.2.2)(rxjs@7.8.1)':
+  '@nestjs/common@11.0.16(reflect-metadata@0.2.2)(rxjs@7.8.1)':
     dependencies:
       iterare: 1.2.1
       reflect-metadata: 0.2.2
