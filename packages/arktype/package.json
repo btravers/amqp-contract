@@ -1,6 +1,6 @@
 {
   "name": "@amqp-contract/arktype",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "ArkType integration for amqp-contract",
   "keywords": [
     "amqp",
