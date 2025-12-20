@@ -725,10 +725,14 @@ export class OrderService {
       return { orderId };
     } catch (error) {
       this.logger.error(`Failed to publish order ${orderId}`, (error as Error).stack);
+    } catch (error: unknown) {
+      const err = error as Error & { issues?: unknown };
+      this.logger.error(`Failed to publish order ${orderId}`, (err as Error).stack);
 
-      // Handle schema validation errors (works with Zod, Valibot, ArkType)
-      // Standard Schema libraries typically expose validation issues
-      if (error && typeof error === 'object' && 'issues' in error) {
+      // Handle schema validation errors in a schema-library-agnostic way.
+      // Different schema libraries may throw different error classes, but they
+      // typically expose validation "issues" or similar metadata.
+      if (err && typeof err === 'object' && 'issues' in err) {
         throw new BadRequestException('Invalid order data');
       }
       throw error;
