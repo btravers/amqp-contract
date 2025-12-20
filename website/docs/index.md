@@ -26,7 +26,7 @@ features:
   
   - icon: ✅
     title: Automatic Validation
-    details: Zod schemas validate all messages at network boundaries automatically. No runtime surprises.
+    details: Schema validation at network boundaries with Zod, Valibot, or ArkType. No runtime surprises.
   
   - icon: 🛠️
     title: Compile-time Checks
@@ -38,11 +38,19 @@ features:
   
   - icon: 📝
     title: Contract-First Design
-    details: Define your AMQP interface once with Zod schemas — types and validation flow from there.
+    details: Define your AMQP interface once with schemas — types and validation flow from there.
   
   - icon: 📄
     title: AsyncAPI Generation
     details: Automatically generate AsyncAPI 3.0 specifications from your contracts for documentation and tooling.
+
+  - icon: 🎯
+    title: NestJS Integration
+    details: First-class NestJS support with automatic lifecycle management and dependency injection.
+
+  - icon: 🔌
+    title: Framework Agnostic
+    details: Use with any framework or none at all. Core packages work anywhere TypeScript runs.
 ---
 
 ## The Problem

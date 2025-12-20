@@ -93,7 +93,7 @@ export class OrderService {
       amount,
       items: [],
     });
-    
+
     console.log(`Order ${orderId} published`);
   }
 }
@@ -159,7 +159,7 @@ async publish<TName extends InferPublisherNames<TContract>>(
   - `userId` - User ID
   - `appId` - Application ID
 
-**Returns:** Promise<boolean> - Returns true if the message was published successfully
+**Returns:** `Promise<boolean>` - Returns true if the message was published successfully
 
 **Throws:**
 
@@ -306,7 +306,7 @@ export class OrderService {
   async publishOrder() {
     // ✅ Valid publisher
     await this.client.publish('orderCreated', { ... });
-    
+
     // ❌ TypeScript error: 'unknownPublisher' not in contract
     await this.client.publish('unknownPublisher', { ... });
   }
@@ -332,13 +332,13 @@ export class OrderService {
       amount: 99.99,
       items: [],
     });
-    
+
     // ❌ TypeScript error: missing required field 'amount'
     await this.client.publish('orderCreated', {
       orderId: 'ORD-123',
       customerId: 'CUST-456',
     });
-    
+
     // ❌ TypeScript error: wrong type (amount should be number)
     await this.client.publish('orderCreated', {
       orderId: 'ORD-123',
@@ -440,12 +440,12 @@ export class OrderService {
 
   async createOrder(dto: CreateOrderDto) {
     const orderId = generateOrderId();
-    
+
     await this.client.publish('orderCreated', {
       orderId,
       ...dto,
     });
-    
+
     return { orderId };
   }
 }
@@ -703,10 +703,10 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  
+
   // Enable graceful shutdown
   app.enableShutdownHooks();
-  
+
   await app.listen(3000);
   console.log('Application is running on: http://localhost:3000');
 }
@@ -718,22 +718,24 @@ bootstrap();
 
 ## Comparison with @amqp-contract/client
 
-| Feature | @amqp-contract/client | @amqp-contract/client-nestjs |
-|---------|----------------------|----------------------------|
-| **Framework** | Framework-agnostic | NestJS-specific |
-| **Lifecycle** | Manual connect/close | Automatic via NestJS lifecycle |
-| **DI Integration** | None | Full NestJS dependency injection |
-| **Configuration** | Direct API calls | forRoot/forRootAsync pattern |
-| **Shutdown** | Manual | Automatic via enableShutdownHooks |
-| **Testing** | Custom mocks | NestJS testing utilities |
+| Feature            | @amqp-contract/client | @amqp-contract/client-nestjs      |
+| ------------------ | --------------------- | --------------------------------- |
+| **Framework**      | Framework-agnostic    | NestJS-specific                   |
+| **Lifecycle**      | Manual connect/close  | Automatic via NestJS lifecycle    |
+| **DI Integration** | None                  | Full NestJS dependency injection  |
+| **Configuration**  | Direct API calls      | forRoot/forRootAsync pattern      |
+| **Shutdown**       | Manual                | Automatic via enableShutdownHooks |
+| **Testing**        | Custom mocks          | NestJS testing utilities          |
 
 Use `@amqp-contract/client-nestjs` when:
+
 - ✅ Building a NestJS application
 - ✅ Want automatic lifecycle management
 - ✅ Need dependency injection
 - ✅ Following NestJS conventions
 
 Use `@amqp-contract/client` when:
+
 - ✅ Not using NestJS
 - ✅ Need more manual control
 - ✅ Want framework independence

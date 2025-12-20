@@ -180,3 +180,4 @@ main();
 - Explore [API Documentation](/api/)
 - Check out [Examples](/examples/)
 - Generate [AsyncAPI specifications](/guide/asyncapi-generation)
+- **For NestJS users**: See [NestJS Client Usage](/guide/client-nestjs-usage) and [NestJS Worker Usage](/guide/worker-nestjs-usage)

@@ -2,6 +2,10 @@
 
 Learn how to use the type-safe AMQP client to publish messages.
 
+::: tip NestJS Users
+If you're building a NestJS application, check out the [NestJS Client Usage](/guide/client-nestjs-usage) guide for automatic lifecycle management and dependency injection.
+:::
+
 ## Installation
 
 Install the required packages:
