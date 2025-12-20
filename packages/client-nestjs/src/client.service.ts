@@ -58,7 +58,7 @@ export class AmqpClientService<TContract extends ContractDefinition>
   ): Promise<boolean> {
     if (!this.client) {
       throw new Error(
-        "Client not initialized. Ensure the module has been initialized before publishing.",
+        "Client not initialized. Create the client using TypedAmqpClient.create() to establish a connection.",
       );
     }
 
