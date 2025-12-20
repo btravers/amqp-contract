@@ -1,5 +1,4 @@
 import { TypedAmqpClient } from "@amqp-contract/client";
-import { connect } from "amqplib";
 import pino from "pino";
 import { z } from "zod";
 import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
@@ -22,13 +21,11 @@ const logger = pino({
 });
 
 async function main() {
-  // Connect to RabbitMQ
-  const connection = await connect(env.AMQP_URL);
-
-  logger.info("Connected to RabbitMQ");
-
   // Create type-safe client
-  const client = await TypedAmqpClient.create({ contract: orderContract, connection });
+  const client = await TypedAmqpClient.create({
+    contract: orderContract,
+    connection: env.AMQP_URL,
+  });
 
   logger.info("Client ready");
   logger.info("=".repeat(60));
@@ -110,7 +107,6 @@ async function main() {
 
   // Clean up
   await client.close();
-  await connection.close();
   logger.info("Publisher stopped");
   process.exit(0);
 }

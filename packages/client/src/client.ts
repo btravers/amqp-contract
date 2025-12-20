@@ -1,3 +1,4 @@
+import { connect } from "amqplib";
 import type { Channel, ChannelModel, Options } from "amqplib";
 import type {
   ClientInferPublisherInput,
@@ -10,7 +11,7 @@ import type {
  */
 export interface CreateClientOptions<TContract extends ContractDefinition> {
   contract: TContract;
-  connection: ChannelModel;
+  connection: string | Options.Connect;
 }
 
 /**
@@ -26,10 +27,11 @@ export interface PublishOptions {
  */
 export class TypedAmqpClient<TContract extends ContractDefinition> {
   private channel: Channel | null = null;
+  private connection: ChannelModel | null = null;
 
   private constructor(
     private readonly contract: TContract,
-    private readonly connection: ChannelModel,
+    private readonly connectionOptions: string | Options.Connect,
   ) {}
 
   /**
@@ -98,12 +100,16 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
   }
 
   /**
-   * Close the channel
+   * Close the channel and connection
    */
   async close(): Promise<void> {
     if (this.channel) {
       await this.channel.close();
       this.channel = null;
+    }
+    if (this.connection) {
+      await this.connection.close();
+      this.connection = null;
     }
   }
 
@@ -111,6 +117,7 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
    * Connect to AMQP broker
    */
   private async init(): Promise<void> {
+    this.connection = await connect(this.connectionOptions);
     this.channel = await this.connection.createChannel();
 
     // Setup exchanges

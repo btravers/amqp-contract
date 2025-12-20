@@ -7,21 +7,20 @@ Type-safe AMQP client for publishing messages using amqp-contract.
 ## Installation
 
 ```bash
-pnpm add @amqp-contract/client amqplib
+pnpm add @amqp-contract/client
 ```
 
 ## Usage
 
 ```typescript
 import { TypedAmqpClient } from '@amqp-contract/client';
-import { connect } from 'amqplib';
 import { contract } from './contract';
 
-// Connect to RabbitMQ
-const connection = await connect('amqp://localhost');
-
 // Create client from contract (automatically connects)
-const client = await TypedAmqpClient.create({ contract, connection });
+const client = await TypedAmqpClient.create({
+  contract,
+  connection: 'amqp://localhost'
+});
 
 // Publish message with type safety
 await client.publish('orderCreated', {
@@ -42,7 +41,7 @@ Create a type-safe AMQP client from a contract. Automatically connects to Rabbit
 **Parameters:**
 
 - `options.contract` - Contract definition
-- `options.connection` - amqplib Connection object
+- `options.connection` - AMQP connection URL (string) or connection options (Options.Connect)
 
 ### `TypedAmqpClient.publish(publisherName, message, options?)`
 
