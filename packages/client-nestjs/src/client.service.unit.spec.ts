@@ -92,8 +92,13 @@ describe("AmqpClientService", () => {
 
       const result = await service.publish("testPublisher", { message: "Hello" });
 
-      expect(result).toBe(true);
-      expect(mockChannel.publish).toHaveBeenCalled();
+      expect({
+        result,
+        publishCalled: mockChannel.publish.mock.calls.length > 0,
+      }).toEqual({
+        result: true,
+        publishCalled: true,
+      });
     });
 
     it("should throw error if client not initialized", async () => {

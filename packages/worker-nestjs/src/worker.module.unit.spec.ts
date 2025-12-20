@@ -4,10 +4,17 @@ import { AmqpWorkerModule } from "./worker.module.js";
 describe("AmqpWorkerModule", () => {
   describe("ConfigurableModuleBuilder", () => {
     it("should have forRoot and forRootAsync methods", () => {
-      expect(AmqpWorkerModule.forRoot).toBeDefined();
-      expect(AmqpWorkerModule.forRootAsync).toBeDefined();
-      expect(typeof AmqpWorkerModule.forRoot).toBe("function");
-      expect(typeof AmqpWorkerModule.forRootAsync).toBe("function");
+      expect({
+        hasForRoot: AmqpWorkerModule.forRoot !== undefined,
+        hasForRootAsync: AmqpWorkerModule.forRootAsync !== undefined,
+        forRootType: typeof AmqpWorkerModule.forRoot,
+        forRootAsyncType: typeof AmqpWorkerModule.forRootAsync,
+      }).toEqual({
+        hasForRoot: true,
+        hasForRootAsync: true,
+        forRootType: "function",
+        forRootAsyncType: "function",
+      });
     });
   });
 });
