@@ -2,7 +2,20 @@
   "$schema": "https://unpkg.com/@changesets/config@3.0.3/schema.json",
   "changelog": "@changesets/cli/changelog",
   "commit": false,
-  "fixed": [],
+  "fixed": [
+    [
+      "@amqp-contract/arktype",
+      "@amqp-contract/asyncapi",
+      "@amqp-contract/client",
+      "@amqp-contract/client-nestjs",
+      "@amqp-contract/contract",
+      "@amqp-contract/testing",
+      "@amqp-contract/valibot",
+      "@amqp-contract/worker",
+      "@amqp-contract/worker-nestjs",
+      "@amqp-contract/zod"
+    ]
+  ],
   "linked": [],
   "access": "public",
   "baseBranch": "main",
