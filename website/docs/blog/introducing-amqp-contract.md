@@ -133,14 +133,12 @@ Use the typed client to publish messages with full type safety:
 
 ```typescript
 import { TypedAmqpClient } from '@amqp-contract/client';
-import { connect } from 'amqplib';
 import { orderContract } from './contract';
 
 async function publishOrder() {
-  const connection = await connect('amqp://localhost');
   const client = await TypedAmqpClient.create({
     contract: orderContract,
-    connection,
+    connection: 'amqp://localhost',
   });
 
   // ✅ Fully typed! TypeScript knows exactly what fields are required
@@ -163,7 +161,6 @@ async function publishOrder() {
 
   console.log('Order published with validation!');
   await client.close();
-  await connection.close();
 }
 ```
 
@@ -180,12 +177,9 @@ Create workers with fully typed message handlers:
 
 ```typescript
 import { TypedAmqpWorker } from '@amqp-contract/worker';
-import { connect } from 'amqplib';
 import { orderContract } from './contract';
 
 async function startWorker() {
-  const connection = await connect('amqp://localhost');
-
   const worker = await TypedAmqpWorker.create({
     contract: orderContract,
     handlers: {
@@ -207,7 +201,7 @@ async function startWorker() {
         // Your business logic here...
       },
     },
-    connection,
+    connection: 'amqp://localhost',
   });
 
   console.log('Worker started, waiting for messages...');
@@ -216,7 +210,6 @@ async function startWorker() {
   process.on('SIGINT', async () => {
     console.log('Shutting down worker...');
     await worker.close();
-    await connection.close();
     process.exit(0);
   });
 }
