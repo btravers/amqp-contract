@@ -1,5 +1,11 @@
 # @amqp-contract/client
 
+## 0.0.6
+
+### Patch Changes
+
+- Accept connection options instead of pre-connected ChannelModel
+
 ## 0.0.5
 
 ### Patch Changes
