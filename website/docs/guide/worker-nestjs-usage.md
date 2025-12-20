@@ -40,12 +40,12 @@ First, define your AMQP contract with consumers:
 
 ```typescript
 // contract.ts
-import { 
-  defineContract, 
-  defineExchange, 
-  defineQueue, 
-  defineBinding, 
-  defineConsumer 
+import {
+  defineContract,
+  defineExchange,
+  defineQueue,
+  defineBinding,
+  defineConsumer
 } from '@amqp-contract/contract';
 import { z } from 'zod';
 
@@ -95,7 +95,7 @@ import { contract } from './contract';
           console.log(`Processing order: ${message.orderId}`);
           console.log(`Customer: ${message.customerId}`);
           console.log(`Amount: $${message.amount}`);
-          
+
           // Your business logic here
         },
       },
@@ -115,10 +115,10 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  
+
   // Enable graceful shutdown
   app.enableShutdownHooks();
-  
+
   await app.listen(3000);
   console.log('Worker is consuming messages');
 }
@@ -310,7 +310,7 @@ AmqpWorkerModule.forRootAsync({
           ack();
         } catch (error) {
           console.error('Handler error:', error);
-          
+
           if (error instanceof ValidationError) {
             // Don't retry validation errors
             nack({ requeue: false });
@@ -343,7 +343,7 @@ export class OrderService {
 
   async processOrder(order: any) {
     this.logger.log(`Processing order ${order.orderId}`);
-    
+
     try {
       await this.saveOrder(order);
       this.logger.log(`Order ${order.orderId} processed successfully`);
@@ -454,7 +454,7 @@ describe('AMQP Worker (e2e)', () => {
 
   beforeAll(async () => {
     connection = await connect('amqp://localhost');
-    
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -481,10 +481,10 @@ describe('AMQP Worker (e2e)', () => {
         items: [],
       }))
     );
-    
+
     // Wait for processing
     await new Promise(resolve => setTimeout(resolve, 1000));
-    
+
     // Verify processing (check database, logs, etc.)
     // ...
   });
@@ -511,12 +511,12 @@ See a full working example:
 ::: code-group
 
 ```typescript [contract.ts]
-import { 
-  defineContract, 
-  defineExchange, 
-  defineQueue, 
-  defineBinding, 
-  defineConsumer 
+import {
+  defineContract,
+  defineExchange,
+  defineQueue,
+  defineBinding,
+  defineConsumer
 } from '@amqp-contract/contract';
 import { z } from 'zod';
 
@@ -525,7 +525,7 @@ export const contract = defineContract({
     orders: defineExchange('orders', 'topic', { durable: true }),
   },
   queues: {
-    orderProcessing: defineQueue('order-processing', { 
+    orderProcessing: defineQueue('order-processing', {
       durable: true,
       arguments: {
         'x-dead-letter-exchange': 'orders-dlx',
@@ -561,17 +561,17 @@ export class OrderService {
 
   async processOrder(order: any) {
     this.logger.log(`Processing order ${order.orderId}`);
-    
+
     try {
       // Validate business rules
       this.validateOrder(order);
-      
+
       // Save to database
       await this.saveToDatabase(order);
-      
+
       // Send confirmation
       await this.sendConfirmation(order.customerId);
-      
+
       this.logger.log(`Order ${order.orderId} processed successfully`);
     } catch (error) {
       this.logger.error(
@@ -653,14 +653,14 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
-  
+
   const app = await NestFactory.create(AppModule);
-  
+
   // Enable graceful shutdown
   app.enableShutdownHooks();
-  
+
   await app.listen(3000);
-  
+
   logger.log('Application is running on: http://localhost:3000');
   logger.log('Worker is consuming messages from RabbitMQ');
 }

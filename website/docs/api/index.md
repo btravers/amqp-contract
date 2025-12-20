@@ -169,12 +169,14 @@ amqp-contract uses Standard Schema, supporting:
 ## Next Steps
 
 ### For Framework-Agnostic Usage
+
 - Explore the [@amqp-contract/contract](/api/contract) API
 - Learn about the [@amqp-contract/client](/api/client) API
 - Understand the [@amqp-contract/worker](/api/worker) API
 - Check out [@amqp-contract/asyncapi](/api/asyncapi) generation
 
 ### For NestJS Applications
+
 - Get started with [NestJS Client Usage](/guide/client-nestjs-usage)
 - Learn about [NestJS Worker Usage](/guide/worker-nestjs-usage)
 - Explore [@amqp-contract/client-nestjs](/api/client-nestjs) API
