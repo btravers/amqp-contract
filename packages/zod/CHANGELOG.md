@@ -1,5 +1,14 @@
 # @amqp-contract/zod
 
+## 0.0.6
+
+### Patch Changes
+
+- Release version 0.0.6 for all packages
+- Updated dependencies
+  - @amqp-contract/asyncapi@0.0.6
+  - @amqp-contract/contract@0.0.6
+
 ## 0.0.5
 
 ### Patch Changes
