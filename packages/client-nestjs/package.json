@@ -55,8 +55,6 @@
   "devDependencies": {
     "@amqp-contract/tsconfig": "workspace:*",
     "@nestjs/common": "catalog:",
-    "@nestjs/core": "catalog:",
-    "@nestjs/testing": "catalog:",
     "@types/amqplib": "catalog:",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
