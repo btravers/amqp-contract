@@ -1,5 +1,5 @@
 import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
-import type { ChannelModel } from "amqplib";
+import type { Options } from "amqplib";
 import type {
   ClientInferPublisherInput,
   ContractDefinition,
@@ -13,7 +13,7 @@ import { MODULE_OPTIONS_TOKEN } from "./client.module.js";
  */
 export interface AmqpClientModuleOptions<TContract extends ContractDefinition> {
   contract: TContract;
-  connection: ChannelModel;
+  connection: string | Options.Connect;
 }
 
 /**

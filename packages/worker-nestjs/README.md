@@ -14,9 +14,6 @@ pnpm add @amqp-contract/worker-nestjs @amqp-contract/worker @amqp-contract/contr
 import { Module } from '@nestjs/common';
 import { AmqpWorkerModule } from '@amqp-contract/worker-nestjs';
 import { contract } from './contract';
-import { connect } from 'amqplib';
-
-const connection = await connect('amqp://localhost');
 
 @Module({
   imports: [
@@ -27,7 +24,7 @@ const connection = await connect('amqp://localhost');
           console.log('Processing order:', message.orderId);
         },
       },
-      connection,
+      connection: 'amqp://localhost',
     }),
   ],
 })

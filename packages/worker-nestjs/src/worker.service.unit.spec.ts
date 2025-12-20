@@ -1,30 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { ChannelModel } from "amqplib";
 import { defineContract, defineQueue, defineConsumer } from "@amqp-contract/contract";
 import { z } from "zod";
+import { TypedAmqpWorker } from "@amqp-contract/worker";
 import { AmqpWorkerService } from "./worker.service.js";
 
 describe("AmqpWorkerService", () => {
-  const mockConnection = {
-    createChannel: vi.fn(),
-  } as unknown as ChannelModel;
-
-  const mockChannel = {
-    assertExchange: vi.fn(),
-    assertQueue: vi.fn(),
-    bindQueue: vi.fn(),
-    consume: vi.fn(),
-    prefetch: vi.fn(),
-    ack: vi.fn(),
-    nack: vi.fn(),
-    cancel: vi.fn(),
+  const mockWorker = {
     close: vi.fn(),
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (mockConnection.createChannel as ReturnType<typeof vi.fn>).mockResolvedValue(mockChannel);
-    (mockChannel.consume as ReturnType<typeof vi.fn>).mockResolvedValue({ consumerTag: "test" });
+    vi.spyOn(TypedAmqpWorker, "create").mockResolvedValue(
+      mockWorker as unknown as TypedAmqpWorker<never>,
+    );
   });
 
   describe("lifecycle", () => {
@@ -44,12 +33,18 @@ describe("AmqpWorkerService", () => {
         handlers: {
           testConsumer: handler,
         },
-        connection: mockConnection,
+        connection: "amqp://localhost",
       });
 
       await service.onModuleInit();
 
-      expect(mockConnection.createChannel).toHaveBeenCalled();
+      expect(TypedAmqpWorker.create).toHaveBeenCalledWith({
+        contract,
+        handlers: {
+          testConsumer: handler,
+        },
+        connection: "amqp://localhost",
+      });
     });
 
     it("should close worker on module destroy", async () => {
@@ -68,13 +63,13 @@ describe("AmqpWorkerService", () => {
         handlers: {
           testConsumer: handler,
         },
-        connection: mockConnection,
+        connection: "amqp://localhost",
       });
 
       await service.onModuleInit();
       await service.onModuleDestroy();
 
-      expect(mockChannel.cancel).toHaveBeenCalled();
+      expect(mockWorker.close).toHaveBeenCalled();
     });
   });
 });

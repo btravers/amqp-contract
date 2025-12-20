@@ -14,15 +14,12 @@ pnpm add @amqp-contract/client-nestjs @amqp-contract/client @amqp-contract/contr
 import { Injectable, Module } from '@nestjs/common';
 import { AmqpClientModule, AmqpClientService } from '@amqp-contract/client-nestjs';
 import { contract } from './contract';
-import { connect } from 'amqplib';
-
-const connection = await connect('amqp://localhost');
 
 @Module({
   imports: [
     AmqpClientModule.forRoot({
       contract,
-      connection,
+      connection: 'amqp://localhost',
     }),
   ],
 })

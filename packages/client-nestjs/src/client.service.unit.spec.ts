@@ -1,26 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { ChannelModel } from "amqplib";
 import { defineContract, defineExchange, definePublisher } from "@amqp-contract/contract";
 import { z } from "zod";
+import { TypedAmqpClient } from "@amqp-contract/client";
 import { AmqpClientService } from "./client.service.js";
 
 describe("AmqpClientService", () => {
-  const mockConnection = {
-    createChannel: vi.fn(),
-  } as unknown as ChannelModel;
-
-  const mockChannel = {
-    assertExchange: vi.fn(),
-    assertQueue: vi.fn(),
-    bindQueue: vi.fn(),
+  const mockClient = {
     publish: vi.fn(),
     close: vi.fn(),
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (mockConnection.createChannel as ReturnType<typeof vi.fn>).mockResolvedValue(mockChannel);
-    (mockChannel.publish as ReturnType<typeof vi.fn>).mockReturnValue(true);
+    vi.spyOn(TypedAmqpClient, "create").mockResolvedValue(
+      mockClient as unknown as TypedAmqpClient<never>,
+    );
+    (mockClient.publish as ReturnType<typeof vi.fn>).mockResolvedValue(true);
   });
 
   describe("lifecycle", () => {
@@ -38,12 +33,15 @@ describe("AmqpClientService", () => {
 
       const service = new AmqpClientService({
         contract,
-        connection: mockConnection,
+        connection: "amqp://localhost",
       });
 
       await service.onModuleInit();
 
-      expect(mockConnection.createChannel).toHaveBeenCalled();
+      expect(TypedAmqpClient.create).toHaveBeenCalledWith({
+        contract,
+        connection: "amqp://localhost",
+      });
     });
 
     it("should close client on module destroy", async () => {
@@ -60,13 +58,13 @@ describe("AmqpClientService", () => {
 
       const service = new AmqpClientService({
         contract,
-        connection: mockConnection,
+        connection: "amqp://localhost",
       });
 
       await service.onModuleInit();
       await service.onModuleDestroy();
 
-      expect(mockChannel.close).toHaveBeenCalled();
+      expect(mockClient.close).toHaveBeenCalled();
     });
   });
 
@@ -85,7 +83,7 @@ describe("AmqpClientService", () => {
 
       const service = new AmqpClientService({
         contract,
-        connection: mockConnection,
+        connection: "amqp://localhost",
       });
 
       await service.onModuleInit();
@@ -94,7 +92,7 @@ describe("AmqpClientService", () => {
 
       expect({
         result,
-        publishCalled: mockChannel.publish.mock.calls.length > 0,
+        publishCalled: mockClient.publish.mock.calls.length > 0,
       }).toEqual({
         result: true,
         publishCalled: true,
@@ -115,7 +113,7 @@ describe("AmqpClientService", () => {
 
       const service = new AmqpClientService({
         contract,
-        connection: mockConnection,
+        connection: "amqp://localhost",
       });
 
       await expect(service.publish("testPublisher", { message: "Hello" })).rejects.toThrow(
