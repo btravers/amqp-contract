@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TypedAmqpClient } from "./client";
-import type { Channel } from "amqplib";
+import type { Channel, ChannelModel } from "amqplib";
 import { connect } from "amqplib";
 import { defineContract, defineMessage } from "@amqp-contract/contract";
 import { z } from "zod";
@@ -23,7 +23,7 @@ const mockChannel = {
 const mockConnection = {
   createChannel: vi.fn().mockResolvedValue(mockChannel),
   close: vi.fn().mockResolvedValue(undefined),
-};
+} as unknown as ChannelModel;
 
 describe("AmqpClient", () => {
   beforeEach(() => {
