@@ -128,6 +128,7 @@ async function main() {
   process.on("SIGINT", async () => {
     logger.info("Shutting down worker...");
     await worker.close();
+    await connection.close();
     process.exit(0);
   });
 }
