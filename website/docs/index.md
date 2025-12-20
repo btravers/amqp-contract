@@ -95,9 +95,9 @@ const contract = defineContract({
 });
 
 // ✅ Type-safe client
-const client = await TypedAmqpClient.create({ 
-  contract, 
-  connection: 'amqp://localhost' 
+const client = await TypedAmqpClient.create({
+  contract,
+  connection: 'amqp://localhost'
 });
 await client.publish('orderCreated', {
   orderId: 'ORD-123',      // TypeScript knows!

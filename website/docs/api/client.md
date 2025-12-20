@@ -28,9 +28,9 @@ static async create<TContract>(
 import { TypedAmqpClient } from '@amqp-contract/client';
 import { contract } from './contract';
 
-const client = await TypedAmqpClient.create({ 
-  contract, 
-  connection: 'amqp://localhost' 
+const client = await TypedAmqpClient.create({
+  contract,
+  connection: 'amqp://localhost'
 });
 ```
 
@@ -166,9 +166,9 @@ import { contract } from './contract';
 
 async function main() {
   // Create client (automatically connects)
-  const client = await TypedAmqpClient.create({ 
-    contract, 
-    connection: 'amqp://localhost' 
+  const client = await TypedAmqpClient.create({
+    contract,
+    connection: 'amqp://localhost'
   });
 
   // Publish message
