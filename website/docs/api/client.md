@@ -5,7 +5,7 @@ Type-safe AMQP client for publishing messages.
 ## Installation
 
 ```bash
-pnpm add @amqp-contract/client amqplib
+pnpm add @amqp-contract/client
 ```
 
 ## Main Exports
@@ -26,18 +26,19 @@ static async create<TContract>(
 
 ```typescript
 import { TypedAmqpClient } from '@amqp-contract/client';
-import { connect } from 'amqplib';
 import { contract } from './contract';
 
-const connection = await connect('amqp://localhost');
-const client = await TypedAmqpClient.create({ contract, connection });
+const client = await TypedAmqpClient.create({ 
+  contract, 
+  connection: 'amqp://localhost' 
+});
 ```
 
 **Parameters:**
 
 - `options` - Configuration object:
   - `contract` - Contract definition created with `defineContract`
-  - `connection` - amqplib Connection object
+  - `connection` - AMQP connection URL (string) or connection options (Options.Connect)
 
 **Returns:** Promise that resolves to a type-safe AMQP client
 
@@ -49,28 +50,7 @@ const client = await TypedAmqpClient.create({ contract, connection });
 
 Connects the client to RabbitMQ.
 
-**Note:** When using `TypedAmqpClient.create()`, this method is called automatically. You only need to call this manually if you create a `TypedAmqpClient` instance directly using `new TypedAmqpClient()`.
-
-**Signature:**
-
-```typescript
-async connect(connection: Connection): Promise<void>
-```
-
-**Example:**
-
-```typescript
-import { TypedAmqpClient } from '@amqp-contract/client';
-import { connect } from 'amqplib';
-
-const connection = await connect('amqp://localhost');
-const client = new TypedAmqpClient(contract);
-await client.connect(connection);
-```
-
-**Parameters:**
-
-- `connection` - amqplib Connection object
+**Note:** When using `TypedAmqpClient.create()`, this method is called automatically. This method is private and not exposed in the public API.
 
 ---
 
@@ -128,7 +108,7 @@ await client.publish('orderCreated', {
 
 ### `close`
 
-Closes the client channel.
+Closes the client channel and connection.
 
 **Signature:**
 
