@@ -1,7 +1,8 @@
-import { Injectable, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
+import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
 import type { ChannelModel } from "amqplib";
 import type { ContractDefinition, WorkerInferConsumerHandlers } from "@amqp-contract/contract";
 import { TypedAmqpWorker } from "@amqp-contract/worker";
+import { MODULE_OPTIONS_TOKEN } from "./worker.module.js";
 
 /**
  * Options for creating a NestJS worker service
@@ -22,7 +23,10 @@ export class AmqpWorkerService<TContract extends ContractDefinition>
 {
   private worker: TypedAmqpWorker<TContract> | null = null;
 
-  constructor(private readonly options: AmqpWorkerModuleOptions<TContract>) {}
+  constructor(
+    @Inject(MODULE_OPTIONS_TOKEN)
+    private readonly options: AmqpWorkerModuleOptions<TContract>,
+  ) {}
 
   /**
    * Initialize the worker when the NestJS module starts
@@ -43,12 +47,5 @@ export class AmqpWorkerService<TContract extends ContractDefinition>
       await this.worker.close();
       this.worker = null;
     }
-  }
-
-  /**
-   * Get the underlying TypedAmqpWorker instance
-   */
-  getWorker(): TypedAmqpWorker<TContract> | null {
-    return this.worker;
   }
 }

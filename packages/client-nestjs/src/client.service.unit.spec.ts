@@ -44,7 +44,6 @@ describe("AmqpClientService", () => {
       await service.onModuleInit();
 
       expect(mockConnection.createChannel).toHaveBeenCalled();
-      expect(service.getClient()).not.toBeNull();
     });
 
     it("should close client on module destroy", async () => {
@@ -67,7 +66,7 @@ describe("AmqpClientService", () => {
       await service.onModuleInit();
       await service.onModuleDestroy();
 
-      expect(service.getClient()).toBeNull();
+      expect(mockChannel.close).toHaveBeenCalled();
     });
   });
 
@@ -117,50 +116,6 @@ describe("AmqpClientService", () => {
       await expect(service.publish("testPublisher", { message: "Hello" })).rejects.toThrow(
         "Client not initialized",
       );
-    });
-  });
-
-  describe("getClient", () => {
-    it("should return null before initialization", () => {
-      const contract = defineContract({
-        exchanges: {
-          testExchange: defineExchange("test-exchange", "topic", { durable: true }),
-        },
-        publishers: {
-          testPublisher: definePublisher("test-exchange", z.object({ message: z.string() }), {
-            routingKey: "test.key",
-          }),
-        },
-      });
-
-      const service = new AmqpClientService({
-        contract,
-        connection: mockConnection,
-      });
-
-      expect(service.getClient()).toBeNull();
-    });
-
-    it("should return client instance after initialization", async () => {
-      const contract = defineContract({
-        exchanges: {
-          testExchange: defineExchange("test-exchange", "topic", { durable: true }),
-        },
-        publishers: {
-          testPublisher: definePublisher("test-exchange", z.object({ message: z.string() }), {
-            routingKey: "test.key",
-          }),
-        },
-      });
-
-      const service = new AmqpClientService({
-        contract,
-        connection: mockConnection,
-      });
-
-      await service.onModuleInit();
-
-      expect(service.getClient()).not.toBeNull();
     });
   });
 });

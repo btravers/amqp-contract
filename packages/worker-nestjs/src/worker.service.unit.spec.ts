@@ -50,7 +50,6 @@ describe("AmqpWorkerService", () => {
       await service.onModuleInit();
 
       expect(mockConnection.createChannel).toHaveBeenCalled();
-      expect(service.getWorker()).not.toBeNull();
     });
 
     it("should close worker on module destroy", async () => {
@@ -75,55 +74,7 @@ describe("AmqpWorkerService", () => {
       await service.onModuleInit();
       await service.onModuleDestroy();
 
-      expect(service.getWorker()).toBeNull();
-    });
-  });
-
-  describe("getWorker", () => {
-    it("should return null before initialization", () => {
-      const contract = defineContract({
-        queues: {
-          testQueue: defineQueue("test-queue", { durable: true }),
-        },
-        consumers: {
-          testConsumer: defineConsumer("test-queue", z.object({ message: z.string() })),
-        },
-      });
-
-      const handler = vi.fn();
-      const service = new AmqpWorkerService({
-        contract,
-        handlers: {
-          testConsumer: handler,
-        },
-        connection: mockConnection,
-      });
-
-      expect(service.getWorker()).toBeNull();
-    });
-
-    it("should return worker instance after initialization", async () => {
-      const contract = defineContract({
-        queues: {
-          testQueue: defineQueue("test-queue", { durable: true }),
-        },
-        consumers: {
-          testConsumer: defineConsumer("test-queue", z.object({ message: z.string() })),
-        },
-      });
-
-      const handler = vi.fn();
-      const service = new AmqpWorkerService({
-        contract,
-        handlers: {
-          testConsumer: handler,
-        },
-        connection: mockConnection,
-      });
-
-      await service.onModuleInit();
-
-      expect(service.getWorker()).not.toBeNull();
+      expect(mockChannel.cancel).toHaveBeenCalled();
     });
   });
 });

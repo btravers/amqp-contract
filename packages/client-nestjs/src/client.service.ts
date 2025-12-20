@@ -1,4 +1,4 @@
-import { Injectable, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
+import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
 import type { ChannelModel } from "amqplib";
 import type {
   ClientInferPublisherInput,
@@ -6,6 +6,7 @@ import type {
   InferPublisherNames,
 } from "@amqp-contract/contract";
 import { TypedAmqpClient, type PublishOptions } from "@amqp-contract/client";
+import { MODULE_OPTIONS_TOKEN } from "./client.module.js";
 
 /**
  * Options for creating a NestJS client service
@@ -25,7 +26,10 @@ export class AmqpClientService<TContract extends ContractDefinition>
 {
   private client: TypedAmqpClient<TContract> | null = null;
 
-  constructor(private readonly options: AmqpClientModuleOptions<TContract>) {}
+  constructor(
+    @Inject(MODULE_OPTIONS_TOKEN)
+    private readonly options: AmqpClientModuleOptions<TContract>,
+  ) {}
 
   /**
    * Initialize the client when the NestJS module starts
@@ -63,12 +67,5 @@ export class AmqpClientService<TContract extends ContractDefinition>
     }
 
     return this.client.publish(publisherName, message, options);
-  }
-
-  /**
-   * Get the underlying TypedAmqpClient instance
-   */
-  getClient(): TypedAmqpClient<TContract> | null {
-    return this.client;
   }
 }
