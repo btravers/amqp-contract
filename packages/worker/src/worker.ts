@@ -48,9 +48,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
     if (this.channel) {
       await this.channel.close();
+      this.channel = null;
     }
-
-    await this.connection.close();
   }
 
   /**
