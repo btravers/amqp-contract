@@ -159,12 +159,12 @@ async publish<TName extends InferPublisherNames<TContract>>(
   - `userId` - User ID
   - `appId` - Application ID
 
-**Returns:** `Promise<boolean>` - Returns true if the message was published successfully
+**Returns:** `Promise<boolean>` - Returns `true` when the message is successfully published to the exchange
 
 **Throws:**
 
 - `Error` - If client is not initialized or publishing fails
-- Schema validation error (e.g., `ZodError`) if message fails validation
+- Schema validation error (with `issues` property) if message fails validation
 
 **Example:**
 
@@ -374,9 +374,10 @@ export class OrderService {
       });
       console.log(`Order ${orderId} published successfully`);
     } catch (error) {
-      if (error.name === 'ZodError') {
-        // Schema validation error
-        console.error('Invalid message:', error.issues);
+      // Handle schema validation errors (works with Zod, Valibot, ArkType)
+      // Standard Schema libraries typically expose validation issues
+      if (error && typeof error === 'object' && 'issues' in error) {
+        console.error('Invalid message:', (error as { issues: unknown }).issues);
       } else {
         // Network or other error
         console.error('Publishing failed:', error);

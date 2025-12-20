@@ -432,7 +432,7 @@ describe('OrderService', () => {
       items: [],
     };
 
-    await expect(service.processOrder(order)).resolves.not.toThrow();
+    await expect(service.processOrder(order)).resolves.toBeUndefined();
   });
 });
 ```
@@ -626,7 +626,9 @@ import { OrderService } from './order.service';
               await orderService.processOrder(message);
               ack();
             } catch (error) {
-              if (error.message.includes('Amount must be')) {
+              // Use custom error classes for better error handling
+              // Example: BusinessRuleError, ValidationError, etc.
+              if (error instanceof Error && error.name === 'BusinessRuleError') {
                 // Business rule violation, don't retry
                 nack({ requeue: false });
               } else {

@@ -313,8 +313,9 @@ export class OrderService {
 
       return { orderId };
     } catch (error) {
-      if (error.name === 'ZodError') {
-        // Schema validation error
+      // Handle schema validation errors (works with Zod, Valibot, ArkType)
+      // Standard Schema libraries typically expose validation issues
+      if (error && typeof error === 'object' && 'issues' in error) {
         throw new BadRequestException('Invalid order data');
       } else {
         // Network or other error
@@ -553,8 +554,10 @@ describe('OrderService', () => {
     expect(publishSpy).toHaveBeenCalledWith(
       'orderCreated',
       expect.objectContaining({
+        orderId: expect.any(String),
         customerId: 'CUST-123',
         amount: 99.99,
+        items: [],
       })
     );
   });
@@ -721,9 +724,11 @@ export class OrderService {
       this.logger.log(`Order ${orderId} published successfully`);
       return { orderId };
     } catch (error) {
-      this.logger.error(`Failed to publish order ${orderId}`, error.stack);
+      this.logger.error(`Failed to publish order ${orderId}`, (error as Error).stack);
 
-      if (error.name === 'ZodError') {
+      // Handle schema validation errors (works with Zod, Valibot, ArkType)
+      // Standard Schema libraries typically expose validation issues
+      if (error && typeof error === 'object' && 'issues' in error) {
         throw new BadRequestException('Invalid order data');
       }
       throw error;
