@@ -2,6 +2,58 @@
 
 Explore practical examples of using amqp-contract.
 
+## Architecture Overview
+
+The amqp-contract library enables type-safe AMQP messaging with three main components:
+
+```mermaid
+flowchart TB
+    subgraph "Contract Definition"
+        Contract["📋 Contract<br/>- Exchanges<br/>- Queues<br/>- Bindings<br/>- Publishers<br/>- Consumers"]
+    end
+
+    subgraph "Publisher Side"
+        Client["📤 Client App"]
+        TypedClient["TypedAmqpClient"]
+    end
+
+    subgraph "RabbitMQ"
+        Exchange["🔄 Exchange<br/>(topic/direct/fanout)"]
+        Queue1["📬 Queue 1"]
+        Queue2["📬 Queue 2"]
+        QueueN["📬 Queue N"]
+    end
+
+    subgraph "Consumer Side"
+        Worker["📥 Worker App"]
+        TypedWorker["TypedAmqpWorker"]
+    end
+
+    Contract -.->|"import"| Client
+    Contract -.->|"import"| Worker
+
+    Client -->|"publish()"| TypedClient
+    TypedClient -->|"Type-safe<br/>+ Validation"| Exchange
+
+    Exchange -->|"routing"| Queue1
+    Exchange -->|"routing"| Queue2
+    Exchange -->|"routing"| QueueN
+
+    Queue1 -->|"Type-safe<br/>+ Validation"| TypedWorker
+    Queue2 -->|"Type-safe<br/>+ Validation"| TypedWorker
+    QueueN -->|"Type-safe<br/>+ Validation"| TypedWorker
+
+    TypedWorker -->|"handle()"| Worker
+
+    style Contract fill:#e1f5ff
+    style TypedClient fill:#d4edda
+    style TypedWorker fill:#d4edda
+    style Exchange fill:#fff3cd
+    style Queue1 fill:#f8d7da
+    style Queue2 fill:#f8d7da
+    style QueueN fill:#f8d7da
+```
+
 ## Available Examples
 
 ### [Basic Order Processing](/examples/basic-order-processing)

@@ -15,6 +15,50 @@ This example demonstrates:
 
 AsyncAPI is an open-source specification for describing and documenting event-driven APIs. It's like OpenAPI (Swagger) but for asynchronous messaging systems like RabbitMQ, Kafka, and MQTT.
 
+```mermaid
+graph LR
+    subgraph "Your Code"
+        Contract["📋 AMQP Contract<br/>TypeScript + Zod"]
+    end
+
+    subgraph "Generation"
+        Generator["🔄 AsyncAPI Generator"]
+    end
+
+    subgraph "Output"
+        JSON["📄 asyncapi.json"]
+        YAML["📄 asyncapi.yaml"]
+    end
+
+    subgraph "Usage"
+        Studio["🎨 AsyncAPI Studio"]
+        Docs["📚 HTML Docs"]
+        Validate["✅ Validation"]
+        CodeGen["⚙️ Code Generation"]
+    end
+
+    Contract -->|"generateAsyncAPI()"| Generator
+    Generator --> JSON
+    Generator --> YAML
+
+    JSON --> Studio
+    JSON --> Docs
+    JSON --> Validate
+    JSON --> CodeGen
+
+    YAML --> Studio
+    YAML --> Docs
+
+    style Contract fill:#e1f5ff
+    style Generator fill:#fff3cd
+    style JSON fill:#d4edda
+    style YAML fill:#d4edda
+    style Studio fill:#f8d7da
+    style Docs fill:#f8d7da
+    style Validate fill:#f8d7da
+    style CodeGen fill:#f8d7da
+```
+
 ## Running the Example
 
 ### Prerequisites
@@ -277,6 +321,34 @@ asyncapi validate asyncapi.json
 
 amqp-contract automatically converts Zod schemas to JSON Schema:
 
+```mermaid
+flowchart LR
+    subgraph "Zod Schema Definition"
+        ZodDef["z.object({<br/>orderId: z.string(),<br/>amount: z.number()<br/>})"]
+    end
+
+    subgraph "Conversion Process"
+        Converter["🔄 Schema Converter"]
+    end
+
+    subgraph "JSON Schema Output"
+        JSONSchema["{<br/>'type': 'object',<br/>'properties': {...},<br/>'required': [...]<br/>}"]
+    end
+
+    subgraph "AsyncAPI Spec"
+        AsyncAPI["channels:<br/>messages:<br/>payload: {...}"]
+    end
+
+    ZodDef -->|"toJsonSchema()"| Converter
+    Converter --> JSONSchema
+    JSONSchema --> AsyncAPI
+
+    style ZodDef fill:#e1f5ff
+    style Converter fill:#fff3cd
+    style JSONSchema fill:#d4edda
+    style AsyncAPI fill:#f8d7da
+```
+
 ### Zod Types → JSON Schema
 
 | Zod Type          | JSON Schema Type                            |
@@ -419,6 +491,60 @@ jobs:
           git add asyncapi.json asyncapi.yaml
           git commit -m "Update AsyncAPI specification" || exit 0
           git push
+```
+
+### CI/CD Flow Diagram
+
+```mermaid
+flowchart TB
+    subgraph "Development"
+        Dev["👨‍💻 Developer"]
+        Contract["📝 Update Contract"]
+    end
+
+    subgraph "Version Control"
+        Git["📦 Git Push"]
+    end
+
+    subgraph "CI Pipeline"
+        CI["🔄 GitHub Actions"]
+        Build["🏗️ Build Packages"]
+        Generate["⚙️ Generate AsyncAPI"]
+        Validate["✅ Validate Spec"]
+    end
+
+    subgraph "Artifacts"
+        JSON["📄 asyncapi.json"]
+        YAML["📄 asyncapi.yaml"]
+    end
+
+    subgraph "Deployment"
+        Commit["💾 Commit Specs"]
+        Docs["📚 Deploy Docs"]
+    end
+
+    Dev --> Contract
+    Contract --> Git
+    Git --> CI
+    CI --> Build
+    Build --> Generate
+    Generate --> JSON
+    Generate --> YAML
+    JSON --> Validate
+    YAML --> Validate
+    Validate --> Commit
+    Commit --> Docs
+
+    style Dev fill:#e1f5ff
+    style Contract fill:#e1f5ff
+    style CI fill:#fff3cd
+    style Build fill:#fff3cd
+    style Generate fill:#fff3cd
+    style Validate fill:#d4edda
+    style JSON fill:#d4edda
+    style YAML fill:#d4edda
+    style Commit fill:#f8d7da
+    style Docs fill:#f8d7da
 ```
 
 ## Best Practices
