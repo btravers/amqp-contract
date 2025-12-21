@@ -37,7 +37,8 @@ describe("Basic Order Processing Worker Integration", () => {
     };
 
     // WHEN
-    await client.publish("orderCreated", newOrder);
+    const result = client.publish("orderCreated", newOrder);
+    expect(result.isOk()).toBe(true);
 
     // THEN
     await new Promise((resolve) => setTimeout(resolve, 500));
@@ -86,8 +87,10 @@ describe("Basic Order Processing Worker Integration", () => {
       updatedAt: new Date().toISOString(),
     };
 
-    await client.publish("orderCreated", newOrder);
-    await client.publish("orderUpdated", orderUpdate);
+    const result1 = client.publish("orderCreated", newOrder);
+    const result2 = client.publish("orderUpdated", orderUpdate);
+    expect(result1.isOk()).toBe(true);
+    expect(result2.isOk()).toBe(true);
 
     // THEN
     await new Promise((resolve) => setTimeout(resolve, 500));
@@ -133,7 +136,8 @@ describe("Basic Order Processing Worker Integration", () => {
     };
 
     // WHEN
-    await client.publish("orderCreated", newOrder);
+    const result = client.publish("orderCreated", newOrder);
+    expect(result.isOk()).toBe(true);
 
     // THEN
     await new Promise((resolve) => setTimeout(resolve, 800));
