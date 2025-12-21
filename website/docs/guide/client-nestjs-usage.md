@@ -313,15 +313,18 @@ export class OrderService {
 
       return { orderId };
     } catch (error) {
-      // Handle schema validation errors from Standard Schema v1 compatible schemas
-      // The client/adapters (Zod, Valibot, ArkType) normalize validation errors to include an `issues` property
-      if (error && typeof error === 'object' && 'issues' in error) {
+      // Handle schema validation errors
+      if (this.isValidationError(error)) {
         throw new BadRequestException('Invalid order data');
       } else {
         // Network or other error
         throw new InternalServerErrorException('Failed to publish order');
       }
     }
+  }
+
+  private isValidationError(error: unknown): error is { issues: unknown } {
+    return typeof error === 'object' && error !== null && 'issues' in error;
   }
 }
 ```
@@ -788,12 +791,22 @@ export class OrderService {
       this.logger.log(`Order ${orderId} published successfully`);
       return { orderId };
     } catch (error: unknown) {
-      this.logger.error(
-        `Failed to publish order ${orderId}`,
-        (error as Error).stack,
-      );
+      if (error instanceof Error) {
+        this.logger.error(`Failed to publish order ${orderId}`, error.stack);
+      } else {
+        this.logger.error(`Failed to publish order ${orderId}`);
+      }
+
+      // Handle schema validation errors
+      if (this.isValidationError(error)) {
+        throw new BadRequestException('Invalid order data');
+      }
       throw error;
     }
+  }
+
+  private isValidationError(error: unknown): error is { issues: unknown } {
+    return typeof error === 'object' && error !== null && 'issues' in error;
   }
 
   private generateOrderId(): string {
