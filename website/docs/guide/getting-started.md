@@ -111,15 +111,17 @@ Use the type-safe client to publish messages:
 ```typescript
 // publisher.ts
 import { TypedAmqpClient } from '@amqp-contract/client';
-import { connect } from 'amqplib';
+import { MessageValidationError, TechnicalError } from '@amqp-contract/client';
 import { orderContract } from './contract';
 
 async function main() {
-  const connection = await connect('amqp://localhost');
-  const client = await TypedAmqpClient.create({ contract: orderContract, connection });
+  const client = await TypedAmqpClient.create({
+    contract: orderContract,
+    connection: 'amqp://localhost'
+  });
 
-  // Type-safe publishing with validation
-  await client.publish('orderCreated', {
+  // Type-safe publishing with explicit error handling
+  const result = client.publish('orderCreated', {
     orderId: 'ORD-123',
     customerId: 'CUST-456',
     amount: 99.99,
@@ -129,7 +131,11 @@ async function main() {
     ],
   });
 
-  console.log('Order published!');
+  result.match({
+    Ok: () => console.log('Order published!'),
+    Error: (error) => console.error('Failed to publish:', error.message),
+  });
+
   await client.close();
 }
 
@@ -143,12 +149,9 @@ Create a worker with type-safe message handlers:
 ```typescript
 // consumer.ts
 import { TypedAmqpWorker } from '@amqp-contract/worker';
-import { connect } from 'amqplib';
 import { orderContract } from './contract';
 
 async function main() {
-  const connection = await connect('amqp://localhost');
-
   const worker = await TypedAmqpWorker.create({
     contract: orderContract,
     handlers: {
@@ -165,7 +168,7 @@ async function main() {
         }
       },
     },
-    connection,
+    connection: 'amqp://localhost',
   });
 
   console.log('Worker ready, waiting for messages...');

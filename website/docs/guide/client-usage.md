@@ -43,11 +43,11 @@ const client = await TypedAmqpClient.create({
 
 ## Publishing Messages
 
-The client provides type-safe publishing based on your contract publishers:
+The client provides type-safe publishing with explicit error handling using `Result` types:
 
 ```typescript
 // TypeScript knows the available publishers and their message schemas
-await client.publish('orderCreated', {
+const result = client.publish('orderCreated', {
   orderId: 'ORD-123',
   customerId: 'CUST-456',
   amount: 99.99,
@@ -55,7 +55,18 @@ await client.publish('orderCreated', {
     { productId: 'PROD-A', quantity: 2 },
   ],
 });
+
+// Handle errors explicitly using match pattern
+result.match({
+  Ok: () => console.log('Published successfully'),
+  Error: (error) => {
+    console.error('Failed to publish:', error);
+    // error is TechnicalError or MessageValidationError
+  },
+});
 ```
+
+````
 
 ### Type Safety
 
@@ -64,22 +75,33 @@ The client enforces:
 - ✅ **Valid publisher names** - Only publishers defined in the contract
 - ✅ **Message schema** - Messages must match the Zod schema
 - ✅ **Autocomplete** - Full IDE support for publisher names and message fields
+- ✅ **Explicit error handling** - Runtime errors are returned via `Result` type
 
 ```typescript
 // ❌ TypeScript error: 'unknownPublisher' not in contract
-await client.publish('unknownPublisher', { ... });
+const result = client.publish('unknownPublisher', { ... });
 
 // ❌ TypeScript error: missing required field 'orderId'
-await client.publish('orderCreated', {
+const result = client.publish('orderCreated', {
   customerId: 'CUST-456',
 });
 
-// ❌ Runtime error: Zod validation fails
-await client.publish('orderCreated', {
+// ❌ Runtime validation error returned in Result
+const result = client.publish('orderCreated', {
   orderId: 123, // should be string
   customerId: 'CUST-456',
+  amount: 99.99,
 });
-```
+
+// Check using match pattern
+result.match({
+  Ok: () => console.log('Published'),
+  Error: (error) => {
+    // error is MessageValidationError in this case
+    console.error('Validation failed');
+  },
+});
+````
 
 ## Publishing Options
 
@@ -88,11 +110,16 @@ await client.publish('orderCreated', {
 Override the routing key for a specific message:
 
 ```typescript
-await client.publish(
+const result = client.publish(
   'orderCreated',
   { orderId: 'ORD-123', amount: 99.99 },
   { routingKey: 'order.created.urgent' }
 );
+
+result.match({
+  Ok: () => console.log('Published with custom routing key'),
+  Error: (error) => console.error('Failed:', error),
+});
 ```
 
 ### Message Properties
@@ -100,18 +127,25 @@ await client.publish(
 Set AMQP message properties:
 
 ```typescript
-await client.publish(
+const result = client.publish(
   'orderCreated',
   { orderId: 'ORD-123', amount: 99.99 },
   {
-    persistent: true,
-    priority: 10,
-    contentType: 'application/json',
-    headers: {
-      'x-request-id': 'req-123',
+    options: {
+      persistent: true,
+      priority: 10,
+      contentType: 'application/json',
+      headers: {
+        'x-request-id': 'req-123',
+      },
     },
   }
 );
+
+result.match({
+  Ok: (value) => console.log('Published successfully'),
+  Error: (error) => console.error('Failed to publish:', error.message),
+});
 ```
 
 ## Connection Management
@@ -119,29 +153,42 @@ await client.publish(
 ### Closing the Connection
 
 ```typescript
-// Close the client (closes the channel)
+// Close the client (closes both channel and connection)
 await client.close();
-
-// Close the connection
-await connection.close();
 ```
 
 ### Error Handling
 
+The client uses `Result` types from [@swan-io/boxed](https://github.com/swan-io/boxed) for explicit error handling. Runtime errors are returned, not thrown:
+
 ```typescript
-try {
-  await client.publish('orderCreated', {
-    orderId: 'ORD-123',
-    amount: 99.99,
-  });
-} catch (error) {
-  if (error.name === 'ZodError') {
-    console.error('Validation failed:', error.issues);
-  } else {
-    console.error('Publishing failed:', error);
-  }
-}
+import { match, P } from 'ts-pattern';
+
+const result = client.publish('orderCreated', {
+  orderId: 'ORD-123',
+  amount: 99.99,
+});
+
+result.match({
+  Ok: (value) => console.log('Published successfully:', value),
+  Error: (error) =>
+    match(error)
+      .with(P.instanceOf(MessageValidationError), (err) =>
+        console.error('Validation failed:', err.issues)
+      )
+      .with(P.instanceOf(TechnicalError), (err) =>
+        console.error('Technical error:', err.message)
+      )
+      .exhaustive(),
+});
 ```
+
+**Error Types:**
+
+- `MessageValidationError` - Message fails schema validation
+- `TechnicalError` - Runtime failures (channel buffer full, network issues, etc.)
+
+**Note:** Programming errors (client not initialized, invalid publisher name) still throw exceptions since they indicate bugs that should be caught by TypeScript at compile-time.
 
 ## Advanced Usage
 
@@ -185,6 +232,8 @@ const paymentClient = await TypedAmqpClient.create({
 
 ```typescript
 import { TypedAmqpClient } from '@amqp-contract/client';
+import { MessageValidationError, TechnicalError } from '@amqp-contract/client';
+import { match, P } from 'ts-pattern';
 import { contract } from './contract';
 
 async function main() {
@@ -197,8 +246,8 @@ async function main() {
       connection: 'amqp://localhost'
     });
 
-    // Publish messages
-    await client.publish('orderCreated', {
+    // Publish messages with explicit error handling
+    const result = client.publish('orderCreated', {
       orderId: 'ORD-123',
       customerId: 'CUST-456',
       amount: 99.99,
@@ -207,9 +256,21 @@ async function main() {
       ],
     });
 
-    console.log('Message published successfully');
+    result.match({
+      Ok: () => console.log('Message published successfully'),
+      Error: (error) =>
+        match(error)
+          .with(P.instanceOf(MessageValidationError), (err) => {
+            console.error('Validation failed:', err.issues);
+          })
+          .with(P.instanceOf(TechnicalError), (err) => {
+            console.error('Technical error:', err.message);
+          })
+          .exhaustive(),
+    });
   } catch (error) {
-    console.error('Error:', error);
+    // Only programming errors (bugs) throw exceptions
+    console.error('Unexpected error:', error);
   } finally {
     // Cleanup - closes both channel and connection
     await client?.close();

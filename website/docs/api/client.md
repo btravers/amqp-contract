@@ -56,24 +56,39 @@ Connects the client to RabbitMQ.
 
 ### `publish`
 
-Publishes a message with type safety and validation.
+Publishes a message with type safety, validation, and explicit error handling.
 
 **Signature:**
 
 ```typescript
-async publish<K extends keyof Publishers>(
+publish<K extends keyof Publishers>(
   publisher: K,
   message: InferredMessage<Publishers[K]>,
   options?: PublishOptions
-): Promise<void>
+): Result<boolean, TechnicalError | MessageValidationError>
 ```
 
 **Example:**
 
 ```typescript
-await client.publish('orderCreated', {
+import { match, P } from 'ts-pattern';
+
+const result = client.publish('orderCreated', {
   orderId: 'ORD-123',
   amount: 99.99,
+});
+
+result.match({
+  Ok: (value) => console.log('Published successfully:', value), // true
+  Error: (error) =>
+    match(error)
+      .with(P.instanceOf(MessageValidationError), (err) =>
+        console.error('Validation failed:', err.issues)
+      )
+      .with(P.instanceOf(TechnicalError), (err) =>
+        console.error('Technical error:', err.message)
+      )
+      .exhaustive(),
 });
 ```
 
@@ -83,26 +98,35 @@ await client.publish('orderCreated', {
 - `message` - Message object (typed based on schema)
 - `options` - Optional publish options
   - `routingKey` - Override the routing key
-  - `persistent` - Message persistence (default: `false`)
-  - `mandatory` - Return message if not routed (default: `false`)
-  - `immediate` - Return message if no consumers (default: `false`)
-  - `priority` - Message priority (0-9)
-  - `expiration` - Message TTL in milliseconds
-  - `contentType` - Content type (default: `'application/json'`)
-  - `contentEncoding` - Content encoding
-  - `headers` - Custom headers object
-  - `correlationId` - Correlation ID
-  - `replyTo` - Reply-to queue
-  - `messageId` - Message ID
-  - `timestamp` - Message timestamp
-  - `type` - Message type
-  - `userId` - User ID
-  - `appId` - Application ID
+  - `options` - AMQP publish options:
+    - `persistent` - Message persistence (default: `false`)
+    - `mandatory` - Return message if not routed (default: `false`)
+    - `immediate` - Return message if no consumers (default: `false`)
+    - `priority` - Message priority (0-9)
+    - `expiration` - Message TTL in milliseconds
+    - `contentType` - Content type (default: `'application/json'`)
+    - `contentEncoding` - Content encoding
+    - `headers` - Custom headers object
+    - `correlationId` - Correlation ID
+    - `replyTo` - Reply-to queue
+    - `messageId` - Message ID
+    - `timestamp` - Message timestamp
+    - `type` - Message type
+    - `userId` - User ID
+    - `appId` - Application ID
+
+**Returns:** `Result<boolean, TechnicalError | MessageValidationError>`
+
+- `Result.Ok(true)` - Message published successfully
+- `Result.Error(MessageValidationError)` - Message validation failed
+- `Result.Error(TechnicalError)` - Runtime error (channel buffer full, etc.)
 
 **Throws:**
 
-- `ZodError` (or equivalent) if message fails schema validation
-- `Error` if publishing fails
+Programming errors (bugs) that should be caught at compile-time:
+
+- Client not initialized
+- Invalid publisher name (TypeScript prevents this)
 
 ---
 
@@ -140,28 +164,33 @@ interface CreateClientOptions<TContract> {
 ```typescript
 interface PublishOptions {
   routingKey?: string;
-  persistent?: boolean;
-  mandatory?: boolean;
-  immediate?: boolean;
-  priority?: number;
-  expiration?: string;
-  contentType?: string;
-  contentEncoding?: string;
-  headers?: Record<string, any>;
-  correlationId?: string;
-  replyTo?: string;
-  messageId?: string;
-  timestamp?: number;
-  type?: string;
-  userId?: string;
-  appId?: string;
+  options?: Options.Publish;  // From amqplib
 }
 ```
+
+Where `Options.Publish` includes:
+
+- `persistent?: boolean`
+- `mandatory?: boolean`
+- `immediate?: boolean`
+- `priority?: number`
+- `expiration?: string`
+- `contentType?: string`
+- `contentEncoding?: string`
+- `headers?: Record<string, any>`
+- `correlationId?: string`
+- `replyTo?: string`
+- `messageId?: string`
+- `timestamp?: number`
+- `type?: string`
+- `userId?: string`
+- `appId?: string`
 
 ## Basic Example
 
 ```typescript
 import { TypedAmqpClient } from '@amqp-contract/client';
+import { MessageValidationError, TechnicalError } from '@amqp-contract/client';
 import { contract } from './contract';
 
 async function main() {
@@ -171,8 +200,8 @@ async function main() {
     connection: 'amqp://localhost'
   });
 
-  // Publish message
-  await client.publish('orderCreated', {
+  // Publish message with explicit error handling
+  const result = client.publish('orderCreated', {
     orderId: 'ORD-123',
     customerId: 'CUST-456',
     amount: 99.99,
@@ -182,7 +211,10 @@ async function main() {
     createdAt: new Date().toISOString(),
   });
 
-  console.log('Message published!');
+  result.match({
+    Ok: () => console.log('Message published!'),
+    Error: (error) => console.error('Failed to publish:', error.message),
+  });
 
   // Cleanup
   await client.close();
@@ -195,45 +227,68 @@ main();
 
 ```typescript
 // Persistent message
-await client.publish('orderCreated', message, {
-  persistent: true,
+const result1 = client.publish('orderCreated', message, {
+  options: {
+    persistent: true,
+  },
 });
 
 // Custom routing key
-await client.publish('orderCreated', message, {
+const result2 = client.publish('orderCreated', message, {
   routingKey: 'order.created.urgent',
 });
 
 // With priority and headers
-await client.publish('orderCreated', message, {
-  persistent: true,
-  priority: 10,
-  headers: {
-    'x-request-id': 'req-123',
-    'x-source': 'api',
+const result3 = client.publish('orderCreated', message, {
+  options: {
+    persistent: true,
+    priority: 10,
+    headers: {
+      'x-request-id': 'req-123',
+      'x-source': 'api',
+    },
   },
 });
 
 // With expiration (TTL)
-await client.publish('orderCreated', message, {
-  expiration: '60000', // 60 seconds
+const result4 = client.publish('orderCreated', message, {
+  options: {
+    expiration: '60000', // 60 seconds
+  },
+});
+
+// Check results using match
+result1.match({
+  Ok: () => console.log('Published'),
+  Error: (error) => console.error('Failed:', error),
 });
 ```
 
 ## Error Handling
 
 ```typescript
-try {
-  await client.publish('orderCreated', message);
-} catch (error) {
-  if (error.name === 'ZodError') {
-    // Schema validation error
-    console.error('Invalid message:', error.issues);
-  } else {
-    // Other error (network, etc.)
-    console.error('Publishing failed:', error);
-  }
-}
+import { match, P } from 'ts-pattern';
+
+const result = client.publish('orderCreated', message);
+
+result.match({
+  Ok: (value) => console.log('Published successfully:', value),
+  Error: (error) =>
+    match(error)
+      .with(P.instanceOf(MessageValidationError), (err) => {
+        // Schema validation error
+        console.error('Invalid message:', err.issues);
+        console.error('Publisher:', err.publisherName);
+      })
+      .with(P.instanceOf(TechnicalError), (err) => {
+        // Technical error (network, channel issues, etc.)
+        console.error('Technical error:', err.message);
+        if (err.cause) {
+          console.error('Cause:', err.cause);
+        }
+      })
+      .exhaustive(),
+});
 ```
 
 ## Connection Management
@@ -253,12 +308,13 @@ const client = await TypedAmqpClient.create({
 });
 
 // Or use a connection string
-const client = await TypedAmqpClient.create({
+const client2 = await TypedAmqpClient.create({
   contract,
   connection: 'amqp://guest:guest@localhost:5672?heartbeat=30'
 });
 
 // Use client...
+const result = client.publish('orderCreated', message);
 
 // Cleanup - closes both channel and connection
 await client.close();
@@ -280,8 +336,19 @@ const paymentClient = await TypedAmqpClient.create({
 });
 
 // Use both clients
-await orderClient.publish('orderCreated', orderMessage);
-await paymentClient.publish('paymentProcessed', paymentMessage);
+const orderResult = orderClient.publish('orderCreated', orderMessage);
+const paymentResult = paymentClient.publish('paymentProcessed', paymentMessage);
+
+// Handle results using match
+orderResult.match({
+  Ok: () => console.log('Order published'),
+  Error: (error) => console.error('Order publish failed:', error),
+});
+
+paymentResult.match({
+  Ok: () => console.log('Payment published'),
+  Error: (error) => console.error('Payment publish failed:', error),
+});
 
 // Cleanup
 await orderClient.close();
@@ -294,22 +361,31 @@ The client provides full type inference for publisher names and message schemas:
 
 ```typescript
 // TypeScript knows available publishers
-client.publish('orderCreated', ...);   // ✅ Valid
-client.publish('unknownPublisher', ...); // ❌ TypeScript error
+const result1 = client.publish('orderCreated', ...);   // ✅ Valid
+const result2 = client.publish('unknownPublisher', ...); // ❌ TypeScript error
 
 // TypeScript knows message shape
-client.publish('orderCreated', {
+const result3 = client.publish('orderCreated', {
   orderId: 'ORD-123',    // ✅ Required field
   amount: 99.99,         // ✅ Required field
 });
 
-client.publish('orderCreated', {
+const result4 = client.publish('orderCreated', {
   orderId: 'ORD-123',    // ❌ Missing 'amount'
 });
 
-client.publish('orderCreated', {
+const result5 = client.publish('orderCreated', {
   orderId: 123,          // ❌ Wrong type (should be string)
   amount: 99.99,
+});
+
+// Check validation error using match
+result5.match({
+  Ok: () => console.log('Published'),
+  Error: (error) => {
+    // error is MessageValidationError in this case
+    console.error('Validation failed');
+  },
 });
 ```
 

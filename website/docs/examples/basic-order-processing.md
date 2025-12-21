@@ -301,14 +301,15 @@ The client is in a separate package (`@amqp-contract-samples/basic-order-process
 
 ```typescript
 import { TypedAmqpClient } from '@amqp-contract/client';
-import { connect } from 'amqplib';
 import { orderContract } from '@amqp-contract-samples/basic-order-processing-contract';
 
-const connection = await connect('amqp://localhost');
-const client = await TypedAmqpClient.create({ contract: orderContract, connection });
+const client = await TypedAmqpClient.create({
+  contract: orderContract,
+  connection: 'amqp://localhost'
+});
 
-// Publish new order
-await client.publish('orderCreated', {
+// Publish new order with explicit error handling
+const result = client.publish('orderCreated', {
   orderId: 'ORD-001',
   customerId: 'CUST-123',
   items: [
@@ -318,11 +319,24 @@ await client.publish('orderCreated', {
   createdAt: new Date().toISOString(),
 });
 
+result.match({
+  Ok: () => console.log('Order published successfully'),
+  Error: (error) => {
+    console.error('Failed to publish:', error.message);
+    // Handle error appropriately
+  },
+});
+
 // Publish status update
-await client.publish('orderUpdated', {
+const updateResult = client.publish('orderUpdated', {
   orderId: 'ORD-001',
   status: 'processing',
   updatedAt: new Date().toISOString(),
+});
+
+updateResult.match({
+  Ok: () => console.log('Status update published'),
+  Error: (error) => console.error('Failed:', error),
 });
 ```
 

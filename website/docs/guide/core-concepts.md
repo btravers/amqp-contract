@@ -30,12 +30,21 @@ const contract = defineContract({
 });
 
 // Client knows the exact shape
-// connection is an amqplib Connection object
-const client = await TypedAmqpClient.create({ contract, connection });
-await client.publish('orderCreated', {
+const client = await TypedAmqpClient.create({
+  contract,
+  connection: 'amqp://localhost'
+});
+
+const result = client.publish('orderCreated', {
   orderId: 'ORD-123',  // ✅ TypeScript knows this field
   amount: 99.99,        // ✅ TypeScript knows this field
   // invalid: true,     // ❌ TypeScript error!
+});
+
+// Handle errors explicitly using match pattern
+result.match({
+  Ok: (value) => console.log('Published:', value),
+  Error: (error) => console.error('Failed:', error),
 });
 
 // Worker handlers are fully typed
@@ -47,7 +56,7 @@ const worker = await TypedAmqpWorker.create({
       message.amount;   // ✅ number
     },
   },
-  connection,
+  connection: 'amqp://localhost',
 });
 ```
 
@@ -55,23 +64,33 @@ const worker = await TypedAmqpWorker.create({
 
 Messages are automatically validated at network boundaries:
 
-- **On publish**: Client validates before sending
+- **On publish**: Client validates before sending and returns errors via `Result` type
 - **On consume**: Worker validates before calling your handler
 
 Invalid messages are rejected with clear error messages.
 
 ```typescript
 import { TypedAmqpClient } from '@amqp-contract/client';
-import { connect } from 'amqplib';
+import { MessageValidationError } from '@amqp-contract/client';
 
-// Assuming contract is defined earlier
-const connection = await connect('amqp://localhost');
+const client = await TypedAmqpClient.create({
+  contract,
+  connection: 'amqp://localhost'
+});
 
-// This will throw a validation error:
-const client = await TypedAmqpClient.create({ contract, connection });
-await client.publish('orderCreated', {
+// This will return a validation error (not throw):
+const result = client.publish('orderCreated', {
   orderId: 'ORD-123',
   amount: 'not-a-number',  // ❌ Validation error!
+});
+
+result.match({
+  Ok: () => console.log('Published'),
+  Error: (error) => {
+    if (error instanceof MessageValidationError) {
+      console.error('Validation failed:', error.issues);
+    }
+  },
 });
 ```
 
