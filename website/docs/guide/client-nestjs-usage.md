@@ -787,8 +787,6 @@ export class OrderService {
 
       this.logger.log(`Order ${orderId} published successfully`);
       return { orderId };
-    } catch (error) {
-      this.logger.error(`Failed to publish order ${orderId}`, (error as Error).stack);
     } catch (error: unknown) {
       const err = error as Error & { issues?: unknown };
       this.logger.error(`Failed to publish order ${orderId}`, (err as Error).stack);
