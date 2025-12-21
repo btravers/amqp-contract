@@ -642,7 +642,7 @@ import { OrderService, BusinessRuleError, TemporaryError } from './order.service
               ack();
             } catch (error) {
               // Use custom error classes with instanceof for type-safe error handling
-              // Define custom error classes like: class BusinessRuleError extends Error {}
+              // BusinessRuleError and TemporaryError are custom error classes defined in OrderService
               if (error instanceof BusinessRuleError) {
                 // Business rule violation, don't retry
                 nack({ requeue: false });
