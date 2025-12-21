@@ -313,8 +313,8 @@ export class OrderService {
 
       return { orderId };
     } catch (error) {
-      // Handle schema validation errors (works with Zod, Valibot, ArkType)
-      // Standard Schema libraries typically expose validation issues
+      // Handle schema validation errors from Standard Schema v1 compatible schemas
+      // The client/adapters (Zod, Valibot, ArkType) normalize validation errors to include an `issues` property
       if (error && typeof error === 'object' && 'issues' in error) {
         throw new BadRequestException('Invalid order data');
       } else {
