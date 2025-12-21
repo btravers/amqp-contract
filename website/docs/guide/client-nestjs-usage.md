@@ -115,12 +115,14 @@ export class OrderService {
       items,
     });
 
-    if (result.isError()) {
-      console.error('Failed to publish order:', result.error);
-      throw new Error(`Failed to publish order: ${result.error.message}`);
-    }
+    result.match({
+      Ok: () => console.log(`Order ${orderId} published`),
+      Error: (error) => {
+        console.error('Failed to publish order:', error);
+        throw new Error(`Failed to publish order: ${error.message}`);
+      },
+    });
 
-    console.log(`Order ${orderId} published`);
     return { orderId };
   }
 
@@ -215,12 +217,13 @@ export class OrderService {
       items: [],
     });
 
-    if (result.isError()) {
-      console.error('Failed to publish:', result.error);
-      throw new Error(`Publish failed: ${result.error.message}`);
-    }
-
-    console.log('Order published successfully');
+    result.match({
+      Ok: () => console.log('Order published successfully'),
+      Error: (error) => {
+        console.error('Failed to publish:', error);
+        throw new Error(`Publish failed: ${error.message}`);
+      },
+    });
   }
 }
 ```
@@ -256,9 +259,12 @@ export class OrderService {
       }
     );
 
-    if (result.isError()) {
-      throw new Error(`Failed to publish: ${result.error.message}`);
-    }
+    result.match({
+      Ok: () => {},
+      Error: (error) => {
+        throw new Error(`Failed to publish: ${error.message}`);
+      },
+    });
   }
 
   async createOrderWithTTL(orderId: string, amount: number) {
@@ -278,9 +284,12 @@ export class OrderService {
       }
     );
 
-    if (result.isError()) {
-      throw new Error(`Failed to publish: ${result.error.message}`);
-    }
+    result.match({
+      Ok: () => {},
+      Error: (error) => {
+        throw new Error(`Failed to publish: ${error.message}`);
+      },
+    });
   }
 }
 ```
@@ -310,12 +319,14 @@ export class OrderService {
       items: [],
     });
 
-    if (result.isError()) {
-      console.error('Failed to publish order:', result.error);
-      throw new Error(`Publish failed: ${result.error.message}`);
-    }
+    result.match({
+      Ok: () => console.log(`Order ${orderId} published successfully`),
+      Error: (error) => {
+        console.error('Failed to publish order:', error);
+        throw new Error(`Publish failed: ${error.message}`);
+      },
+    });
 
-    console.log(`Order ${orderId} published successfully`);
     return { orderId };
   }
 }
@@ -327,6 +338,7 @@ export class OrderService {
 import { Injectable, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { AmqpClientService } from '@amqp-contract/client-nestjs';
 import { MessageValidationError, TechnicalError } from '@amqp-contract/client';
+import { match, P } from 'ts-pattern';
 import type { contract } from './contract';
 
 @Injectable()
@@ -343,22 +355,26 @@ export class OrderService {
       items,
     });
 
-    if (result.isError()) {
-      // Handle specific error types
-      if (result.error instanceof MessageValidationError) {
-        // Schema validation failed
-        throw new BadRequestException({
-          message: 'Invalid order data',
-          issues: result.error.issues,
-        });
-      } else if (result.error instanceof TechnicalError) {
-        // Runtime/network error
-        throw new InternalServerErrorException({
-          message: 'Failed to publish order',
-          cause: result.error.cause,
-        });
-      }
-    }
+    result.match({
+      Ok: () => {},
+      Error: (error) =>
+        match(error)
+          .with(P.instanceOf(MessageValidationError), (err) => {
+            // Schema validation failed
+            throw new BadRequestException({
+              message: 'Invalid order data',
+              issues: err.issues,
+            });
+          })
+          .with(P.instanceOf(TechnicalError), (err) => {
+            // Runtime/network error
+            throw new InternalServerErrorException({
+              message: 'Failed to publish order',
+              cause: err.cause,
+            });
+          })
+          .exhaustive(),
+    });
 
     return { orderId };
   }
@@ -399,15 +415,17 @@ export class OrderService {
       },
     });
 
-    if (result.isError()) {
-      this.logger.error(
-        `Failed to publish order ${orderId}`,
-        result.error.message,
-      );
-      throw result.error;
-    }
+    result.match({
+      Ok: () => this.logger.log(`Order ${orderId} published successfully`),
+      Error: (error) => {
+        this.logger.error(
+          `Failed to publish order ${orderId}`,
+          error.message,
+        );
+        throw error;
+      },
+    });
 
-    this.logger.log(`Order ${orderId} published successfully`);
     return { orderId };
   }
 }

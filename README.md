@@ -69,13 +69,14 @@ const result = client.publish('orderCreated', {
   amount: 99.99,
 });
 
-// Handle errors explicitly using Result type
-if (result.isError()) {
-  console.error('Failed to publish:', result.error);
-  // result.error is TechnicalError or MessageValidationError
-} else {
-  console.log('Published successfully');
-}
+// Handle errors explicitly using match pattern
+result.match({
+  Ok: (value) => console.log('Published successfully'),
+  Error: (error) => {
+    console.error('Failed to publish:', error);
+    // error is TechnicalError or MessageValidationError
+  },
+});
 
 // Worker - fully typed consuming
 const worker = await TypedAmqpWorker.create({

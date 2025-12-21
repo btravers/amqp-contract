@@ -71,21 +71,25 @@ publish<K extends keyof Publishers>(
 **Example:**
 
 ```typescript
+import { match, P } from 'ts-pattern';
+
 const result = client.publish('orderCreated', {
   orderId: 'ORD-123',
   amount: 99.99,
 });
 
-if (result.isOk()) {
-  console.log('Published successfully:', result.value); // true
-} else {
-  // Handle specific error types
-  if (result.error instanceof MessageValidationError) {
-    console.error('Validation failed:', result.error.issues);
-  } else if (result.error instanceof TechnicalError) {
-    console.error('Technical error:', result.error.message);
-  }
-}
+result.match({
+  Ok: (value) => console.log('Published successfully:', value), // true
+  Error: (error) =>
+    match(error)
+      .with(P.instanceOf(MessageValidationError), (err) =>
+        console.error('Validation failed:', err.issues)
+      )
+      .with(P.instanceOf(TechnicalError), (err) =>
+        console.error('Technical error:', err.message)
+      )
+      .exhaustive(),
+});
 ```
 
 **Parameters:**
@@ -207,12 +211,10 @@ async function main() {
     createdAt: new Date().toISOString(),
   });
 
-  if (result.isError()) {
-    console.error('Failed to publish:', result.error.message);
-    return;
-  }
-
-  console.log('Message published!');
+  result.match({
+    Ok: () => console.log('Message published!'),
+    Error: (error) => console.error('Failed to publish:', error.message),
+  });
 
   // Cleanup
   await client.close();
@@ -255,33 +257,38 @@ const result4 = client.publish('orderCreated', message, {
   },
 });
 
-// Check results
-if (result1.isError()) {
-  console.error('Failed:', result1.error);
-}
+// Check results using match
+result1.match({
+  Ok: () => console.log('Published'),
+  Error: (error) => console.error('Failed:', error),
+});
 ```
 
 ## Error Handling
 
 ```typescript
+import { match, P } from 'ts-pattern';
+
 const result = client.publish('orderCreated', message);
 
-if (result.isError()) {
-  // Handle specific error types
-  if (result.error instanceof MessageValidationError) {
-    // Schema validation error
-    console.error('Invalid message:', result.error.issues);
-    console.error('Publisher:', result.error.publisherName);
-  } else if (result.error instanceof TechnicalError) {
-    // Technical error (network, channel issues, etc.)
-    console.error('Technical error:', result.error.message);
-    if (result.error.cause) {
-      console.error('Cause:', result.error.cause);
-    }
-  }
-} else {
-  console.log('Published successfully:', result.value);
-}
+result.match({
+  Ok: (value) => console.log('Published successfully:', value),
+  Error: (error) =>
+    match(error)
+      .with(P.instanceOf(MessageValidationError), (err) => {
+        // Schema validation error
+        console.error('Invalid message:', err.issues);
+        console.error('Publisher:', err.publisherName);
+      })
+      .with(P.instanceOf(TechnicalError), (err) => {
+        // Technical error (network, channel issues, etc.)
+        console.error('Technical error:', err.message);
+        if (err.cause) {
+          console.error('Cause:', err.cause);
+        }
+      })
+      .exhaustive(),
+});
 ```
 
 ## Connection Management
@@ -332,13 +339,16 @@ const paymentClient = await TypedAmqpClient.create({
 const orderResult = orderClient.publish('orderCreated', orderMessage);
 const paymentResult = paymentClient.publish('paymentProcessed', paymentMessage);
 
-// Handle results
-if (orderResult.isError()) {
-  console.error('Order publish failed:', orderResult.error);
-}
-if (paymentResult.isError()) {
-  console.error('Payment publish failed:', paymentResult.error);
-}
+// Handle results using match
+orderResult.match({
+  Ok: () => console.log('Order published'),
+  Error: (error) => console.error('Order publish failed:', error),
+});
+
+paymentResult.match({
+  Ok: () => console.log('Payment published'),
+  Error: (error) => console.error('Payment publish failed:', error),
+});
 
 // Cleanup
 await orderClient.close();
@@ -368,8 +378,15 @@ const result5 = client.publish('orderCreated', {
   orderId: 123,          // ❌ Wrong type (should be string)
   amount: 99.99,
 });
-// result5.isError() === true
-// result5.error instanceof MessageValidationError === true
+
+// Check validation error using match
+result5.match({
+  Ok: () => console.log('Published'),
+  Error: (error) => {
+    // error is MessageValidationError in this case
+    console.error('Validation failed');
+  },
+});
 ```
 
 ## See Also

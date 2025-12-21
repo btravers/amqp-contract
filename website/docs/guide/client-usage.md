@@ -56,14 +56,17 @@ const result = client.publish('orderCreated', {
   ],
 });
 
-// Handle errors explicitly - no exceptions thrown for runtime errors
-if (result.isError()) {
-  console.error('Failed to publish:', result.error);
-  // result.error is TechnicalError or MessageValidationError
-} else {
-  console.log('Published successfully');
-}
+// Handle errors explicitly using match pattern
+result.match({
+  Ok: () => console.log('Published successfully'),
+  Error: (error) => {
+    console.error('Failed to publish:', error);
+    // error is TechnicalError or MessageValidationError
+  },
+});
 ```
+
+````
 
 ### Type Safety
 
@@ -89,9 +92,16 @@ const result = client.publish('orderCreated', {
   customerId: 'CUST-456',
   amount: 99.99,
 });
-// result.isError() === true
-// result.error instanceof MessageValidationError === true
-```
+
+// Check using match pattern
+result.match({
+  Ok: () => console.log('Published'),
+  Error: (error) => {
+    // error is MessageValidationError in this case
+    console.error('Validation failed');
+  },
+});
+````
 
 ## Publishing Options
 
@@ -106,9 +116,10 @@ const result = client.publish(
   { routingKey: 'order.created.urgent' }
 );
 
-if (result.isOk()) {
-  console.log('Published with custom routing key');
-}
+result.match({
+  Ok: () => console.log('Published with custom routing key'),
+  Error: (error) => console.error('Failed:', error),
+});
 ```
 
 ### Message Properties
@@ -131,9 +142,10 @@ const result = client.publish(
   }
 );
 
-if (result.isError()) {
-  console.error('Failed to publish:', result.error.message);
-}
+result.match({
+  Ok: (value) => console.log('Published successfully'),
+  Error: (error) => console.error('Failed to publish:', error.message),
+});
 ```
 
 ## Connection Management
@@ -150,21 +162,25 @@ await client.close();
 The client uses `Result` types from [@swan-io/boxed](https://github.com/swan-io/boxed) for explicit error handling. Runtime errors are returned, not thrown:
 
 ```typescript
+import { match, P } from 'ts-pattern';
+
 const result = client.publish('orderCreated', {
   orderId: 'ORD-123',
   amount: 99.99,
 });
 
-if (result.isError()) {
-  // Handle specific error types
-  if (result.error instanceof MessageValidationError) {
-    console.error('Validation failed:', result.error.issues);
-  } else if (result.error instanceof TechnicalError) {
-    console.error('Technical error:', result.error.message);
-  }
-} else {
-  console.log('Published successfully:', result.value);
-}
+result.match({
+  Ok: (value) => console.log('Published successfully:', value),
+  Error: (error) =>
+    match(error)
+      .with(P.instanceOf(MessageValidationError), (err) =>
+        console.error('Validation failed:', err.issues)
+      )
+      .with(P.instanceOf(TechnicalError), (err) =>
+        console.error('Technical error:', err.message)
+      )
+      .exhaustive(),
+});
 ```
 
 **Error Types:**
@@ -217,6 +233,7 @@ const paymentClient = await TypedAmqpClient.create({
 ```typescript
 import { TypedAmqpClient } from '@amqp-contract/client';
 import { MessageValidationError, TechnicalError } from '@amqp-contract/client';
+import { match, P } from 'ts-pattern';
 import { contract } from './contract';
 
 async function main() {
@@ -239,16 +256,18 @@ async function main() {
       ],
     });
 
-    if (result.isError()) {
-      if (result.error instanceof MessageValidationError) {
-        console.error('Validation failed:', result.error.issues);
-      } else if (result.error instanceof TechnicalError) {
-        console.error('Technical error:', result.error.message);
-      }
-      return;
-    }
-
-    console.log('Message published successfully');
+    result.match({
+      Ok: () => console.log('Message published successfully'),
+      Error: (error) =>
+        match(error)
+          .with(P.instanceOf(MessageValidationError), (err) => {
+            console.error('Validation failed:', err.issues);
+          })
+          .with(P.instanceOf(TechnicalError), (err) => {
+            console.error('Technical error:', err.message);
+          })
+          .exhaustive(),
+    });
   } catch (error) {
     // Only programming errors (bugs) throw exceptions
     console.error('Unexpected error:', error);

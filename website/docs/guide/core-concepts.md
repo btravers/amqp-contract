@@ -41,12 +41,11 @@ const result = client.publish('orderCreated', {
   // invalid: true,     // ❌ TypeScript error!
 });
 
-// Handle errors explicitly using Result type
-if (result.isError()) {
-  console.error('Failed:', result.error);
-} else {
-  console.log('Published:', result.value);
-}
+// Handle errors explicitly using match pattern
+result.match({
+  Ok: (value) => console.log('Published:', value),
+  Error: (error) => console.error('Failed:', error),
+});
 
 // Worker handlers are fully typed
 const worker = await TypedAmqpWorker.create({
@@ -85,9 +84,14 @@ const result = client.publish('orderCreated', {
   amount: 'not-a-number',  // ❌ Validation error!
 });
 
-if (result.isError() && result.error instanceof MessageValidationError) {
-  console.error('Validation failed:', result.error.issues);
-}
+result.match({
+  Ok: () => console.log('Published'),
+  Error: (error) => {
+    if (error instanceof MessageValidationError) {
+      console.error('Validation failed:', error.issues);
+    }
+  },
+});
 ```
 
 ## Schema Libraries

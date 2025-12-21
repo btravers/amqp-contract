@@ -131,12 +131,11 @@ async function main() {
     ],
   });
 
-  if (result.isError()) {
-    console.error('Failed to publish:', result.error.message);
-    return;
-  }
+  result.match({
+    Ok: () => console.log('Order published!'),
+    Error: (error) => console.error('Failed to publish:', error.message),
+  });
 
-  console.log('Order published!');
   await client.close();
 }
 

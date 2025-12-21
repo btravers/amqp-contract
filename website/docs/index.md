@@ -114,9 +114,10 @@ const result = client.publish('orderCreated', {
   amount: 99.99,
 });
 
-if (result.isError()) {
-  console.error('Failed:', result.error);
-}
+result.match({
+  Ok: () => console.log('Published'),
+  Error: (error) => console.error('Failed:', error),
+});
 
 // ✅ Type-safe worker
 const worker = await TypedAmqpWorker.create({
@@ -177,9 +178,10 @@ const result = client.publish('orderCreated', {
   amount: 99.99,
 });
 
-if (result.isError()) {
-  console.error('Failed:', result.error);
-}
+result.match({
+  Ok: () => console.log('Published'),
+  Error: (error) => console.error('Failed:', error),
+});
 ```
 
 ```typescript [worker.ts]

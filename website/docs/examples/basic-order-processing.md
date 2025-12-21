@@ -319,12 +319,13 @@ const result = client.publish('orderCreated', {
   createdAt: new Date().toISOString(),
 });
 
-if (result.isError()) {
-  console.error('Failed to publish:', result.error.message);
-  // Handle error appropriately
-} else {
-  console.log('Order published successfully');
-}
+result.match({
+  Ok: () => console.log('Order published successfully'),
+  Error: (error) => {
+    console.error('Failed to publish:', error.message);
+    // Handle error appropriately
+  },
+});
 
 // Publish status update
 const updateResult = client.publish('orderUpdated', {
@@ -333,9 +334,10 @@ const updateResult = client.publish('orderUpdated', {
   updatedAt: new Date().toISOString(),
 });
 
-if (updateResult.isOk()) {
-  console.log('Status update published');
-}
+updateResult.match({
+  Ok: () => console.log('Status update published'),
+  Error: (error) => console.error('Failed:', error),
+});
 ```
 
 ## Worker Implementation
