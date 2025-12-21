@@ -365,10 +365,16 @@ export class OrderService {
       this.logger.log(`Order ${orderId} published successfully`);
       return { orderId };
     } catch (error) {
-      this.logger.error(
-        `Failed to publish order ${orderId}`,
-        error.stack
-      );
+      if (error instanceof Error) {
+        this.logger.error(
+          `Failed to publish order ${orderId}`,
+          error.stack,
+        );
+      } else {
+        this.logger.error(
+          `Failed to publish order ${orderId}`,
+        );
+      }
       throw error;
     }
   }
