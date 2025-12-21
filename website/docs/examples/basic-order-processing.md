@@ -21,44 +21,79 @@ The example consists of three packages:
 2. **Client** - Publisher application
 3. **Worker** - Consumer application with multiple handlers
 
+```mermaid
+graph LR
+    subgraph "Contract Package"
+        Contract[📋 Order Contract<br/>Zod Schemas]
+    end
+
+    subgraph "Client Package"
+        ClientApp[🚀 Publisher App]
+    end
+
+    subgraph "Worker Package"
+        WorkerApp[⚙️ Consumer App<br/>4 Handlers]
+    end
+
+    Contract -.->|import| ClientApp
+    Contract -.->|import| WorkerApp
+
+    ClientApp -->|publishes| RabbitMQ[🐰 RabbitMQ]
+    RabbitMQ -->|consumes| WorkerApp
+
+    style Contract fill:#e1f5ff
+    style ClientApp fill:#d4edda
+    style WorkerApp fill:#d4edda
+    style RabbitMQ fill:#fff3cd
+```
+
 ## Topic Exchange Pattern
 
 This example demonstrates RabbitMQ's powerful topic exchange pattern for flexible message routing.
 
 ### Routing Diagram
 
-```
-                                    ┌─────────────────┐
-                                    │  Topic Exchange │
-                                    │    "orders"     │
-                                    └────────┬────────┘
-                                             │
-                        ┌────────────────────┼────────────────────┐
-                        │                    │                    │
-         order.created  │     order.#        │   order.shipped    │  order.*.urgent
-                        │                    │                    │
-                        ▼                    ▼                    ▼
-              ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
-              │ order-processing │  │order-notifications│  │  order-shipping  │
-              │      Queue       │  │      Queue        │  │      Queue       │
-              └────────┬─────────┘  └────────┬──────────┘  └────────┬─────────┘
-                       │                     │                       │
-                       ▼                     ▼                       ▼
-              ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
-              │  processOrder    │  │   notifyOrder    │  │    shipOrder     │
-              │    Handler       │  │    Handler       │  │    Handler       │
-              └──────────────────┘  └──────────────────┘  └──────────────────┘
+```mermaid
+graph TB
+    Publisher[📤 Publisher]
 
-                                                           ┌──────────────────┐
-                                                           │  order-urgent    │
-                                                           │      Queue       │
-                                                           └────────┬─────────┘
-                                                                    │
-                                                                    ▼
-                                                           ┌──────────────────┐
-                                                           │handleUrgentOrder │
-                                                           │    Handler       │
-                                                           └──────────────────┘
+    Exchange["🔄 Topic Exchange<br/><b>orders</b>"]
+
+    Q1["📬 Queue: order-processing<br/>Binding: order.created"]
+    Q2["📬 Queue: order-notifications<br/>Binding: order.#"]
+    Q3["📬 Queue: order-shipping<br/>Binding: order.shipped"]
+    Q4["📬 Queue: order-urgent<br/>Binding: order.*.urgent"]
+
+    H1["⚙️ processOrder"]
+    H2["⚙️ notifyOrder"]
+    H3["⚙️ shipOrder"]
+    H4["⚙️ handleUrgentOrder"]
+
+    Publisher -->|"order.created"| Exchange
+    Publisher -->|"order.updated"| Exchange
+    Publisher -->|"order.shipped"| Exchange
+    Publisher -->|"order.updated.urgent"| Exchange
+
+    Exchange -->|"✓ matches"| Q1
+    Exchange -->|"✓ matches all"| Q2
+    Exchange -->|"✓ matches"| Q3
+    Exchange -->|"✓ matches"| Q4
+
+    Q1 --> H1
+    Q2 --> H2
+    Q3 --> H3
+    Q4 --> H4
+
+    style Publisher fill:#d4edda
+    style Exchange fill:#fff3cd
+    style Q1 fill:#f8d7da
+    style Q2 fill:#f8d7da
+    style Q3 fill:#f8d7da
+    style Q4 fill:#f8d7da
+    style H1 fill:#e1f5ff
+    style H2 fill:#e1f5ff
+    style H3 fill:#e1f5ff
+    style H4 fill:#e1f5ff
 ```
 
 ### Routing Keys
@@ -335,6 +370,40 @@ const worker = await TypedAmqpWorker.create({
 | Regular Update    | `order.updated`        | ✅ order-notifications                        | notifyOrder                      |
 | Shipped Order     | `order.shipped`        | ✅ order-notifications<br>✅ order-shipping   | notifyOrder<br>shipOrder         |
 | Urgent Update     | `order.updated.urgent` | ✅ order-notifications<br>✅ order-urgent     | notifyOrder<br>handleUrgentOrder |
+
+## Message Flow Example
+
+This sequence diagram shows how a message flows through the system:
+
+```mermaid
+sequenceDiagram
+    participant Client as 📤 Client
+    participant Exchange as 🔄 Topic Exchange
+    participant Q1 as 📬 Queue (order-processing)
+    participant Q2 as 📬 Queue (order-notifications)
+    participant H1 as ⚙️ processOrder Handler
+    participant H2 as ⚙️ notifyOrder Handler
+
+    Note over Client: Publish order.created
+
+    Client->>Exchange: publish("orderCreated", data)
+    Note over Exchange: Route by pattern matching
+
+    Exchange->>Q1: Message (matches "order.created")
+    Exchange->>Q2: Message (matches "order.#")
+
+    Note over Q1,Q2: Messages queued
+
+    Q1->>H1: Consume message
+    Note over H1: Validate with Zod schema
+    H1->>H1: Process new order
+
+    Q2->>H2: Consume message
+    Note over H2: Validate with Zod schema
+    H2->>H2: Send notification
+
+    Note over H1,H2: ✅ Type-safe handlers
+```
 
 ## Key Takeaways
 
