@@ -1,8 +1,8 @@
 # API Overview
 
-The amqp-contract library consists of four main packages:
+The amqp-contract library consists of core packages and framework integrations:
 
-## Packages
+## Core Packages
 
 ### [@amqp-contract/contract](/api/contract)
 
@@ -59,6 +59,48 @@ import { generateAsyncAPI } from '@amqp-contract/asyncapi';
 
 - `generateAsyncAPI` - Generate AsyncAPI specification
 - Various TypeScript types for AsyncAPI documents
+
+## NestJS Integration
+
+### [@amqp-contract/client-nestjs](/api/client-nestjs)
+
+NestJS integration for the type-safe AMQP client.
+
+```typescript
+import { AmqpClientModule, AmqpClientService } from '@amqp-contract/client-nestjs';
+```
+
+**Key exports:**
+
+- `AmqpClientModule` - NestJS dynamic module for client
+- `AmqpClientService` - Injectable service for publishing messages
+
+**Features:**
+
+- ✅ Automatic lifecycle management
+- ✅ Dependency injection
+- ✅ forRoot/forRootAsync configuration
+- ✅ Graceful shutdown
+
+### [@amqp-contract/worker-nestjs](/api/worker-nestjs)
+
+NestJS integration for the type-safe AMQP worker.
+
+```typescript
+import { AmqpWorkerModule, AmqpWorkerService } from '@amqp-contract/worker-nestjs';
+```
+
+**Key exports:**
+
+- `AmqpWorkerModule` - NestJS dynamic module for worker
+- `AmqpWorkerService` - Injectable service managing the worker
+
+**Features:**
+
+- ✅ Automatic lifecycle management
+- ✅ Dependency injection in handlers
+- ✅ forRoot/forRootAsync configuration
+- ✅ Graceful shutdown
 
 ## Type Inference
 
@@ -126,7 +168,16 @@ amqp-contract uses Standard Schema, supporting:
 
 ## Next Steps
 
+### For Framework-Agnostic Usage
+
 - Explore the [@amqp-contract/contract](/api/contract) API
 - Learn about the [@amqp-contract/client](/api/client) API
 - Understand the [@amqp-contract/worker](/api/worker) API
 - Check out [@amqp-contract/asyncapi](/api/asyncapi) generation
+
+### For NestJS Applications
+
+- Get started with [NestJS Client Usage](/guide/client-nestjs-usage)
+- Learn about [NestJS Worker Usage](/guide/worker-nestjs-usage)
+- Explore [@amqp-contract/client-nestjs](/api/client-nestjs) API
+- Understand [@amqp-contract/worker-nestjs](/api/worker-nestjs) API

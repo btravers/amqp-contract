@@ -2,6 +2,10 @@
 
 Learn how to use the type-safe AMQP worker to consume messages.
 
+::: tip NestJS Users
+If you're building a NestJS application, check out the [NestJS Worker Usage](/guide/worker-nestjs-usage) guide for automatic lifecycle management and dependency injection.
+:::
+
 ## Installation
 
 Install the required packages:

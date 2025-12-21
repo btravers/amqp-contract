@@ -41,6 +41,47 @@ For generating AsyncAPI specifications:
 pnpm add @amqp-contract/asyncapi
 ```
 
+### NestJS Integration
+
+For NestJS applications, use the dedicated integration packages:
+
+::: code-group
+
+```bash [pnpm]
+# For publishing messages
+pnpm add @amqp-contract/client-nestjs
+
+# For consuming messages
+pnpm add @amqp-contract/worker-nestjs
+
+# Or install both
+pnpm add @amqp-contract/client-nestjs @amqp-contract/worker-nestjs
+```
+
+```bash [npm]
+npm install @amqp-contract/client-nestjs @amqp-contract/worker-nestjs
+```
+
+```bash [yarn]
+yarn add @amqp-contract/client-nestjs @amqp-contract/worker-nestjs
+```
+
+:::
+
+These packages include all necessary dependencies and provide automatic lifecycle management for NestJS applications.
+
+### Alternative Schema Libraries
+
+Instead of Zod, you can use other Standard Schema-compatible libraries:
+
+```bash
+# Valibot
+pnpm add @amqp-contract/valibot valibot
+
+# ArkType
+pnpm add @amqp-contract/arktype arktype
+```
+
 ## RabbitMQ Setup
 
 ### Using Docker
@@ -66,3 +107,4 @@ Follow the [official RabbitMQ installation guide](https://www.rabbitmq.com/downl
 - Follow the [Getting Started](/guide/getting-started) guide
 - Learn about [Core Concepts](/guide/core-concepts)
 - Explore [Examples](/examples/)
+- For NestJS users: Check out [NestJS Client Usage](/guide/client-nestjs-usage) and [NestJS Worker Usage](/guide/worker-nestjs-usage)
