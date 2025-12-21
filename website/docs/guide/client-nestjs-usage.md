@@ -788,15 +788,10 @@ export class OrderService {
       this.logger.log(`Order ${orderId} published successfully`);
       return { orderId };
     } catch (error: unknown) {
-      const err = error as Error & { issues?: unknown };
-      this.logger.error(`Failed to publish order ${orderId}`, (err as Error).stack);
-
-      // Handle schema validation errors in a schema-library-agnostic way.
-      // Different schema libraries may throw different error classes, but they
-      // typically expose validation "issues" or similar metadata.
-      if (err && typeof err === 'object' && 'issues' in err) {
-        throw new BadRequestException('Invalid order data');
-      }
+      this.logger.error(
+        `Failed to publish order ${orderId}`,
+        (error as Error).stack,
+      );
       throw error;
     }
   }
