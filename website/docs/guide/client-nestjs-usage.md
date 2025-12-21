@@ -394,6 +394,11 @@ import { z } from 'zod';
 import { AmqpClientService } from '@amqp-contract/client-nestjs';
 import type { contract } from './contract';
 
+// Helper function to generate unique order IDs
+function generateOrderId(): string {
+  return `ORD-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+}
+
 // Define oRPC router with type-safe schema
 export const orderRouter = initServer.router({
   createOrder: initServer
