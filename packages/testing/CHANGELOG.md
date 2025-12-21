@@ -1,5 +1,7 @@
 # @amqp-contract/testing
 
+## 0.1.0
+
 ## 0.0.6
 
 ### Patch Changes

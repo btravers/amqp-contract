@@ -1,6 +1,6 @@
 {
   "name": "@amqp-contract/zod",
-  "version": "0.0.6",
+  "version": "0.1.0",
   "description": "Zod integration for amqp-contract",
   "keywords": [
     "amqp",

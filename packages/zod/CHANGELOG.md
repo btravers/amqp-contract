@@ -1,5 +1,12 @@
 # @amqp-contract/zod
 
+## 0.1.0
+
+### Patch Changes
+
+- @amqp-contract/asyncapi@0.1.0
+- @amqp-contract/contract@0.1.0
+
 ## 0.0.6
 
 ### Patch Changes
