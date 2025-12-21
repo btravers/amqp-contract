@@ -166,9 +166,9 @@ export const orderContract = defineContract({
 import { TypedAmqpClient } from '@amqp-contract/client';
 import { orderContract } from './contract';
 
-const client = await TypedAmqpClient.create({ 
-  contract: orderContract, 
-  connection: 'amqp://localhost' 
+const client = await TypedAmqpClient.create({
+  contract: orderContract,
+  connection: 'amqp://localhost'
 });
 
 // Type-safe publishing with explicit error handling

@@ -120,6 +120,7 @@ if (result.isOk()) {
 **Throws:**
 
 Programming errors (bugs) that should be caught at compile-time:
+
 - Client not initialized
 - Invalid publisher name (TypeScript prevents this)
 
@@ -164,6 +165,7 @@ interface PublishOptions {
 ```
 
 Where `Options.Publish` includes:
+
 - `persistent?: boolean`
 - `mandatory?: boolean`
 - `immediate?: boolean`

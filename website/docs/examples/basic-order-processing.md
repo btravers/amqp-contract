@@ -303,9 +303,9 @@ The client is in a separate package (`@amqp-contract-samples/basic-order-process
 import { TypedAmqpClient } from '@amqp-contract/client';
 import { orderContract } from '@amqp-contract-samples/basic-order-processing-contract';
 
-const client = await TypedAmqpClient.create({ 
-  contract: orderContract, 
-  connection: 'amqp://localhost' 
+const client = await TypedAmqpClient.create({
+  contract: orderContract,
+  connection: 'amqp://localhost'
 });
 
 // Publish new order with explicit error handling

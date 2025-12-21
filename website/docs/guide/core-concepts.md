@@ -30,9 +30,9 @@ const contract = defineContract({
 });
 
 // Client knows the exact shape
-const client = await TypedAmqpClient.create({ 
-  contract, 
-  connection: 'amqp://localhost' 
+const client = await TypedAmqpClient.create({
+  contract,
+  connection: 'amqp://localhost'
 });
 
 const result = client.publish('orderCreated', {
@@ -74,9 +74,9 @@ Invalid messages are rejected with clear error messages.
 import { TypedAmqpClient } from '@amqp-contract/client';
 import { MessageValidationError } from '@amqp-contract/client';
 
-const client = await TypedAmqpClient.create({ 
-  contract, 
-  connection: 'amqp://localhost' 
+const client = await TypedAmqpClient.create({
+  contract,
+  connection: 'amqp://localhost'
 });
 
 // This will return a validation error (not throw):

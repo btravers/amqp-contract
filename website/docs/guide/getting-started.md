@@ -115,9 +115,9 @@ import { MessageValidationError, TechnicalError } from '@amqp-contract/client';
 import { orderContract } from './contract';
 
 async function main() {
-  const client = await TypedAmqpClient.create({ 
-    contract: orderContract, 
-    connection: 'amqp://localhost' 
+  const client = await TypedAmqpClient.create({
+    contract: orderContract,
+    connection: 'amqp://localhost'
   });
 
   // Type-safe publishing with explicit error handling
