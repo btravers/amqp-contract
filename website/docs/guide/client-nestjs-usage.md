@@ -108,12 +108,17 @@ export class OrderService {
   async createOrder(customerId: string, amount: number, items: any[]) {
     const orderId = this.generateOrderId();
 
-    await this.client.publish('orderCreated', {
+    const result = this.client.publish('orderCreated', {
       orderId,
       customerId,
       amount,
       items,
     });
+
+    if (result.isError()) {
+      console.error('Failed to publish order:', result.error);
+      throw new Error(`Failed to publish order: ${result.error.message}`);
+    }
 
     console.log(`Order ${orderId} published`);
     return { orderId };
@@ -203,12 +208,19 @@ export class OrderService {
   ) {}
 
   async createOrder(orderId: string, amount: number) {
-    await this.client.publish('orderCreated', {
+    const result = this.client.publish('orderCreated', {
       orderId,
       customerId: 'CUST-123',
       amount,
       items: [],
     });
+
+    if (result.isError()) {
+      console.error('Failed to publish:', result.error);
+      throw new Error(`Publish failed: ${result.error.message}`);
+    }
+
+    console.log('Order published successfully');
   }
 }
 ```
@@ -223,7 +235,7 @@ export class OrderService {
   ) {}
 
   async createUrgentOrder(orderId: string, amount: number) {
-    await this.client.publish(
+    const result = this.client.publish(
       'orderCreated',
       {
         orderId,
@@ -232,19 +244,25 @@ export class OrderService {
         items: [],
       },
       {
-        persistent: true,
-        priority: 10,
         routingKey: 'order.created.urgent',
-        headers: {
-          'x-priority': 'high',
-          'x-source': 'api',
+        options: {
+          persistent: true,
+          priority: 10,
+          headers: {
+            'x-priority': 'high',
+            'x-source': 'api',
+          },
         },
       }
     );
+
+    if (result.isError()) {
+      throw new Error(`Failed to publish: ${result.error.message}`);
+    }
   }
 
   async createOrderWithTTL(orderId: string, amount: number) {
-    await this.client.publish(
+    const result = this.client.publish(
       'orderCreated',
       {
         orderId,
@@ -253,46 +271,28 @@ export class OrderService {
         items: [],
       },
       {
-        persistent: true,
-        expiration: '60000', // 60 seconds
+        options: {
+          persistent: true,
+          expiration: '60000', // 60 seconds
+        },
       }
     );
+
+    if (result.isError()) {
+      throw new Error(`Failed to publish: ${result.error.message}`);
+    }
   }
 }
 ```
 
 ## Error Handling
 
+The NestJS client service uses `Result` types for explicit error handling:
+
 ### Basic Error Handling
 
 ```typescript
-@Injectable()
-export class OrderService {
-  constructor(
-    private readonly client: AmqpClientService<typeof contract>,
-  ) {}
-
-  async createOrder(orderId: string, amount: number) {
-    try {
-      await this.client.publish('orderCreated', {
-        orderId,
-        customerId: 'CUST-123',
-        amount,
-        items: [],
-      });
-      console.log(`Order ${orderId} published successfully`);
-    } catch (error) {
-      console.error('Failed to publish order:', error);
-      throw error;
-    }
-  }
-}
-```
-
-### Structured Error Handling
-
-```typescript
-import { Injectable, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { AmqpClientService } from '@amqp-contract/client-nestjs';
 import type { contract } from './contract';
 
@@ -302,29 +302,65 @@ export class OrderService {
     private readonly client: AmqpClientService<typeof contract>,
   ) {}
 
-  async createOrder(orderId: string, amount: number, items: any[]) {
-    try {
-      await this.client.publish('orderCreated', {
-        orderId,
-        customerId: 'CUST-123',
-        amount,
-        items,
-      });
+  async createOrder(orderId: string, amount: number) {
+    const result = this.client.publish('orderCreated', {
+      orderId,
+      customerId: 'CUST-123',
+      amount,
+      items: [],
+    });
 
-      return { orderId };
-    } catch (error) {
-      // Handle schema validation errors
-      if (this.isValidationError(error)) {
-        throw new BadRequestException('Invalid order data');
-      } else {
-        // Network or other error
-        throw new InternalServerErrorException('Failed to publish order');
+    if (result.isError()) {
+      console.error('Failed to publish order:', result.error);
+      throw new Error(`Publish failed: ${result.error.message}`);
+    }
+
+    console.log(`Order ${orderId} published successfully`);
+    return { orderId };
+  }
+}
+```
+
+### Structured Error Handling
+
+```typescript
+import { Injectable, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import { AmqpClientService } from '@amqp-contract/client-nestjs';
+import { MessageValidationError, TechnicalError } from '@amqp-contract/client';
+import type { contract } from './contract';
+
+@Injectable()
+export class OrderService {
+  constructor(
+    private readonly client: AmqpClientService<typeof contract>,
+  ) {}
+
+  async createOrder(orderId: string, amount: number, items: any[]) {
+    const result = this.client.publish('orderCreated', {
+      orderId,
+      customerId: 'CUST-123',
+      amount,
+      items,
+    });
+
+    if (result.isError()) {
+      // Handle specific error types
+      if (result.error instanceof MessageValidationError) {
+        // Schema validation failed
+        throw new BadRequestException({
+          message: 'Invalid order data',
+          issues: result.error.issues,
+        });
+      } else if (result.error instanceof TechnicalError) {
+        // Runtime/network error
+        throw new InternalServerErrorException({
+          message: 'Failed to publish order',
+          cause: result.error.cause,
+        });
       }
     }
-  }
 
-  private isValidationError(error: unknown): error is { issues: unknown } {
-    return typeof error === 'object' && error !== null && 'issues' in error;
+    return { orderId };
   }
 }
 ```
@@ -349,34 +385,30 @@ export class OrderService {
   async createOrder(orderId: string, amount: number) {
     this.logger.log(`Publishing order ${orderId}`);
 
-    try {
-      await this.client.publish('orderCreated', {
-        orderId,
-        customerId: 'CUST-123',
-        amount,
-        items: [],
-      }, {
+    const result = this.client.publish('orderCreated', {
+      orderId,
+      customerId: 'CUST-123',
+      amount,
+      items: [],
+    }, {
+      options: {
         persistent: true,
         headers: {
           'x-timestamp': new Date().toISOString(),
         },
-      });
+      },
+    });
 
-      this.logger.log(`Order ${orderId} published successfully`);
-      return { orderId };
-    } catch (error) {
-      if (error instanceof Error) {
-        this.logger.error(
-          `Failed to publish order ${orderId}`,
-          error.stack,
-        );
-      } else {
-        this.logger.error(
-          `Failed to publish order ${orderId}`,
-        );
-      }
-      throw error;
+    if (result.isError()) {
+      this.logger.error(
+        `Failed to publish order ${orderId}`,
+        result.error.message,
+      );
+      throw result.error;
     }
+
+    this.logger.log(`Order ${orderId} published successfully`);
+    return { orderId };
   }
 }
 ```

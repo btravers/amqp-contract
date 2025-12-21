@@ -62,12 +62,20 @@ const contract = defineContract({
   },
 });
 
-// Client - fully typed publishing
+// Client - fully typed publishing with explicit error handling
 const client = await TypedAmqpClient.create({ contract, connection });
-await client.publish('orderCreated', {
+const result = client.publish('orderCreated', {
   orderId: 'ORD-123',  // ✅ TypeScript knows!
   amount: 99.99,
 });
+
+// Handle errors explicitly using Result type
+if (result.isError()) {
+  console.error('Failed to publish:', result.error);
+  // result.error is TechnicalError or MessageValidationError
+} else {
+  console.log('Published successfully');
+}
 
 // Worker - fully typed consuming
 const worker = await TypedAmqpWorker.create({

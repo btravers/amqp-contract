@@ -102,16 +102,21 @@ const contract = defineContract({
   },
 });
 
-// ✅ Type-safe client
+// ✅ Type-safe client with explicit error handling
 const client = await TypedAmqpClient.create({
   contract,
   connection: 'amqp://localhost'
 });
-await client.publish('orderCreated', {
+
+const result = client.publish('orderCreated', {
   orderId: 'ORD-123',      // TypeScript knows!
   customerId: 'CUST-456',
   amount: 99.99,
 });
+
+if (result.isError()) {
+  console.error('Failed:', result.error);
+}
 
 // ✅ Type-safe worker
 const worker = await TypedAmqpWorker.create({
@@ -122,8 +127,6 @@ const worker = await TypedAmqpWorker.create({
     },
   },
   connection: 'amqp://localhost',
-});
-  connection,
 });
 ```
 
@@ -161,25 +164,27 @@ export const orderContract = defineContract({
 
 ```typescript [client.ts]
 import { TypedAmqpClient } from '@amqp-contract/client';
-import { connect } from 'amqplib';
 import { orderContract } from './contract';
 
-const connection = await connect('amqp://localhost');
-const client = await TypedAmqpClient.create({ contract: orderContract, connection });
+const client = await TypedAmqpClient.create({ 
+  contract: orderContract, 
+  connection: 'amqp://localhost' 
+});
 
-// Type-safe publishing
-await client.publish('orderCreated', {
+// Type-safe publishing with explicit error handling
+const result = client.publish('orderCreated', {
   orderId: 'ORD-123',
   amount: 99.99,
 });
+
+if (result.isError()) {
+  console.error('Failed:', result.error);
+}
 ```
 
 ```typescript [worker.ts]
 import { TypedAmqpWorker } from '@amqp-contract/worker';
-import { connect } from 'amqplib';
 import { orderContract } from './contract';
-
-const connection = await connect('amqp://localhost');
 
 const worker = await TypedAmqpWorker.create({
   contract: orderContract,
@@ -189,7 +194,7 @@ const worker = await TypedAmqpWorker.create({
       console.log(`Amount: $${message.amount}`);
     },
   },
-  connection,
+  connection: 'amqp://localhost',
 });
 ```
 
