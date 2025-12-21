@@ -555,9 +555,6 @@ importers:
       '@amqp-contract/worker':
         specifier: workspace:*
         version: link:../../packages/worker
-      '@swan-io/boxed':
-        specifier: 'catalog:'
-        version: 3.2.1(typescript@5.9.3)
       amqplib:
         specifier: 'catalog:'
         version: 0.10.9
