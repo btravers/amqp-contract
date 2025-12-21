@@ -2,6 +2,7 @@ import { describe, expect } from "vitest";
 import { it } from "@amqp-contract/testing/extension";
 import { TypedAmqpClient } from "./client.js";
 import { defineContract, defineExchange, definePublisher } from "@amqp-contract/contract";
+import { Result } from "@swan-io/boxed";
 import { z } from "zod";
 
 describe("AmqpClient Integration", () => {
@@ -27,13 +28,13 @@ describe("AmqpClient Integration", () => {
       const client = await TypedAmqpClient.create({ contract, connection: amqpConnectionUrl });
 
       // WHEN
-      const result = await client.publish("testPublisher", {
+      const result = client.publish("testPublisher", {
         id: "123",
         message: "Hello, RabbitMQ!",
       });
 
       // THEN
-      expect(result).toBe(true);
+      expect(result).toEqual(Result.Ok(true));
 
       // CLEANUP
       await client.close();
@@ -59,13 +60,17 @@ describe("AmqpClient Integration", () => {
 
       const client = await TypedAmqpClient.create({ contract, connection: amqpConnectionUrl });
 
-      // WHEN / THEN
-      await expect(
-        client.publish("testPublisher", {
-          id: "123",
-          count: -5, // Invalid: count must be positive
-        }),
-      ).rejects.toThrow();
+      // WHEN
+      const result = client.publish("testPublisher", {
+        id: "123",
+        count: -5, // Invalid: count must be positive
+      });
+
+      // THEN
+      expect(result).toMatchObject({
+        tag: "Error",
+        error: { name: "MessageValidationError" },
+      });
 
       // CLEANUP
       await client.close();
@@ -91,14 +96,14 @@ describe("AmqpClient Integration", () => {
       const client = await TypedAmqpClient.create({ contract, connection: amqpConnectionUrl });
 
       // WHEN
-      const result = await client.publish(
+      const result = client.publish(
         "testPublisher",
         { content: "test message" },
         { routingKey: "custom.key" },
       );
 
       // THEN
-      expect(result).toBe(true);
+      expect(result).toEqual(Result.Ok(true));
 
       // CLEANUP
       await client.close();

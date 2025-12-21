@@ -21,6 +21,9 @@ catalogs:
     '@standard-schema/spec':
       specifier: 1.1.0
       version: 1.1.0
+    '@swan-io/boxed':
+      specifier: 3.2.1
+      version: 3.2.1
     '@types/amqplib':
       specifier: 0.10.8
       version: 0.10.8
@@ -190,6 +193,9 @@ importers:
       '@amqp-contract/contract':
         specifier: workspace:*
         version: link:../contract
+      '@swan-io/boxed':
+        specifier: 'catalog:'
+        version: 3.2.1(typescript@5.9.3)
     devDependencies:
       '@amqp-contract/testing':
         specifier: workspace:*
@@ -237,6 +243,9 @@ importers:
       '@nestjs/common':
         specifier: 'catalog:'
         version: 11.0.16(reflect-metadata@0.2.2)(rxjs@7.8.1)
+      '@swan-io/boxed':
+        specifier: 'catalog:'
+        version: 3.2.1(typescript@5.9.3)
       '@types/amqplib':
         specifier: 'catalog:'
         version: 0.10.8
@@ -342,6 +351,9 @@ importers:
       '@amqp-contract/contract':
         specifier: workspace:*
         version: link:../contract
+      '@swan-io/boxed':
+        specifier: 'catalog:'
+        version: 3.2.1(typescript@5.9.3)
     devDependencies:
       '@amqp-contract/client':
         specifier: workspace:*
@@ -500,6 +512,9 @@ importers:
       '@amqp-contract/tsconfig':
         specifier: workspace:*
         version: link:../../tools/tsconfig
+      '@swan-io/boxed':
+        specifier: 'catalog:'
+        version: 3.2.1(typescript@5.9.3)
       '@types/amqplib':
         specifier: 'catalog:'
         version: 0.10.8
@@ -1728,6 +1743,14 @@ packages:
 
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
+
+  '@swan-io/boxed@3.2.1':
+    resolution: {integrity: sha512-MQqSpe09PdjDjTR4HCPpUxO9XsacNguCkce1C2wm1eIb6ycWXQoV+biYvLEuI/LiMqB31KySdgY2YFwrVucLCw==}
+    peerDependencies:
+      typescript: '>=5.0.0'
+    peerDependenciesMeta:
+      typescript:
+        optional: true
 
   '@tybys/wasm-util@0.10.1':
     resolution: {integrity: sha512-9tTaPJLSiejZKx+Bmog4uSubteqTvFrVrURwkmHixBo0G4seD0zUxp98E1DzUBJxLQ3NPwXrGKDiVjwx/DpPsg==}
@@ -5173,6 +5196,10 @@ snapshots:
   '@shikijs/vscode-textmate@10.0.2': {}
 
   '@standard-schema/spec@1.1.0': {}
+
+  '@swan-io/boxed@3.2.1(typescript@5.9.3)':
+    optionalDependencies:
+      typescript: 5.9.3
 
   '@tybys/wasm-util@0.10.1':
     dependencies:

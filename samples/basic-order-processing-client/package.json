@@ -19,6 +19,7 @@
   "devDependencies": {
     "@amqp-contract/testing": "workspace:*",
     "@amqp-contract/tsconfig": "workspace:*",
+    "@swan-io/boxed": "catalog:",
     "@types/amqplib": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "tsx": "catalog:",

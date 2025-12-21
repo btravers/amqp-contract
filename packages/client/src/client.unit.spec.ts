@@ -3,6 +3,7 @@ import { TypedAmqpClient } from "./client";
 import type { Channel, ChannelModel } from "amqplib";
 import { connect } from "amqplib";
 import { defineContract, defineMessage } from "@amqp-contract/contract";
+import { Result } from "@swan-io/boxed";
 import { z } from "zod";
 
 // Mock amqplib connect function
@@ -220,10 +221,10 @@ describe("AmqpClient", () => {
       const client = await TypedAmqpClient.create({ contract, connection: "amqp://localhost" });
 
       // WHEN
-      const result = await client.publish("testPublisher", { id: "123" });
+      const result = client.publish("testPublisher", { id: "123" });
 
       // THEN
-      expect(result).toBe(true);
+      expect(result).toEqual(Result.Ok(true));
       expect(mockChannel.publish).toHaveBeenCalledWith(
         "test-exchange",
         "test.key",
@@ -255,9 +256,10 @@ describe("AmqpClient", () => {
       const client = await TypedAmqpClient.create({ contract, connection: "amqp://localhost" });
 
       // WHEN
-      await client.publish("testPublisher", { id: "123" }, { routingKey: "test.custom" });
+      const result = client.publish("testPublisher", { id: "123" }, { routingKey: "test.custom" });
 
       // THEN
+      expect(result).toEqual(Result.Ok(true));
       expect(mockChannel.publish).toHaveBeenCalledWith(
         "test-exchange",
         "test.custom",
@@ -266,7 +268,7 @@ describe("AmqpClient", () => {
       );
     });
 
-    it("should validate message and throw on invalid data", async () => {
+    it("should return error on invalid data", async () => {
       // GIVEN
       const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
 
@@ -287,9 +289,15 @@ describe("AmqpClient", () => {
 
       const client = await TypedAmqpClient.create({ contract, connection: "amqp://localhost" });
 
-      // WHEN / THEN
+      // WHEN
       // @ts-expect-error - testing runtime validation with invalid data
-      await expect(client.publish("testPublisher", { id: 123 })).rejects.toThrow();
+      const result = client.publish("testPublisher", { id: 123 });
+
+      // THEN
+      expect(result).toMatchObject({
+        tag: "Error",
+        error: { name: "MessageValidationError" },
+      });
     });
   });
 

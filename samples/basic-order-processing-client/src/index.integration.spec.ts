@@ -1,5 +1,6 @@
 import { describe, expect } from "vitest";
 import { it } from "@amqp-contract/testing/extension";
+import { Result } from "@swan-io/boxed";
 import { TypedAmqpClient } from "@amqp-contract/client";
 import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
 
@@ -23,10 +24,10 @@ describe("Basic Order Processing Client Integration", () => {
     };
 
     // WHEN
-    const result = await client.publish("orderCreated", newOrder);
+    const result = client.publish("orderCreated", newOrder);
 
     // THEN
-    expect(result).toBe(true);
+    expect(result).toEqual(Result.Ok(true));
 
     // CLEANUP
     await client.close();
@@ -46,10 +47,10 @@ describe("Basic Order Processing Client Integration", () => {
     };
 
     // WHEN
-    const result = await client.publish("orderUpdated", orderUpdate);
+    const result = client.publish("orderUpdated", orderUpdate);
 
     // THEN
-    expect(result).toBe(true);
+    expect(result).toEqual(Result.Ok(true));
 
     // CLEANUP
     await client.close();
@@ -72,8 +73,11 @@ describe("Basic Order Processing Client Integration", () => {
       createdAt: new Date().toISOString(),
     };
 
-    // WHEN / THEN
-    await expect(client.publish("orderCreated", invalidOrder)).rejects.toThrow();
+    // WHEN
+    const result = client.publish("orderCreated", invalidOrder);
+
+    // THEN
+    expect(result.isError()).toBe(true);
 
     // CLEANUP
     await client.close();

@@ -1,6 +1,6 @@
 # @amqp-contract/client
 
-Type-safe AMQP client for publishing messages using amqp-contract.
+Type-safe AMQP client for publishing messages using amqp-contract with explicit error handling via `Result` types.
 
 📖 **[Full documentation →](https://btravers.github.io/amqp-contract/api/client)**
 
@@ -22,15 +22,39 @@ const client = await TypedAmqpClient.create({
   connection: 'amqp://localhost'
 });
 
-// Publish message with type safety
-await client.publish('orderCreated', {
+// Publish message with explicit error handling
+const result = client.publish('orderCreated', {
   orderId: 'ORD-123',
   amount: 99.99,
 });
 
+// Handle errors explicitly - no exceptions thrown
+if (result.isError()) {
+  console.error('Failed to publish:', result.error);
+  // result.error is either TechnicalError or MessageValidationError
+  return;
+}
+
+console.log('Published successfully');
+
 // Clean up
 await client.close();
 ```
+
+## Error Handling
+
+The client uses `Result` types from [@swan-io/boxed](https://github.com/swan-io/boxed) for explicit error handling. Runtime errors are part of the type signature:
+
+```typescript
+publish(): Result<boolean, TechnicalError | MessageValidationError>
+```
+
+**Error Types:**
+
+- `TechnicalError` - Runtime failures (channel buffer full, network issues, etc.)
+- `MessageValidationError` - Message fails schema validation
+
+**Programming Errors** (client not initialized, invalid publisher name) throw exceptions since they indicate bugs caught by TypeScript at compile-time.
 
 ## API
 
@@ -43,13 +67,45 @@ Create a type-safe AMQP client from a contract. Automatically connects to Rabbit
 - `options.contract` - Contract definition
 - `options.connection` - AMQP connection URL (string) or connection options (Options.Connect)
 
+**Returns:** `Promise<TypedAmqpClient>`
+
+**Throws:** Connection errors (programming errors)
+
 ### `TypedAmqpClient.publish(publisherName, message, options?)`
 
 Publish a message using a defined publisher. The message will be validated against the schema and type-checked at compile time.
 
+**Parameters:**
+
+- `publisherName` - Name of the publisher (type-checked against contract)
+- `message` - Message payload (type-checked against publisher schema)
+- `options` - Optional publish options (e.g., headers, priority)
+
+**Returns:** `Result<boolean, TechnicalError | MessageValidationError>`
+
+**Example:**
+
+```typescript
+const result = client.publish('orderCreated', { orderId: '123' });
+
+if (result.isOk()) {
+  // Message published successfully
+  console.log('Published:', result.value); // true
+} else {
+  // Handle specific error types
+  if (result.error instanceof MessageValidationError) {
+    console.error('Validation failed:', result.error.issues);
+  } else if (result.error instanceof TechnicalError) {
+    console.error('Technical error:', result.error.message);
+  }
+}
+```
+
 ### `TypedAmqpClient.close()`
 
 Close the channel and connection.
+
+**Returns:** `Promise<void>`
 
 ## License
 

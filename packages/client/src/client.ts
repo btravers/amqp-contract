@@ -5,6 +5,8 @@ import type {
   ContractDefinition,
   InferPublisherNames,
 } from "@amqp-contract/contract";
+import { Result } from "@swan-io/boxed";
+import { MessageValidationError, TechnicalError } from "./errors.js";
 
 /**
  * Options for creating a client
@@ -48,12 +50,13 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
 
   /**
    * Publish a message using a defined publisher
+   * Returns Result.Ok(true) on success, or Result.Error with specific error on failure
    */
-  async publish<TName extends InferPublisherNames<TContract>>(
+  publish<TName extends InferPublisherNames<TContract>>(
     publisherName: TName,
     message: ClientInferPublisherInput<TContract, TName>,
     options?: PublishOptions,
-  ): Promise<boolean> {
+  ): Result<boolean, TechnicalError | MessageValidationError> {
     if (!this.channel) {
       throw new Error(
         "Client not initialized. Create the client using TypedAmqpClient.create() to establish a connection.",
@@ -84,7 +87,7 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
       "issues" in validation &&
       validation.issues
     ) {
-      throw new Error(`Message validation failed: ${JSON.stringify(validation.issues)}`);
+      return Result.Error(new MessageValidationError(String(publisherName), validation.issues));
     }
 
     const validatedMessage =
@@ -96,7 +99,22 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     const routingKey = options?.routingKey ?? publisherDef.routingKey ?? "";
     const content = Buffer.from(JSON.stringify(validatedMessage));
 
-    return this.channel.publish(publisherDef.exchange, routingKey, content, options?.options);
+    const published = this.channel.publish(
+      publisherDef.exchange,
+      routingKey,
+      content,
+      options?.options,
+    );
+
+    if (!published) {
+      return Result.Error(
+        new TechnicalError(
+          `Failed to publish message for publisher "${String(publisherName)}": Channel rejected the message (buffer full or other channel issue)`,
+        ),
+      );
+    }
+
+    return Result.Ok(published);
   }
 
   /**
