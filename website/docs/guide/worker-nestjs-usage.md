@@ -555,6 +555,21 @@ export const contract = defineContract({
 ```typescript [order.service.ts]
 import { Injectable, Logger } from '@nestjs/common';
 
+// Define custom error classes for type-safe error handling
+export class BusinessRuleError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'BusinessRuleError';
+  }
+}
+
+export class TemporaryError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'TemporaryError';
+  }
+}
+
 @Injectable()
 export class OrderService {
   private readonly logger = new Logger(OrderService.name);
@@ -584,10 +599,10 @@ export class OrderService {
 
   private validateOrder(order: any) {
     if (order.amount <= 0) {
-      throw new Error('Amount must be positive');
+      throw new BusinessRuleError('Amount must be positive');
     }
     if (order.items.length === 0) {
-      throw new Error('Order must have at least one item');
+      throw new BusinessRuleError('Order must have at least one item');
     }
   }
 
@@ -608,7 +623,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AmqpWorkerModule } from '@amqp-contract/worker-nestjs';
 import { contract } from './contract';
-import { OrderService } from './order.service';
+import { OrderService, BusinessRuleError, TemporaryError } from './order.service';
 
 @Module({
   imports: [
@@ -626,14 +641,17 @@ import { OrderService } from './order.service';
               await orderService.processOrder(message);
               ack();
             } catch (error) {
-              // Use custom error classes for better error handling
-              // Example: BusinessRuleError, ValidationError, etc.
-              if (error instanceof Error && error.name === 'BusinessRuleError') {
+              // Use custom error classes with instanceof for type-safe error handling
+              // Define custom error classes like: class BusinessRuleError extends Error {}
+              if (error instanceof BusinessRuleError) {
                 // Business rule violation, don't retry
                 nack({ requeue: false });
-              } else {
+              } else if (error instanceof TemporaryError) {
                 // Temporary error, retry
                 nack({ requeue: true });
+              } else {
+                // Unknown error, don't retry by default
+                nack({ requeue: false });
               }
             }
           },
