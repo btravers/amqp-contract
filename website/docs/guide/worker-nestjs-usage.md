@@ -589,9 +589,10 @@ export class OrderService {
 
       this.logger.log(`Order ${order.orderId} processed successfully`);
     } catch (error) {
+      const stack = error instanceof Error ? error.stack : undefined;
       this.logger.error(
         `Failed to process order ${order.orderId}`,
-        error.stack
+        stack
       );
       throw error;
     }
