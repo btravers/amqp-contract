@@ -7,10 +7,10 @@ import type {
   InferPublisherNames,
 } from "@amqp-contract/contract";
 import {
-  ClientError,
   TechnicalError,
   TypedAmqpClient,
   type PublishOptions,
+  MessageValidationError,
 } from "@amqp-contract/client";
 import { MODULE_OPTIONS_TOKEN } from "./client.module.js";
 
