@@ -4,7 +4,10 @@ import type {
   ContractDefinition,
   InferConsumerNames,
   WorkerInferConsumerHandlers,
+  WorkerInferConsumerInput,
 } from "@amqp-contract/contract";
+import { Result } from "@swan-io/boxed";
+import { MessageValidationError, TechnicalError } from "./errors.js";
 
 /**
  * Options for creating a worker
@@ -137,7 +140,11 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
     const consumer = consumers[consumerName as string];
     if (!consumer || typeof consumer !== "object") {
-      throw new Error(`Consumer "${String(consumerName)}" not found in contract`);
+      const availableConsumers = Object.keys(consumers);
+      const available = availableConsumers.length > 0 ? availableConsumers.join(", ") : "none";
+      throw new Error(
+        `Consumer not found: "${String(consumerName)}". Available consumers: ${available}`,
+      );
     }
 
     const consumerDef = consumer as {
@@ -165,30 +172,57 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           return;
         }
 
+        // Parse message
+        const parseResult = Result.fromExecution(() => JSON.parse(msg.content.toString()));
+
+        if (parseResult.isError()) {
+          console.error(
+            new TechnicalError(
+              `Error parsing message for consumer "${String(consumerName)}"`,
+              parseResult.error,
+            ),
+          );
+          // Reject message with no requeue (malformed JSON)
+          this.channel?.nack(msg, false, false);
+          return;
+        }
+
+        const content = parseResult.value;
+
+        // Validate message using schema (supports sync and async validators)
+        const rawValidation = consumerDef.message["~standard"].validate(content);
+        const resolvedValidation =
+          rawValidation instanceof Promise ? await rawValidation : rawValidation;
+        const validationResult: Result<unknown, MessageValidationError> =
+          typeof resolvedValidation === "object" &&
+          resolvedValidation !== null &&
+          "issues" in resolvedValidation &&
+          resolvedValidation.issues
+            ? Result.Error(
+                new MessageValidationError(String(consumerName), resolvedValidation.issues),
+              )
+            : Result.Ok(
+                typeof resolvedValidation === "object" &&
+                  resolvedValidation !== null &&
+                  "value" in resolvedValidation
+                  ? resolvedValidation.value
+                  : content,
+              );
+
+        if (validationResult.isError()) {
+          console.error(validationResult.error);
+          // Reject message with no requeue (validation failed)
+          this.channel?.nack(msg, false, false);
+          return;
+        }
+
+        const validatedMessage = validationResult.value as WorkerInferConsumerInput<
+          TContract,
+          TName
+        >;
+
+        // Call handler and wait for Promise to resolve
         try {
-          // Parse message
-          const content = JSON.parse(msg.content.toString());
-
-          // Validate message using schema
-          const validation = consumerDef.message["~standard"].validate(content);
-          if (
-            typeof validation === "object" &&
-            validation !== null &&
-            "issues" in validation &&
-            validation.issues
-          ) {
-            console.error("Message validation failed:", validation.issues);
-            // Reject message with no requeue
-            this.channel?.nack(msg, false, false);
-            return;
-          }
-
-          const validatedMessage =
-            typeof validation === "object" && validation !== null && "value" in validation
-              ? validation.value
-              : content;
-
-          // Call handler
           await handler(validatedMessage);
 
           // Acknowledge message if not in noAck mode
@@ -196,8 +230,13 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
             this.channel?.ack(msg);
           }
         } catch (error) {
-          console.error("Error processing message:", error);
-          // Reject message and requeue
+          console.error(
+            new TechnicalError(
+              `Error processing message for consumer "${String(consumerName)}"`,
+              error,
+            ),
+          );
+          // Reject message and requeue (handler failed)
           this.channel?.nack(msg, false, true);
         }
       },

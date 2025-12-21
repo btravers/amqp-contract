@@ -1,11 +1,17 @@
 import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
 import type { Options } from "amqplib";
+import { Result } from "@swan-io/boxed";
 import type {
   ClientInferPublisherInput,
   ContractDefinition,
   InferPublisherNames,
 } from "@amqp-contract/contract";
-import { TypedAmqpClient, type PublishOptions } from "@amqp-contract/client";
+import {
+  ClientError,
+  TechnicalError,
+  TypedAmqpClient,
+  type PublishOptions,
+} from "@amqp-contract/client";
 import { MODULE_OPTIONS_TOKEN } from "./client.module.js";
 
 /**
@@ -53,16 +59,19 @@ export class AmqpClientService<TContract extends ContractDefinition>
 
   /**
    * Publish a message using a defined publisher
-   * This method provides type-safe message publishing
+   * This method provides type-safe message publishing with explicit error handling
+   * Returns Result<boolean, ClientError> for runtime errors
    */
-  async publish<TName extends InferPublisherNames<TContract>>(
+  publish<TName extends InferPublisherNames<TContract>>(
     publisherName: TName,
     message: ClientInferPublisherInput<TContract, TName>,
     options?: PublishOptions,
-  ): Promise<boolean> {
+  ): Result<boolean, TechnicalError | MessageValidationError> {
     if (!this.client) {
-      throw new Error(
-        "Client not initialized. Create the client using TypedAmqpClient.create() to establish a connection.",
+      return Result.Error(
+        new TechnicalError(
+          "Client not initialized. Ensure the module has been initialized before publishing.",
+        ),
       );
     }
 

@@ -119,10 +119,12 @@ export type ConsumerInferHandlerResult<TConsumer extends ConsumerDefinition> =
 
 /**
  * Consumer handler function type
+ * Handlers return Promise for async handling
+ * where HandlerResult is inferred from the consumer's handlerResult schema (defaults to void)
  */
 export type ConsumerHandler<TConsumer extends ConsumerDefinition> = (
   message: ConsumerInferInput<TConsumer>,
-) => ConsumerInferHandlerResult<TConsumer> | Promise<ConsumerInferHandlerResult<TConsumer>>;
+) => Promise<ConsumerInferHandlerResult<TConsumer>>;
 
 /**
  * Infer all publishers from contract

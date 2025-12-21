@@ -2,6 +2,7 @@ import { describe, expect } from "vitest";
 import { it } from "@amqp-contract/testing/extension";
 import { TypedAmqpWorker } from "@amqp-contract/worker";
 import { TypedAmqpClient } from "@amqp-contract/client";
+
 import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
 
 describe("Basic Order Processing Worker Integration", () => {
@@ -13,10 +14,11 @@ describe("Basic Order Processing Worker Integration", () => {
       handlers: {
         processOrder: (msg) => {
           processedOrders.push(msg);
+          return Promise.resolve();
         },
-        notifyOrder: async () => {},
-        shipOrder: async () => {},
-        handleUrgentOrder: async () => {},
+        notifyOrder: () => Promise.resolve(),
+        shipOrder: () => Promise.resolve(),
+        handleUrgentOrder: () => Promise.resolve(),
       },
       connection: amqpConnectionUrl,
     });
@@ -53,12 +55,13 @@ describe("Basic Order Processing Worker Integration", () => {
     const worker = await TypedAmqpWorker.create({
       contract: orderContract,
       handlers: {
-        processOrder: async () => {},
-        notifyOrder: async (msg) => {
+        processOrder: () => Promise.resolve(),
+        notifyOrder: (msg) => {
           notifications.push(msg);
+          return Promise.resolve();
         },
-        shipOrder: async () => {},
-        handleUrgentOrder: async () => {},
+        shipOrder: () => Promise.resolve(),
+        handleUrgentOrder: () => Promise.resolve(),
       },
       connection: amqpConnectionUrl,
     });
@@ -102,14 +105,16 @@ describe("Basic Order Processing Worker Integration", () => {
     const worker = await TypedAmqpWorker.create({
       contract: orderContract,
       handlers: {
-        processOrder: async (msg) => {
+        processOrder: (msg) => {
           processedOrders.push(msg);
+          return Promise.resolve();
         },
-        notifyOrder: async (msg) => {
+        notifyOrder: (msg) => {
           notifications.push(msg);
+          return Promise.resolve();
         },
-        shipOrder: async () => {},
-        handleUrgentOrder: async () => {},
+        shipOrder: () => Promise.resolve(),
+        handleUrgentOrder: () => Promise.resolve(),
       },
       connection: amqpConnectionUrl,
     });
