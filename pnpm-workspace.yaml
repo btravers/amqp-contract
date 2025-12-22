@@ -29,7 +29,7 @@ catalog:
   testcontainers: 11.10.0
   tsdown: 0.18.1
   tsx: 4.21.0
-  turbo: 2.6.3
+  turbo: 2.7.1
   typescript: 5.9.3
   valibot: 1.2.0
   vitepress: 1.6.4
