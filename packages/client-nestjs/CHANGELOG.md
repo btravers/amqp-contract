@@ -1,5 +1,14 @@
 # @amqp-contract/client-nestjs
 
+## 0.1.2
+
+### Patch Changes
+
+- Fix: configurable module type
+- Updated dependencies
+  - @amqp-contract/contract@0.1.2
+  - @amqp-contract/client@0.1.2
+
 ## 0.1.1
 
 ### Patch Changes
