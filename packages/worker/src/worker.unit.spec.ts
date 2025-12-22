@@ -198,6 +198,7 @@ describe("AmqpWorker", () => {
         },
         bindings: {
           testBinding: {
+            type: "queue" as const,
             queue: "test-queue",
             exchange: "test-exchange",
             routingKey: "test.#",

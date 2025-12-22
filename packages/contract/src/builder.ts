@@ -1,6 +1,8 @@
 import type {
   AnySchema,
   BindingDefinition,
+  QueueBindingDefinition,
+  ExchangeBindingDefinition,
   ConsumerDefinition,
   ContractDefinition,
   ExchangeDefinition,
@@ -66,11 +68,28 @@ export function defineQueue(
 export function defineBinding(
   queue: string,
   exchange: string,
-  options?: Omit<BindingDefinition, "queue" | "exchange">,
-): BindingDefinition {
+  options?: Omit<QueueBindingDefinition, "type" | "queue" | "exchange">,
+): QueueBindingDefinition {
   return {
+    type: "queue",
     queue,
     exchange,
+    ...options,
+  };
+}
+
+/**
+ * Define a binding between exchange and exchange (source -> destination)
+ */
+export function defineExchangeBinding(
+  destination: string,
+  source: string,
+  options?: Omit<ExchangeBindingDefinition, "type" | "source" | "destination">,
+): ExchangeBindingDefinition {
+  return {
+    type: "exchange",
+    source,
+    destination,
     ...options,
   };
 }

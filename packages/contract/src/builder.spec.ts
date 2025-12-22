@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import {
   defineBinding,
+  defineExchangeBinding,
   defineConsumer,
   defineContract,
   defineExchange,
@@ -61,7 +62,7 @@ describe("builder", () => {
   });
 
   describe("defineBinding", () => {
-    it("should create a binding definition", () => {
+    it("should create a queue binding definition", () => {
       // WHEN
       const binding = defineBinding("test-queue", "test-exchange", {
         routingKey: "test.key",
@@ -69,20 +70,68 @@ describe("builder", () => {
 
       // THEN
       expect(binding).toEqual({
+        type: "queue",
         queue: "test-queue",
         exchange: "test-exchange",
         routingKey: "test.key",
       });
     });
 
-    it("should create a binding with minimal options", () => {
+    it("should create a queue binding with minimal options", () => {
       // WHEN
       const binding = defineBinding("test-queue", "test-exchange");
 
       // THEN
       expect(binding).toEqual({
+        type: "queue",
         queue: "test-queue",
         exchange: "test-exchange",
+      });
+    });
+  });
+
+  describe("defineExchangeBinding", () => {
+    it("should create an exchange binding definition", () => {
+      // WHEN
+      const binding = defineExchangeBinding("destination-exchange", "source-exchange", {
+        routingKey: "test.key",
+      });
+
+      // THEN
+      expect(binding).toEqual({
+        type: "exchange",
+        destination: "destination-exchange",
+        source: "source-exchange",
+        routingKey: "test.key",
+      });
+    });
+
+    it("should create an exchange binding with minimal options", () => {
+      // WHEN
+      const binding = defineExchangeBinding("destination-exchange", "source-exchange");
+
+      // THEN
+      expect(binding).toEqual({
+        type: "exchange",
+        destination: "destination-exchange",
+        source: "source-exchange",
+      });
+    });
+
+    it("should create an exchange binding with arguments", () => {
+      // WHEN
+      const binding = defineExchangeBinding("destination-exchange", "source-exchange", {
+        routingKey: "order.*",
+        arguments: { "x-match": "any" },
+      });
+
+      // THEN
+      expect(binding).toEqual({
+        type: "exchange",
+        destination: "destination-exchange",
+        source: "source-exchange",
+        routingKey: "order.*",
+        arguments: { "x-match": "any" },
       });
     });
   });

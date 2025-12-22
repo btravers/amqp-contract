@@ -96,12 +96,21 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     // Setup bindings
     if (this.contract.bindings) {
       for (const binding of Object.values(this.contract.bindings)) {
-        await this.channel.bindQueue(
-          binding.queue,
-          binding.exchange,
-          binding.routingKey ?? "",
-          binding.arguments,
-        );
+        if (binding.type === "queue") {
+          await this.channel.bindQueue(
+            binding.queue,
+            binding.exchange,
+            binding.routingKey ?? "",
+            binding.arguments,
+          );
+        } else if (binding.type === "exchange") {
+          await this.channel.bindExchange(
+            binding.destination,
+            binding.source,
+            binding.routingKey ?? "",
+            binding.arguments,
+          );
+        }
       }
     }
   }
