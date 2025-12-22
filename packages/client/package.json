@@ -1,6 +1,6 @@
 {
   "name": "@amqp-contract/client",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Client utilities for publishing messages using amqp-contract",
   "keywords": [
     "amqp",
