@@ -250,5 +250,57 @@ describe("builder", () => {
       // THEN
       expect(contract).toEqual({});
     });
+
+    it("should create a contract with exchange-to-exchange bindings", () => {
+      // GIVEN
+      const messageSchema = z.object({
+        orderId: z.string(),
+        amount: z.number(),
+      });
+
+      // WHEN
+      const contract = defineContract({
+        exchanges: {
+          sourceExchange: defineExchange("source-exchange", "topic", { durable: true }),
+          destinationExchange: defineExchange("destination-exchange", "topic", { durable: true }),
+        },
+        queues: {
+          finalQueue: defineQueue("final-queue", { durable: true }),
+        },
+        bindings: {
+          exchangeToExchange: defineExchangeBinding("destination-exchange", "source-exchange", {
+            routingKey: "order.*",
+          }),
+          queueBinding: defineBinding("final-queue", "destination-exchange", {
+            routingKey: "order.created",
+          }),
+        },
+        publishers: {
+          orderCreated: definePublisher("source-exchange", messageSchema, {
+            routingKey: "order.created",
+          }),
+        },
+        consumers: {
+          processOrder: defineConsumer("final-queue", messageSchema, {
+            prefetch: 10,
+          }),
+        },
+      });
+
+      // THEN
+      expect(contract).toBeDefined();
+      expect(contract.exchanges?.sourceExchange.name).toBe("source-exchange");
+      expect(contract.exchanges?.destinationExchange.name).toBe("destination-exchange");
+      expect(contract.bindings?.exchangeToExchange.type).toBe("exchange");
+      if (contract.bindings?.exchangeToExchange.type === "exchange") {
+        expect(contract.bindings.exchangeToExchange.source).toBe("source-exchange");
+        expect(contract.bindings.exchangeToExchange.destination).toBe("destination-exchange");
+      }
+      expect(contract.bindings?.queueBinding.type).toBe("queue");
+      if (contract.bindings?.queueBinding.type === "queue") {
+        expect(contract.bindings.queueBinding.queue).toBe("final-queue");
+        expect(contract.bindings.queueBinding.exchange).toBe("destination-exchange");
+      }
+    });
   });
 });

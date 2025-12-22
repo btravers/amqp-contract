@@ -17,6 +17,7 @@ const mockChannel = {
   assertExchange: vi.fn().mockResolvedValue(undefined),
   assertQueue: vi.fn().mockResolvedValue(undefined),
   bindQueue: vi.fn().mockResolvedValue(undefined),
+  bindExchange: vi.fn().mockResolvedValue(undefined),
   prefetch: vi.fn().mockResolvedValue(undefined),
   consume: vi.fn().mockImplementation((_queue: string, callback) => {
     mockConsumeCallback = callback;
@@ -215,6 +216,42 @@ describe("AmqpWorker", () => {
         "test-queue",
         "test-exchange",
         "test.#",
+        undefined,
+      );
+    });
+
+    it("should setup exchange-to-exchange bindings when defined", async () => {
+      // GIVEN
+      const contract = defineContract({
+        exchanges: {
+          sourceExchange: {
+            name: "source-exchange",
+            type: "topic" as const,
+          },
+          destinationExchange: {
+            name: "destination-exchange",
+            type: "topic" as const,
+          },
+        },
+        bindings: {
+          exchangeBinding: {
+            type: "exchange" as const,
+            source: "source-exchange",
+            destination: "destination-exchange",
+            routingKey: "test.*",
+          },
+        },
+        consumers: {},
+      });
+
+      // WHEN
+      await TypedAmqpWorker.create({ contract, handlers: {}, connection: "amqp://localhost" });
+
+      // THEN
+      expect(mockChannel.bindExchange).toHaveBeenCalledWith(
+        "destination-exchange",
+        "source-exchange",
+        "test.*",
         undefined,
       );
     });
