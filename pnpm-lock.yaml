@@ -73,8 +73,8 @@ catalogs:
       specifier: 11.10.0
       version: 11.10.0
     tsdown:
-      specifier: 0.18.1
-      version: 0.18.1
+      specifier: 0.18.2
+      version: 0.18.2
     tsx:
       specifier: 4.21.0
       version: 4.21.0
@@ -149,7 +149,7 @@ importers:
         version: 2.1.29
       tsdown:
         specifier: 'catalog:'
-        version: 0.18.1(oxc-resolver@11.16.0)(typescript@5.9.3)
+        version: 0.18.2(oxc-resolver@11.16.0)(typescript@5.9.3)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -177,7 +177,7 @@ importers:
         version: 4.0.16(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
       tsdown:
         specifier: 'catalog:'
-        version: 0.18.1(oxc-resolver@11.16.0)(typescript@5.9.3)
+        version: 0.18.2(oxc-resolver@11.16.0)(typescript@5.9.3)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -217,7 +217,7 @@ importers:
         version: 0.10.9
       tsdown:
         specifier: 'catalog:'
-        version: 0.18.1(oxc-resolver@11.16.0)(typescript@5.9.3)
+        version: 0.18.2(oxc-resolver@11.16.0)(typescript@5.9.3)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -266,7 +266,7 @@ importers:
         version: 7.8.1
       tsdown:
         specifier: 'catalog:'
-        version: 0.18.1(oxc-resolver@11.16.0)(typescript@5.9.3)
+        version: 0.18.2(oxc-resolver@11.16.0)(typescript@5.9.3)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -291,7 +291,7 @@ importers:
         version: 4.0.16(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
       tsdown:
         specifier: 'catalog:'
-        version: 0.18.1(oxc-resolver@11.16.0)(typescript@5.9.3)
+        version: 0.18.2(oxc-resolver@11.16.0)(typescript@5.9.3)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -313,7 +313,7 @@ importers:
         version: link:../../tools/tsconfig
       tsdown:
         specifier: 'catalog:'
-        version: 0.18.1(oxc-resolver@11.16.0)(typescript@5.9.3)
+        version: 0.18.2(oxc-resolver@11.16.0)(typescript@5.9.3)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -335,7 +335,7 @@ importers:
         version: 4.0.16(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
       tsdown:
         specifier: 'catalog:'
-        version: 0.18.1(oxc-resolver@11.16.0)(typescript@5.9.3)
+        version: 0.18.2(oxc-resolver@11.16.0)(typescript@5.9.3)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -378,7 +378,7 @@ importers:
         version: 0.10.9
       tsdown:
         specifier: 'catalog:'
-        version: 0.18.1(oxc-resolver@11.16.0)(typescript@5.9.3)
+        version: 0.18.2(oxc-resolver@11.16.0)(typescript@5.9.3)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -424,7 +424,7 @@ importers:
         version: 7.8.1
       tsdown:
         specifier: 'catalog:'
-        version: 0.18.1(oxc-resolver@11.16.0)(typescript@5.9.3)
+        version: 0.18.2(oxc-resolver@11.16.0)(typescript@5.9.3)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -452,7 +452,7 @@ importers:
         version: 4.0.16(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
       tsdown:
         specifier: 'catalog:'
-        version: 0.18.1(oxc-resolver@11.16.0)(typescript@5.9.3)
+        version: 0.18.2(oxc-resolver@11.16.0)(typescript@5.9.3)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -545,7 +545,7 @@ importers:
         version: link:../../tools/tsconfig
       tsdown:
         specifier: 'catalog:'
-        version: 0.18.1(oxc-resolver@11.16.0)(typescript@5.9.3)
+        version: 0.18.2(oxc-resolver@11.16.0)(typescript@5.9.3)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -2839,6 +2839,9 @@ packages:
   hookable@5.5.3:
     resolution: {integrity: sha512-Yc+BQe8SvoXH1643Qez1zqLRmbA5rCL+sSmk6TVos0LWVfNIB7PGncdlId77WzLGSIB5KaWgTaNTs2lNVEI6VQ==}
 
+  hookable@6.0.1:
+    resolution: {integrity: sha512-uKGyY8BuzN/a5gvzvA+3FVWo0+wUjgtfSdnmjtrOVwQCZPHpHDH2WRO3VZSOeluYrHoDCiXFffZXs8Dj1ULWtw==}
+
   html-escaper@2.0.2:
     resolution: {integrity: sha512-H2iMtd0I4Mt5eYiapRdIDjp+XzelXQ0tFE4JS7YFwFevXXMmOp9myNrUvCg0D6ws8iqkRPBfKHgbwig1SmlLfg==}
 
@@ -2871,8 +2874,8 @@ packages:
   import-meta-resolve@4.2.0:
     resolution: {integrity: sha512-Iqv2fzaTQN28s/FwZAoFq0ZSs/7hMAHJVX+w8PZl3cY19Pxk6jFFalxQoIfW2826i/fDLXv8IiEZRIT0lDuWcg==}
 
-  import-without-cache@0.2.4:
-    resolution: {integrity: sha512-b/Ke0y4n26ffQhkLvgBxV/NVO/QEE6AZlrMj8DYuxBWNAAu4iMQWZTFWzKcCTEmv7VQ0ae0j8KwrlGzSy8sYQQ==}
+  import-without-cache@0.2.5:
+    resolution: {integrity: sha512-B6Lc2s6yApwnD2/pMzFh/d5AVjdsDXjgkeJ766FmFuJELIGHNycKRj+l3A39yZPM4CchqNCB4RITEAYB1KUM6A==}
     engines: {node: '>=20.19.0'}
 
   inherits@2.0.4:
@@ -3789,8 +3792,8 @@ packages:
     resolution: {integrity: sha512-q5W7tVM71e2xjHZTlgfTDoPF/SmqKG5hddq9SzR49CH2hayqRKJtQ4mtRlSxKaJlR/+9rEM+mnBHf7I2/BQcpQ==}
     engines: {node: '>=6.10'}
 
-  tsdown@0.18.1:
-    resolution: {integrity: sha512-na4MdVA8QS9Zw++0KovGpjvw1BY5WvoCWcE4Aw0dyfff9nWK8BPzniQEVs+apGUg3DHaYMDfs+XiFaDDgqDDzQ==}
+  tsdown@0.18.2:
+    resolution: {integrity: sha512-2o6p/9WjcQrgKnz5/VppOstsqXdTER6G6gPe5yhuP57AueIr2y/NQFKdFPHuqMqZpxRLVjm7MP/dXWG7EJpehg==}
     engines: {node: '>=20.19.0'}
     hasBin: true
     peerDependencies:
@@ -6417,6 +6420,8 @@ snapshots:
 
   hookable@5.5.3: {}
 
+  hookable@6.0.1: {}
+
   html-escaper@2.0.2: {}
 
   html-void-elements@3.0.0: {}
@@ -6442,7 +6447,7 @@ snapshots:
 
   import-meta-resolve@4.2.0: {}
 
-  import-without-cache@0.2.4: {}
+  import-without-cache@0.2.5: {}
 
   inherits@2.0.4: {}
 
@@ -7440,14 +7445,14 @@ snapshots:
 
   ts-dedent@2.2.0: {}
 
-  tsdown@0.18.1(oxc-resolver@11.16.0)(typescript@5.9.3):
+  tsdown@0.18.2(oxc-resolver@11.16.0)(typescript@5.9.3):
     dependencies:
       ansis: 4.2.0
       cac: 6.7.14
       defu: 6.1.4
       empathic: 2.0.0
-      hookable: 5.5.3
-      import-without-cache: 0.2.4
+      hookable: 6.0.1
+      import-without-cache: 0.2.5
       obug: 2.1.1
       picomatch: 4.0.3
       rolldown: 1.0.0-beta.55
