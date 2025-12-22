@@ -105,6 +105,38 @@ async function main() {
 
         logger.warn({ orderId: message.orderId }, "Urgent update handled");
       },
+
+      // Handler for ANALYTICS processing (receives events through exchange-to-exchange binding)
+      processAnalytics: async (message) => {
+        // Check if it's a new order or a status update
+        if ("items" in message) {
+          // It's a full order
+          logger.info(
+            {
+              type: "analytics",
+              orderId: message.orderId,
+              customerId: message.customerId,
+              totalAmount: message.totalAmount,
+            },
+            "[ANALYTICS] New order data received via exchange-to-exchange binding",
+          );
+        } else {
+          // It's a status update
+          logger.info(
+            {
+              type: "analytics",
+              orderId: message.orderId,
+              status: message.status,
+            },
+            "[ANALYTICS] Status update received via exchange-to-exchange binding",
+          );
+        }
+
+        // Simulate analytics processing
+        await new Promise((resolve) => setTimeout(resolve, 100));
+
+        logger.info("Analytics data processed");
+      },
     },
     connection: env.AMQP_URL,
   });
@@ -116,6 +148,10 @@ async function main() {
   logger.info("  • order.#           → notifyOrder handler (all events)");
   logger.info("  • order.shipped     → shipOrder handler");
   logger.info("  • order.*.urgent    → handleUrgentOrder handler");
+  logger.info("  • order.# (via analytics exchange) → processAnalytics handler");
+  logger.info("=".repeat(60));
+  logger.info("Exchange-to-Exchange Binding:");
+  logger.info("  orders → order-analytics (routing: order.#)");
   logger.info("=".repeat(60));
 
   // Handle graceful shutdown
