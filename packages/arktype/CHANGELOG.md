@@ -1,5 +1,11 @@
 # @amqp-contract/arktype
 
+## 0.1.4
+
+### Patch Changes
+
+- @amqp-contract/contract@0.1.4
+
 ## 0.1.3
 
 ### Patch Changes

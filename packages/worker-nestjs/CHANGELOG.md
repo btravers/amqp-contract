@@ -1,5 +1,13 @@
 # @amqp-contract/worker-nestjs
 
+## 0.1.4
+
+### Patch Changes
+
+- Refactor: split NestJS module files into ConfigurableModuleBuilder and Module definitions for better code organization
+  - @amqp-contract/contract@0.1.4
+  - @amqp-contract/worker@0.1.4
+
 ## 0.1.3
 
 ### Patch Changes
