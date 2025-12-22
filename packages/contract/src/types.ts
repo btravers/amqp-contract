@@ -36,12 +36,29 @@ export interface QueueDefinition {
 /**
  * Binding between queue and exchange
  */
-export interface BindingDefinition {
+export interface QueueBindingDefinition {
+  type: "queue";
   queue: string;
   exchange: string;
   routingKey?: string;
   arguments?: Record<string, unknown>;
 }
+
+/**
+ * Binding between exchange and exchange
+ */
+export interface ExchangeBindingDefinition {
+  type: "exchange";
+  source: string;
+  destination: string;
+  routingKey?: string;
+  arguments?: Record<string, unknown>;
+}
+
+/**
+ * Binding definition - can be either queue-to-exchange or exchange-to-exchange
+ */
+export type BindingDefinition = QueueBindingDefinition | ExchangeBindingDefinition;
 
 /**
  * Definition of a message publisher

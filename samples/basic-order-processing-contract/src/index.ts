@@ -1,5 +1,6 @@
 import {
   defineBinding,
+  defineExchangeBinding,
   defineConsumer,
   defineContract,
   defineExchange,
@@ -37,6 +38,11 @@ const orderStatusSchema = z.object({
 /**
  * Order processing contract demonstrating RabbitMQ topic pattern
  *
+ * This contract demonstrates:
+ * 1. Queue-to-Exchange bindings: Direct message routing from exchanges to queues
+ * 2. Exchange-to-Exchange bindings: Messages are routed through multiple exchanges
+ *    before reaching queues, enabling complex routing patterns
+ *
  * Topic pattern allows flexible routing based on routing key patterns:
  * - order.created: New orders
  * - order.updated: Order status updates
@@ -46,7 +52,11 @@ const orderStatusSchema = z.object({
  */
 export const orderContract = defineContract({
   exchanges: {
+    // Primary exchange for all orders
     orders: defineExchange("orders", "topic", { durable: true }),
+
+    // Secondary exchange for analytics (receives filtered events from orders exchange)
+    orderAnalytics: defineExchange("order-analytics", "topic", { durable: true }),
   },
   queues: {
     // Queue for processing all new orders
@@ -60,8 +70,19 @@ export const orderContract = defineContract({
 
     // Queue for urgent orders (any urgent event)
     orderUrgent: defineQueue("order-urgent", { durable: true }),
+
+    // Queue for analytics (receives events through orderAnalytics exchange)
+    analyticsProcessing: defineQueue("analytics-processing", { durable: true }),
   },
   bindings: {
+    // Exchange-to-Exchange binding: Route all order events to analytics exchange
+    // This demonstrates how messages can flow through multiple exchanges
+    orderToAnalytics: defineExchangeBinding("order-analytics", "orders", {
+      routingKey: "order.#",
+    }),
+
+    // Queue-to-Exchange bindings for order events
+
     // Bind processing queue to order.created events
     orderProcessingBinding: defineBinding("order-processing", "orders", {
       routingKey: "order.created",
@@ -80,6 +101,11 @@ export const orderContract = defineContract({
     // Bind urgent queue to any urgent order events
     orderUrgentBinding: defineBinding("order-urgent", "orders", {
       routingKey: "order.*.urgent",
+    }),
+
+    // Bind analytics queue to analytics exchange for all events
+    analyticsBinding: defineBinding("analytics-processing", "order-analytics", {
+      routingKey: "order.#",
     }),
   },
   publishers: {
@@ -123,5 +149,14 @@ export const orderContract = defineContract({
     handleUrgentOrder: defineConsumer("order-urgent", orderStatusSchema, {
       prefetch: 20,
     }),
+
+    // Consumer for analytics processing
+    processAnalytics: defineConsumer(
+      "analytics-processing",
+      z.union([orderSchema, orderStatusSchema]),
+      {
+        prefetch: 50, // Higher prefetch for analytics
+      },
+    ),
   },
 });

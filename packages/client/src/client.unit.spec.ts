@@ -16,6 +16,7 @@ const mockChannel = {
   assertExchange: vi.fn().mockResolvedValue(undefined),
   assertQueue: vi.fn().mockResolvedValue(undefined),
   bindQueue: vi.fn().mockResolvedValue(undefined),
+  bindExchange: vi.fn().mockResolvedValue(undefined),
   publish: vi.fn().mockReturnValue(true),
   close: vi.fn().mockResolvedValue(undefined),
   prefetch: vi.fn().mockResolvedValue(undefined),
@@ -177,6 +178,7 @@ describe("AmqpClient", () => {
         },
         bindings: {
           testBinding: {
+            type: "queue" as const,
             queue: "test-queue",
             exchange: "test-exchange",
             routingKey: "test.#",
@@ -192,6 +194,41 @@ describe("AmqpClient", () => {
         "test-queue",
         "test-exchange",
         "test.#",
+        undefined,
+      );
+    });
+
+    it("should setup exchange-to-exchange bindings when defined", async () => {
+      // GIVEN
+      const contract = defineContract({
+        exchanges: {
+          sourceExchange: {
+            name: "source-exchange",
+            type: "topic" as const,
+          },
+          destinationExchange: {
+            name: "destination-exchange",
+            type: "topic" as const,
+          },
+        },
+        bindings: {
+          exchangeBinding: {
+            type: "exchange" as const,
+            source: "source-exchange",
+            destination: "destination-exchange",
+            routingKey: "test.*",
+          },
+        },
+      });
+
+      // WHEN
+      await TypedAmqpClient.create({ contract, connection: "amqp://localhost" });
+
+      // THEN
+      expect(mockChannel.bindExchange).toHaveBeenCalledWith(
+        "destination-exchange",
+        "source-exchange",
+        "test.*",
         undefined,
       );
     });

@@ -127,6 +127,7 @@ describe("AmqpClient Integration", () => {
         },
         bindings: {
           orderBinding: {
+            type: "queue" as const,
             queue: "integration-processing",
             exchange: "integration-orders",
             routingKey: "order.#",

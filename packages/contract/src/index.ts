@@ -1,5 +1,6 @@
 export {
   defineBinding,
+  defineExchangeBinding,
   defineConsumer,
   defineContract,
   defineExchange,
@@ -11,6 +12,8 @@ export {
 export type {
   AnySchema,
   BindingDefinition,
+  QueueBindingDefinition,
+  ExchangeBindingDefinition,
   ConsumerDefinition,
   ConsumerHandler,
   ConsumerInferHandlerResult,

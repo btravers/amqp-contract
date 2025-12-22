@@ -19,6 +19,7 @@ describe("Basic Order Processing Worker Integration", () => {
         notifyOrder: () => Promise.resolve(),
         shipOrder: () => Promise.resolve(),
         handleUrgentOrder: () => Promise.resolve(),
+        processAnalytics: () => Promise.resolve(),
       },
       connection: amqpConnectionUrl,
     });
@@ -63,6 +64,7 @@ describe("Basic Order Processing Worker Integration", () => {
         },
         shipOrder: () => Promise.resolve(),
         handleUrgentOrder: () => Promise.resolve(),
+        processAnalytics: () => Promise.resolve(),
       },
       connection: amqpConnectionUrl,
     });
@@ -118,6 +120,7 @@ describe("Basic Order Processing Worker Integration", () => {
         },
         shipOrder: () => Promise.resolve(),
         handleUrgentOrder: () => Promise.resolve(),
+        processAnalytics: () => Promise.resolve(),
       },
       connection: amqpConnectionUrl,
     });
