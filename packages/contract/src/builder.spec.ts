@@ -288,19 +288,24 @@ describe("builder", () => {
       });
 
       // THEN
-      expect(contract).toBeDefined();
-      expect(contract.exchanges?.sourceExchange.name).toBe("source-exchange");
-      expect(contract.exchanges?.destinationExchange.name).toBe("destination-exchange");
-      expect(contract.bindings?.exchangeToExchange.type).toBe("exchange");
-      if (contract.bindings?.exchangeToExchange.type === "exchange") {
-        expect(contract.bindings.exchangeToExchange.source).toBe("source-exchange");
-        expect(contract.bindings.exchangeToExchange.destination).toBe("destination-exchange");
-      }
-      expect(contract.bindings?.queueBinding.type).toBe("queue");
-      if (contract.bindings?.queueBinding.type === "queue") {
-        expect(contract.bindings.queueBinding.queue).toBe("final-queue");
-        expect(contract.bindings.queueBinding.exchange).toBe("destination-exchange");
-      }
+      expect(contract).toMatchObject({
+        exchanges: {
+          sourceExchange: { name: "source-exchange" },
+          destinationExchange: { name: "destination-exchange" },
+        },
+        bindings: {
+          exchangeToExchange: {
+            type: "exchange",
+            source: "source-exchange",
+            destination: "destination-exchange",
+          },
+          queueBinding: {
+            type: "queue",
+            queue: "final-queue",
+            exchange: "destination-exchange",
+          },
+        },
+      });
     });
   });
 });
