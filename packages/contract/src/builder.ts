@@ -112,13 +112,12 @@ export function defineConsumer<
  * Define an AMQP contract
  */
 export function defineContract<
+  TContract extends ContractDefinition<TExchanges, TQueues, TBindings, TPublishers, TConsumers>,
   TExchanges extends Record<string, ExchangeDefinition> = Record<string, ExchangeDefinition>,
   TQueues extends Record<string, QueueDefinition> = Record<string, QueueDefinition>,
   TBindings extends Record<string, BindingDefinition> = Record<string, BindingDefinition>,
   TPublishers extends Record<string, PublisherDefinition> = Record<string, PublisherDefinition>,
   TConsumers extends Record<string, ConsumerDefinition> = Record<string, ConsumerDefinition>,
->(
-  definition: ContractDefinition<TExchanges, TQueues, TBindings, TPublishers, TConsumers>,
-): ContractDefinition<TExchanges, TQueues, TBindings, TPublishers, TConsumers> {
+>(definition: TContract): TContract {
   return definition;
 }
