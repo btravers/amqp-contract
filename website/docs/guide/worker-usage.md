@@ -104,6 +104,133 @@ const worker = await TypedAmqpWorker.create({
 });
 ```
 
+## Defining Handlers Externally
+
+For better code organization and reusability, you can define handlers outside of the worker creation using `defineHandler` and `defineHandlers` utilities.
+
+### Single Handler Definition
+
+Use `defineHandler` to define individual handlers:
+
+```typescript
+import { defineHandler } from '@amqp-contract/worker';
+import { orderContract } from './contract';
+
+// Define handler separately
+const processOrderHandler = defineHandler(
+  orderContract,
+  'processOrder',
+  async (message) => {
+    // message is fully typed based on the contract
+    console.log('Processing order:', message.orderId);
+
+    // Your business logic
+    await saveToDatabase(message);
+    await updateInventory(message);
+  }
+);
+
+// Use in worker
+const worker = await TypedAmqpWorker.create({
+  contract: orderContract,
+  handlers: {
+    processOrder: processOrderHandler,
+  },
+  connection: 'amqp://localhost',
+});
+```
+
+### Multiple Handlers Definition
+
+Use `defineHandlers` to define all handlers at once:
+
+```typescript
+import { defineHandlers } from '@amqp-contract/worker';
+import { orderContract } from './contract';
+
+// Define all handlers together
+const handlers = defineHandlers(orderContract, {
+  processOrder: async (message) => {
+    console.log('Processing order:', message.orderId);
+    await processPayment(message);
+  },
+
+  notifyOrder: async (message) => {
+    console.log('Sending notification for:', message.orderId);
+    await sendEmail(message);
+  },
+
+  shipOrder: async (message) => {
+    console.log('Preparing shipment for:', message.orderId);
+    await prepareShipment(message);
+  },
+});
+
+// Use in worker
+const worker = await TypedAmqpWorker.create({
+  contract: orderContract,
+  handlers,
+  connection: 'amqp://localhost',
+});
+```
+
+### Benefits
+
+External handler definitions provide several advantages:
+
+- **Better Organization**: Separate handler logic from worker setup code
+- **Reusability**: Share handlers across multiple workers or test them independently
+- **Type Safety**: Full TypeScript type checking at definition time
+- **Testability**: Test handlers in isolation before integrating with workers
+- **Maintainability**: Easier to modify and refactor handler logic
+
+### Example: Organized Handler Module
+
+Create a dedicated module for handlers:
+
+```typescript
+// handlers/order-handlers.ts
+import { defineHandler, defineHandlers } from '@amqp-contract/worker';
+import { orderContract } from '../contract';
+import { processPayment } from '../services/payment';
+import { sendEmail } from '../services/email';
+
+export const processOrderHandler = defineHandler(
+  orderContract,
+  'processOrder',
+  async (message) => {
+    await processPayment(message);
+  }
+);
+
+export const notifyOrderHandler = defineHandler(
+  orderContract,
+  'notifyOrder',
+  async (message) => {
+    await sendEmail(message);
+  }
+);
+
+// Export all handlers together
+export const orderHandlers = defineHandlers(orderContract, {
+  processOrder: processOrderHandler,
+  notifyOrder: notifyOrderHandler,
+});
+```
+
+```typescript
+// worker.ts
+import { TypedAmqpWorker } from '@amqp-contract/worker';
+import { orderContract } from './contract';
+import { orderHandlers } from './handlers/order-handlers';
+
+const worker = await TypedAmqpWorker.create({
+  contract: orderContract,
+  handlers: orderHandlers,
+  connection: 'amqp://localhost',
+});
+```
+
 ## Starting Consumers
 
 ### Automatic Consumption
