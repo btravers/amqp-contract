@@ -40,8 +40,8 @@ catalogs:
       specifier: 2.1.29
       version: 2.1.29
     knip:
-      specifier: 5.75.2
-      version: 5.75.2
+      specifier: 5.76.3
+      version: 5.76.3
     lefthook:
       specifier: 2.0.12
       version: 2.0.12
@@ -115,7 +115,7 @@ importers:
         version: 20.2.0
       knip:
         specifier: 'catalog:'
-        version: 5.75.2(@types/node@25.0.3)(typescript@5.9.3)
+        version: 5.76.3(@types/node@25.0.3)(typescript@5.9.3)
       lefthook:
         specifier: 'catalog:'
         version: 2.0.12
@@ -3012,8 +3012,8 @@ packages:
   khroma@2.1.0:
     resolution: {integrity: sha512-Ls993zuzfayK269Svk9hzpeGUKob/sIgZzyHYdjQoAdQetRKpOLj+k/QQQ/6Qi0Yz65mlROrfd+Ev+1+7dz9Kw==}
 
-  knip@5.75.2:
-    resolution: {integrity: sha512-ZSO9gGKG/RztUYawrMbPTqO9VG3qvTW/ddINJqYM+N+9F/0bX6HEBolo8+HKaBuTIgyM4dn2rZ8M+JLObRdzog==}
+  knip@5.76.3:
+    resolution: {integrity: sha512-YLCCzOFzkuNgyL9LdrwFBstV9gpmvPCuolRzs9W++of0mtPH1D3ehE3M4okgayksgq7tWkkMAmyjrDrXxX6aAQ==}
     engines: {node: '>=18.18.0'}
     hasBin: true
     peerDependencies:
@@ -6550,7 +6550,7 @@ snapshots:
 
   khroma@2.1.0: {}
 
-  knip@5.75.2(@types/node@25.0.3)(typescript@5.9.3):
+  knip@5.76.3(@types/node@25.0.3)(typescript@5.9.3):
     dependencies:
       '@nodelib/fs.walk': 1.2.8
       '@types/node': 25.0.3

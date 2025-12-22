@@ -16,7 +16,7 @@ catalog:
   "@vitest/coverage-v8": 4.0.16
   amqplib: 0.10.9
   arktype: 2.1.29
-  knip: 5.75.2
+  knip: 5.76.3
   lefthook: 2.0.12
   mermaid: 11.10.0
   oxfmt: 0.19.0
