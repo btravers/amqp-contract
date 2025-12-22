@@ -1,5 +1,11 @@
 # @amqp-contract/testing
 
+## 0.1.2
+
+### Patch Changes
+
+- Fix: configurable module type
+
 ## 0.1.1
 
 ### Patch Changes
