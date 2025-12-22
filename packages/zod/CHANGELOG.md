@@ -1,5 +1,14 @@
 # @amqp-contract/zod
 
+## 0.1.1
+
+### Patch Changes
+
+- 498358d: Patch version bump for all packages
+- Updated dependencies [498358d]
+  - @amqp-contract/asyncapi@0.1.1
+  - @amqp-contract/contract@0.1.1
+
 ## 0.1.0
 
 ### Patch Changes

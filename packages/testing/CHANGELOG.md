@@ -1,5 +1,11 @@
 # @amqp-contract/testing
 
+## 0.1.1
+
+### Patch Changes
+
+- 498358d: Patch version bump for all packages
+
 ## 0.1.0
 
 ## 0.0.6
