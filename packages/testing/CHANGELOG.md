@@ -1,5 +1,11 @@
 # @amqp-contract/testing
 
+## 0.1.3
+
+### Patch Changes
+
+- Add exchange-to-exchange binding support
+
 ## 0.1.2
 
 ### Patch Changes

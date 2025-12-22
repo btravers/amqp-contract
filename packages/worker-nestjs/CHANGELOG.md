@@ -1,5 +1,14 @@
 # @amqp-contract/worker-nestjs
 
+## 0.1.3
+
+### Patch Changes
+
+- Add exchange-to-exchange binding support
+- Updated dependencies
+  - @amqp-contract/contract@0.1.3
+  - @amqp-contract/worker@0.1.3
+
 ## 0.1.2
 
 ### Patch Changes
