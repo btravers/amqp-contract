@@ -12,7 +12,7 @@ import {
   TypedAmqpClient,
   type PublishOptions,
 } from "@amqp-contract/client";
-import { MODULE_OPTIONS_TOKEN } from "./client.module.js";
+import { MODULE_OPTIONS_TOKEN } from "./client.module-definition.js";
 
 /**
  * Options for creating a NestJS client service
