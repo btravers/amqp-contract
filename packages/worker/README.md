@@ -39,6 +39,72 @@ const worker = await TypedAmqpWorker.create({
 // await worker.close();
 ```
 
+## Defining Handlers Outside Worker
+
+You can define handlers outside of the worker creation for better code organization and reusability:
+
+### Single Handler
+
+```typescript
+import { defineHandler } from '@amqp-contract/worker';
+import { orderContract } from './contract';
+
+// Define handler separately
+const processOrderHandler = defineHandler(
+  orderContract,
+  'processOrder',
+  async (message) => {
+    // message is fully typed based on the contract
+    console.log('Processing order:', message.orderId);
+    await processPayment(message);
+  }
+);
+
+// Use in worker
+const worker = await TypedAmqpWorker.create({
+  contract: orderContract,
+  handlers: {
+    processOrder: processOrderHandler,
+  },
+  connection: 'amqp://localhost',
+});
+```
+
+### Multiple Handlers
+
+```typescript
+import { defineHandlers } from '@amqp-contract/worker';
+import { orderContract } from './contract';
+
+// Define all handlers at once
+const handlers = defineHandlers(orderContract, {
+  processOrder: async (message) => {
+    console.log('Processing order:', message.orderId);
+    await processPayment(message);
+  },
+  notifyOrder: async (message) => {
+    await sendNotification(message);
+  },
+  shipOrder: async (message) => {
+    await prepareShipment(message);
+  },
+});
+
+// Use in worker
+const worker = await TypedAmqpWorker.create({
+  contract: orderContract,
+  handlers,
+  connection: 'amqp://localhost',
+});
+```
+
+### Benefits of External Handler Definitions
+
+- **Better Organization**: Separate handler logic from worker setup
+- **Reusability**: Share handlers across multiple workers or tests
+- **Type Safety**: Full type checking at definition time
+- **Testability**: Test handlers independently before integration
+
 ## Error Handling
 
 Worker handlers use standard Promise-based async/await pattern:
@@ -103,6 +169,54 @@ const worker = await TypedAmqpWorker.create({
     port: 5672,
     username: 'guest',
     password: 'guest',
+  },
+});
+```
+
+### `defineHandler(contract, consumerName, handler)`
+
+Define a type-safe handler for a specific consumer in a contract.
+
+**Parameters:**
+
+- `contract` - The contract definition containing the consumer
+- `consumerName` - The name of the consumer from the contract
+- `handler` - The async handler function that processes messages
+
+**Returns:** Type-safe handler function
+
+**Example:**
+
+```typescript
+const processOrderHandler = defineHandler(
+  orderContract,
+  'processOrder',
+  async (message) => {
+    console.log('Processing order:', message.orderId);
+  }
+);
+```
+
+### `defineHandlers(contract, handlers)`
+
+Define multiple type-safe handlers for consumers in a contract at once.
+
+**Parameters:**
+
+- `contract` - The contract definition containing the consumers
+- `handlers` - An object with async handler functions for each consumer
+
+**Returns:** Type-safe handlers object
+
+**Example:**
+
+```typescript
+const handlers = defineHandlers(orderContract, {
+  processOrder: async (message) => {
+    await processOrder(message);
+  },
+  notifyOrder: async (message) => {
+    await sendNotification(message);
   },
 });
 ```
