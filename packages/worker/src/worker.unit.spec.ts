@@ -15,36 +15,72 @@ import { z } from "zod";
 // Mock types for testing
 let mockConsumeCallback: ((msg: ConsumeMessage | null) => Promise<void>) | null = null;
 
-const mockChannel = {
-  assertExchange: vi.fn().mockResolvedValue(undefined),
-  assertQueue: vi.fn().mockResolvedValue(undefined),
-  bindQueue: vi.fn().mockResolvedValue(undefined),
-  bindExchange: vi.fn().mockResolvedValue(undefined),
-  prefetch: vi.fn().mockResolvedValue(undefined),
-  consume: vi.fn().mockImplementation((_queue: string, callback) => {
-    mockConsumeCallback = callback;
-    return Promise.resolve({ consumerTag: "test-tag" });
-  }),
-  ack: vi.fn(),
-  nack: vi.fn(),
-  cancel: vi.fn().mockResolvedValue(undefined),
-  close: vi.fn().mockResolvedValue(undefined),
-};
+// Mock amqp-connection-manager - everything must be inside the factory
+vi.mock("amqp-connection-manager", () => {
+  const mockSetupChannel = {
+    assertExchange: vi.fn().mockResolvedValue(undefined),
+    assertQueue: vi.fn().mockResolvedValue(undefined),
+    bindQueue: vi.fn().mockResolvedValue(undefined),
+    bindExchange: vi.fn().mockResolvedValue(undefined),
+    prefetch: vi.fn().mockResolvedValue(undefined),
+  };
 
-// Mock @amqp-contract/core
-vi.mock("@amqp-contract/core", () => ({
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  AmqpClient: vi.fn(function (this: any) {
-    this.channel = mockChannel;
-    this.close = vi.fn().mockResolvedValue(undefined);
-  }),
-}));
+  const mockChannel = {
+    consume: vi.fn().mockImplementation((_queue: string, callback) => {
+      mockConsumeCallback = callback;
+      return Promise.resolve({ consumerTag: "test-tag" });
+    }),
+    ack: vi.fn(),
+    nack: vi.fn(),
+    cancel: vi.fn().mockResolvedValue(undefined),
+    close: vi.fn().mockResolvedValue(undefined),
+    prefetch: vi.fn().mockResolvedValue(undefined),
+  };
 
-describe("TypedAmqpWorker", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockConsumeCallback = null;
-  });
+  const mockConnection = {
+    createChannel: vi.fn().mockImplementation((options?: { json?: boolean; setup?: (channel: unknown) => Promise<void> }) => {
+      if (options?.setup) {
+        // Execute setup function asynchronously
+        Promise.resolve().then(() => options.setup?.(mockSetupChannel));
+      }
+      return mockChannel;
+    }),
+    close: vi.fn().mockResolvedValue(undefined),
+  };
+
+  return {
+    default: {
+      connect: vi.fn().mockReturnValue(mockConnection),
+    },
+    // Export test helpers
+    _test: {
+      mockSetupChannel,
+      mockChannel,
+      mockConnection,
+      getMockConsumeCallback: () => mockConsumeCallback,
+    },
+  };
+});
+
+// Get the test helpers
+const amqpMock = await import("amqp-connection-manager");
+// @ts-expect-error - accessing test helper
+const { mockSetupChannel, mockChannel, mockConnection } = amqpMock._test;
+
+// Global beforeEach for all tests
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockConsumeCallback = null;
+  // Explicitly reset consume mock
+  mockChannel.consume.mockClear();
+  mockChannel.cancel.mockClear();
+  mockChannel.close.mockClear();
+  mockSetupChannel.assertExchange.mockClear();
+  mockSetupChannel.assertQueue.mockClear();
+  mockSetupChannel.bindQueue.mockClear();
+  mockSetupChannel.bindExchange.mockClear();
+  mockConnection.createChannel.mockClear();
+  mockConnection.close.mockClear();
 });
 
 describe("Type Inference", () => {
@@ -149,8 +185,11 @@ describe("connect", () => {
       urls: ["amqp://localhost"],
     }).resultToPromise();
 
+    // Wait for async setup
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
     // THEN
-    expect(mockChannel.assertExchange).toHaveBeenCalledWith("test-exchange", "topic", {
+    expect(mockSetupChannel.assertExchange).toHaveBeenCalledWith("test-exchange", "topic", {
       durable: true,
       autoDelete: false,
       internal: undefined,
@@ -178,8 +217,11 @@ describe("connect", () => {
       urls: ["amqp://localhost"],
     }).resultToPromise();
 
+    // Wait for async setup
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
     // THEN
-    expect(mockChannel.assertQueue).toHaveBeenCalledWith("test-queue", {
+    expect(mockSetupChannel.assertQueue).toHaveBeenCalledWith("test-queue", {
       durable: true,
       exclusive: false,
       autoDelete: undefined,
@@ -214,8 +256,11 @@ describe("connect", () => {
       urls: ["amqp://localhost"],
     }).resultToPromise();
 
+    // Wait for async setup
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
     // THEN
-    expect(mockChannel.bindQueue).toHaveBeenCalledWith(
+    expect(mockSetupChannel.bindQueue).toHaveBeenCalledWith(
       "test-queue",
       "test-exchange",
       "test.#",
@@ -248,8 +293,11 @@ describe("connect", () => {
       urls: ["amqp://localhost"],
     }).resultToPromise();
 
+    // Wait for async setup
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
     // THEN
-    expect(mockChannel.bindExchange).toHaveBeenCalledWith(
+    expect(mockSetupChannel.bindExchange).toHaveBeenCalledWith(
       "destination-exchange",
       "source-exchange",
       "test.*",
@@ -486,11 +534,11 @@ describe("close", () => {
     }).resultToPromise();
 
     // WHEN
-    await worker.close();
+    const result = await worker.close();
 
     // THEN
-    expect(mockChannel.cancel).toHaveBeenCalled();
-    expect(mockChannel.close).toHaveBeenCalled();
+    expect(result.isOk()).toBe(true);
+    expect(mockConnection.close).toHaveBeenCalled();
   });
 });
 
