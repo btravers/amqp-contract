@@ -1,5 +1,5 @@
 import { connect } from "amqplib";
-import type { Channel, ChannelModel, ConsumeMessage, Options } from "amqplib";
+import type { Channel, ChannelModel, Options } from "amqplib";
 import type { ContractDefinition, InferConsumerNames } from "@amqp-contract/contract";
 import { setupInfra } from "@amqp-contract/core";
 import { Future, Result } from "@swan-io/boxed";
@@ -38,7 +38,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   ): Future<Result<TypedAmqpWorker<TContract>, TechnicalError>> {
     const worker = new TypedAmqpWorker(options.contract, options.handlers, options.connection);
 
-    return Future.concurrent([worker.init(), worker.consumeAll()], { concurrency: 1 })
+    return Future.concurrent([worker.init, worker.consumeAll], { concurrency: 1 })
       .map((results) => Result.all([...results]))
       .mapOk(() => worker);
   }
@@ -89,9 +89,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    */
   private consumeAll(): Future<Result<void, TechnicalError>> {
     if (!this.contract.consumers) {
-      return Future.value(
-        Result.Error(new TechnicalError("No consumers defined in contract")),
-      );
+      return Future.value(Result.Error(new TechnicalError("No consumers defined in contract")));
     }
 
     const consumerNames = Object.keys(this.contract.consumers) as InferConsumerNames<TContract>[];
@@ -147,7 +145,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     return Future.fromPromise(
       channel.consume(
         consumer.queue.name,
-        (msg: ConsumeMessage | null) => {
+        (msg) => {
           if (!msg) {
             return;
           }
