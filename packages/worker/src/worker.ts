@@ -1,8 +1,8 @@
 import { connect } from "amqplib";
-import type { Channel, ChannelModel, ConsumeMessage, Options } from "amqplib";
+import type { Channel, ChannelModel, Options } from "amqplib";
 import type { ContractDefinition, InferConsumerNames } from "@amqp-contract/contract";
 import { setupInfra } from "@amqp-contract/core";
-import { Result } from "@swan-io/boxed";
+import { Future, Result } from "@swan-io/boxed";
 import { MessageValidationError, TechnicalError } from "./errors.js";
 import type { WorkerInferConsumerHandlers, WorkerInferConsumerInput } from "./types.js";
 
@@ -33,13 +33,14 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * Create a type-safe AMQP worker from a contract
    * The worker will automatically connect and start consuming all messages
    */
-  static async create<TContract extends ContractDefinition>(
+  static create<TContract extends ContractDefinition>(
     options: CreateWorkerOptions<TContract>,
-  ): Promise<TypedAmqpWorker<TContract>> {
+  ): Future<Result<TypedAmqpWorker<TContract>, TechnicalError>> {
     const worker = new TypedAmqpWorker(options.contract, options.handlers, options.connection);
-    await worker.init();
-    await worker.consumeAll();
-    return worker;
+
+    return Future.concurrent([() => worker.init(), () => worker.consumeAll()], { concurrency: 1 })
+      .map((results) => Result.all([...results]))
+      .mapOk(() => worker);
   }
 
   /**
@@ -62,168 +63,193 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   /**
    * Connect to AMQP broker
    */
-  private async init(): Promise<void> {
-    this.connection = await connect(this.connectionOptions);
-    this.channel = await this.connection.createChannel();
-
-    // Setup exchanges, queues, and bindings
-    await setupInfra(this.channel, this.contract);
+  private init(): Future<Result<void, TechnicalError>> {
+    return Future.fromPromise(connect(this.connectionOptions))
+      .mapError((error) => new TechnicalError("Failed to connect to AMQP broker", error))
+      .tapOk((connection) => {
+        this.connection = connection;
+      })
+      .flatMapOk(() =>
+        Future.fromPromise(this.connection!.createChannel())
+          .mapError((error) => new TechnicalError("Failed to create AMQP channel", error))
+          .tapOk((channel) => {
+            this.channel = channel;
+          }),
+      )
+      .flatMapOk(() =>
+        Future.fromPromise(setupInfra(this.channel!, this.contract)).mapError(
+          (error) => new TechnicalError("Failed to setup AMQP infrastructure", error),
+        ),
+      )
+      .mapOk(() => undefined);
   }
 
   /**
    * Start consuming messages for all consumers
    */
-  private async consumeAll(): Promise<void> {
+  private consumeAll(): Future<Result<void, TechnicalError>> {
     if (!this.contract.consumers) {
-      throw new Error("No consumers defined in contract");
+      return Future.value(Result.Error(new TechnicalError("No consumers defined in contract")));
     }
 
     const consumerNames = Object.keys(this.contract.consumers) as InferConsumerNames<TContract>[];
 
-    for (const consumerName of consumerNames) {
-      await this.consume(consumerName);
-    }
+    return Future.all(consumerNames.map((consumerName) => this.consume(consumerName)))
+      .map(Result.all)
+      .mapOk(() => undefined);
   }
 
   /**
    * Start consuming messages for a specific consumer
    */
-  private async consume<TName extends InferConsumerNames<TContract>>(
+  private consume<TName extends InferConsumerNames<TContract>>(
     consumerName: TName,
-  ): Promise<void> {
-    if (!this.channel) {
-      throw new Error(
-        "Worker not initialized. Use TypedAmqpWorker.create() to obtain an initialized worker instance.",
+  ): Future<Result<void, TechnicalError>> {
+    const channel = this.channel;
+    if (!channel) {
+      return Future.value(
+        Result.Error(
+          new TechnicalError(
+            "Worker not initialized. Use TypedAmqpWorker.create() to obtain an initialized worker instance.",
+          ),
+        ),
       );
     }
 
-    const consumers = this.contract.consumers as Record<string, unknown>;
+    const consumers = this.contract.consumers;
     if (!consumers) {
-      throw new Error("No consumers defined in contract");
+      return Future.value(Result.Error(new TechnicalError("No consumers defined in contract")));
     }
 
     const consumer = consumers[consumerName as string];
-    if (!consumer || typeof consumer !== "object") {
+    if (!consumer) {
       const availableConsumers = Object.keys(consumers);
       const available = availableConsumers.length > 0 ? availableConsumers.join(", ") : "none";
-      throw new Error(
-        `Consumer not found: "${String(consumerName)}". Available consumers: ${available}`,
+      return Future.value(
+        Result.Error(
+          new TechnicalError(
+            `Consumer not found: "${String(consumerName)}". Available consumers: ${available}`,
+          ),
+        ),
       );
     }
 
-    const consumerDef = consumer as {
-      queue: { name: string };
-      message: { payload: { "~standard": { validate: (value: unknown) => unknown } } };
-      prefetch?: number;
-      noAck?: boolean;
-    };
-
     const handler = this.handlers[consumerName];
     if (!handler) {
-      throw new Error(`Handler for "${String(consumerName)}" not provided`);
-    }
-
-    // Set prefetch if specified
-    if (consumerDef.prefetch !== undefined) {
-      await this.channel.prefetch(consumerDef.prefetch);
+      return Future.value(
+        Result.Error(new TechnicalError(`Handler for "${String(consumerName)}" not provided`)),
+      );
     }
 
     // Start consuming
-    const result = await this.channel.consume(
-      consumerDef.queue.name,
-      async (msg: ConsumeMessage | null) => {
-        if (!msg) {
-          return;
-        }
-
-        // Parse message
-        const parseResult = Result.fromExecution(() => JSON.parse(msg.content.toString()));
-
-        if (parseResult.isError()) {
-          console.error(
-            new TechnicalError(
-              `Error parsing message for consumer "${String(consumerName)}"`,
-              parseResult.error,
-            ),
-          );
-          // Reject message with no requeue (malformed JSON)
-          this.channel?.nack(msg, false, false);
-          return;
-        }
-
-        const content = parseResult.value;
-
-        // Validate message using schema (supports sync and async validators)
-        const rawValidation = consumerDef.message.payload["~standard"].validate(content);
-        const resolvedValidation =
-          rawValidation instanceof Promise ? await rawValidation : rawValidation;
-        const validationResult: Result<unknown, MessageValidationError> =
-          typeof resolvedValidation === "object" &&
-          resolvedValidation !== null &&
-          "issues" in resolvedValidation &&
-          resolvedValidation.issues
-            ? Result.Error(
-                new MessageValidationError(String(consumerName), resolvedValidation.issues),
-              )
-            : Result.Ok(
-                typeof resolvedValidation === "object" &&
-                  resolvedValidation !== null &&
-                  "value" in resolvedValidation
-                  ? resolvedValidation.value
-                  : content,
-              );
-
-        if (validationResult.isError()) {
-          console.error(validationResult.error);
-          // Reject message with no requeue (validation failed)
-          this.channel?.nack(msg, false, false);
-          return;
-        }
-
-        const validatedMessage = validationResult.value as WorkerInferConsumerInput<
-          TContract,
-          TName
-        >;
-
-        // Call handler and wait for Promise to resolve
-        try {
-          await handler(validatedMessage);
-
-          // Acknowledge message if not in noAck mode
-          if (!consumerDef.noAck) {
-            this.channel?.ack(msg);
+    return Future.fromPromise(
+      channel.consume(
+        consumer.queue.name,
+        async (msg) => {
+          if (!msg) {
+            return;
           }
-        } catch (error) {
-          console.error(
-            new TechnicalError(
-              `Error processing message for consumer "${String(consumerName)}"`,
-              error,
-            ),
-          );
-          // Reject message and requeue (handler failed)
-          this.channel?.nack(msg, false, true);
-        }
-      },
-      {
-        noAck: consumerDef.noAck ?? false,
-      },
-    );
 
-    this.consumerTags.push(result.consumerTag);
+          // Parse message
+          const parseResult = Result.fromExecution(() => JSON.parse(msg.content.toString()));
+          if (parseResult.isError()) {
+            // fixme: define a proper logging mechanism
+            // fixme: do not log just an error, use a proper logging mechanism
+            console.error(
+              new TechnicalError(
+                `Error parsing message for consumer "${String(consumerName)}"`,
+                parseResult.error,
+              ),
+            );
+
+            // fixme proper error handling strategy
+            // Reject message with no requeue (malformed JSON)
+            channel.nack(msg, false, false);
+            return;
+          }
+
+          const rawValidation = consumer.message.payload["~standard"].validate(parseResult.value);
+          await Future.fromPromise(
+            rawValidation instanceof Promise ? rawValidation : Promise.resolve(rawValidation),
+          )
+            .mapOkToResult((validationResult) => {
+              if (validationResult.issues) {
+                return Result.Error(
+                  new MessageValidationError(String(consumerName), validationResult.issues),
+                );
+              }
+
+              return Result.Ok(
+                validationResult.value as WorkerInferConsumerInput<TContract, TName>,
+              );
+            })
+            .tapError((error) => {
+              // fixme: define a proper logging mechanism
+              // fixme: do not log just an error, use a proper logging mechanism
+              console.error(error);
+
+              // fixme proper error handling strategy
+              // Reject message with no requeue (validation failed)
+              channel.nack(msg, false, false);
+            })
+            .flatMapOk((validatedMessage) =>
+              Future.fromPromise(handler(validatedMessage)).tapError((error) => {
+                // fixme: define a proper logging mechanism
+                // fixme: do not log just an error, use a proper logging mechanism
+                console.error(
+                  new TechnicalError(
+                    `Error processing message for consumer "${String(consumerName)}"`,
+                    error,
+                  ),
+                );
+
+                // fixme proper error handling strategy
+                // Reject message and requeue (handler failed)
+                channel.nack(msg, false, true);
+              }),
+            )
+            .tapOk(() => {
+              if (!consumer.noAck) {
+                channel.ack(msg);
+              }
+            })
+            .toPromise();
+        },
+        {
+          noAck: consumer.noAck ?? false,
+        },
+      ),
+    )
+      .mapError(
+        (error) =>
+          new TechnicalError(`Failed to start consuming for "${String(consumerName)}"`, error),
+      )
+      .tapOk((result) => {
+        this.consumerTags.push(result.consumerTag);
+      })
+      .mapOk(() => undefined);
   }
 
   /**
    * Stop consuming messages
    */
-  private async stopConsuming(): Promise<void> {
-    if (!this.channel) {
-      return;
+  private stopConsuming(): Future<Result<void, TechnicalError>> {
+    const channel = this.channel;
+    if (!channel) {
+      return Future.value(Result.Ok(undefined));
     }
 
-    for (const tag of this.consumerTags) {
-      await this.channel.cancel(tag);
-    }
-
-    this.consumerTags = [];
+    return Future.all(
+      this.consumerTags.map((tag) =>
+        Future.fromPromise(channel.cancel(tag)).mapError(
+          (error) => new TechnicalError(`Failed to cancel consumer "${tag}"`, error),
+        ),
+      ),
+    )
+      .map((results) => Result.all(results))
+      .tapOk(() => {
+        this.consumerTags = [];
+      })
+      .mapOk(() => undefined);
   }
 }

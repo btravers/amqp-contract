@@ -8,6 +8,7 @@ import {
 import { z } from "zod";
 import { TypedAmqpWorker } from "@amqp-contract/worker";
 import { AmqpWorkerService } from "./worker.service.js";
+import { Future, Result } from "@swan-io/boxed";
 
 describe("AmqpWorkerService", () => {
   const mockWorker = {
@@ -16,8 +17,8 @@ describe("AmqpWorkerService", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.spyOn(TypedAmqpWorker, "create").mockResolvedValue(
-      mockWorker as unknown as TypedAmqpWorker<never>,
+    vi.spyOn(TypedAmqpWorker, "create").mockReturnValue(
+      Future.value(Result.Ok(mockWorker as unknown as TypedAmqpWorker<never>)),
     );
   });
 

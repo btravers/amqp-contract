@@ -79,8 +79,9 @@ export function defineHandler<
   handler: WorkerInferConsumerHandler<TContract, TName>,
 ): WorkerInferConsumerHandler<TContract, TName> {
   // Validate that the consumer exists in the contract
-  const consumers = contract.consumers as Record<string, unknown> | undefined;
-  if (!consumers || !((consumerName as string) in consumers)) {
+  const consumers = contract.consumers;
+
+  if (!consumers || !(consumerName in consumers)) {
     const availableConsumers = consumers ? Object.keys(consumers) : [];
     const available = availableConsumers.length > 0 ? availableConsumers.join(", ") : "none";
     throw new Error(
@@ -153,7 +154,7 @@ export function defineHandlers<TContract extends ContractDefinition>(
   handlers: WorkerInferConsumerHandlers<TContract>,
 ): WorkerInferConsumerHandlers<TContract> {
   // Validate that all consumers in handlers exist in the contract
-  const consumers = contract.consumers as Record<string, unknown> | undefined;
+  const consumers = contract.consumers;
   const availableConsumers = consumers ? Object.keys(consumers) : [];
 
   for (const handlerName of Object.keys(handlers)) {

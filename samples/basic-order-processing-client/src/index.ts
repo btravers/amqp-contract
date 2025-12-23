@@ -25,7 +25,7 @@ async function main() {
   const clientResult = await TypedAmqpClient.create({
     contract: orderContract,
     connection: env.AMQP_URL,
-  }).toPromise();
+  });
 
   if (clientResult.isError()) {
     logger.error({ error: clientResult.error }, "Failed to create client");
@@ -46,7 +46,7 @@ async function main() {
     publisherName: T,
     message: Parameters<typeof client.publish<T>>[1],
   ): Promise<boolean> => {
-    const result = await client.publish(publisherName, message).toPromise();
+    const result = await client.publish(publisherName, message);
     if (result.isError()) {
       logger.error({ error: result.error }, `Failed to publish: ${publisherName}`);
       // In a demo, we throw to stop execution. In production, consider
@@ -131,7 +131,7 @@ async function main() {
   await new Promise((resolve) => setTimeout(resolve, 2000));
 
   // Clean up
-  await client.close().toPromise();
+  await client.close();
   logger.info("Publisher stopped");
   process.exit(0);
 }

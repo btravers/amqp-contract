@@ -40,25 +40,23 @@ describe("AmqpClient Integration", () => {
       const clientResult = await TypedAmqpClient.create({
         contract,
         connection: amqpConnectionUrl,
-      }).toPromise();
+      });
       if (clientResult.isError()) {
         throw clientResult.getError();
       }
       const client = clientResult.value;
 
       // WHEN
-      const result = await client
-        .publish("testPublisher", {
-          id: "123",
-          message: "Hello, RabbitMQ!",
-        })
-        .toPromise();
+      const result = await client.publish("testPublisher", {
+        id: "123",
+        message: "Hello, RabbitMQ!",
+      });
 
       // THEN
       expect(result).toEqual(Result.Ok(true));
 
       // CLEANUP
-      await client.close().toPromise();
+      await client.close();
     });
 
     it("should validate messages before publishing", async ({ amqpConnectionUrl }) => {
@@ -84,19 +82,17 @@ describe("AmqpClient Integration", () => {
       const clientResult = await TypedAmqpClient.create({
         contract,
         connection: amqpConnectionUrl,
-      }).toPromise();
+      });
       if (clientResult.isError()) {
         throw clientResult.getError();
       }
       const client = clientResult.value;
 
       // WHEN
-      const result = await client
-        .publish("testPublisher", {
-          id: "123",
-          count: -5, // Invalid: count must be positive
-        })
-        .toPromise();
+      const result = await client.publish("testPublisher", {
+        id: "123",
+        count: -5, // Invalid: count must be positive
+      });
 
       // THEN
       expect(result).toMatchObject({
@@ -105,7 +101,7 @@ describe("AmqpClient Integration", () => {
       });
 
       // CLEANUP
-      await client.close().toPromise();
+      await client.close();
     });
 
     it("should publish with options", async ({ amqpConnectionUrl }) => {
@@ -130,22 +126,24 @@ describe("AmqpClient Integration", () => {
       const clientResult = await TypedAmqpClient.create({
         contract,
         connection: amqpConnectionUrl,
-      }).toPromise();
+      });
       if (clientResult.isError()) {
         throw clientResult.getError();
       }
       const client = clientResult.value;
 
       // WHEN
-      const result = await client
-        .publish("testPublisher", { content: "test message" }, { persistent: true })
-        .toPromise();
+      const result = await client.publish(
+        "testPublisher",
+        { content: "test message" },
+        { persistent: true },
+      );
 
       // THEN
       expect(result).toEqual(Result.Ok(true));
 
       // CLEANUP
-      await client.close().toPromise();
+      await client.close();
     });
   });
 
@@ -180,7 +178,7 @@ describe("AmqpClient Integration", () => {
       const clientResult = await TypedAmqpClient.create({
         contract,
         connection: amqpConnectionUrl,
-      }).toPromise();
+      });
       if (clientResult.isError()) {
         throw clientResult.getError();
       }
@@ -190,7 +188,7 @@ describe("AmqpClient Integration", () => {
       expect(client).toBeDefined();
 
       // CLEANUP
-      await client.close().toPromise();
+      await client.close();
     });
   });
 });

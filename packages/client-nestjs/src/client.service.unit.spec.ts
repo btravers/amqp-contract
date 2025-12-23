@@ -107,7 +107,7 @@ describe("AmqpClientService", () => {
       await service.onModuleInit();
 
       const future = service.publish("testPublisher", { message: "Hello" });
-      const result = await future.toPromise();
+      const result = await future;
 
       expect(result).toEqual(Result.Ok(true));
       expect(mockClient.publish).toHaveBeenCalled();
@@ -134,7 +134,7 @@ describe("AmqpClientService", () => {
       });
 
       const future = service.publish("testPublisher", { message: "Hello" });
-      const result = await future.toPromise();
+      const result = await future;
 
       expect(result).toMatchObject({
         tag: "Error",
