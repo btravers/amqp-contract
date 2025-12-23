@@ -1,5 +1,6 @@
 export {
   defineQueueBinding,
+  defineBinding,
   defineExchangeBinding,
   defineConsumer,
   defineContract,
@@ -23,4 +24,8 @@ export type {
   MessageDefinition,
   PublisherDefinition,
   QueueDefinition,
+  InferPublisherNames,
+  InferConsumerNames,
+  ClientInferPublisherInput,
+  WorkerInferConsumerInput,
 } from "./types.js";
