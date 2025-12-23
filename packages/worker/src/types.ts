@@ -45,7 +45,7 @@ export type WorkerInferConsumerInput<
 export type WorkerInferConsumerHandler<
   TContract extends ContractDefinition,
   TName extends InferConsumerNames<TContract>,
-> = (message: WorkerInferConsumerInput<TContract, TName>) => Promise<void> | void;
+> = (message: WorkerInferConsumerInput<TContract, TName>) => Promise<void>;
 
 /**
  * Infer all consumer handlers for a contract

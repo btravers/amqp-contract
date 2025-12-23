@@ -10,7 +10,7 @@ describe("Basic Order Processing Client Integration", () => {
     const clientResult = await TypedAmqpClient.create({
       contract: orderContract,
       connection: amqpConnectionUrl,
-    }).toPromise();
+    });
     if (clientResult.isError()) {
       throw clientResult.getError();
     }
@@ -28,13 +28,13 @@ describe("Basic Order Processing Client Integration", () => {
     };
 
     // WHEN
-    const result = await client.publish("orderCreated", newOrder).toPromise();
+    const result = await client.publish("orderCreated", newOrder);
 
     // THEN
     expect(result).toEqual(Result.Ok(true));
 
     // CLEANUP
-    await client.close().toPromise();
+    await client.close();
   });
 
   it("should publish order status updates", async ({ amqpConnectionUrl }) => {
@@ -42,7 +42,7 @@ describe("Basic Order Processing Client Integration", () => {
     const clientResult = await TypedAmqpClient.create({
       contract: orderContract,
       connection: amqpConnectionUrl,
-    }).toPromise();
+    });
     if (clientResult.isError()) {
       throw clientResult.getError();
     }
@@ -55,13 +55,13 @@ describe("Basic Order Processing Client Integration", () => {
     };
 
     // WHEN
-    const result = await client.publish("orderUpdated", orderUpdate).toPromise();
+    const result = await client.publish("orderUpdated", orderUpdate);
 
     // THEN
     expect(result).toEqual(Result.Ok(true));
 
     // CLEANUP
-    await client.close().toPromise();
+    await client.close();
   });
 
   it("should validate order schema before publishing", async ({ amqpConnectionUrl }) => {
@@ -69,7 +69,7 @@ describe("Basic Order Processing Client Integration", () => {
     const clientResult = await TypedAmqpClient.create({
       contract: orderContract,
       connection: amqpConnectionUrl,
-    }).toPromise();
+    });
     if (clientResult.isError()) {
       throw clientResult.getError();
     }
@@ -86,12 +86,12 @@ describe("Basic Order Processing Client Integration", () => {
     };
 
     // WHEN
-    const result = await client.publish("orderCreated", invalidOrder).toPromise();
+    const result = await client.publish("orderCreated", invalidOrder);
 
     // THEN
     expect(result.isError()).toBe(true);
 
     // CLEANUP
-    await client.close().toPromise();
+    await client.close();
   });
 });
