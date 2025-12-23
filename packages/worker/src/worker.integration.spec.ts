@@ -55,13 +55,13 @@ describe("AmqpWorker Integration", () => {
           return Promise.resolve();
         },
       },
-      connection: amqpConnectionUrl,
+      urls: [amqpConnectionUrl],
     }).resultToPromise();
 
     // WHEN - Publish a message using the client
     const clientResult = await TypedAmqpClient.create({
       contract,
-      connection: amqpConnectionUrl,
+      urls: [amqpConnectionUrl],
     });
     if (clientResult.isError()) {
       throw clientResult.getError();
@@ -128,13 +128,13 @@ describe("AmqpWorker Integration", () => {
           return Promise.resolve();
         },
       },
-      connection: amqpConnectionUrl,
+      urls: [amqpConnectionUrl],
     }).resultToPromise();
 
     // WHEN - Publish multiple messages
     const clientResult = await TypedAmqpClient.create({
       contract,
-      connection: amqpConnectionUrl,
+      urls: [amqpConnectionUrl],
     });
     if (clientResult.isError()) {
       throw clientResult.getError();
@@ -215,13 +215,13 @@ describe("AmqpWorker Integration", () => {
           return Promise.resolve();
         },
       },
-      connection: amqpConnectionUrl,
+      urls: [amqpConnectionUrl],
     }).resultToPromise();
 
     // WHEN - Publish messages to both queues
     const clientResult = await TypedAmqpClient.create({
       contract,
-      connection: amqpConnectionUrl,
+      urls: [amqpConnectionUrl],
     });
     if (clientResult.isError()) {
       throw clientResult.getError();

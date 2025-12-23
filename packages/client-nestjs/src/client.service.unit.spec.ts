@@ -19,7 +19,7 @@ describe("AmqpClientService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(TypedAmqpClient, "create").mockReturnValue(
-      Future.value(Result.Ok(mockClient as unknown as TypedAmqpClient<never>)),
+      mockClient as unknown as TypedAmqpClient<never>
     );
     (mockClient.publish as ReturnType<typeof vi.fn>).mockReturnValue(Future.value(Result.Ok(true)));
     (mockClient.close as ReturnType<typeof vi.fn>).mockReturnValue(
@@ -45,14 +45,14 @@ describe("AmqpClientService", () => {
 
       const service = new AmqpClientService({
         contract,
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       });
 
       await service.onModuleInit();
 
       expect(TypedAmqpClient.create).toHaveBeenCalledWith({
         contract,
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       });
     });
 
@@ -73,7 +73,7 @@ describe("AmqpClientService", () => {
 
       const service = new AmqpClientService({
         contract,
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       });
 
       await service.onModuleInit();
@@ -101,7 +101,7 @@ describe("AmqpClientService", () => {
 
       const service = new AmqpClientService({
         contract,
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       });
 
       await service.onModuleInit();
@@ -130,7 +130,7 @@ describe("AmqpClientService", () => {
 
       const service = new AmqpClientService({
         contract,
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       });
 
       const future = service.publish("testPublisher", { message: "Hello" });

@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TypedAmqpClient } from "./client";
-import type { Channel, ChannelModel } from "amqplib";
-import { connect } from "amqplib";
+import type { Channel } from "amqplib";
 import {
   defineContract,
   defineMessage,
@@ -14,32 +13,38 @@ import {
 import { Result } from "@swan-io/boxed";
 import { z } from "zod";
 
-// Mock amqplib connect function
-vi.mock("amqplib", () => ({
-  connect: vi.fn(),
+// Mock amqp-connection-manager
+vi.mock("amqp-connection-manager", () => ({
+  default: {
+    connect: vi.fn(),
+  },
 }));
 
-// Mock types for testing
-const mockChannel = {
-  assertExchange: vi.fn().mockResolvedValue(undefined),
-  assertQueue: vi.fn().mockResolvedValue(undefined),
-  bindQueue: vi.fn().mockResolvedValue(undefined),
-  bindExchange: vi.fn().mockResolvedValue(undefined),
-  publish: vi.fn().mockReturnValue(true),
-  close: vi.fn().mockResolvedValue(undefined),
-  prefetch: vi.fn().mockResolvedValue(undefined),
-} as unknown as Channel;
+// Mock @amqp-contract/core
+vi.mock("@amqp-contract/core", () => {
+  const mockChannel = {
+    assertExchange: vi.fn().mockResolvedValue(undefined),
+    assertQueue: vi.fn().mockResolvedValue(undefined),
+    bindQueue: vi.fn().mockResolvedValue(undefined),
+    bindExchange: vi.fn().mockResolvedValue(undefined),
+    publish: vi.fn().mockResolvedValue(true),
+    close: vi.fn().mockResolvedValue(undefined),
+    prefetch: vi.fn().mockResolvedValue(undefined),
+    ack: vi.fn(),
+    nack: vi.fn(),
+  };
 
-const mockConnection = {
-  createChannel: vi.fn().mockResolvedValue(mockChannel),
-  close: vi.fn().mockResolvedValue(undefined),
-} as unknown as ChannelModel;
+  return {
+    AmqpClient: vi.fn().mockImplementation(() => ({
+      channel: mockChannel,
+      close: vi.fn().mockResolvedValue(undefined),
+    })),
+  };
+});
 
-describe("AmqpClient", () => {
+describe("TypedAmqpClient", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Setup default mock implementation
-    vi.mocked(connect).mockResolvedValue(mockConnection);
   });
 
   describe("Type Inference", () => {
@@ -60,14 +65,14 @@ describe("AmqpClient", () => {
       });
 
       // WHEN
-      const clientResult = await TypedAmqpClient.create({
+      const client = TypedAmqpClient.create({
         contract,
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       });
       if (clientResult.isError()) {
         throw clientResult.getError();
       }
-      const client = clientResult.value;
+      
 
       // THEN
       // Type inference test - this should compile without errors
@@ -98,14 +103,14 @@ describe("AmqpClient", () => {
         },
       });
 
-      const clientResult = await TypedAmqpClient.create({
+      const client = TypedAmqpClient.create({
         contract,
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       });
       if (clientResult.isError()) {
         throw clientResult.getError();
       }
-      const client = clientResult.value;
+      
 
       // WHEN
       // Type inference test - message type should be inferred correctly
@@ -139,9 +144,9 @@ describe("AmqpClient", () => {
       });
 
       // WHEN
-      const clientResult = await TypedAmqpClient.create({
+      const client = TypedAmqpClient.create({
         contract,
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       });
       if (clientResult.isError()) {
         throw clientResult.getError();
@@ -170,9 +175,9 @@ describe("AmqpClient", () => {
       });
 
       // WHEN
-      const clientResult = await TypedAmqpClient.create({
+      const client = TypedAmqpClient.create({
         contract,
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       });
       if (clientResult.isError()) {
         throw clientResult.getError();
@@ -207,9 +212,9 @@ describe("AmqpClient", () => {
       });
 
       // WHEN
-      const clientResult = await TypedAmqpClient.create({
+      const client = TypedAmqpClient.create({
         contract,
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       });
       if (clientResult.isError()) {
         throw clientResult.getError();
@@ -242,9 +247,9 @@ describe("AmqpClient", () => {
       });
 
       // WHEN
-      const clientResult = await TypedAmqpClient.create({
+      const client = TypedAmqpClient.create({
         contract,
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       });
       if (clientResult.isError()) {
         throw clientResult.getError();
@@ -277,14 +282,14 @@ describe("AmqpClient", () => {
         },
       });
 
-      const clientResult = await TypedAmqpClient.create({
+      const client = TypedAmqpClient.create({
         contract,
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       });
       if (clientResult.isError()) {
         throw clientResult.getError();
       }
-      const client = clientResult.value;
+      
 
       // WHEN
       const result = await client.publish("testPublisher", { id: "123" });
@@ -315,14 +320,14 @@ describe("AmqpClient", () => {
         },
       });
 
-      const clientResult = await TypedAmqpClient.create({
+      const client = TypedAmqpClient.create({
         contract,
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       });
       if (clientResult.isError()) {
         throw clientResult.getError();
       }
-      const client = clientResult.value;
+      
 
       // WHEN
       const result = await client.publish("testPublisher", { id: "123" }, { persistent: true });
@@ -353,14 +358,14 @@ describe("AmqpClient", () => {
         },
       });
 
-      const clientResult = await TypedAmqpClient.create({
+      const client = TypedAmqpClient.create({
         contract,
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       });
       if (clientResult.isError()) {
         throw clientResult.getError();
       }
-      const client = clientResult.value;
+      
 
       // WHEN
       // @ts-expect-error - testing runtime validation with invalid data
@@ -386,14 +391,14 @@ describe("AmqpClient", () => {
         },
       });
 
-      const clientResult = await TypedAmqpClient.create({
+      const client = TypedAmqpClient.create({
         contract,
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       });
       if (clientResult.isError()) {
         throw clientResult.getError();
       }
-      const client = clientResult.value;
+      
 
       // WHEN
       const result = await client.close();
@@ -415,14 +420,14 @@ describe("AmqpClient", () => {
         },
       });
 
-      const clientResult = await TypedAmqpClient.create({
+      const client = TypedAmqpClient.create({
         contract,
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       });
       if (clientResult.isError()) {
         throw clientResult.getError();
       }
-      const client = clientResult.value;
+      
 
       // WHEN
       const result = await client.close();
@@ -445,14 +450,14 @@ describe("AmqpClient", () => {
       });
 
       // WHEN
-      const clientResult = await TypedAmqpClient.create({
+      const client = TypedAmqpClient.create({
         contract,
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       });
       if (clientResult.isError()) {
         throw clientResult.getError();
       }
-      const client = clientResult.value;
+      
 
       // THEN
       expect(client).toBeInstanceOf(TypedAmqpClient);
