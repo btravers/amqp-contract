@@ -39,9 +39,13 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     urls,
     connectionOptions,
   }: CreateWorkerOptions<TContract>): Future<Result<TypedAmqpWorker<TContract>, TechnicalError>> {
+    const options: { urls: ConnectionUrl[]; connectionOptions?: AmqpConnectionManagerOptions } = { urls };
+    if (connectionOptions !== undefined) {
+      options.connectionOptions = connectionOptions;
+    }
     const worker = new TypedAmqpWorker(
       contract,
-      new AmqpClient(contract, { urls, connectionOptions }),
+      new AmqpClient(contract, options),
       handlers,
     );
     return worker.consumeAll().mapOk(() => worker);

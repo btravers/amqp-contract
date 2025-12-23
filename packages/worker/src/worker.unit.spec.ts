@@ -33,10 +33,11 @@ const mockChannel = {
 
 // Mock @amqp-contract/core
 vi.mock("@amqp-contract/core", () => ({
-  AmqpClient: vi.fn().mockImplementation(() => ({
-    channel: mockChannel,
-    close: vi.fn().mockResolvedValue(undefined),
-  })),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  AmqpClient: vi.fn(function(this: any) {
+    this.channel = mockChannel;
+    this.close = vi.fn().mockResolvedValue(undefined);
+  }),
 }));
 
 describe("TypedAmqpWorker", () => {
