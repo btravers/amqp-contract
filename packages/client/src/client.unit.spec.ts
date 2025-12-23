@@ -29,13 +29,17 @@ vi.mock("amqp-connection-manager", () => {
   };
 
   const mockConnection = {
-    createChannel: vi.fn().mockImplementation((options?: { json?: boolean; setup?: (channel: unknown) => Promise<void> }) => {
-      if (options?.setup) {
-        // Execute setup function asynchronously
-        Promise.resolve().then(() => options.setup?.(mockSetupChannel));
-      }
-      return mockChannel;
-    }),
+    createChannel: vi
+      .fn()
+      .mockImplementation(
+        (options?: { json?: boolean; setup?: (channel: unknown) => Promise<void> }) => {
+          if (options?.setup) {
+            // Execute setup function asynchronously
+            Promise.resolve().then(() => options.setup?.(mockSetupChannel));
+          }
+          return mockChannel;
+        },
+      ),
     close: vi.fn().mockResolvedValue(undefined),
   };
 
