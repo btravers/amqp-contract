@@ -38,7 +38,7 @@ describe("Basic Order Processing Worker Integration", () => {
     };
 
     // WHEN
-    const result = client.publish("orderCreated", newOrder);
+    const result = await client.publish("orderCreated", newOrder).toPromise();
     expect(result.isOk()).toBe(true);
 
     // THEN
@@ -48,7 +48,7 @@ describe("Basic Order Processing Worker Integration", () => {
 
     // CLEANUP
     await worker.close();
-    await client.close();
+    await client.close().toPromise();
   });
 
   it("should receive notifications for all order events", async ({ amqpConnectionUrl }) => {
@@ -89,8 +89,8 @@ describe("Basic Order Processing Worker Integration", () => {
       updatedAt: new Date().toISOString(),
     };
 
-    const result1 = client.publish("orderCreated", newOrder);
-    const result2 = client.publish("orderUpdated", orderUpdate);
+    const result1 = await client.publish("orderCreated", newOrder).toPromise();
+    const result2 = await client.publish("orderUpdated", orderUpdate).toPromise();
     expect(result1.isOk()).toBe(true);
     expect(result2.isOk()).toBe(true);
 
@@ -100,7 +100,7 @@ describe("Basic Order Processing Worker Integration", () => {
 
     // CLEANUP
     await worker.close();
-    await client.close();
+    await client.close().toPromise();
   });
 
   it("should start all consumers with consumeAll", async ({ amqpConnectionUrl }) => {
@@ -139,7 +139,7 @@ describe("Basic Order Processing Worker Integration", () => {
     };
 
     // WHEN
-    const result = client.publish("orderCreated", newOrder);
+    const result = await client.publish("orderCreated", newOrder).toPromise();
     expect(result.isOk()).toBe(true);
 
     // THEN
@@ -149,6 +149,6 @@ describe("Basic Order Processing Worker Integration", () => {
 
     // CLEANUP
     await worker.close();
-    await client.close();
+    await client.close().toPromise();
   });
 });

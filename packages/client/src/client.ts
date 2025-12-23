@@ -35,7 +35,10 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     connection,
   }: CreateClientOptions<TContract>): Promise<TypedAmqpClient<TContract>> {
     const client = new TypedAmqpClient(contract, connection);
-    await client.init();
+    const initResult = await client.init().toPromise();
+    if (Result.isError(initResult)) {
+      throw initResult.error;
+    }
     return client;
   }
 
@@ -74,9 +77,7 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     }
 
     const validateMessage = () =>
-      Future.fromPromise(
-        (async () => await publisher.message.payload["~standard"].validate(message))(),
-      )
+      Future.fromPromise(publisher.message.payload["~standard"].validate(message))
         .mapError((error) => new TechnicalError(`Validation failed`, error))
         .mapOkToResult((validation) => {
           if (validation.issues) {
@@ -129,34 +130,34 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
 
     return Future.concurrent([closeChannel, closeConnection], { concurrency: 1 })
       .map((results) => Result.all([...results]))
-      .mapOk(() => undefined);
+      .mapOk(() => {
+        this.channel = null;
+        this.connection = null;
+        return undefined;
+      });
   }
 
   /**
    * Connect to AMQP broker
    */
   private init(): Future<Result<void, TechnicalError>> {
-    const createConnectionFn = () =>
-      Future.fromPromise(connect(this.connectionOptions))
-        .mapError((error) => new TechnicalError("Failed to connect to AMQP broker", error))
-        .tapOk((connection) => {
-          this.connection = connection;
-        });
-
-    const createChannelFn = () =>
-      Future.fromPromise(this.connection!.createChannel()).mapError(
-        (error) => new TechnicalError("Failed to create AMQP channel", error),
-      );
-
-    const setupInfraFn = () =>
-      Future.fromPromise(setupInfra(this.channel!, this.contract)).mapError(
-        (error) => new TechnicalError("Failed to setup AMQP infrastructure", error),
-      );
-
-    return Future.concurrent([createConnectionFn, createChannelFn, setupInfraFn], {
-      concurrency: 1,
-    })
-      .map((results) => Result.all([...results]))
+    return Future.fromPromise(connect(this.connectionOptions))
+      .mapError((error) => new TechnicalError("Failed to connect to AMQP broker", error))
+      .tapOk((connection) => {
+        this.connection = connection;
+      })
+      .flatMapOk(() =>
+        Future.fromPromise(this.connection!.createChannel())
+          .mapError((error) => new TechnicalError("Failed to create AMQP channel", error))
+          .tapOk((channel) => {
+            this.channel = channel;
+          }),
+      )
+      .flatMapOk(() =>
+        Future.fromPromise(setupInfra(this.channel!, this.contract)).mapError(
+          (error) => new TechnicalError("Failed to setup AMQP infrastructure", error),
+        ),
+      )
       .mapOk(() => undefined);
   }
 }

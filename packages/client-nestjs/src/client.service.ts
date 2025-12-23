@@ -1,12 +1,11 @@
 import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
 import type { Options } from "amqplib";
-import { Result } from "@swan-io/boxed";
+import { Future, Result } from "@swan-io/boxed";
 import type { ContractDefinition, InferPublisherNames } from "@amqp-contract/contract";
 import {
   MessageValidationError,
   TechnicalError,
   TypedAmqpClient,
-  type PublishOptions,
   type ClientInferPublisherInput,
 } from "@amqp-contract/client";
 import { MODULE_OPTIONS_TOKEN } from "./client.module-definition.js";
@@ -49,7 +48,11 @@ export class AmqpClientService<TContract extends ContractDefinition>
    */
   async onModuleDestroy(): Promise<void> {
     if (this.client) {
-      await this.client.close();
+      const result = await this.client.close().toPromise();
+      if (Result.isError(result)) {
+        // Log the error but don't throw to avoid disrupting shutdown
+        console.error("Failed to close AMQP client:", result.error);
+      }
       this.client = null;
     }
   }
@@ -57,17 +60,19 @@ export class AmqpClientService<TContract extends ContractDefinition>
   /**
    * Publish a message using a defined publisher
    * This method provides type-safe message publishing with explicit error handling
-   * Returns Result<boolean, ClientError> for runtime errors
+   * Returns Future<Result<boolean, ClientError>> for runtime errors
    */
   publish<TName extends InferPublisherNames<TContract>>(
     publisherName: TName,
     message: ClientInferPublisherInput<TContract, TName>,
-    options?: PublishOptions,
-  ): Result<boolean, TechnicalError | MessageValidationError> {
+    options?: Options.Publish,
+  ): Future<Result<boolean, TechnicalError | MessageValidationError>> {
     if (!this.client) {
-      return Result.Error(
-        new TechnicalError(
-          "Client not initialized. Ensure the module has been initialized before publishing.",
+      return Future.value(
+        Result.Error(
+          new TechnicalError(
+            "Client not initialized. Ensure the module has been initialized before publishing.",
+          ),
         ),
       );
     }

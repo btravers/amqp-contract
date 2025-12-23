@@ -98,7 +98,7 @@ describe("AmqpClient", () => {
       await client.publish("createOrder", {
         orderId: "123",
         amount: 100,
-      });
+      }).toPromise();
 
       // THEN
       expect(mockChannel.publish).toHaveBeenCalledWith(
@@ -242,7 +242,7 @@ describe("AmqpClient", () => {
       const client = await TypedAmqpClient.create({ contract, connection: "amqp://localhost" });
 
       // WHEN
-      const result = client.publish("testPublisher", { id: "123" });
+      const result = await client.publish("testPublisher", { id: "123" }).toPromise();
 
       // THEN
       expect(result).toEqual(Result.Ok(true));
@@ -273,7 +273,7 @@ describe("AmqpClient", () => {
       const client = await TypedAmqpClient.create({ contract, connection: "amqp://localhost" });
 
       // WHEN
-      const result = client.publish("testPublisher", { id: "123" }, { routingKey: "test.custom" });
+      const result = await client.publish("testPublisher", { id: "123" }, { routingKey: "test.custom" }).toPromise();
 
       // THEN
       expect(result).toEqual(Result.Ok(true));
@@ -305,7 +305,7 @@ describe("AmqpClient", () => {
 
       // WHEN
       // @ts-expect-error - testing runtime validation with invalid data
-      const result = client.publish("testPublisher", { id: 123 });
+      const result = await client.publish("testPublisher", { id: 123 }).toPromise();
 
       // THEN
       expect(result).toMatchObject({
@@ -330,9 +330,10 @@ describe("AmqpClient", () => {
       const client = await TypedAmqpClient.create({ contract, connection: "amqp://localhost" });
 
       // WHEN
-      await client.close();
+      const result = await client.close().toPromise();
 
       // THEN
+      expect(Result.isOk(result)).toBe(true);
       expect(mockChannel.close).toHaveBeenCalled();
       expect(mockConnection.close).toHaveBeenCalled();
     });
@@ -350,8 +351,11 @@ describe("AmqpClient", () => {
 
       const client = await TypedAmqpClient.create({ contract, connection: "amqp://localhost" });
 
-      // WHEN / THEN
-      await expect(client.close()).resolves.toBeUndefined();
+      // WHEN
+      const result = await client.close().toPromise();
+
+      // THEN
+      expect(Result.isOk(result)).toBe(true);
     });
   });
 

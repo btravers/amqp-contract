@@ -60,10 +60,10 @@ describe("AmqpWorker Integration", () => {
 
     // WHEN - Publish a message using the client
     const client = await TypedAmqpClient.create({ contract, connection: amqpConnectionUrl });
-    const publishResult = client.publish("testPublisher", {
+    const publishResult = await client.publish("testPublisher", {
       id: "123",
       message: "Hello from integration test!",
-    });
+    }).toPromise();
 
     expect(publishResult.isOk()).toBe(true);
 
@@ -77,7 +77,7 @@ describe("AmqpWorker Integration", () => {
 
     // CLEANUP
     await worker.close();
-    await client.close();
+    await client.close().toPromise();
   });
 
   it("should handle multiple messages", async ({ amqpConnectionUrl }) => {
@@ -127,9 +127,9 @@ describe("AmqpWorker Integration", () => {
     // WHEN - Publish multiple messages
     const client = await TypedAmqpClient.create({ contract, connection: amqpConnectionUrl });
 
-    const result1 = client.publish("testPublisher", { id: "1", count: 1 });
-    const result2 = client.publish("testPublisher", { id: "2", count: 2 });
-    const result3 = client.publish("testPublisher", { id: "3", count: 3 });
+    const result1 = await client.publish("testPublisher", { id: "1", count: 1 }).toPromise();
+    const result2 = await client.publish("testPublisher", { id: "2", count: 2 }).toPromise();
+    const result3 = await client.publish("testPublisher", { id: "3", count: 3 }).toPromise();
 
     expect(result1.isOk()).toBe(true);
     expect(result2.isOk()).toBe(true);
@@ -146,7 +146,7 @@ describe("AmqpWorker Integration", () => {
 
     // CLEANUP
     await worker.close();
-    await client.close();
+    await client.close().toPromise();
   });
 
   it("should consume all consumers with consumeAll", async ({ amqpConnectionUrl }) => {
@@ -207,8 +207,8 @@ describe("AmqpWorker Integration", () => {
     // WHEN - Publish messages to both queues
     const client = await TypedAmqpClient.create({ contract, connection: amqpConnectionUrl });
 
-    const result1 = client.publish("pub1", { id: "msg1" });
-    const result2 = client.publish("pub2", { id: "msg2" });
+    const result1 = await client.publish("pub1", { id: "msg1" }).toPromise();
+    const result2 = await client.publish("pub2", { id: "msg2" }).toPromise();
 
     expect(result1.isOk()).toBe(true);
     expect(result2.isOk()).toBe(true);
@@ -220,6 +220,6 @@ describe("AmqpWorker Integration", () => {
 
     // CLEANUP
     await worker.close();
-    await client.close();
+    await client.close().toPromise();
   });
 });
