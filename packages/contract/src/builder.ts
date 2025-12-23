@@ -272,12 +272,6 @@ export function defineConsumer<TMessage extends MessageDefinition>(
 }
 
 /**
- * Alias for defineQueueBinding for better developer experience
- * Use this when it's clear you're binding a queue to an exchange
- */
-export const defineBinding = defineQueueBinding;
-
-/**
  * Define an AMQP contract
  */
 export function defineContract<TContract extends ContractDefinition>(
