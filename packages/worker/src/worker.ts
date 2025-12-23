@@ -209,7 +209,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
             channel.ack(msg);
           })
           .resultToPromise();
-      }),
+      }, {}),
     )
       .mapError(
         (error) =>

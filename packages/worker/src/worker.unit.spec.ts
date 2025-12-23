@@ -285,7 +285,7 @@ describe("AmqpWorker", () => {
       }).resultToPromise();
 
       // THEN
-      expect(mockChannel.consume).toHaveBeenCalledWith("test-queue", expect.any(Function));
+      expect(mockChannel.consume).toHaveBeenCalledWith("test-queue", expect.any(Function), {});
 
       // Simulate message
       const mockMessage = {
