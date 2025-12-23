@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { setupContract } from "./setup.js";
+import { setupInfra } from "./setup.js";
 import type { Channel } from "amqplib";
 import {
   defineContract,
@@ -9,7 +9,7 @@ import {
   defineExchangeBinding,
 } from "@amqp-contract/contract";
 
-describe("setupContract", () => {
+describe("setupInfra", () => {
   const mockChannel = {
     assertExchange: vi.fn().mockResolvedValue(undefined),
     assertQueue: vi.fn().mockResolvedValue(undefined),
@@ -31,17 +31,17 @@ describe("setupContract", () => {
     });
 
     // WHEN
-    await setupContract(mockChannel, contract);
+    await setupInfra(mockChannel, contract);
 
     // THEN
     expect(mockChannel.assertExchange).toHaveBeenCalledTimes(2);
-    expect(mockChannel.assertExchange).toHaveBeenCalledWith("orders", "topic", {
+    expect(mockChannel.assertExchange).toHaveBeenNthCalledWith(1, "orders", "topic", {
       durable: true,
       autoDelete: undefined,
       internal: undefined,
       arguments: undefined,
     });
-    expect(mockChannel.assertExchange).toHaveBeenCalledWith("notifications", "fanout", {
+    expect(mockChannel.assertExchange).toHaveBeenNthCalledWith(2, "notifications", "fanout", {
       durable: undefined,
       autoDelete: true,
       internal: undefined,
@@ -59,17 +59,17 @@ describe("setupContract", () => {
     });
 
     // WHEN
-    await setupContract(mockChannel, contract);
+    await setupInfra(mockChannel, contract);
 
     // THEN
     expect(mockChannel.assertQueue).toHaveBeenCalledTimes(2);
-    expect(mockChannel.assertQueue).toHaveBeenCalledWith("order-processing", {
+    expect(mockChannel.assertQueue).toHaveBeenNthCalledWith(1, "order-processing", {
       durable: true,
       exclusive: undefined,
       autoDelete: undefined,
       arguments: undefined,
     });
-    expect(mockChannel.assertQueue).toHaveBeenCalledWith("notifications", {
+    expect(mockChannel.assertQueue).toHaveBeenNthCalledWith(2, "notifications", {
       durable: undefined,
       exclusive: true,
       autoDelete: true,
@@ -96,7 +96,7 @@ describe("setupContract", () => {
     });
 
     // WHEN
-    await setupContract(mockChannel, contract);
+    await setupInfra(mockChannel, contract);
 
     // THEN
     expect(mockChannel.bindQueue).toHaveBeenCalledTimes(1);
@@ -125,7 +125,7 @@ describe("setupContract", () => {
     });
 
     // WHEN
-    await setupContract(mockChannel, contract);
+    await setupInfra(mockChannel, contract);
 
     // THEN
     expect(mockChannel.bindExchange).toHaveBeenCalledTimes(1);
@@ -165,7 +165,7 @@ describe("setupContract", () => {
     });
 
     // WHEN
-    await setupContract(mockChannel, contract);
+    await setupInfra(mockChannel, contract);
 
     // THEN
     expect(mockChannel.assertExchange).toHaveBeenCalledTimes(2);
@@ -179,7 +179,7 @@ describe("setupContract", () => {
     const contract = defineContract({});
 
     // WHEN
-    await setupContract(mockChannel, contract);
+    await setupInfra(mockChannel, contract);
 
     // THEN
     expect(mockChannel.assertExchange).not.toHaveBeenCalled();
@@ -205,7 +205,7 @@ describe("setupContract", () => {
     });
 
     // WHEN
-    await setupContract(mockChannel, contract);
+    await setupInfra(mockChannel, contract);
 
     // THEN
     expect(mockChannel.bindQueue).toHaveBeenCalledWith("order-queue", "fanout", "", undefined);
@@ -223,7 +223,7 @@ describe("setupContract", () => {
     });
 
     // WHEN
-    await setupContract(mockChannel, contract);
+    await setupInfra(mockChannel, contract);
 
     // THEN
     expect(mockChannel.assertExchange).toHaveBeenCalledWith("orders", "topic", {
@@ -246,7 +246,7 @@ describe("setupContract", () => {
     });
 
     // WHEN
-    await setupContract(mockChannel, contract);
+    await setupInfra(mockChannel, contract);
 
     // THEN
     expect(mockChannel.assertQueue).toHaveBeenCalledWith("orders", {
@@ -273,7 +273,7 @@ describe("setupContract", () => {
     });
 
     // WHEN
-    await setupContract(mockChannel, contract);
+    await setupInfra(mockChannel, contract);
 
     // THEN
     expect(mockChannel.bindQueue).toHaveBeenCalledWith("orders", "orders", "order.#", {

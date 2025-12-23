@@ -6,7 +6,7 @@ import type {
   WorkerInferConsumerHandlers,
   WorkerInferConsumerInput,
 } from "@amqp-contract/contract";
-import { setupContract } from "@amqp-contract/core";
+import { setupInfra } from "@amqp-contract/core";
 import { Result } from "@swan-io/boxed";
 import { MessageValidationError, TechnicalError } from "./errors.js";
 
@@ -71,7 +71,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     this.channel = await this.connection.createChannel();
 
     // Setup exchanges, queues, and bindings
-    await setupContract(this.channel, this.contract);
+    await setupInfra(this.channel, this.contract);
   }
 
   /**

@@ -8,7 +8,7 @@ import type { ContractDefinition } from "@amqp-contract/contract";
  * @param channel - AMQP channel to use for setup
  * @param contract - Contract definition containing exchanges, queues, and bindings
  */
-export async function setupContract(channel: Channel, contract: ContractDefinition): Promise<void> {
+export async function setupInfra(channel: Channel, contract: ContractDefinition): Promise<void> {
   // Setup exchanges
   if (contract.exchanges) {
     for (const exchange of Object.values(contract.exchanges)) {
