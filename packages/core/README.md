@@ -19,22 +19,29 @@ The core package exports a `setupContract` function that handles the creation of
 ```typescript
 import { connect } from "amqplib";
 import { setupContract } from "@amqp-contract/core";
-import { defineContract, defineExchange, defineQueue, defineQueueBinding } from "@amqp-contract/contract";
+import {
+  defineContract,
+  defineExchange,
+  defineQueue,
+  defineQueueBinding,
+} from "@amqp-contract/contract";
+
+// Define resources
+const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const orderProcessingQueue = defineQueue("order-processing", { durable: true });
 
 // Define your contract
 const contract = defineContract({
   exchanges: {
-    orders: defineExchange("orders", "topic", { durable: true }),
+    orders: ordersExchange,
   },
   queues: {
-    orderProcessing: defineQueue("order-processing", { durable: true }),
+    orderProcessing: orderProcessingQueue,
   },
   bindings: {
-    orderBinding: defineQueueBinding(
-      defineQueue("order-processing", { durable: true }),
-      defineExchange("orders", "topic", { durable: true }),
-      { routingKey: "order.created" }
-    ),
+    orderBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
+      routingKey: "order.created",
+    }),
   },
 });
 
