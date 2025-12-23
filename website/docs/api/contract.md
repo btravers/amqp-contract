@@ -133,7 +133,7 @@ function defineQueueBinding(
 function defineQueueBinding(
   queue: QueueDefinition,
   exchange: DirectExchangeDefinition | TopicExchangeDefinition,
-  options: { 
+  options: {
     routingKey: string;
     arguments?: Record<string, unknown>;
   }
@@ -181,7 +181,7 @@ function defineExchangeBinding(
 function defineExchangeBinding(
   destination: ExchangeDefinition,
   source: DirectExchangeDefinition | TopicExchangeDefinition,
-  options: { 
+  options: {
     routingKey: string;
     arguments?: Record<string, unknown>;
   }

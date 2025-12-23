@@ -25,6 +25,7 @@ The contract API uses a **composition pattern** where you:
 3. **Compose together** - Combine everything in `defineContract`
 
 This provides:
+
 - ✅ **Better type safety** - TypeScript validates exchange/queue types
 - ✅ **Better refactoring** - Rename in one place
 - ✅ **DRY principle** - Define once, reference many times
@@ -104,6 +105,7 @@ const orderMessage = defineMessage(
 ```
 
 **Benefits:**
+
 - Enables AsyncAPI documentation generation
 - Improves code readability
 - Allows header schema definition
