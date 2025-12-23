@@ -47,7 +47,7 @@ describe("AmqpWorker Integration", () => {
     });
 
     const messages: Array<{ id: string; message: string }> = [];
-    const workerResult = await TypedAmqpWorker.create({
+    const worker = await TypedAmqpWorker.create({
       contract,
       handlers: {
         testConsumer: (msg) => {
@@ -56,11 +56,7 @@ describe("AmqpWorker Integration", () => {
         },
       },
       connection: amqpConnectionUrl,
-    }).toPromise();
-    if (workerResult.isError()) {
-      throw workerResult.getError();
-    }
-    const worker = workerResult.value;
+    });
 
     // WHEN - Publish a message using the client
     const clientResult = await TypedAmqpClient.create({ contract, connection: amqpConnectionUrl }).toPromise();
@@ -123,7 +119,7 @@ describe("AmqpWorker Integration", () => {
     });
 
     const messages: Array<{ id: string; count: number }> = [];
-    const workerResult = await TypedAmqpWorker.create({
+    const worker = await TypedAmqpWorker.create({
       contract,
       handlers: {
         testConsumer: (msg) => {
@@ -132,11 +128,7 @@ describe("AmqpWorker Integration", () => {
         },
       },
       connection: amqpConnectionUrl,
-    }).toPromise();
-    if (workerResult.isError()) {
-      throw workerResult.getError();
-    }
-    const worker = workerResult.value;
+    });
 
     // WHEN - Publish multiple messages
     const clientResult = await TypedAmqpClient.create({ contract, connection: amqpConnectionUrl }).toPromise();
@@ -207,7 +199,7 @@ describe("AmqpWorker Integration", () => {
 
     const messages1: Array<{ id: string }> = [];
     const messages2: Array<{ id: string }> = [];
-    const workerResult = await TypedAmqpWorker.create({
+    const worker = await TypedAmqpWorker.create({
       contract,
       handlers: {
         consumer1: (msg) => {
@@ -220,11 +212,7 @@ describe("AmqpWorker Integration", () => {
         },
       },
       connection: amqpConnectionUrl,
-    }).toPromise();
-    if (workerResult.isError()) {
-      throw workerResult.getError();
-    }
-    const worker = workerResult.value;
+    });
 
     // WHEN - Publish messages to both queues
     const clientResult = await TypedAmqpClient.create({ contract, connection: amqpConnectionUrl }).toPromise();
