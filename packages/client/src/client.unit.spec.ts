@@ -72,7 +72,6 @@ describe("TypedAmqpClient", () => {
       if (clientResult.isError()) {
         throw clientResult.getError();
       }
-      
 
       // THEN
       // Type inference test - this should compile without errors
@@ -110,7 +109,6 @@ describe("TypedAmqpClient", () => {
       if (clientResult.isError()) {
         throw clientResult.getError();
       }
-      
 
       // WHEN
       // Type inference test - message type should be inferred correctly
@@ -289,7 +287,6 @@ describe("TypedAmqpClient", () => {
       if (clientResult.isError()) {
         throw clientResult.getError();
       }
-      
 
       // WHEN
       const result = await client.publish("testPublisher", { id: "123" });
@@ -327,7 +324,6 @@ describe("TypedAmqpClient", () => {
       if (clientResult.isError()) {
         throw clientResult.getError();
       }
-      
 
       // WHEN
       const result = await client.publish("testPublisher", { id: "123" }, { persistent: true });
@@ -365,7 +361,6 @@ describe("TypedAmqpClient", () => {
       if (clientResult.isError()) {
         throw clientResult.getError();
       }
-      
 
       // WHEN
       // @ts-expect-error - testing runtime validation with invalid data
@@ -398,7 +393,6 @@ describe("TypedAmqpClient", () => {
       if (clientResult.isError()) {
         throw clientResult.getError();
       }
-      
 
       // WHEN
       const result = await client.close();
@@ -427,7 +421,6 @@ describe("TypedAmqpClient", () => {
       if (clientResult.isError()) {
         throw clientResult.getError();
       }
-      
 
       // WHEN
       const result = await client.close();
@@ -457,7 +450,6 @@ describe("TypedAmqpClient", () => {
       if (clientResult.isError()) {
         throw clientResult.getError();
       }
-      
 
       // THEN
       expect(client).toBeInstanceOf(TypedAmqpClient);

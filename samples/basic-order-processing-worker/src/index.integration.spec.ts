@@ -23,7 +23,7 @@ describe("Basic Order Processing Worker Integration", () => {
       },
       urls: [amqpConnectionUrl],
     }).resultToPromise();
-    
+
     if (workerResult.isError()) {
       throw workerResult.error;
     }
@@ -73,7 +73,7 @@ describe("Basic Order Processing Worker Integration", () => {
       },
       urls: [amqpConnectionUrl],
     }).resultToPromise();
-    
+
     if (workerResult.isError()) {
       throw workerResult.error;
     }
@@ -134,7 +134,7 @@ describe("Basic Order Processing Worker Integration", () => {
       },
       urls: [amqpConnectionUrl],
     }).resultToPromise();
-    
+
     if (workerResult.isError()) {
       throw workerResult.error;
     }

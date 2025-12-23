@@ -1,8 +1,9 @@
 import type { ContractDefinition, InferConsumerNames } from "@amqp-contract/contract";
-import { AmqpClient, AmqpClientOptions } from "@amqp-contract/core";
+import { AmqpClient } from "@amqp-contract/core";
 import { Future, Result } from "@swan-io/boxed";
 import { MessageValidationError, TechnicalError } from "./errors.js";
 import type { WorkerInferConsumerHandlers, WorkerInferConsumerInput } from "./types.js";
+import type {AmqpConnectionManagerOptions, ConnectionUrl} from "amqp-connection-manager";
 
 /**
  * Options for creating a worker
@@ -10,7 +11,9 @@ import type { WorkerInferConsumerHandlers, WorkerInferConsumerInput } from "./ty
 export type CreateWorkerOptions<TContract extends ContractDefinition> = {
   contract: TContract;
   handlers: WorkerInferConsumerHandlers<TContract>;
-} & AmqpClientOptions;
+  urls: ConnectionUrl[];
+  connectionOptions?: AmqpConnectionManagerOptions;
+};
 
 /**
  * Type-safe AMQP worker for consuming messages
@@ -32,7 +35,11 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     urls,
     connectionOptions,
   }: CreateWorkerOptions<TContract>): Future<Result<TypedAmqpWorker<TContract>, TechnicalError>> {
-    const worker = new TypedAmqpWorker(contract, new AmqpClient(contract, { urls, connectionOptions }), handlers);
+    const worker = new TypedAmqpWorker(
+      contract,
+      new AmqpClient(contract, { urls, connectionOptions }),
+      handlers,
+    );
     return worker.consumeAll().mapOk(() => worker);
   }
 

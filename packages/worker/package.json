@@ -52,8 +52,7 @@
     "@amqp-contract/contract": "workspace:*",
     "@amqp-contract/core": "workspace:*",
     "@standard-schema/spec": "catalog:",
-    "@swan-io/boxed": "catalog:",
-    "amqp-connection-manager": "catalog:"
+    "@swan-io/boxed": "catalog:"
   },
   "devDependencies": {
     "@amqp-contract/client": "workspace:*",
@@ -61,6 +60,8 @@
     "@amqp-contract/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
+    "amqp-connection-manager": "catalog:",
+    "amqplib": "catalog:",
     "tsdown": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",

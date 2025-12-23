@@ -216,12 +216,6 @@ importers:
       '@swan-io/boxed':
         specifier: 'catalog:'
         version: 3.2.1(typescript@5.9.3)
-      amqp-connection-manager:
-        specifier: 'catalog:'
-        version: 5.0.0(amqplib@0.10.9)
-      amqplib:
-        specifier: 'catalog:'
-        version: 0.10.9
     devDependencies:
       '@amqp-contract/testing':
         specifier: workspace:*
@@ -229,15 +223,18 @@ importers:
       '@amqp-contract/tsconfig':
         specifier: workspace:*
         version: link:../../tools/tsconfig
-      '@types/amqplib':
-        specifier: 'catalog:'
-        version: 0.10.8
       '@types/node':
         specifier: 'catalog:'
         version: 25.0.3
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 4.0.16(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+      amqp-connection-manager:
+        specifier: 'catalog:'
+        version: 5.0.0(amqplib@0.10.9)
+      amqplib:
+        specifier: 'catalog:'
+        version: 0.10.9
       tsdown:
         specifier: 'catalog:'
         version: 0.18.2(oxc-resolver@11.16.0)(typescript@5.9.3)
@@ -275,6 +272,12 @@ importers:
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 4.0.16(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+      amqp-connection-manager:
+        specifier: 'catalog:'
+        version: 5.0.0(amqplib@0.10.9)
+      amqplib:
+        specifier: 'catalog:'
+        version: 0.10.9
       reflect-metadata:
         specifier: 'catalog:'
         version: 0.2.2
@@ -383,9 +386,6 @@ importers:
       '@swan-io/boxed':
         specifier: 'catalog:'
         version: 3.2.1(typescript@5.9.3)
-      amqp-connection-manager:
-        specifier: 'catalog:'
-        version: 5.0.0(amqplib@0.10.9)
     devDependencies:
       '@amqp-contract/client':
         specifier: workspace:*
@@ -402,6 +402,12 @@ importers:
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 4.0.16(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+      amqp-connection-manager:
+        specifier: 'catalog:'
+        version: 5.0.0(amqplib@0.10.9)
+      amqplib:
+        specifier: 'catalog:'
+        version: 0.10.9
       tsdown:
         specifier: 'catalog:'
         version: 0.18.2(oxc-resolver@11.16.0)(typescript@5.9.3)
@@ -439,6 +445,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 4.0.16(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+      amqp-connection-manager:
+        specifier: 'catalog:'
+        version: 5.0.0(amqplib@0.10.9)
       amqplib:
         specifier: 'catalog:'
         version: 0.10.9
@@ -491,9 +500,6 @@ importers:
       '@amqp-contract/client':
         specifier: workspace:*
         version: link:../../packages/client
-      amqplib:
-        specifier: 'catalog:'
-        version: 0.10.9
       pino:
         specifier: 'catalog:'
         version: 10.1.0
@@ -513,9 +519,6 @@ importers:
       '@swan-io/boxed':
         specifier: 'catalog:'
         version: 3.2.1(typescript@5.9.3)
-      '@types/amqplib':
-        specifier: 'catalog:'
-        version: 0.10.8
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 4.0.16(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
@@ -556,9 +559,6 @@ importers:
       '@amqp-contract/worker':
         specifier: workspace:*
         version: link:../../packages/worker
-      amqplib:
-        specifier: 'catalog:'
-        version: 0.10.9
       pino:
         specifier: 'catalog:'
         version: 10.1.0
@@ -578,9 +578,6 @@ importers:
       '@amqp-contract/tsconfig':
         specifier: workspace:*
         version: link:../../tools/tsconfig
-      '@types/amqplib':
-        specifier: 'catalog:'
-        version: 0.10.8
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 4.0.16(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
