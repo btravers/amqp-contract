@@ -208,7 +208,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
             // Acknowledge message
             channel.ack(msg);
           })
-          .resultToPromise();
+          .toPromise();
       }, {}),
     )
       .mapError(
