@@ -676,7 +676,9 @@ describe("AmqpClient", () => {
       }
     ).connect.mock.results[0]?.value;
 
-    const mockChannel = (amqpModule as unknown as { __getMockChannel: () => { close: () => Promise<void> } }).__getMockChannel();
+    const mockChannel = (
+      amqpModule as unknown as { __getMockChannel: () => { close: () => Promise<void> } }
+    ).__getMockChannel();
 
     if (!mockConnection) {
       throw new Error("Mock connection not found");
