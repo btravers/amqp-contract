@@ -44,7 +44,7 @@ import {
   defineContract,
   defineExchange,
   defineQueue,
-  defineBinding,
+  defineQueueBinding,
   defineConsumer
 } from '@amqp-contract/contract';
 import { z } from 'zod';
@@ -57,7 +57,7 @@ export const contract = defineContract({
     orderProcessing: defineQueue('order-processing', { durable: true }),
   },
   bindings: {
-    orderBinding: defineBinding('order-processing', 'orders', {
+    orderBinding: defineQueueBinding('order-processing', 'orders', {
       routingKey: 'order.created',
     }),
   },
@@ -515,7 +515,7 @@ import {
   defineContract,
   defineExchange,
   defineQueue,
-  defineBinding,
+  defineQueueBinding,
   defineConsumer
 } from '@amqp-contract/contract';
 import { z } from 'zod';
@@ -533,7 +533,7 @@ export const contract = defineContract({
     }),
   },
   bindings: {
-    orderBinding: defineBinding('order-processing', 'orders', {
+    orderBinding: defineQueueBinding('order-processing', 'orders', {
       routingKey: 'order.created',
     }),
   },

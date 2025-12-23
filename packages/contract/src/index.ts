@@ -1,6 +1,5 @@
 export {
   defineQueueBinding,
-  defineBinding,
   defineExchangeBinding,
   defineConsumer,
   defineContract,

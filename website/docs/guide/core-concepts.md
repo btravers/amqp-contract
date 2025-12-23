@@ -149,7 +149,7 @@ defineQueue(
 Bindings connect queues to exchanges:
 
 ```typescript
-defineBinding(
+defineQueueBinding(
   'order-processing',  // queue
   'orders',           // exchange
   {

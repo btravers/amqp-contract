@@ -1,6 +1,6 @@
 import { generateAsyncAPI } from "@amqp-contract/asyncapi";
 import {
-  defineBinding,
+  defineQueueBinding,
   defineConsumer,
   defineContract,
   defineExchange,
@@ -22,13 +22,13 @@ const orderContract = defineContract({
     emailNotifications: defineQueue("email-notifications", { durable: true }),
   },
   bindings: {
-    orderProcessingBinding: defineBinding("order-processing", "orders", {
+    orderProcessingBinding: defineQueueBinding("order-processing", "orders", {
       routingKey: "order.created",
     }),
-    orderNotificationsBinding: defineBinding("order-notifications", "orders", {
+    orderNotificationsBinding: defineQueueBinding("order-notifications", "orders", {
       routingKey: "order.created",
     }),
-    emailNotificationsBinding: defineBinding("email-notifications", "notifications"),
+    emailNotificationsBinding: defineQueueBinding("email-notifications", "notifications"),
   },
   publishers: {
     orderCreated: definePublisher(

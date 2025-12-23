@@ -13,7 +13,7 @@ pnpm add @amqp-contract/contract
 ## Usage
 
 ```typescript
-import { defineContract, defineExchange, defineQueue, defineBinding, defineExchangeBinding, definePublisher, defineConsumer, defineMessage } from '@amqp-contract/contract';
+import { defineContract, defineExchange, defineQueue, defineQueueBinding, defineExchangeBinding, definePublisher, defineConsumer, defineMessage } from '@amqp-contract/contract';
 import { z } from 'zod';
 
 // Define exchanges and queues first so they can be referenced
@@ -46,7 +46,7 @@ const contract = defineContract({
   },
   bindings: {
     // Queue-to-exchange binding
-    orderBinding: defineBinding(orderProcessingQueue, ordersExchange, {
+    orderBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
       routingKey: 'order.created',
     }),
     // Exchange-to-exchange binding
@@ -54,7 +54,7 @@ const contract = defineContract({
       routingKey: 'order.#',
     }),
     // Queue receives from analytics exchange
-    analyticsQueueBinding: defineBinding(analyticsProcessingQueue, analyticsExchange, {
+    analyticsQueueBinding: defineQueueBinding(analyticsProcessingQueue, analyticsExchange, {
       routingKey: 'order.#',
     }),
   },
@@ -89,11 +89,11 @@ Define an AMQP queue. Returns a queue definition object that can be referenced b
 Define a message definition with a payload schema and optional metadata (headers, summary, description).
 This is useful for documentation generation and type inference.
 
-### `defineBinding(queue, exchange, options?)`
+### `defineQueueBinding(queue, exchange, options?)`
 
 Define a binding between a queue and an exchange. Pass the queue and exchange objects (not strings).
 
-**Note:** `defineBinding` is an alias for `defineQueueBinding`.
+**Note:** `defineQueueBinding` is an alias for `defineQueueBinding`.
 
 ### `defineExchangeBinding(destination, source, options?)`
 

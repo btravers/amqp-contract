@@ -68,7 +68,6 @@ describe("AmqpClient", () => {
     it("should infer message types correctly", async () => {
       // GIVEN
       const OrderMessage = defineMessage(
-        "OrderMessage",
         z.object({
           orderId: z.string(),
           amount: z.number(),
@@ -237,7 +236,7 @@ describe("AmqpClient", () => {
   describe("publish", () => {
     it("should publish a valid message", async () => {
       // GIVEN
-      const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
+      const TestMessage = defineMessage(z.object({ id: z.string() }));
 
       const contract = defineContract({
         exchanges: {
@@ -272,7 +271,7 @@ describe("AmqpClient", () => {
 
     it("should use custom routing key from options", async () => {
       // GIVEN
-      const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
+      const TestMessage = defineMessage(z.object({ id: z.string() }));
 
       const contract = defineContract({
         exchanges: {
@@ -307,7 +306,7 @@ describe("AmqpClient", () => {
 
     it("should return error on invalid data", async () => {
       // GIVEN
-      const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
+      const TestMessage = defineMessage(z.object({ id: z.string() }));
 
       const contract = defineContract({
         exchanges: {

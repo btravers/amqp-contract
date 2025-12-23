@@ -16,21 +16,24 @@ describe("AmqpClient Integration", () => {
   describe("end-to-end publishing", () => {
     it("should publish messages to a real RabbitMQ instance", async ({ amqpConnectionUrl }) => {
       // GIVEN
-      const TestMessage = z.object({
-        id: z.string(),
-        message: z.string(),
-      });
-
       const exchange = defineExchange("test-exchange", "topic", { durable: false });
-
       const contract = defineContract({
         exchanges: {
           test: exchange,
         },
         publishers: {
-          testPublisher: definePublisher(exchange, defineMessage(TestMessage), {
-            routingKey: "test.key",
-          }),
+          testPublisher: definePublisher(
+            exchange,
+            defineMessage(
+              z.object({
+                id: z.string(),
+                message: z.string(),
+              }),
+            ),
+            {
+              routingKey: "test.key",
+            },
+          ),
         },
       });
 

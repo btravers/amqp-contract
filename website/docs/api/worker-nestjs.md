@@ -454,7 +454,7 @@ AmqpWorkerModule.forRoot({
 
 ```typescript
 // contract.ts
-import { defineContract, defineExchange, defineQueue, defineBinding, defineConsumer } from '@amqp-contract/contract';
+import { defineContract, defineExchange, defineQueue, defineQueueBinding, defineConsumer } from '@amqp-contract/contract';
 import { z } from 'zod';
 
 export const contract = defineContract({
@@ -465,7 +465,7 @@ export const contract = defineContract({
     orderProcessing: defineQueue('order-processing', { durable: true }),
   },
   bindings: {
-    orderBinding: defineBinding('order-processing', 'orders', {
+    orderBinding: defineQueueBinding('order-processing', 'orders', {
       routingKey: 'order.created',
     }),
   },

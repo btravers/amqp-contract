@@ -145,34 +145,70 @@ export type InferConsumerNames<TContract extends ContractDefinition> =
   TContract["consumers"] extends Record<string, unknown> ? keyof TContract["consumers"] : never;
 
 /**
+ * Infer the TypeScript type from a schema
+ */
+export type InferSchemaInput<TSchema extends AnySchema> =
+  TSchema extends StandardSchemaV1<infer TInput> ? TInput : never;
+
+/**
+ * Infer publisher message input type
+ */
+export type PublisherInferInput<TPublisher extends PublisherDefinition> = InferSchemaInput<
+  TPublisher["message"]["payload"]
+>;
+
+/**
+ * Infer all publishers from contract
+ */
+export type InferPublishers<TContract extends ContractDefinition> = NonNullable<
+  TContract["publishers"]
+>;
+
+/**
+ * Get specific publisher definition from contract
+ */
+export type InferPublisher<
+  TContract extends ContractDefinition,
+  TName extends InferPublisherNames<TContract>,
+> = InferPublishers<TContract>[TName];
+
+/**
  * Infer publisher input type (message payload) for a specific publisher in a contract
  */
 export type ClientInferPublisherInput<
   TContract extends ContractDefinition,
   TName extends InferPublisherNames<TContract>,
-> =
-  TContract["publishers"] extends Record<string, PublisherDefinition>
-    ? TContract["publishers"][TName] extends PublisherDefinition<infer TMessage>
-      ? TMessage["payload"] extends { "~standard": { types?: { input: infer TInput } } }
-        ? TInput
-        : never
-      : never
-    : never;
+> = PublisherInferInput<InferPublisher<TContract, TName>>;
 
 /**
- * Infer consumer input type (message payload) for a specific consumer in a contract
+ * Infer all consumers from contract
+ */
+export type InferConsumers<TContract extends ContractDefinition> = NonNullable<
+  TContract["consumers"]
+>;
+
+/**
+ * Get specific consumer definition from contract
+ */
+export type InferConsumer<
+  TContract extends ContractDefinition,
+  TName extends InferConsumerNames<TContract>,
+> = InferConsumers<TContract>[TName];
+
+/**
+ * Infer consumer message input type
+ */
+export type ConsumerInferInput<TConsumer extends ConsumerDefinition> = InferSchemaInput<
+  TConsumer["message"]["payload"]
+>;
+
+/**
+ * Worker perspective types - for consuming messages
  */
 export type WorkerInferConsumerInput<
   TContract extends ContractDefinition,
   TName extends InferConsumerNames<TContract>,
-> =
-  TContract["consumers"] extends Record<string, ConsumerDefinition>
-    ? TContract["consumers"][TName] extends ConsumerDefinition<infer TMessage>
-      ? TMessage["payload"] extends { "~standard": { types?: { input: infer TInput } } }
-        ? TInput
-        : never
-      : never
-    : never;
+> = ConsumerInferInput<InferConsumer<TContract, TName>>;
 
 /**
  * Infer consumer handler type for a specific consumer

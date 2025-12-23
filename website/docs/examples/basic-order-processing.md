@@ -251,16 +251,16 @@ export const orderContract = defineContract({
     orderUrgent: defineQueue('order-urgent', { durable: true }),
   },
   bindings: {
-    orderProcessingBinding: defineBinding('order-processing', 'orders', {
+    orderProcessingBinding: defineQueueBinding('order-processing', 'orders', {
       routingKey: 'order.created',
     }),
-    orderNotificationsBinding: defineBinding('order-notifications', 'orders', {
+    orderNotificationsBinding: defineQueueBinding('order-notifications', 'orders', {
       routingKey: 'order.#',
     }),
-    orderShippingBinding: defineBinding('order-shipping', 'orders', {
+    orderShippingBinding: defineQueueBinding('order-shipping', 'orders', {
       routingKey: 'order.shipped',
     }),
-    orderUrgentBinding: defineBinding('order-urgent', 'orders', {
+    orderUrgentBinding: defineQueueBinding('order-urgent', 'orders', {
       routingKey: 'order.*.urgent',
     }),
   },
