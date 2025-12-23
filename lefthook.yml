@@ -4,7 +4,10 @@ pre-commit:
     format:
       glob: "*.{ts,tsx,js,jsx,json,yaml,yml,md}"
       exclude: "**/package.json,pnpm-lock.yaml"
-      run: pnpm oxfmt {staged_files}
+      run: |
+        if [ -n "{staged_files}" ]; then
+          pnpm oxfmt {staged_files}
+        fi
       stage_fixed: true
     lint:
       glob: "*.{ts,tsx,js,jsx}"
