@@ -37,7 +37,10 @@ describe("AmqpClient Integration", () => {
         },
       });
 
-      const clientResult = await TypedAmqpClient.create({ contract, connection: amqpConnectionUrl }).toPromise();
+      const clientResult = await TypedAmqpClient.create({
+        contract,
+        connection: amqpConnectionUrl,
+      }).toPromise();
       if (clientResult.isError()) {
         throw clientResult.getError();
       }
@@ -78,7 +81,10 @@ describe("AmqpClient Integration", () => {
         },
       });
 
-      const clientResult = await TypedAmqpClient.create({ contract, connection: amqpConnectionUrl }).toPromise();
+      const clientResult = await TypedAmqpClient.create({
+        contract,
+        connection: amqpConnectionUrl,
+      }).toPromise();
       if (clientResult.isError()) {
         throw clientResult.getError();
       }
@@ -121,7 +127,10 @@ describe("AmqpClient Integration", () => {
         },
       });
 
-      const clientResult = await TypedAmqpClient.create({ contract, connection: amqpConnectionUrl }).toPromise();
+      const clientResult = await TypedAmqpClient.create({
+        contract,
+        connection: amqpConnectionUrl,
+      }).toPromise();
       if (clientResult.isError()) {
         throw clientResult.getError();
       }
@@ -168,7 +177,10 @@ describe("AmqpClient Integration", () => {
       });
 
       // WHEN
-      const clientResult = await TypedAmqpClient.create({ contract, connection: amqpConnectionUrl }).toPromise();
+      const clientResult = await TypedAmqpClient.create({
+        contract,
+        connection: amqpConnectionUrl,
+      }).toPromise();
       if (clientResult.isError()) {
         throw clientResult.getError();
       }

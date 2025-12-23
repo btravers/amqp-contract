@@ -48,12 +48,12 @@ export class AmqpClientService<TContract extends ContractDefinition>
       contract: this.options.contract,
       connection: this.options.connection,
     }).toPromise();
-    
+
     if (clientResult.isError()) {
       this.logger.error("Failed to create AMQP client", clientResult.getError());
       throw clientResult.getError();
     }
-    
+
     this.client = clientResult.value;
   }
 

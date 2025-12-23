@@ -26,12 +26,12 @@ async function main() {
     contract: orderContract,
     connection: env.AMQP_URL,
   }).toPromise();
-  
+
   if (clientResult.isError()) {
     logger.error({ error: clientResult.error }, "Failed to create client");
     throw clientResult.error;
   }
-  
+
   const client = clientResult.value;
 
   logger.info("Client ready");

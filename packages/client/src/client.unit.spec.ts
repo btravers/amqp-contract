@@ -60,7 +60,10 @@ describe("AmqpClient", () => {
       });
 
       // WHEN
-      const clientResult = await TypedAmqpClient.create({ contract, connection: "amqp://localhost" }).toPromise();
+      const clientResult = await TypedAmqpClient.create({
+        contract,
+        connection: "amqp://localhost",
+      }).toPromise();
       if (clientResult.isError()) {
         throw clientResult.getError();
       }
@@ -95,7 +98,10 @@ describe("AmqpClient", () => {
         },
       });
 
-      const clientResult = await TypedAmqpClient.create({ contract, connection: "amqp://localhost" }).toPromise();
+      const clientResult = await TypedAmqpClient.create({
+        contract,
+        connection: "amqp://localhost",
+      }).toPromise();
       if (clientResult.isError()) {
         throw clientResult.getError();
       }
@@ -135,7 +141,10 @@ describe("AmqpClient", () => {
       });
 
       // WHEN
-      const clientResult = await TypedAmqpClient.create({ contract, connection: "amqp://localhost" }).toPromise();
+      const clientResult = await TypedAmqpClient.create({
+        contract,
+        connection: "amqp://localhost",
+      }).toPromise();
       if (clientResult.isError()) {
         throw clientResult.getError();
       }
@@ -163,7 +172,10 @@ describe("AmqpClient", () => {
       });
 
       // WHEN
-      const clientResult = await TypedAmqpClient.create({ contract, connection: "amqp://localhost" }).toPromise();
+      const clientResult = await TypedAmqpClient.create({
+        contract,
+        connection: "amqp://localhost",
+      }).toPromise();
       if (clientResult.isError()) {
         throw clientResult.getError();
       }
@@ -197,7 +209,10 @@ describe("AmqpClient", () => {
       });
 
       // WHEN
-      const clientResult = await TypedAmqpClient.create({ contract, connection: "amqp://localhost" }).toPromise();
+      const clientResult = await TypedAmqpClient.create({
+        contract,
+        connection: "amqp://localhost",
+      }).toPromise();
       if (clientResult.isError()) {
         throw clientResult.getError();
       }
@@ -229,7 +244,10 @@ describe("AmqpClient", () => {
       });
 
       // WHEN
-      const clientResult = await TypedAmqpClient.create({ contract, connection: "amqp://localhost" }).toPromise();
+      const clientResult = await TypedAmqpClient.create({
+        contract,
+        connection: "amqp://localhost",
+      }).toPromise();
       if (clientResult.isError()) {
         throw clientResult.getError();
       }
@@ -261,7 +279,10 @@ describe("AmqpClient", () => {
         },
       });
 
-      const clientResult = await TypedAmqpClient.create({ contract, connection: "amqp://localhost" }).toPromise();
+      const clientResult = await TypedAmqpClient.create({
+        contract,
+        connection: "amqp://localhost",
+      }).toPromise();
       if (clientResult.isError()) {
         throw clientResult.getError();
       }
@@ -296,7 +317,10 @@ describe("AmqpClient", () => {
         },
       });
 
-      const clientResult = await TypedAmqpClient.create({ contract, connection: "amqp://localhost" }).toPromise();
+      const clientResult = await TypedAmqpClient.create({
+        contract,
+        connection: "amqp://localhost",
+      }).toPromise();
       if (clientResult.isError()) {
         throw clientResult.getError();
       }
@@ -333,7 +357,10 @@ describe("AmqpClient", () => {
         },
       });
 
-      const clientResult = await TypedAmqpClient.create({ contract, connection: "amqp://localhost" }).toPromise();
+      const clientResult = await TypedAmqpClient.create({
+        contract,
+        connection: "amqp://localhost",
+      }).toPromise();
       if (clientResult.isError()) {
         throw clientResult.getError();
       }
@@ -363,7 +390,10 @@ describe("AmqpClient", () => {
         },
       });
 
-      const clientResult = await TypedAmqpClient.create({ contract, connection: "amqp://localhost" }).toPromise();
+      const clientResult = await TypedAmqpClient.create({
+        contract,
+        connection: "amqp://localhost",
+      }).toPromise();
       if (clientResult.isError()) {
         throw clientResult.getError();
       }
@@ -389,7 +419,10 @@ describe("AmqpClient", () => {
         },
       });
 
-      const clientResult = await TypedAmqpClient.create({ contract, connection: "amqp://localhost" }).toPromise();
+      const clientResult = await TypedAmqpClient.create({
+        contract,
+        connection: "amqp://localhost",
+      }).toPromise();
       if (clientResult.isError()) {
         throw clientResult.getError();
       }
@@ -416,7 +449,10 @@ describe("AmqpClient", () => {
       });
 
       // WHEN
-      const clientResult = await TypedAmqpClient.create({ contract, connection: "amqp://localhost" }).toPromise();
+      const clientResult = await TypedAmqpClient.create({
+        contract,
+        connection: "amqp://localhost",
+      }).toPromise();
       if (clientResult.isError()) {
         throw clientResult.getError();
       }
