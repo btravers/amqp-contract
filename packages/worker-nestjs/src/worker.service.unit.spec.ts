@@ -42,7 +42,7 @@ describe("AmqpWorkerService", () => {
         handlers: {
           testConsumer: handler,
         },
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       });
 
       await service.onModuleInit();
@@ -52,7 +52,7 @@ describe("AmqpWorkerService", () => {
         handlers: {
           testConsumer: handler,
         },
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       });
     });
 
@@ -75,7 +75,7 @@ describe("AmqpWorkerService", () => {
         handlers: {
           testConsumer: handler,
         },
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       });
 
       await service.onModuleInit();

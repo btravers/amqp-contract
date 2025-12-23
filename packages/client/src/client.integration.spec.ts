@@ -39,7 +39,7 @@ describe("AmqpClient Integration", () => {
 
       const clientResult = await TypedAmqpClient.create({
         contract,
-        connection: amqpConnectionUrl,
+        urls: [amqpConnectionUrl],
       });
       if (clientResult.isError()) {
         throw clientResult.getError();
@@ -81,7 +81,7 @@ describe("AmqpClient Integration", () => {
 
       const clientResult = await TypedAmqpClient.create({
         contract,
-        connection: amqpConnectionUrl,
+        urls: [amqpConnectionUrl],
       });
       if (clientResult.isError()) {
         throw clientResult.getError();
@@ -125,7 +125,7 @@ describe("AmqpClient Integration", () => {
 
       const clientResult = await TypedAmqpClient.create({
         contract,
-        connection: amqpConnectionUrl,
+        urls: [amqpConnectionUrl],
       });
       if (clientResult.isError()) {
         throw clientResult.getError();
@@ -177,7 +177,7 @@ describe("AmqpClient Integration", () => {
       // WHEN
       const clientResult = await TypedAmqpClient.create({
         contract,
-        connection: amqpConnectionUrl,
+        urls: [amqpConnectionUrl],
       });
       if (clientResult.isError()) {
         throw clientResult.getError();

@@ -1,6 +1,6 @@
 import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
-import type { Options } from "amqplib";
 import type { ContractDefinition } from "@amqp-contract/contract";
+import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
 import { TypedAmqpWorker, type WorkerInferConsumerHandlers } from "@amqp-contract/worker";
 import { MODULE_OPTIONS_TOKEN } from "./worker.module-definition.js";
 
@@ -10,7 +10,8 @@ import { MODULE_OPTIONS_TOKEN } from "./worker.module-definition.js";
 export interface AmqpWorkerModuleOptions<TContract extends ContractDefinition> {
   contract: TContract;
   handlers: WorkerInferConsumerHandlers<TContract>;
-  connection: string | Options.Connect;
+  urls: ConnectionUrl[];
+  connectionOptions?: AmqpConnectionManagerOptions;
 }
 
 /**
@@ -35,7 +36,8 @@ export class AmqpWorkerService<TContract extends ContractDefinition>
     this.worker = await TypedAmqpWorker.create({
       contract: this.options.contract,
       handlers: this.options.handlers,
-      connection: this.options.connection,
+      urls: this.options.urls,
+      connectionOptions: this.options.connectionOptions,
     }).resultToPromise();
   }
 

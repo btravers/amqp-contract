@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TypedAmqpWorker } from "./worker";
-import type { Channel, ChannelModel, ConsumeMessage } from "amqplib";
-import { connect } from "amqplib";
+import type { ConsumeMessage } from "amqplib";
 import {
   defineContract,
   defineMessage,
@@ -12,11 +11,6 @@ import {
   defineExchangeBinding,
 } from "@amqp-contract/contract";
 import { z } from "zod";
-
-// Mock amqplib connect function
-vi.mock("amqplib", () => ({
-  connect: vi.fn(),
-}));
 
 // Mock types for testing
 let mockConsumeCallback: ((msg: ConsumeMessage | null) => Promise<void>) | null = null;
@@ -35,19 +29,21 @@ const mockChannel = {
   nack: vi.fn(),
   cancel: vi.fn().mockResolvedValue(undefined),
   close: vi.fn().mockResolvedValue(undefined),
-} as unknown as Channel;
+};
 
-const mockConnection = {
-  createChannel: vi.fn().mockResolvedValue(mockChannel),
-  close: vi.fn().mockResolvedValue(undefined),
-} as unknown as ChannelModel;
+// Mock @amqp-contract/core
+vi.mock("@amqp-contract/core", () => ({
+  AmqpClient: vi.fn().mockImplementation(() => ({
+    channel: mockChannel,
+    close: vi.fn().mockResolvedValue(undefined),
+  })),
+}));
 
-describe("AmqpWorker", () => {
+describe("TypedAmqpWorker", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockConsumeCallback = null;
-    // Setup default mock implementation
-    vi.mocked(connect).mockResolvedValue(mockConnection);
+  });
   });
 
   describe("Type Inference", () => {
@@ -73,7 +69,7 @@ describe("AmqpWorker", () => {
       await TypedAmqpWorker.create({
         contract,
         handlers,
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       }).resultToPromise();
 
       // THEN
@@ -108,7 +104,7 @@ describe("AmqpWorker", () => {
       await TypedAmqpWorker.create({
         contract,
         handlers: { processOrder: handler },
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       }).resultToPromise();
 
       // WHEN
@@ -149,7 +145,7 @@ describe("AmqpWorker", () => {
       await TypedAmqpWorker.create({
         contract,
         handlers: {},
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       }).resultToPromise();
 
       // THEN
@@ -179,7 +175,7 @@ describe("AmqpWorker", () => {
       await TypedAmqpWorker.create({
         contract,
         handlers: {},
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       }).resultToPromise();
 
       // THEN
@@ -215,7 +211,7 @@ describe("AmqpWorker", () => {
       await TypedAmqpWorker.create({
         contract,
         handlers: {},
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       }).resultToPromise();
 
       // THEN
@@ -249,7 +245,7 @@ describe("AmqpWorker", () => {
       await TypedAmqpWorker.create({
         contract,
         handlers: {},
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       }).resultToPromise();
 
       // THEN
@@ -281,7 +277,7 @@ describe("AmqpWorker", () => {
       await TypedAmqpWorker.create({
         contract,
         handlers: { testConsumer: handler },
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       }).resultToPromise();
 
       // THEN
@@ -321,7 +317,7 @@ describe("AmqpWorker", () => {
       await TypedAmqpWorker.create({
         contract,
         handlers: { testConsumer: handler },
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       }).resultToPromise();
 
       // WHEN
@@ -363,7 +359,7 @@ describe("AmqpWorker", () => {
       await TypedAmqpWorker.create({
         contract,
         handlers: { testConsumer: handler },
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       }).resultToPromise();
 
       // WHEN
@@ -403,7 +399,7 @@ describe("AmqpWorker", () => {
       await TypedAmqpWorker.create({
         contract,
         handlers: { testConsumer: handler },
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       }).resultToPromise();
 
       // WHEN
@@ -439,7 +435,7 @@ describe("AmqpWorker", () => {
           consumer1: vi.fn().mockReturnValue(Promise.resolve()),
           consumer2: vi.fn().mockReturnValue(Promise.resolve()),
         },
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       }).resultToPromise();
 
       // THEN
@@ -461,7 +457,7 @@ describe("AmqpWorker", () => {
         TypedAmqpWorker.create({
           contract,
           handlers: {},
-          connection: "amqp://localhost",
+          urls: ["amqp://localhost"],
         }).resultToPromise(),
       ).rejects.toThrow("No consumers defined in contract");
     });
@@ -486,7 +482,7 @@ describe("AmqpWorker", () => {
       const worker = await TypedAmqpWorker.create({
         contract,
         handlers: { testConsumer: vi.fn().mockReturnValue(Promise.resolve()) },
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       }).resultToPromise();
 
       // WHEN
@@ -519,7 +515,7 @@ describe("AmqpWorker", () => {
       const worker = await TypedAmqpWorker.create({
         contract,
         handlers: { testConsumer: vi.fn().mockReturnValue(Promise.resolve()) },
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       }).resultToPromise();
 
       // THEN
