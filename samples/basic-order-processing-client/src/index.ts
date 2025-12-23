@@ -22,10 +22,17 @@ const logger = pino({
 
 async function main() {
   // Create type-safe client
-  const client = await TypedAmqpClient.create({
+  const clientResult = await TypedAmqpClient.create({
     contract: orderContract,
     connection: env.AMQP_URL,
-  });
+  }).toPromise();
+
+  if (clientResult.isError()) {
+    logger.error({ error: clientResult.error }, "Failed to create client");
+    throw clientResult.error;
+  }
+
+  const client = clientResult.value;
 
   logger.info("Client ready");
   logger.info("=".repeat(60));
@@ -35,11 +42,11 @@ async function main() {
   // Helper function to publish and handle errors
   // In production code, you might want to return the Result to the caller
   // instead of throwing, but for this demo we throw to simplify the flow
-  const publishWithLog = <T extends Parameters<typeof client.publish>[0]>(
+  const publishWithLog = async <T extends Parameters<typeof client.publish>[0]>(
     publisherName: T,
     message: Parameters<typeof client.publish<T>>[1],
-  ): boolean => {
-    const result = client.publish(publisherName, message);
+  ): Promise<boolean> => {
+    const result = await client.publish(publisherName, message).toPromise();
     if (result.isError()) {
       logger.error({ error: result.error }, `Failed to publish: ${publisherName}`);
       // In a demo, we throw to stop execution. In production, consider
@@ -62,7 +69,7 @@ async function main() {
     totalAmount: 109.97,
     createdAt: new Date().toISOString(),
   };
-  publishWithLog("orderCreated", newOrder);
+  await publishWithLog("orderCreated", newOrder);
   logger.info(`   ✓ Published order ${newOrder.orderId}`);
   logger.info(`   → Will be received by: processing & notifications queues`);
   await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -74,7 +81,7 @@ async function main() {
     status: "processing" as const,
     updatedAt: new Date().toISOString(),
   };
-  publishWithLog("orderUpdated", orderUpdate);
+  await publishWithLog("orderUpdated", orderUpdate);
   logger.info(`   ✓ Published update for ${orderUpdate.orderId}`);
   logger.info(`   → Will be received by: notifications queue only`);
   await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -86,7 +93,7 @@ async function main() {
     status: "shipped" as const,
     updatedAt: new Date().toISOString(),
   };
-  publishWithLog("orderShipped", shippedOrder);
+  await publishWithLog("orderShipped", shippedOrder);
   logger.info(`   ✓ Published shipment for ${shippedOrder.orderId}`);
   logger.info(`   → Will be received by: notifications & shipping queues`);
   await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -100,7 +107,7 @@ async function main() {
     totalAmount: 47.97,
     createdAt: new Date().toISOString(),
   };
-  publishWithLog("orderCreated", newOrder2);
+  await publishWithLog("orderCreated", newOrder2);
   logger.info(`   ✓ Published order ${newOrder2.orderId}`);
   logger.info(`   → Will be received by: processing & notifications queues`);
   await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -112,7 +119,7 @@ async function main() {
     status: "cancelled" as const,
     updatedAt: new Date().toISOString(),
   };
-  publishWithLog("orderUrgentUpdate", urgentUpdate);
+  await publishWithLog("orderUrgentUpdate", urgentUpdate);
   logger.info(`   ✓ Published urgent update for ${urgentUpdate.orderId}`);
   logger.info(`   → Will be received by: notifications & urgent queues`);
 
@@ -124,7 +131,7 @@ async function main() {
   await new Promise((resolve) => setTimeout(resolve, 2000));
 
   // Clean up
-  await client.close();
+  await client.close().toPromise();
   logger.info("Publisher stopped");
   process.exit(0);
 }

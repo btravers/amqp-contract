@@ -37,19 +37,28 @@ describe("AmqpClient Integration", () => {
         },
       });
 
-      const client = await TypedAmqpClient.create({ contract, connection: amqpConnectionUrl });
+      const clientResult = await TypedAmqpClient.create({
+        contract,
+        connection: amqpConnectionUrl,
+      }).toPromise();
+      if (clientResult.isError()) {
+        throw clientResult.getError();
+      }
+      const client = clientResult.value;
 
       // WHEN
-      const result = client.publish("testPublisher", {
-        id: "123",
-        message: "Hello, RabbitMQ!",
-      });
+      const result = await client
+        .publish("testPublisher", {
+          id: "123",
+          message: "Hello, RabbitMQ!",
+        })
+        .toPromise();
 
       // THEN
       expect(result).toEqual(Result.Ok(true));
 
       // CLEANUP
-      await client.close();
+      await client.close().toPromise();
     });
 
     it("should validate messages before publishing", async ({ amqpConnectionUrl }) => {
@@ -72,13 +81,22 @@ describe("AmqpClient Integration", () => {
         },
       });
 
-      const client = await TypedAmqpClient.create({ contract, connection: amqpConnectionUrl });
+      const clientResult = await TypedAmqpClient.create({
+        contract,
+        connection: amqpConnectionUrl,
+      }).toPromise();
+      if (clientResult.isError()) {
+        throw clientResult.getError();
+      }
+      const client = clientResult.value;
 
       // WHEN
-      const result = client.publish("testPublisher", {
-        id: "123",
-        count: -5, // Invalid: count must be positive
-      });
+      const result = await client
+        .publish("testPublisher", {
+          id: "123",
+          count: -5, // Invalid: count must be positive
+        })
+        .toPromise();
 
       // THEN
       expect(result).toMatchObject({
@@ -87,16 +105,16 @@ describe("AmqpClient Integration", () => {
       });
 
       // CLEANUP
-      await client.close();
+      await client.close().toPromise();
     });
 
-    it("should handle custom routing keys", async ({ amqpConnectionUrl }) => {
+    it("should publish with options", async ({ amqpConnectionUrl }) => {
       // GIVEN
       const TestMessage = z.object({
         content: z.string(),
       });
 
-      const exchange = defineExchange("test-routing-exchange", "topic", { durable: false });
+      const exchange = defineExchange("test-options-exchange", "topic", { durable: false });
 
       const contract = defineContract({
         exchanges: {
@@ -104,25 +122,30 @@ describe("AmqpClient Integration", () => {
         },
         publishers: {
           testPublisher: definePublisher(exchange, defineMessage(TestMessage), {
-            routingKey: "default.key",
+            routingKey: "test.key",
           }),
         },
       });
 
-      const client = await TypedAmqpClient.create({ contract, connection: amqpConnectionUrl });
+      const clientResult = await TypedAmqpClient.create({
+        contract,
+        connection: amqpConnectionUrl,
+      }).toPromise();
+      if (clientResult.isError()) {
+        throw clientResult.getError();
+      }
+      const client = clientResult.value;
 
       // WHEN
-      const result = client.publish(
-        "testPublisher",
-        { content: "test message" },
-        { routingKey: "custom.key" },
-      );
+      const result = await client
+        .publish("testPublisher", { content: "test message" }, { persistent: true })
+        .toPromise();
 
       // THEN
       expect(result).toEqual(Result.Ok(true));
 
       // CLEANUP
-      await client.close();
+      await client.close().toPromise();
     });
   });
 
@@ -154,13 +177,20 @@ describe("AmqpClient Integration", () => {
       });
 
       // WHEN
-      const client = await TypedAmqpClient.create({ contract, connection: amqpConnectionUrl });
+      const clientResult = await TypedAmqpClient.create({
+        contract,
+        connection: amqpConnectionUrl,
+      }).toPromise();
+      if (clientResult.isError()) {
+        throw clientResult.getError();
+      }
+      const client = clientResult.value;
 
       // THEN - No errors should be thrown during topology setup
       expect(client).toBeDefined();
 
       // CLEANUP
-      await client.close();
+      await client.close().toPromise();
     });
   });
 });

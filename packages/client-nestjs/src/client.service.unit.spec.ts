@@ -7,7 +7,7 @@ import {
 } from "@amqp-contract/contract";
 import { z } from "zod";
 import { TypedAmqpClient } from "@amqp-contract/client";
-import { Result } from "@swan-io/boxed";
+import { Future, Result } from "@swan-io/boxed";
 import { AmqpClientService } from "./client.service.js";
 
 describe("AmqpClientService", () => {
@@ -18,10 +18,13 @@ describe("AmqpClientService", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.spyOn(TypedAmqpClient, "create").mockResolvedValue(
-      mockClient as unknown as TypedAmqpClient<never>,
+    vi.spyOn(TypedAmqpClient, "create").mockReturnValue(
+      Future.value(Result.Ok(mockClient as unknown as TypedAmqpClient<never>)),
     );
-    (mockClient.publish as ReturnType<typeof vi.fn>).mockReturnValue(Result.Ok(true));
+    (mockClient.publish as ReturnType<typeof vi.fn>).mockReturnValue(Future.value(Result.Ok(true)));
+    (mockClient.close as ReturnType<typeof vi.fn>).mockReturnValue(
+      Future.value(Result.Ok(undefined)),
+    );
   });
 
   describe("lifecycle", () => {
@@ -103,7 +106,8 @@ describe("AmqpClientService", () => {
 
       await service.onModuleInit();
 
-      const result = service.publish("testPublisher", { message: "Hello" });
+      const future = service.publish("testPublisher", { message: "Hello" });
+      const result = await future.toPromise();
 
       expect(result).toEqual(Result.Ok(true));
       expect(mockClient.publish).toHaveBeenCalled();
@@ -129,10 +133,11 @@ describe("AmqpClientService", () => {
         connection: "amqp://localhost",
       });
 
-      const result = service.publish("testPublisher", { message: "Hello" });
+      const future = service.publish("testPublisher", { message: "Hello" });
+      const result = await future.toPromise();
 
       expect(result).toMatchObject({
-        isError: expect.any(Function),
+        tag: "Error",
         error: expect.objectContaining({
           message: expect.stringContaining("Client not initialized"),
         }),

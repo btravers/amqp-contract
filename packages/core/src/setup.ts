@@ -11,7 +11,7 @@ import type { ContractDefinition } from "@amqp-contract/contract";
 export async function setupInfra(channel: Channel, contract: ContractDefinition): Promise<void> {
   // Setup exchanges
   if (contract.exchanges) {
-    await Promise.all(
+    const exchangeResults = await Promise.allSettled(
       Object.values(contract.exchanges).map((exchange) =>
         channel.assertExchange(exchange.name, exchange.type, {
           durable: exchange.durable,
@@ -21,11 +21,20 @@ export async function setupInfra(channel: Channel, contract: ContractDefinition)
         }),
       ),
     );
+    const exchangeErrors = exchangeResults.filter(
+      (result): result is PromiseRejectedResult => result.status === "rejected",
+    );
+    if (exchangeErrors.length > 0) {
+      throw new AggregateError(
+        exchangeErrors.map(({ reason }) => reason),
+        "Failed to setup exchanges",
+      );
+    }
   }
 
   // Setup queues
   if (contract.queues) {
-    await Promise.all(
+    const queueResults = await Promise.allSettled(
       Object.values(contract.queues).map((queue) =>
         channel.assertQueue(queue.name, {
           durable: queue.durable,
@@ -35,11 +44,20 @@ export async function setupInfra(channel: Channel, contract: ContractDefinition)
         }),
       ),
     );
+    const queueErrors = queueResults.filter(
+      (result): result is PromiseRejectedResult => result.status === "rejected",
+    );
+    if (queueErrors.length > 0) {
+      throw new AggregateError(
+        queueErrors.map(({ reason }) => reason),
+        "Failed to setup queues",
+      );
+    }
   }
 
   // Setup bindings
   if (contract.bindings) {
-    await Promise.all(
+    const bindingResults = await Promise.allSettled(
       Object.values(contract.bindings).map((binding) => {
         if (binding.type === "queue") {
           return channel.bindQueue(
@@ -58,5 +76,14 @@ export async function setupInfra(channel: Channel, contract: ContractDefinition)
         );
       }),
     );
+    const bindingErrors = bindingResults.filter(
+      (result): result is PromiseRejectedResult => result.status === "rejected",
+    );
+    if (bindingErrors.length > 0) {
+      throw new AggregateError(
+        bindingErrors.map(({ reason }) => reason),
+        "Failed to setup bindings",
+      );
+    }
   }
 }

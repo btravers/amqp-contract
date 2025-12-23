@@ -7,10 +7,14 @@ import { orderContract } from "@amqp-contract-samples/basic-order-processing-con
 describe("Basic Order Processing Client Integration", () => {
   it("should publish a new order successfully", async ({ amqpConnectionUrl }) => {
     // GIVEN
-    const client = await TypedAmqpClient.create({
+    const clientResult = await TypedAmqpClient.create({
       contract: orderContract,
       connection: amqpConnectionUrl,
-    });
+    }).toPromise();
+    if (clientResult.isError()) {
+      throw clientResult.getError();
+    }
+    const client = clientResult.value;
 
     const newOrder = {
       orderId: "TEST-001",
@@ -24,21 +28,25 @@ describe("Basic Order Processing Client Integration", () => {
     };
 
     // WHEN
-    const result = client.publish("orderCreated", newOrder);
+    const result = await client.publish("orderCreated", newOrder).toPromise();
 
     // THEN
     expect(result).toEqual(Result.Ok(true));
 
     // CLEANUP
-    await client.close();
+    await client.close().toPromise();
   });
 
   it("should publish order status updates", async ({ amqpConnectionUrl }) => {
     // GIVEN
-    const client = await TypedAmqpClient.create({
+    const clientResult = await TypedAmqpClient.create({
       contract: orderContract,
       connection: amqpConnectionUrl,
-    });
+    }).toPromise();
+    if (clientResult.isError()) {
+      throw clientResult.getError();
+    }
+    const client = clientResult.value;
 
     const orderUpdate = {
       orderId: "TEST-001",
@@ -47,21 +55,25 @@ describe("Basic Order Processing Client Integration", () => {
     };
 
     // WHEN
-    const result = client.publish("orderUpdated", orderUpdate);
+    const result = await client.publish("orderUpdated", orderUpdate).toPromise();
 
     // THEN
     expect(result).toEqual(Result.Ok(true));
 
     // CLEANUP
-    await client.close();
+    await client.close().toPromise();
   });
 
   it("should validate order schema before publishing", async ({ amqpConnectionUrl }) => {
     // GIVEN
-    const client = await TypedAmqpClient.create({
+    const clientResult = await TypedAmqpClient.create({
       contract: orderContract,
       connection: amqpConnectionUrl,
-    });
+    }).toPromise();
+    if (clientResult.isError()) {
+      throw clientResult.getError();
+    }
+    const client = clientResult.value;
 
     const invalidOrder = {
       orderId: "TEST-001",
@@ -74,12 +86,12 @@ describe("Basic Order Processing Client Integration", () => {
     };
 
     // WHEN
-    const result = client.publish("orderCreated", invalidOrder);
+    const result = await client.publish("orderCreated", invalidOrder).toPromise();
 
     // THEN
     expect(result.isError()).toBe(true);
 
     // CLEANUP
-    await client.close();
+    await client.close().toPromise();
   });
 });
