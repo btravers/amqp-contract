@@ -95,10 +95,12 @@ describe("AmqpClient", () => {
 
       // WHEN
       // Type inference test - message type should be inferred correctly
-      await client.publish("createOrder", {
-        orderId: "123",
-        amount: 100,
-      }).toPromise();
+      await client
+        .publish("createOrder", {
+          orderId: "123",
+          amount: 100,
+        })
+        .toPromise();
 
       // THEN
       expect(mockChannel.publish).toHaveBeenCalledWith(
@@ -273,7 +275,9 @@ describe("AmqpClient", () => {
       const client = await TypedAmqpClient.create({ contract, connection: "amqp://localhost" });
 
       // WHEN
-      const result = await client.publish("testPublisher", { id: "123" }, { persistent: true }).toPromise();
+      const result = await client
+        .publish("testPublisher", { id: "123" }, { persistent: true })
+        .toPromise();
 
       // THEN
       expect(result).toEqual(Result.Ok(true));

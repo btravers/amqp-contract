@@ -60,10 +60,12 @@ describe("AmqpWorker Integration", () => {
 
     // WHEN - Publish a message using the client
     const client = await TypedAmqpClient.create({ contract, connection: amqpConnectionUrl });
-    const publishResult = await client.publish("testPublisher", {
-      id: "123",
-      message: "Hello from integration test!",
-    }).toPromise();
+    const publishResult = await client
+      .publish("testPublisher", {
+        id: "123",
+        message: "Hello from integration test!",
+      })
+      .toPromise();
 
     expect(publishResult.isOk()).toBe(true);
 

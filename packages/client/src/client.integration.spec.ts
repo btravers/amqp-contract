@@ -40,10 +40,12 @@ describe("AmqpClient Integration", () => {
       const client = await TypedAmqpClient.create({ contract, connection: amqpConnectionUrl });
 
       // WHEN
-      const result = await client.publish("testPublisher", {
-        id: "123",
-        message: "Hello, RabbitMQ!",
-      }).toPromise();
+      const result = await client
+        .publish("testPublisher", {
+          id: "123",
+          message: "Hello, RabbitMQ!",
+        })
+        .toPromise();
 
       // THEN
       expect(result).toEqual(Result.Ok(true));
@@ -75,10 +77,12 @@ describe("AmqpClient Integration", () => {
       const client = await TypedAmqpClient.create({ contract, connection: amqpConnectionUrl });
 
       // WHEN
-      const result = await client.publish("testPublisher", {
-        id: "123",
-        count: -5, // Invalid: count must be positive
-      }).toPromise();
+      const result = await client
+        .publish("testPublisher", {
+          id: "123",
+          count: -5, // Invalid: count must be positive
+        })
+        .toPromise();
 
       // THEN
       expect(result).toMatchObject({
@@ -112,11 +116,9 @@ describe("AmqpClient Integration", () => {
       const client = await TypedAmqpClient.create({ contract, connection: amqpConnectionUrl });
 
       // WHEN
-      const result = await client.publish(
-        "testPublisher",
-        { content: "test message" },
-        { persistent: true },
-      ).toPromise();
+      const result = await client
+        .publish("testPublisher", { content: "test message" }, { persistent: true })
+        .toPromise();
 
       // THEN
       expect(result).toEqual(Result.Ok(true));
