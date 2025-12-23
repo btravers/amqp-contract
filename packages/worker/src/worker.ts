@@ -26,8 +26,12 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   ) {}
 
   /**
-   * Create a type-safe AMQP worker from a contract
-   * The worker will automatically connect and start consuming all messages
+   * Create a type-safe AMQP worker from a contract.
+   *
+   * Connection management (including automatic reconnection) is handled internally
+   * by amqp-connection-manager via the {@link AmqpClient}. The worker will set up
+   * consumers for all contract-defined handlers asynchronously in the background
+   * once the underlying connection and channels are ready.
    */
   static create<TContract extends ContractDefinition>({
     contract,
@@ -101,6 +105,11 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     // Start consuming
     return Future.fromPromise(
       this.amqpClient.channel.consume(consumer.queue.name, async (msg) => {
+        if (!msg) {
+          // Message can be null when the consumer is cancelled by RabbitMQ
+          return;
+        }
+
         // Parse message
         const parseResult = Result.fromExecution(() => JSON.parse(msg.content.toString()));
         if (parseResult.isError()) {

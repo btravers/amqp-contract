@@ -25,8 +25,11 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
   ) {}
 
   /**
-   * Create a type-safe AMQP client from a contract
-   * The client will automatically connect to the AMQP broker
+   * Create a type-safe AMQP client from a contract.
+   *
+   * Connection management (including automatic reconnection) is handled internally
+   * by amqp-connection-manager via the {@link AmqpClient}. The client establishes
+   * infrastructure asynchronously in the background once the connection is ready.
    */
   static create<TContract extends ContractDefinition>({
     contract,
