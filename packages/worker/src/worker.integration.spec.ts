@@ -59,7 +59,14 @@ describe("AmqpWorker Integration", () => {
     });
 
     // WHEN - Publish a message using the client
-    const client = await TypedAmqpClient.create({ contract, connection: amqpConnectionUrl });
+    const clientResult = await TypedAmqpClient.create({
+      contract,
+      connection: amqpConnectionUrl,
+    }).toPromise();
+    if (clientResult.isError()) {
+      throw clientResult.getError();
+    }
+    const client = clientResult.value;
     const publishResult = await client
       .publish("testPublisher", {
         id: "123",
@@ -127,7 +134,14 @@ describe("AmqpWorker Integration", () => {
     });
 
     // WHEN - Publish multiple messages
-    const client = await TypedAmqpClient.create({ contract, connection: amqpConnectionUrl });
+    const clientResult = await TypedAmqpClient.create({
+      contract,
+      connection: amqpConnectionUrl,
+    }).toPromise();
+    if (clientResult.isError()) {
+      throw clientResult.getError();
+    }
+    const client = clientResult.value;
 
     const result1 = await client.publish("testPublisher", { id: "1", count: 1 }).toPromise();
     const result2 = await client.publish("testPublisher", { id: "2", count: 2 }).toPromise();
@@ -207,7 +221,14 @@ describe("AmqpWorker Integration", () => {
     });
 
     // WHEN - Publish messages to both queues
-    const client = await TypedAmqpClient.create({ contract, connection: amqpConnectionUrl });
+    const clientResult = await TypedAmqpClient.create({
+      contract,
+      connection: amqpConnectionUrl,
+    }).toPromise();
+    if (clientResult.isError()) {
+      throw clientResult.getError();
+    }
+    const client = clientResult.value;
 
     const result1 = await client.publish("pub1", { id: "msg1" }).toPromise();
     const result2 = await client.publish("pub2", { id: "msg2" }).toPromise();
