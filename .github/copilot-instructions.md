@@ -306,6 +306,7 @@ packages/[package-name]/
    - Merge multiple assertions into one whenever possible for clarity
    - Use `expect.objectContaining()` or `toMatchObject()` for complex object validation
    - Prefer single comprehensive assertions over multiple fragmented ones
+   - When testing multiple calls to mocked functions, use `toHaveBeenNthCalledWith(n, ...)` to verify specific call order and arguments
 
    ```typescript
    // ❌ Bad - multiple fragmented assertions
@@ -324,6 +325,23 @@ packages/[package-name]/
        type: "topic",
        durable: true,
      });
+   });
+
+   // ❌ Bad - using toHaveBeenCalledWith without specifying order
+   it("should call function multiple times", () => {
+     mockFn("first");
+     mockFn("second");
+     expect(mockFn).toHaveBeenCalledWith("first");
+     expect(mockFn).toHaveBeenCalledWith("second");
+   });
+
+   // ✅ Good - using toHaveBeenNthCalledWith for ordered calls
+   it("should call function multiple times", () => {
+     mockFn("first");
+     mockFn("second");
+     expect(mockFn).toHaveBeenCalledTimes(2);
+     expect(mockFn).toHaveBeenNthCalledWith(1, "first");
+     expect(mockFn).toHaveBeenNthCalledWith(2, "second");
    });
    ```
 

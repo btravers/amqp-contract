@@ -1,11 +1,11 @@
 {
-  "name": "@amqp-contract/client",
+  "name": "@amqp-contract/core",
   "version": "0.1.4",
-  "description": "Client utilities for publishing messages using amqp-contract",
+  "description": "Core utilities for AMQP setup and management in amqp-contract",
   "keywords": [
     "amqp",
-    "client",
     "contract",
+    "core",
     "rabbitmq",
     "typescript"
   ],
@@ -16,7 +16,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/btravers/amqp-contract.git",
-    "directory": "packages/client"
+    "directory": "packages/core"
   },
   "license": "MIT",
   "author": "Benoit TRAVERS <benoit.travers.fr@gmail.com>",
@@ -43,27 +43,21 @@
   "scripts": {
     "build": "tsdown src/index.ts --format cjs,esm --dts --clean",
     "dev": "tsdown src/index.ts --format cjs,esm --dts --watch",
-    "test": "vitest run --project unit",
-    "test:integration": "vitest run --project integration",
-    "test:watch": "vitest --project unit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@amqp-contract/contract": "workspace:*",
-    "@amqp-contract/core": "workspace:*",
-    "@swan-io/boxed": "catalog:"
+    "@amqp-contract/contract": "workspace:*"
   },
   "devDependencies": {
-    "@amqp-contract/testing": "workspace:*",
     "@amqp-contract/tsconfig": "workspace:*",
     "@types/amqplib": "catalog:",
-    "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "amqplib": "catalog:",
     "tsdown": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:",
-    "zod": "catalog:"
+    "vitest": "catalog:"
   },
   "peerDependencies": {
     "amqplib": ">=0.10.0"
