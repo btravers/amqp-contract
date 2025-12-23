@@ -204,7 +204,11 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
               channel.nack(msg, false, true);
             }),
           )
-          .toPromise();
+          .tapOk(() => {
+            // Acknowledge message
+            channel.ack(msg);
+          })
+          .resultToPromise();
       }),
     )
       .mapError(
