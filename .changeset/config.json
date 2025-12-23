@@ -4,17 +4,14 @@
   "commit": false,
   "fixed": [
     [
-      "@amqp-contract/arktype",
       "@amqp-contract/asyncapi",
       "@amqp-contract/client",
       "@amqp-contract/client-nestjs",
       "@amqp-contract/contract",
       "@amqp-contract/core",
       "@amqp-contract/testing",
-      "@amqp-contract/valibot",
       "@amqp-contract/worker",
-      "@amqp-contract/worker-nestjs",
-      "@amqp-contract/zod"
+      "@amqp-contract/worker-nestjs"
     ]
   ],
   "linked": [],
