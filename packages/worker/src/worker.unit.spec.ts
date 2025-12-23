@@ -303,7 +303,7 @@ describe("AmqpWorker", () => {
     it("should nack invalid messages", async () => {
       // GIVEN
       const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      
+
       const TestMessage = defineMessage(z.object({ id: z.string() }));
 
       const testQueue = defineQueue("test-queue");
@@ -338,14 +338,14 @@ describe("AmqpWorker", () => {
       expect(handler).not.toHaveBeenCalled();
       expect(mockChannel.nack).toHaveBeenCalledWith(mockMessage, false, false);
       expect(consoleErrorSpy).toHaveBeenCalled();
-      
+
       consoleErrorSpy.mockRestore();
     });
 
     it("should nack and requeue on handler error", async () => {
       // GIVEN
       const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      
+
       const TestMessage = defineMessage(z.object({ id: z.string() }));
 
       const testQueue = defineQueue("test-queue");
@@ -380,7 +380,7 @@ describe("AmqpWorker", () => {
       expect(handler).toHaveBeenCalled();
       expect(mockChannel.nack).toHaveBeenCalledWith(mockMessage, false, true);
       expect(consoleErrorSpy).toHaveBeenCalled();
-      
+
       consoleErrorSpy.mockRestore();
     });
 
