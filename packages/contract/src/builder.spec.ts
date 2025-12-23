@@ -281,15 +281,12 @@ describe("builder", () => {
       const queue = defineQueue("test-queue");
 
       // WHEN
-      const consumer = defineConsumer(queue, message, {
-        prefetch: 10,
-      });
+      const consumer = defineConsumer(queue, message);
 
       // THEN
       expect(consumer).toEqual({
         queue,
         message,
-        prefetch: 10,
       });
     });
 
@@ -340,9 +337,7 @@ describe("builder", () => {
           }),
         },
         consumers: {
-          processOrder: defineConsumer(orderProcessingQueue, message, {
-            prefetch: 10,
-          }),
+          processOrder: defineConsumer(orderProcessingQueue, message),
         },
       });
 
@@ -373,7 +368,6 @@ describe("builder", () => {
           processOrder: {
             queue: orderProcessingQueue,
             message,
-            prefetch: 10,
           },
         },
       });
@@ -424,9 +418,7 @@ describe("builder", () => {
           }),
         },
         consumers: {
-          processOrder: defineConsumer(finalQueue, message, {
-            prefetch: 10,
-          }),
+          processOrder: defineConsumer(finalQueue, message),
         },
       });
 

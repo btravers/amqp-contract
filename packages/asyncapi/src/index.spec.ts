@@ -55,9 +55,7 @@ describe("AsyncAPIGenerator", () => {
           }),
         },
         consumers: {
-          processOrder: defineConsumer(orderQueue, orderMessage, {
-            prefetch: 10,
-          }),
+          processOrder: defineConsumer(orderQueue, orderMessage),
         },
       });
 
@@ -271,7 +269,6 @@ describe("AsyncAPIGenerator", () => {
               "channel": {
                 "$ref": "#/channels/orderProcessing",
               },
-              "description": "Prefetch: 10",
               "messages": [
                 {
                   "$ref": "#/channels/orderProcessing/messages/processOrderMessage",
@@ -766,9 +763,7 @@ describe("AsyncAPIGenerator", () => {
           }),
         },
         consumers: {
-          processPayment: defineConsumer(paymentQueue, paymentMessage, {
-            prefetch: 5,
-          }),
+          processPayment: defineConsumer(paymentQueue, paymentMessage),
         },
       });
 
@@ -1017,7 +1012,6 @@ describe("AsyncAPIGenerator", () => {
               "channel": {
                 "$ref": "#/channels/paymentProcessing",
               },
-              "description": "Prefetch: 5",
               "messages": [
                 {
                   "$ref": "#/channels/paymentProcessing/messages/processPaymentMessage",
@@ -1590,114 +1584,6 @@ describe("AsyncAPIGenerator", () => {
                 },
               ],
               "summary": "Publish to orders",
-            },
-          },
-        }
-      `);
-
-      const parser = new Parser();
-      await expect(parser.parse(JSON.stringify(asyncapiDoc))).resolves.toEqual(
-        expect.objectContaining({ diagnostics: [] }),
-      );
-    });
-
-    it("should include prefetch in consumer operation descriptions", async () => {
-      // GIVEN
-      const queue = defineQueue("orders");
-      const schema = z.object({ id: z.string() });
-      const message = defineMessage(schema);
-
-      const contract = defineContract({
-        queues: { orders: queue },
-        consumers: {
-          processOrder: defineConsumer(queue, message, {
-            prefetch: 20,
-          }),
-        },
-      });
-
-      const generator = new AsyncAPIGenerator({
-        schemaConverters: [new ZodToJsonSchemaConverter()],
-      });
-
-      // WHEN
-      const asyncapiDoc = await generator.generate(contract, {
-        info: { title: "Test", version: "1.0.0" },
-      });
-
-      // THEN
-      expect(asyncapiDoc).toMatchInlineSnapshot(`
-        {
-          "asyncapi": "3.0.0",
-          "channels": {
-            "orders": {
-              "address": "orders",
-              "bindings": {
-                "amqp": {
-                  "is": "queue",
-                  "queue": {
-                    "autoDelete": false,
-                    "durable": false,
-                    "exclusive": false,
-                    "name": "orders",
-                  },
-                },
-              },
-              "description": "AMQP Queue: orders",
-              "messages": {
-                "processOrderMessage": {
-                  "contentType": "application/json",
-                  "payload": {
-                    "properties": {
-                      "id": {
-                        "type": "string",
-                      },
-                    },
-                    "required": [
-                      "id",
-                    ],
-                    "type": "object",
-                  },
-                },
-              },
-              "title": "orders",
-            },
-          },
-          "components": {
-            "messages": {
-              "processOrderMessage": {
-                "contentType": "application/json",
-                "payload": {
-                  "properties": {
-                    "id": {
-                      "type": "string",
-                    },
-                  },
-                  "required": [
-                    "id",
-                  ],
-                  "type": "object",
-                },
-              },
-            },
-          },
-          "info": {
-            "title": "Test",
-            "version": "1.0.0",
-          },
-          "operations": {
-            "processOrder": {
-              "action": "receive",
-              "channel": {
-                "$ref": "#/channels/orders",
-              },
-              "description": "Prefetch: 20",
-              "messages": [
-                {
-                  "$ref": "#/channels/orders/messages/processOrderMessage",
-                },
-              ],
-              "summary": "Consume from orders",
             },
           },
         }

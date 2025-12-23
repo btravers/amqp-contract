@@ -156,28 +156,18 @@ export const orderContract = defineContract({
   },
   consumers: {
     // Consumer for processing new orders
-    processOrder: defineConsumer(orderProcessingQueue, orderMessage, {
-      prefetch: 10,
-    }),
+    processOrder: defineConsumer(orderProcessingQueue, orderMessage),
 
     // Consumer for sending all notifications
-    notifyOrder: defineConsumer(orderNotificationsQueue, orderUnionMessage, {
-      prefetch: 5,
-    }),
+    notifyOrder: defineConsumer(orderNotificationsQueue, orderUnionMessage),
 
     // Consumer for shipping department
-    shipOrder: defineConsumer(orderShippingQueue, orderStatusMessage, {
-      prefetch: 5,
-    }),
+    shipOrder: defineConsumer(orderShippingQueue, orderStatusMessage),
 
     // Consumer for urgent orders
-    handleUrgentOrder: defineConsumer(orderUrgentQueue, orderStatusMessage, {
-      prefetch: 20,
-    }),
+    handleUrgentOrder: defineConsumer(orderUrgentQueue, orderStatusMessage),
 
     // Consumer for analytics processing
-    processAnalytics: defineConsumer(analyticsProcessingQueue, orderUnionMessage, {
-      prefetch: 50, // Higher prefetch for analytics
-    }),
+    processAnalytics: defineConsumer(analyticsProcessingQueue, orderUnionMessage),
   },
 });
