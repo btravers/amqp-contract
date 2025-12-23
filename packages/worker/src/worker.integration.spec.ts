@@ -56,7 +56,8 @@ describe("AmqpWorker Integration", () => {
         },
       },
       connection: amqpConnectionUrl,
-    });
+    }).resultToPromise();
+
 
     // WHEN - Publish a message using the client
     const clientResult = await TypedAmqpClient.create({
@@ -129,7 +130,8 @@ describe("AmqpWorker Integration", () => {
         },
       },
       connection: amqpConnectionUrl,
-    });
+    }).resultToPromise();
+
 
     // WHEN - Publish multiple messages
     const clientResult = await TypedAmqpClient.create({
@@ -216,7 +218,8 @@ describe("AmqpWorker Integration", () => {
         },
       },
       connection: amqpConnectionUrl,
-    });
+    }).resultToPromise();
+
 
     // WHEN - Publish messages to both queues
     const clientResult = await TypedAmqpClient.create({

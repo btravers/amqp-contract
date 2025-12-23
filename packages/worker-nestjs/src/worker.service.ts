@@ -36,7 +36,7 @@ export class AmqpWorkerService<TContract extends ContractDefinition>
       contract: this.options.contract,
       handlers: this.options.handlers,
       connection: this.options.connection,
-    });
+    }).resultToPromise();
   }
 
   /**

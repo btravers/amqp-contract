@@ -38,7 +38,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   ): Future<Result<TypedAmqpWorker<TContract>, TechnicalError>> {
     const worker = new TypedAmqpWorker(options.contract, options.handlers, options.connection);
 
-    return Future.concurrent([worker.init, worker.consumeAll], { concurrency: 1 })
+    return Future.concurrent([worker.init(), worker.consumeAll()], { concurrency: 1 })
       .map((results) => Result.all([...results]))
       .mapOk(() => worker);
   }
@@ -89,7 +89,9 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    */
   private consumeAll(): Future<Result<void, TechnicalError>> {
     if (!this.contract.consumers) {
-      throw new Error("No consumers defined in contract");
+      return Future.value(
+        Result.Error(new TechnicalError("No consumers defined in contract")),
+      );
     }
 
     const consumerNames = Object.keys(this.contract.consumers) as InferConsumerNames<TContract>[];
@@ -145,7 +147,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     return Future.fromPromise(
       channel.consume(
         consumer.queue.name,
-        async (msg: ConsumeMessage | null) => {
+        (msg: ConsumeMessage | null) => {
           if (!msg) {
             return;
           }
@@ -240,7 +242,9 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
     return Future.all(
       this.consumerTags.map((tag) =>
-        Future.fromPromise(channel.cancel(tag)).mapError((error) => new TechnicalError("", error)),
+        Future.fromPromise(channel.cancel(tag)).mapError(
+          (error) => new TechnicalError(`Failed to cancel consumer "${tag}"`, error),
+        ),
       ),
     )
       .map((results) => Result.all(results))

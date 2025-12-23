@@ -22,7 +22,7 @@ describe("Basic Order Processing Worker Integration", () => {
         processAnalytics: () => Promise.resolve(),
       },
       connection: amqpConnectionUrl,
-    });
+    }).resultToPromise();
 
     const clientResult = await TypedAmqpClient.create({
       contract: orderContract,
@@ -71,7 +71,7 @@ describe("Basic Order Processing Worker Integration", () => {
         processAnalytics: () => Promise.resolve(),
       },
       connection: amqpConnectionUrl,
-    });
+    }).resultToPromise();
 
     const clientResult = await TypedAmqpClient.create({
       contract: orderContract,
@@ -131,7 +131,7 @@ describe("Basic Order Processing Worker Integration", () => {
         processAnalytics: () => Promise.resolve(),
       },
       connection: amqpConnectionUrl,
-    });
+    }).resultToPromise();
 
     const clientResult = await TypedAmqpClient.create({
       contract: orderContract,

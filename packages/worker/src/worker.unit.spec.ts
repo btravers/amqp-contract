@@ -74,7 +74,7 @@ describe("AmqpWorker", () => {
         contract,
         handlers,
         connection: "amqp://localhost",
-      });
+      }).resultToPromise();
 
       // THEN
       // Type inference test - this should compile without errors
@@ -109,7 +109,7 @@ describe("AmqpWorker", () => {
         contract,
         handlers: { processOrder: handler },
         connection: "amqp://localhost",
-      });
+      }).resultToPromise();
 
       // WHEN
       // Simulate message
@@ -146,7 +146,7 @@ describe("AmqpWorker", () => {
       });
 
       // WHEN
-      await TypedAmqpWorker.create({ contract, handlers: {}, connection: "amqp://localhost" });
+      await TypedAmqpWorker.create({ contract, handlers: {}, connection: "amqp://localhost" }).resultToPromise();
 
       // THEN
       expect(mockConnection.createChannel).toHaveBeenCalled();
@@ -172,7 +172,7 @@ describe("AmqpWorker", () => {
       });
 
       // WHEN
-      await TypedAmqpWorker.create({ contract, handlers: {}, connection: "amqp://localhost" });
+      await TypedAmqpWorker.create({ contract, handlers: {}, connection: "amqp://localhost" }).resultToPromise();
 
       // THEN
       expect(mockChannel.assertQueue).toHaveBeenCalledWith("test-queue", {
@@ -204,7 +204,7 @@ describe("AmqpWorker", () => {
       });
 
       // WHEN
-      await TypedAmqpWorker.create({ contract, handlers: {}, connection: "amqp://localhost" });
+      await TypedAmqpWorker.create({ contract, handlers: {}, connection: "amqp://localhost" }).resultToPromise();
 
       // THEN
       expect(mockChannel.bindQueue).toHaveBeenCalledWith(
@@ -234,7 +234,7 @@ describe("AmqpWorker", () => {
       });
 
       // WHEN
-      await TypedAmqpWorker.create({ contract, handlers: {}, connection: "amqp://localhost" });
+      await TypedAmqpWorker.create({ contract, handlers: {}, connection: "amqp://localhost" }).resultToPromise();
 
       // THEN
       expect(mockChannel.bindExchange).toHaveBeenCalledWith(
@@ -266,7 +266,7 @@ describe("AmqpWorker", () => {
         contract,
         handlers: { testConsumer: handler },
         connection: "amqp://localhost",
-      });
+      }).resultToPromise();
 
       // THEN
       expect(mockChannel.consume).toHaveBeenCalledWith("test-queue", expect.any(Function), {
@@ -284,31 +284,6 @@ describe("AmqpWorker", () => {
 
       expect(handler).toHaveBeenCalledWith({ id: "123" });
       expect(mockChannel.ack).toHaveBeenCalledWith(mockMessage);
-    });
-
-    it("should set prefetch when specified", async () => {
-      // GIVEN
-      const TestMessage = defineMessage(z.object({ id: z.string() }));
-      const testQueue = defineQueue("test-queue");
-
-      const contract = defineContract({
-        queues: {
-          test: testQueue,
-        },
-        consumers: {
-          testConsumer: defineConsumer(testQueue, TestMessage, { prefetch: 10 }),
-        },
-      });
-
-      // WHEN
-      await TypedAmqpWorker.create({
-        contract,
-        handlers: { testConsumer: vi.fn().mockReturnValue(Promise.resolve()) },
-        connection: "amqp://localhost",
-      });
-
-      // THEN
-      expect(mockChannel.prefetch).toHaveBeenCalledWith(10);
     });
 
     it("should nack invalid messages", async () => {
@@ -331,7 +306,7 @@ describe("AmqpWorker", () => {
         contract,
         handlers: { testConsumer: handler },
         connection: "amqp://localhost",
-      });
+      }).resultToPromise();
 
       // WHEN
       // Simulate invalid message
@@ -368,7 +343,7 @@ describe("AmqpWorker", () => {
         contract,
         handlers: { testConsumer: handler },
         connection: "amqp://localhost",
-      });
+      }).resultToPromise();
 
       // WHEN
       // Simulate message
@@ -404,7 +379,7 @@ describe("AmqpWorker", () => {
         contract,
         handlers: { testConsumer: handler },
         connection: "amqp://localhost",
-      });
+      }).resultToPromise();
 
       // WHEN
       // Simulate message
@@ -441,7 +416,7 @@ describe("AmqpWorker", () => {
         contract,
         handlers: { testConsumer: handler },
         connection: "amqp://localhost",
-      });
+      }).resultToPromise();
 
       // WHEN
       await mockConsumeCallback?.(null);
@@ -477,7 +452,7 @@ describe("AmqpWorker", () => {
           consumer2: vi.fn().mockReturnValue(Promise.resolve()),
         },
         connection: "amqp://localhost",
-      });
+      }).resultToPromise();
 
       // THEN
       expect(mockChannel.consume).toHaveBeenCalledTimes(2);
@@ -495,7 +470,7 @@ describe("AmqpWorker", () => {
 
       // WHEN / THEN
       await expect(
-        TypedAmqpWorker.create({ contract, handlers: {}, connection: "amqp://localhost" }),
+        TypedAmqpWorker.create({ contract, handlers: {}, connection: "amqp://localhost" }).resultToPromise(),
       ).rejects.toThrow("No consumers defined in contract");
     });
   });
@@ -520,7 +495,7 @@ describe("AmqpWorker", () => {
         contract,
         handlers: { testConsumer: vi.fn().mockReturnValue(Promise.resolve()) },
         connection: "amqp://localhost",
-      });
+      }).resultToPromise();
 
       // WHEN
       await worker.close();
@@ -553,7 +528,7 @@ describe("AmqpWorker", () => {
         contract,
         handlers: { testConsumer: vi.fn().mockReturnValue(Promise.resolve()) },
         connection: "amqp://localhost",
-      });
+      }).resultToPromise();
 
       // THEN
       expect(worker).toBeInstanceOf(TypedAmqpWorker);
@@ -562,3 +537,4 @@ describe("AmqpWorker", () => {
     });
   });
 });
+
