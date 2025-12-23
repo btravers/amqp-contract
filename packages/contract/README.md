@@ -93,7 +93,8 @@ This is useful for documentation generation and type inference.
 
 Define a binding between a queue and an exchange. Pass the queue and exchange objects (not strings).
 
-**Note:** `defineQueueBinding` is an alias for `defineQueueBinding`.
+**For fanout exchanges:** Routing key is optional (fanout ignores routing keys).
+**For direct/topic exchanges:** Routing key is required in options.
 
 ### `defineExchangeBinding(destination, source, options?)`
 

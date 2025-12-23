@@ -52,54 +52,50 @@ import {
   defineQueueBinding,
   definePublisher,
   defineConsumer,
+  defineMessage,
 } from '@amqp-contract/contract';
 import { z } from 'zod';
 
+// Define exchanges and queues first
+const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+const orderProcessingQueue = defineQueue('order-processing', { durable: true });
+
+// Define message schema
+const orderMessage = defineMessage(
+  z.object({
+    orderId: z.string(),
+    customerId: z.string(),
+    amount: z.number().positive(),
+    items: z.array(
+      z.object({
+        productId: z.string(),
+        quantity: z.number().int().positive(),
+      })
+    ),
+  })
+);
+
 export const orderContract = defineContract({
   exchanges: {
-    orders: defineExchange('orders', 'topic', { durable: true }),
+    orders: ordersExchange,
   },
   queues: {
-    orderProcessing: defineQueue('order-processing', { durable: true }),
+    orderProcessing: orderProcessingQueue,
   },
   bindings: {
-    orderBinding: defineQueueBinding('order-processing', 'orders', {
+    orderBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
       routingKey: 'order.created',
     }),
   },
   publishers: {
-    orderCreated: definePublisher(
-      'orders',
-      z.object({
-        orderId: z.string(),
-        customerId: z.string(),
-        amount: z.number().positive(),
-        items: z.array(
-          z.object({
-            productId: z.string(),
-            quantity: z.number().int().positive(),
-          })
-        ),
-      }),
-      { routingKey: 'order.created' }
-    ),
+    orderCreated: definePublisher(ordersExchange, orderMessage, {
+      routingKey: 'order.created',
+    }),
   },
   consumers: {
-    processOrder: defineConsumer(
-      'order-processing',
-      z.object({
-        orderId: z.string(),
-        customerId: z.string(),
-        amount: z.number().positive(),
-        items: z.array(
-          z.object({
-            productId: z.string(),
-            quantity: z.number().int().positive(),
-          })
-        ),
-      }),
-      { prefetch: 10 }
-    ),
+    processOrder: defineConsumer(orderProcessingQueue, orderMessage, {
+      prefetch: 10,
+    }),
   },
 });
 ```

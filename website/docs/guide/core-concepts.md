@@ -19,13 +19,22 @@ All of this is defined once, and type safety flows from there.
 amqp-contract provides end-to-end type safety:
 
 ```typescript
+import { z } from 'zod';
+
+// Define resources and message
+const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+const orderMessage = defineMessage(z.object({
+  orderId: z.string(),
+  amount: z.number(),
+}));
+
 // Define once
 const contract = defineContract({
+  exchanges: { orders: ordersExchange },
   publishers: {
-    orderCreated: definePublisher('orders', z.object({
-      orderId: z.string(),
-      amount: z.number(),
-    })),
+    orderCreated: definePublisher(ordersExchange, orderMessage, {
+      routingKey: 'order.created',
+    }),
   },
 });
 
@@ -48,8 +57,16 @@ result.match({
 });
 
 // Worker handlers are fully typed
+const orderProcessingQueue = defineQueue('order-processing', { durable: true });
+const workerContract = defineContract({
+  queues: { orderProcessing: orderProcessingQueue },
+  consumers: {
+    processOrder: defineConsumer(orderProcessingQueue, orderMessage),
+  },
+});
+
 const worker = await TypedAmqpWorker.create({
-  contract,
+  contract: workerContract,
   handlers: {
     processOrder: async (message) => {
       message.orderId;  // ✅ string (autocomplete works!)
@@ -110,10 +127,18 @@ import { z } from 'zod';
 import * as v from 'valibot';
 import { type } from 'arktype';
 
+const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+
 // All of these work:
-definePublisher('orders', z.object({ orderId: z.string() }));
-definePublisher('orders', v.object({ orderId: v.string() }));
-definePublisher('orders', type({ orderId: 'string' }));
+definePublisher(ordersExchange, defineMessage(z.object({ orderId: z.string() })), {
+  routingKey: 'order.created',
+});
+definePublisher(ordersExchange, defineMessage(v.object({ orderId: v.string() })), {
+  routingKey: 'order.created',
+});
+definePublisher(ordersExchange, defineMessage(type({ orderId: 'string' })), {
+  routingKey: 'order.created',
+});
 ```
 
 ## AMQP Resources
@@ -123,9 +148,9 @@ definePublisher('orders', type({ orderId: 'string' }));
 Exchanges receive messages and route them to queues:
 
 ```typescript
-defineExchange(
+const ordersExchange = defineExchange(
   'orders',      // name
-  'topic',       // type: direct, fanout, topic, headers
+  'topic',       // type: direct, fanout, topic
   { durable: true }  // options
 );
 ```
@@ -135,7 +160,7 @@ defineExchange(
 Queues store messages until they're consumed:
 
 ```typescript
-defineQueue(
+const orderProcessingQueue = defineQueue(
   'order-processing',  // name
   {
     durable: true,     // survives broker restart
@@ -149,9 +174,9 @@ defineQueue(
 Bindings connect queues to exchanges:
 
 ```typescript
-defineQueueBinding(
-  'order-processing',  // queue
-  'orders',           // exchange
+const orderBinding = defineQueueBinding(
+  orderProcessingQueue,  // queue object
+  ordersExchange,        // exchange object
   {
     routingKey: 'order.created',  // route messages with this key
   }
@@ -163,12 +188,16 @@ defineQueueBinding(
 Publishers define message schemas for publishing:
 
 ```typescript
-definePublisher(
-  'orders',           // exchange
-  z.object({         // message schema
+const orderMessage = defineMessage(
+  z.object({
     orderId: z.string(),
     amount: z.number(),
-  }),
+  })
+);
+
+const orderCreatedPublisher = definePublisher(
+  ordersExchange,    // exchange object
+  orderMessage,      // message definition
   {
     routingKey: 'order.created',  // routing key
   }
@@ -180,12 +209,9 @@ definePublisher(
 Consumers define message schemas for consuming:
 
 ```typescript
-defineConsumer(
-  'order-processing',  // queue
-  z.object({          // message schema
-    orderId: z.string(),
-    amount: z.number(),
-  }),
+const processOrderConsumer = defineConsumer(
+  orderProcessingQueue,  // queue object
+  orderMessage,          // message definition
   {
     prefetch: 10,     // max unacked messages
     noAck: false,     // require acknowledgment

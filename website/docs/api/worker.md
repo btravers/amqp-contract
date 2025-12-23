@@ -427,9 +427,13 @@ const contract = defineContract({
 Configure consumer behavior in the contract:
 
 ```typescript
+const orderProcessingQueue = defineQueue('order-processing', { durable: true });
+const orderMessage = defineMessage(orderSchema);
+
 const contract = defineContract({
+  queues: { orderProcessing: orderProcessingQueue },
   consumers: {
-    processOrder: defineConsumer('order-processing', orderSchema, {
+    processOrder: defineConsumer(orderProcessingQueue, orderMessage, {
       prefetch: 10,      // Process up to 10 messages concurrently
       noAck: false,      // Require explicit acknowledgment
       exclusive: false,  // Allow multiple consumers

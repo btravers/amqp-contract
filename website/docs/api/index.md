@@ -107,18 +107,25 @@ import { AmqpWorkerModule, AmqpWorkerService } from '@amqp-contract/worker-nestj
 All packages leverage TypeScript's type inference:
 
 ```typescript
-import { defineContract, definePublisher } from '@amqp-contract/contract';
+import { defineContract, definePublisher, defineExchange, defineMessage } from '@amqp-contract/contract';
 import { TypedAmqpClient } from '@amqp-contract/client';
 import { TypedAmqpWorker } from '@amqp-contract/worker';
 import { connect } from 'amqplib';
 import { z } from 'zod';
 
+// Define resources and messages
+const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+const orderMessage = defineMessage(z.object({
+  orderId: z.string(),
+}));
+
 // Types are inferred from the contract
 const contract = defineContract({
+  exchanges: { orders: ordersExchange },
   publishers: {
-    orderCreated: definePublisher('orders', z.object({
-      orderId: z.string(),
-    })),
+    orderCreated: definePublisher(ordersExchange, orderMessage, {
+      routingKey: 'order.created',
+    }),
   },
 });
 
