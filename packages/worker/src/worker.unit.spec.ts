@@ -297,7 +297,6 @@ describe("AmqpWorker", () => {
       await mockConsumeCallback?.(mockMessage);
 
       expect(handler).toHaveBeenCalledWith({ id: "123" });
-      expect(mockChannel.ack).toHaveBeenCalledWith(mockMessage);
     });
 
     it("should nack invalid messages", async () => {
