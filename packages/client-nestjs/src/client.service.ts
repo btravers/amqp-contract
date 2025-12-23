@@ -1,4 +1,10 @@
-import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
+import {
+  Inject,
+  Injectable,
+  Logger,
+  type OnModuleDestroy,
+  type OnModuleInit,
+} from "@nestjs/common";
 import type { Options } from "amqplib";
 import { Future, Result } from "@swan-io/boxed";
 import type { ContractDefinition, InferPublisherNames } from "@amqp-contract/contract";
@@ -26,6 +32,7 @@ export interface AmqpClientModuleOptions<TContract extends ContractDefinition> {
 export class AmqpClientService<TContract extends ContractDefinition>
   implements OnModuleInit, OnModuleDestroy
 {
+  private readonly logger = new Logger(AmqpClientService.name);
   private client: TypedAmqpClient<TContract> | null = null;
 
   constructor(
@@ -51,7 +58,7 @@ export class AmqpClientService<TContract extends ContractDefinition>
       const result = await this.client.close().toPromise();
       if (result.isError()) {
         // Log the error but don't throw to avoid disrupting shutdown
-        console.error("Failed to close AMQP client:", result.getError());
+        this.logger.error("Failed to close AMQP client", result.getError());
       }
       this.client = null;
     }
