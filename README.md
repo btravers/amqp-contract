@@ -28,37 +28,41 @@ End-to-end type safety and automatic validation for AMQP messaging
 ## Quick Example
 
 ```typescript
-import { defineContract, defineExchange, defineQueue, definePublisher, defineConsumer, defineBinding } from '@amqp-contract/contract';
+import { defineContract, defineExchange, defineQueue, definePublisher, defineConsumer, defineQueueBinding, defineMessage } from '@amqp-contract/contract';
 import { TypedAmqpClient } from '@amqp-contract/client';
 import { TypedAmqpWorker } from '@amqp-contract/worker';
 import { z } from 'zod';
 
+// Define resources
+const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+const orderProcessingQueue = defineQueue('order-processing', { durable: true });
+
+// Define message schema
+const orderSchema = z.object({
+  orderId: z.string(),
+  amount: z.number(),
+});
+
 // Define contract once
 const contract = defineContract({
   exchanges: {
-    orders: defineExchange('orders', 'topic', { durable: true }),
+    orders: ordersExchange,
   },
   queues: {
-    orderProcessing: defineQueue('order-processing', { durable: true }),
+    orderProcessing: orderProcessingQueue,
   },
   bindings: {
-    orderBinding: defineBinding('order-processing', 'orders', {
+    orderBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
       routingKey: 'order.created',
     }),
   },
   publishers: {
-    orderCreated: definePublisher('orders', z.object({
-      orderId: z.string(),
-      amount: z.number(),
-    }), {
+    orderCreated: definePublisher(ordersExchange, defineMessage(orderSchema), {
       routingKey: 'order.created',
     }),
   },
   consumers: {
-    processOrder: defineConsumer('order-processing', z.object({
-      orderId: z.string(),
-      amount: z.number(),
-    })),
+    processOrder: defineConsumer(orderProcessingQueue, defineMessage(orderSchema)),
   },
 });
 
