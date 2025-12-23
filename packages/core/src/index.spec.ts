@@ -16,6 +16,7 @@ vi.mock("amqp-connection-manager", () => {
     assertQueue: vi.fn().mockResolvedValue(undefined),
     bindQueue: vi.fn().mockResolvedValue(undefined),
     bindExchange: vi.fn().mockResolvedValue(undefined),
+    close: vi.fn().mockResolvedValue(undefined),
   };
 
   let setupCallback: ((channel: Channel) => Promise<void>) | undefined;
@@ -675,6 +676,8 @@ describe("AmqpClient", () => {
       }
     ).connect.mock.results[0]?.value;
 
+    const mockChannel = (amqpModule as unknown as { __getMockChannel: () => { close: () => Promise<void> } }).__getMockChannel();
+
     if (!mockConnection) {
       throw new Error("Mock connection not found");
     }
@@ -683,6 +686,7 @@ describe("AmqpClient", () => {
     await client.close();
 
     // THEN
+    expect(mockChannel.close).toHaveBeenCalledTimes(1);
     expect(mockConnection.close).toHaveBeenCalledTimes(1);
   });
 });

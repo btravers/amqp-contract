@@ -28,6 +28,7 @@ export class AmqpClient {
   }
 
   async close(): Promise<void> {
+    await this.channel.close();
     await this.connection.close();
   }
 
