@@ -98,15 +98,15 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       for (const binding of Object.values(this.contract.bindings)) {
         if (binding.type === "queue") {
           await this.channel.bindQueue(
-            binding.queue,
-            binding.exchange,
+            binding.queue.name,
+            binding.exchange.name,
             binding.routingKey ?? "",
             binding.arguments,
           );
         } else if (binding.type === "exchange") {
           await this.channel.bindExchange(
-            binding.destination,
-            binding.source,
+            binding.destination.name,
+            binding.source.name,
             binding.routingKey ?? "",
             binding.arguments,
           );
@@ -157,7 +157,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     }
 
     const consumerDef = consumer as {
-      queue: string;
+      queue: { name: string };
       message: { "~standard": { validate: (value: unknown) => unknown } };
       prefetch?: number;
       noAck?: boolean;
@@ -175,7 +175,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
     // Start consuming
     const result = await this.channel.consume(
-      consumerDef.queue,
+      consumerDef.queue.name,
       async (msg: ConsumeMessage | null) => {
         if (!msg) {
           return;

@@ -131,3 +131,45 @@ export type ContractDefinition = {
   publishers?: Record<string, PublisherDefinition>;
   consumers?: Record<string, ConsumerDefinition>;
 };
+
+/**
+ * Infer publisher names from a contract
+ */
+export type InferPublisherNames<TContract extends ContractDefinition> =
+  TContract["publishers"] extends Record<string, unknown> ? keyof TContract["publishers"] : never;
+
+/**
+ * Infer consumer names from a contract
+ */
+export type InferConsumerNames<TContract extends ContractDefinition> =
+  TContract["consumers"] extends Record<string, unknown> ? keyof TContract["consumers"] : never;
+
+/**
+ * Infer publisher input type (message payload) for a specific publisher in a contract
+ */
+export type ClientInferPublisherInput<
+  TContract extends ContractDefinition,
+  TName extends InferPublisherNames<TContract>,
+> =
+  TContract["publishers"] extends Record<string, PublisherDefinition>
+    ? TContract["publishers"][TName] extends PublisherDefinition<infer TMessage>
+      ? TMessage["payload"] extends { "~standard": { types?: { input: infer TInput } } }
+        ? TInput
+        : never
+      : never
+    : never;
+
+/**
+ * Infer consumer input type (message payload) for a specific consumer in a contract
+ */
+export type WorkerInferConsumerInput<
+  TContract extends ContractDefinition,
+  TName extends InferConsumerNames<TContract>,
+> =
+  TContract["consumers"] extends Record<string, ConsumerDefinition>
+    ? TContract["consumers"][TName] extends ConsumerDefinition<infer TMessage>
+      ? TMessage["payload"] extends { "~standard": { types?: { input: infer TInput } } }
+        ? TInput
+        : never
+      : never
+    : never;

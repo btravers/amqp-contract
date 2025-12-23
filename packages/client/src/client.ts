@@ -74,7 +74,7 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     }
 
     const publisherDef = publisher as {
-      exchange: string;
+      exchange: { name: string; type: string };
       routingKey?: string;
       message: { "~standard": { validate: (value: unknown) => unknown } };
     };
@@ -100,7 +100,7 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     const content = Buffer.from(JSON.stringify(validatedMessage));
 
     const published = this.channel.publish(
-      publisherDef.exchange,
+      publisherDef.exchange.name,
       routingKey,
       content,
       options?.options,
@@ -167,15 +167,15 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
       for (const binding of Object.values(this.contract.bindings)) {
         if (binding.type === "queue") {
           await this.channel.bindQueue(
-            binding.queue,
-            binding.exchange,
+            binding.queue.name,
+            binding.exchange.name,
             binding.routingKey ?? "",
             binding.arguments,
           );
         } else if (binding.type === "exchange") {
           await this.channel.bindExchange(
-            binding.destination,
-            binding.source,
+            binding.destination.name,
+            binding.source.name,
             binding.routingKey ?? "",
             binding.arguments,
           );
