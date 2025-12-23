@@ -39,11 +39,14 @@ export class AmqpClientService<TContract extends ContractDefinition>
    * Initialize the client when the NestJS module starts
    */
   async onModuleInit(): Promise<void> {
-    this.client = TypedAmqpClient.create({
+    const createOptions: { contract: TContract; urls: ConnectionUrl[]; connectionOptions?: AmqpConnectionManagerOptions } = {
       contract: this.options.contract,
       urls: this.options.urls,
-      connectionOptions: this.options.connectionOptions,
-    });
+    };
+    if (this.options.connectionOptions !== undefined) {
+      createOptions.connectionOptions = this.options.connectionOptions;
+    }
+    this.client = TypedAmqpClient.create(createOptions);
   }
 
   /**

@@ -36,7 +36,11 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     urls,
     connectionOptions,
   }: CreateClientOptions<TContract>): TypedAmqpClient<TContract> {
-    return new TypedAmqpClient(contract, new AmqpClient(contract, { urls, connectionOptions }));
+    const options: { urls: ConnectionUrl[]; connectionOptions?: AmqpConnectionManagerOptions } = { urls };
+    if (connectionOptions !== undefined) {
+      options.connectionOptions = connectionOptions;
+    }
+    return new TypedAmqpClient(contract, new AmqpClient(contract, options));
   }
 
   /**

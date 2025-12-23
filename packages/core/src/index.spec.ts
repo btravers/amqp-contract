@@ -89,6 +89,9 @@ describe("AmqpClient", () => {
     ).__getMockChannel();
 
     // Trigger setup
+    if (!setupCallback) {
+      throw new Error("Setup callback not found");
+    }
     await setupCallback(mockChannel);
 
     // THEN
@@ -135,6 +138,9 @@ describe("AmqpClient", () => {
       }
     ).__getMockChannel();
 
+    if (!setupCallback) {
+      throw new Error("Setup callback not found");
+    }
     await setupCallback(mockChannel);
 
     // THEN
@@ -190,6 +196,9 @@ describe("AmqpClient", () => {
       }
     ).__getMockChannel();
 
+    if (!setupCallback) {
+      throw new Error("Setup callback not found");
+    }
     await setupCallback(mockChannel);
 
     // THEN
@@ -237,6 +246,9 @@ describe("AmqpClient", () => {
       }
     ).__getMockChannel();
 
+    if (!setupCallback) {
+      throw new Error("Setup callback not found");
+    }
     await setupCallback(mockChannel);
 
     // THEN
@@ -295,6 +307,9 @@ describe("AmqpClient", () => {
       }
     ).__getMockChannel();
 
+    if (!setupCallback) {
+      throw new Error("Setup callback not found");
+    }
     await setupCallback(mockChannel);
 
     // THEN
@@ -327,6 +342,9 @@ describe("AmqpClient", () => {
       }
     ).__getMockChannel();
 
+    if (!setupCallback) {
+      throw new Error("Setup callback not found");
+    }
     await setupCallback(mockChannel);
 
     // THEN
@@ -371,6 +389,9 @@ describe("AmqpClient", () => {
       }
     ).__getMockChannel();
 
+    if (!setupCallback) {
+      throw new Error("Setup callback not found");
+    }
     await setupCallback(mockChannel);
 
     // THEN
@@ -407,6 +428,9 @@ describe("AmqpClient", () => {
       }
     ).__getMockChannel();
 
+    if (!setupCallback) {
+      throw new Error("Setup callback not found");
+    }
     await setupCallback(mockChannel);
 
     // THEN
@@ -448,6 +472,9 @@ describe("AmqpClient", () => {
       }
     ).__getMockChannel();
 
+    if (!setupCallback) {
+      throw new Error("Setup callback not found");
+    }
     await setupCallback(mockChannel);
 
     // THEN
@@ -493,6 +520,9 @@ describe("AmqpClient", () => {
       }
     ).__getMockChannel();
 
+    if (!setupCallback) {
+      throw new Error("Setup callback not found");
+    }
     await setupCallback(mockChannel);
 
     // THEN
@@ -530,9 +560,12 @@ describe("AmqpClient", () => {
     ).__getMockChannel();
 
     // Mock one exchange to fail
-    mockChannel.assertExchange.mockRejectedValueOnce(new Error("Exchange setup failed"));
+    (mockChannel.assertExchange as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("Exchange setup failed"));
 
     // THEN
+    if (!setupCallback) {
+      throw new Error("Setup callback not found");
+    }
     await expect(setupCallback(mockChannel)).rejects.toThrow("Failed to setup exchanges");
   });
 
@@ -565,9 +598,12 @@ describe("AmqpClient", () => {
     ).__getMockChannel();
 
     // Mock one queue to fail
-    mockChannel.assertQueue.mockRejectedValueOnce(new Error("Queue setup failed"));
+    (mockChannel.assertQueue as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("Queue setup failed"));
 
     // THEN
+    if (!setupCallback) {
+      throw new Error("Setup callback not found");
+    }
     await expect(setupCallback(mockChannel)).rejects.toThrow("Failed to setup queues");
   });
 
@@ -605,9 +641,12 @@ describe("AmqpClient", () => {
     ).__getMockChannel();
 
     // Mock binding to fail
-    mockChannel.bindQueue.mockRejectedValueOnce(new Error("Binding setup failed"));
+    (mockChannel.bindQueue as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("Binding setup failed"));
 
     // THEN
+    if (!setupCallback) {
+      throw new Error("Setup callback not found");
+    }
     await expect(setupCallback(mockChannel)).rejects.toThrow("Failed to setup bindings");
   });
 
@@ -628,7 +667,11 @@ describe("AmqpClient", () => {
       amqpModule.default as unknown as {
         connect: { mock: { results: Array<{ value: { close: () => Promise<void> } }> } };
       }
-    ).connect.mock.results[0].value;
+    ).connect.mock.results[0]?.value;
+    
+    if (!mockConnection) {
+      throw new Error("Mock connection not found");
+    }
 
     // WHEN
     await client.close();
