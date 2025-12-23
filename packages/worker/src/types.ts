@@ -1,9 +1,37 @@
+import type { StandardSchemaV1 } from "@standard-schema/spec";
 import type {
-  ConsumerInferInput,
+  ConsumerDefinition,
   ContractDefinition,
-  InferConsumer,
   InferConsumerNames,
 } from "@amqp-contract/contract";
+
+/**
+ * Infer the TypeScript type from a schema
+ */
+type InferSchemaInput<TSchema extends StandardSchemaV1> =
+  TSchema extends StandardSchemaV1<infer TInput> ? TInput : never;
+
+/**
+ * Infer consumer message input type
+ */
+type ConsumerInferInput<TConsumer extends ConsumerDefinition> = InferSchemaInput<
+  TConsumer["message"]["payload"]
+>;
+
+/**
+ * Infer all consumers from contract
+ */
+type InferConsumers<TContract extends ContractDefinition> = NonNullable<
+  TContract["consumers"]
+>;
+
+/**
+ * Get specific consumer definition from contract
+ */
+type InferConsumer<
+  TContract extends ContractDefinition,
+  TName extends InferConsumerNames<TContract>,
+> = InferConsumers<TContract>[TName];
 
 /**
  * Worker perspective types - for consuming messages
