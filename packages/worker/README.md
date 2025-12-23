@@ -39,6 +39,10 @@ const worker = await TypedAmqpWorker.create({
 // await worker.close();
 ```
 
+## Defining Handlers Externally
+
+You can define handlers outside of the worker creation using `defineHandler` and `defineHandlers` for better code organization. See the [Worker API documentation](https://btravers.github.io/amqp-contract/api/worker) for details.
+
 ## Error Handling
 
 Worker handlers use standard Promise-based async/await pattern:
@@ -70,61 +74,7 @@ These errors are logged but **handlers don't need to use them** - just throw sta
 
 ## API
 
-### `TypedAmqpWorker.create(options)`
-
-Create a type-safe AMQP worker from a contract with message handlers. Automatically connects and starts consuming all messages.
-
-**Parameters:**
-
-- `options.contract` - Contract definition
-- `options.handlers` - Object with async handler functions for each consumer
-- `options.connection` - AMQP connection URL (string) or connection options (Options.Connect)
-
-**Returns:** `Promise<TypedAmqpWorker>`
-
-**Example:**
-
-```typescript
-const worker = await TypedAmqpWorker.create({
-  contract,
-  handlers: {
-    // Each handler receives type-checked message
-    processOrder: async (message) => {
-      // message.orderId is type-checked
-      console.log(message.orderId);
-    },
-    processPayment: async (message) => {
-      // Different message type for this consumer
-      await handlePayment(message);
-    },
-  },
-  connection: {
-    hostname: 'localhost',
-    port: 5672,
-    username: 'guest',
-    password: 'guest',
-  },
-});
-```
-
-### Handler Signature
-
-```typescript
-type Handler<T> = (message: T) => Promise<void>
-```
-
-Handlers are simple async functions that:
-
-- Receive type-checked message as parameter
-- Return `Promise<void>`
-- Can throw exceptions (message will be requeued)
-- Message is acknowledged automatically on success
-
-### `TypedAmqpWorker.close()`
-
-Stop consuming and close the channel and connection.
-
-**Returns:** `Promise<void>`
+See the [Worker API documentation](https://btravers.github.io/amqp-contract/api/worker) for complete API reference.
 
 ## License
 

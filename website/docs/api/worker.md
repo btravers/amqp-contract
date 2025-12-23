@@ -70,6 +70,116 @@ await worker.close();
 
 ---
 
+## Handler Definition Utilities
+
+### `defineHandler`
+
+Define a type-safe handler for a specific consumer in a contract. This utility allows you to define handlers outside of the worker creation for better code organization and reusability.
+
+**Signature:**
+
+```typescript
+function defineHandler<TContract, TName>(
+  contract: TContract,
+  consumerName: TName,
+  handler: WorkerInferConsumerHandler<TContract, TName>
+): WorkerInferConsumerHandler<TContract, TName>
+```
+
+**Parameters:**
+
+- `contract` - The contract definition containing the consumer
+- `consumerName` - The name of the consumer from the contract
+- `handler` - The async handler function that processes messages
+
+**Returns:** Type-safe handler function with full type inference
+
+**Example:**
+
+```typescript
+import { defineHandler } from '@amqp-contract/worker';
+import { orderContract } from './contract';
+
+// Define handler outside of worker creation
+const processOrderHandler = defineHandler(
+  orderContract,
+  'processOrder',
+  async (message) => {
+    // message is fully typed based on the contract
+    console.log('Processing order:', message.orderId);
+    await processPayment(message);
+  }
+);
+
+// Use the handler in worker
+const worker = await TypedAmqpWorker.create({
+  contract: orderContract,
+  handlers: {
+    processOrder: processOrderHandler,
+  },
+  connection: 'amqp://localhost',
+});
+```
+
+---
+
+### `defineHandlers`
+
+Define multiple type-safe handlers for consumers in a contract at once. This utility ensures type safety and validates that all consumers exist in the contract.
+
+**Signature:**
+
+```typescript
+function defineHandlers<TContract>(
+  contract: TContract,
+  handlers: WorkerInferConsumerHandlers<TContract>
+): WorkerInferConsumerHandlers<TContract>
+```
+
+**Parameters:**
+
+- `contract` - The contract definition containing the consumers
+- `handlers` - An object with async handler functions for each consumer
+
+**Returns:** Type-safe handlers object with full type inference
+
+**Example:**
+
+```typescript
+import { defineHandlers } from '@amqp-contract/worker';
+import { orderContract } from './contract';
+
+// Define all handlers at once
+const handlers = defineHandlers(orderContract, {
+  processOrder: async (message) => {
+    console.log('Processing order:', message.orderId);
+    await processPayment(message);
+  },
+  notifyOrder: async (message) => {
+    await sendNotification(message);
+  },
+  shipOrder: async (message) => {
+    await prepareShipment(message);
+  },
+});
+
+// Use in worker
+const worker = await TypedAmqpWorker.create({
+  contract: orderContract,
+  handlers,
+  connection: 'amqp://localhost',
+});
+```
+
+**Benefits:**
+
+- **Better Organization**: Separate handler logic from worker setup
+- **Reusability**: Share handlers across multiple workers or tests
+- **Type Safety**: Full type checking at definition time
+- **Testability**: Test handlers independently before integration
+
+---
+
 ## Types
 
 ### `CreateWorkerOptions`
