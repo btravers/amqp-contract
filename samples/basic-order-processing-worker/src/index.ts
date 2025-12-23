@@ -139,7 +139,7 @@ async function main() {
       },
     },
     connection: env.AMQP_URL,
-  });
+  }).resultToPromise();
 
   logger.info("Worker ready, waiting for messages...");
   logger.info("=".repeat(60));

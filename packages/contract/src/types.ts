@@ -118,6 +118,11 @@ export type ConsumerDefinition<TMessage extends MessageDefinition = MessageDefin
   queue: QueueDefinition;
   message: TMessage;
   noAck?: boolean;
+  /**
+   * Maximum number of unacknowledged messages that can be delivered to this consumer.
+   * If omitted, the default prefetch behavior of the underlying AMQP client is used.
+   */
+  prefetch?: number;
 };
 
 /**

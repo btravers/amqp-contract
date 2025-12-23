@@ -38,7 +38,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   ): Future<Result<TypedAmqpWorker<TContract>, TechnicalError>> {
     const worker = new TypedAmqpWorker(options.contract, options.handlers, options.connection);
 
-    return Future.concurrent([worker.init, worker.consumeAll], { concurrency: 1 })
+    return Future.concurrent([worker.init(), worker.consumeAll()], { concurrency: 1 })
       .map((results) => Result.all([...results]))
       .mapOk(() => worker);
   }
@@ -89,7 +89,9 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    */
   private consumeAll(): Future<Result<void, TechnicalError>> {
     if (!this.contract.consumers) {
-      throw new Error("No consumers defined in contract");
+      return Future.value(
+        Result.Error(new TechnicalError("No consumers defined in contract")),
+      );
     }
 
     const consumerNames = Object.keys(this.contract.consumers) as InferConsumerNames<TContract>[];
@@ -141,11 +143,24 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       );
     }
 
+    // Set prefetch if specified
+    const prefetchFuture =
+      consumer.prefetch !== undefined
+        ? Future.fromPromise(channel.prefetch(consumer.prefetch)).mapError(
+            (error) =>
+              new TechnicalError(
+                `Failed to set prefetch for consumer "${String(consumerName)}"`,
+                error,
+              ),
+          )
+        : Future.value(Result.Ok(undefined));
+
     // Start consuming
-    return Future.fromPromise(
-      channel.consume(
-        consumer.queue.name,
-        async (msg: ConsumeMessage | null) => {
+    return prefetchFuture.flatMapOk(() =>
+      Future.fromPromise(
+        channel.consume(
+          consumer.queue.name,
+          async (msg: ConsumeMessage | null) => {
           if (!msg) {
             return;
           }
@@ -169,7 +184,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           }
 
           const rawValidation = consumer.message.payload["~standard"].validate(parseResult.value);
-          Future.fromPromise(
+          await Future.fromPromise(
             rawValidation instanceof Promise ? rawValidation : Promise.resolve(rawValidation),
           )
             .mapOkToResult((validationResult) => {
@@ -212,21 +227,22 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
               if (!consumer.noAck) {
                 channel.ack(msg);
               }
-            });
+            })
+            .toPromise();
         },
         {
           noAck: consumer.noAck ?? false,
         },
-      ),
-    )
-      .mapError(
-        (error) =>
-          new TechnicalError(`Failed to start consuming for "${String(consumerName)}"`, error),
-      )
-      .tapOk((result) => {
-        this.consumerTags.push(result.consumerTag);
-      })
-      .mapOk(() => undefined);
+      ))
+        .mapError(
+          (error) =>
+            new TechnicalError(`Failed to start consuming for "${String(consumerName)}"`, error),
+        )
+        .tapOk((result) => {
+          this.consumerTags.push(result.consumerTag);
+        })
+        .mapOk(() => undefined),
+    );
   }
 
   /**
@@ -240,7 +256,9 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
     return Future.all(
       this.consumerTags.map((tag) =>
-        Future.fromPromise(channel.cancel(tag)).mapError((error) => new TechnicalError("", error)),
+        Future.fromPromise(channel.cancel(tag)).mapError(
+          (error) => new TechnicalError(`Failed to cancel consumer "${tag}"`, error),
+        ),
       ),
     )
       .map((results) => Result.all(results))
