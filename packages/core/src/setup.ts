@@ -11,46 +11,52 @@ import type { ContractDefinition } from "@amqp-contract/contract";
 export async function setupInfra(channel: Channel, contract: ContractDefinition): Promise<void> {
   // Setup exchanges
   if (contract.exchanges) {
-    for (const exchange of Object.values(contract.exchanges)) {
-      await channel.assertExchange(exchange.name, exchange.type, {
-        durable: exchange.durable,
-        autoDelete: exchange.autoDelete,
-        internal: exchange.internal,
-        arguments: exchange.arguments,
-      });
-    }
+    await Promise.all(
+      Object.values(contract.exchanges).map((exchange) =>
+        channel.assertExchange(exchange.name, exchange.type, {
+          durable: exchange.durable,
+          autoDelete: exchange.autoDelete,
+          internal: exchange.internal,
+          arguments: exchange.arguments,
+        }),
+      ),
+    );
   }
 
   // Setup queues
   if (contract.queues) {
-    for (const queue of Object.values(contract.queues)) {
-      await channel.assertQueue(queue.name, {
-        durable: queue.durable,
-        exclusive: queue.exclusive,
-        autoDelete: queue.autoDelete,
-        arguments: queue.arguments,
-      });
-    }
+    await Promise.all(
+      Object.values(contract.queues).map((queue) =>
+        channel.assertQueue(queue.name, {
+          durable: queue.durable,
+          exclusive: queue.exclusive,
+          autoDelete: queue.autoDelete,
+          arguments: queue.arguments,
+        }),
+      ),
+    );
   }
 
   // Setup bindings
   if (contract.bindings) {
-    for (const binding of Object.values(contract.bindings)) {
-      if (binding.type === "queue") {
-        await channel.bindQueue(
-          binding.queue.name,
-          binding.exchange.name,
-          binding.routingKey ?? "",
-          binding.arguments,
-        );
-      } else if (binding.type === "exchange") {
-        await channel.bindExchange(
+    await Promise.all(
+      Object.values(contract.bindings).map((binding) => {
+        if (binding.type === "queue") {
+          return channel.bindQueue(
+            binding.queue.name,
+            binding.exchange.name,
+            binding.routingKey ?? "",
+            binding.arguments,
+          );
+        }
+
+        return channel.bindExchange(
           binding.destination.name,
           binding.source.name,
           binding.routingKey ?? "",
           binding.arguments,
         );
-      }
-    }
+      }),
+    );
   }
 }
