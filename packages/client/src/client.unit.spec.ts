@@ -12,27 +12,34 @@ import {
 import { Result } from "@swan-io/boxed";
 import { z } from "zod";
 
+// Create mock channel that will be accessible in tests
+const mockChannel = {
+  assertExchange: vi.fn().mockResolvedValue(undefined),
+  assertQueue: vi.fn().mockResolvedValue(undefined),
+  bindQueue: vi.fn().mockResolvedValue(undefined),
+  bindExchange: vi.fn().mockResolvedValue(undefined),
+  publish: vi.fn().mockResolvedValue(true),
+  close: vi.fn().mockResolvedValue(undefined),
+  prefetch: vi.fn().mockResolvedValue(undefined),
+  ack: vi.fn(),
+  nack: vi.fn(),
+};
+
+// Create mock connection that will be accessible in tests
+const mockConnection = {
+  createChannel: vi.fn().mockReturnValue(mockChannel),
+  close: vi.fn().mockResolvedValue(undefined),
+};
+
 // Mock amqp-connection-manager
 vi.mock("amqp-connection-manager", () => ({
   default: {
-    connect: vi.fn(),
+    connect: vi.fn().mockReturnValue(mockConnection),
   },
 }));
 
 // Mock @amqp-contract/core
 vi.mock("@amqp-contract/core", () => {
-  const mockChannel = {
-    assertExchange: vi.fn().mockResolvedValue(undefined),
-    assertQueue: vi.fn().mockResolvedValue(undefined),
-    bindQueue: vi.fn().mockResolvedValue(undefined),
-    bindExchange: vi.fn().mockResolvedValue(undefined),
-    publish: vi.fn().mockResolvedValue(true),
-    close: vi.fn().mockResolvedValue(undefined),
-    prefetch: vi.fn().mockResolvedValue(undefined),
-    ack: vi.fn(),
-    nack: vi.fn(),
-  };
-
   return {
     AmqpClient: vi.fn().mockImplementation(() => ({
       channel: mockChannel,
@@ -141,6 +148,7 @@ describe("TypedAmqpClient", () => {
       });
 
       // THEN
+      expect(client).toBeDefined();
       expect(mockConnection.createChannel).toHaveBeenCalled();
       expect(mockChannel.assertExchange).toHaveBeenCalledWith("test-exchange", "topic", {
         durable: true,
@@ -169,6 +177,7 @@ describe("TypedAmqpClient", () => {
       });
 
       // THEN
+      expect(client).toBeDefined();
       expect(mockChannel.assertQueue).toHaveBeenCalledWith("test-queue", {
         durable: true,
         exclusive: false,
@@ -203,6 +212,7 @@ describe("TypedAmqpClient", () => {
       });
 
       // THEN
+      expect(client).toBeDefined();
       expect(mockChannel.bindQueue).toHaveBeenCalledWith(
         "test-queue",
         "test-exchange",
@@ -235,6 +245,7 @@ describe("TypedAmqpClient", () => {
       });
 
       // THEN
+      expect(client).toBeDefined();
       expect(mockChannel.bindExchange).toHaveBeenCalledWith(
         "destination-exchange",
         "source-exchange",
@@ -387,9 +398,6 @@ describe("TypedAmqpClient", () => {
         contract,
         urls: ["amqp://localhost"],
       });
-      if (clientResult.isError()) {
-        throw clientResult.getError();
-      }
 
       // WHEN
       const result = await client.close();
