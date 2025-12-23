@@ -21,9 +21,7 @@ type ConsumerInferInput<TConsumer extends ConsumerDefinition> = InferSchemaInput
 /**
  * Infer all consumers from contract
  */
-type InferConsumers<TContract extends ContractDefinition> = NonNullable<
-  TContract["consumers"]
->;
+type InferConsumers<TContract extends ContractDefinition> = NonNullable<TContract["consumers"]>;
 
 /**
  * Get specific consumer definition from contract

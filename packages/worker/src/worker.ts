@@ -1,16 +1,10 @@
 import { connect } from "amqplib";
 import type { Channel, ChannelModel, ConsumeMessage, Options } from "amqplib";
-import type {
-  ContractDefinition,
-  InferConsumerNames,
-} from "@amqp-contract/contract";
+import type { ContractDefinition, InferConsumerNames } from "@amqp-contract/contract";
 import { setupInfra } from "@amqp-contract/core";
 import { Result } from "@swan-io/boxed";
 import { MessageValidationError, TechnicalError } from "./errors.js";
-import type {
-  WorkerInferConsumerHandlers,
-  WorkerInferConsumerInput,
-} from "./types.js";
+import type { WorkerInferConsumerHandlers, WorkerInferConsumerInput } from "./types.js";
 
 /**
  * Options for creating a worker

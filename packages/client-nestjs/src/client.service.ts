@@ -1,10 +1,7 @@
 import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
 import type { Options } from "amqplib";
 import { Result } from "@swan-io/boxed";
-import type {
-  ContractDefinition,
-  InferPublisherNames,
-} from "@amqp-contract/contract";
+import type { ContractDefinition, InferPublisherNames } from "@amqp-contract/contract";
 import {
   MessageValidationError,
   TechnicalError,

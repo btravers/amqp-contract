@@ -21,9 +21,7 @@ type PublisherInferInput<TPublisher extends PublisherDefinition> = InferSchemaIn
 /**
  * Infer all publishers from contract
  */
-type InferPublishers<TContract extends ContractDefinition> = NonNullable<
-  TContract["publishers"]
->;
+type InferPublishers<TContract extends ContractDefinition> = NonNullable<TContract["publishers"]>;
 
 /**
  * Get specific publisher definition from contract
