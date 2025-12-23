@@ -76,11 +76,11 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     const publisherDef = publisher as {
       exchange: { name: string; type: string };
       routingKey?: string;
-      message: { "~standard": { validate: (value: unknown) => unknown } };
+      message: { payload: { "~standard": { validate: (value: unknown) => unknown } } };
     };
 
     // Validate message using schema
-    const validation = publisherDef.message["~standard"].validate(message);
+    const validation = publisherDef.message.payload["~standard"].validate(message);
     if (
       typeof validation === "object" &&
       validation !== null &&

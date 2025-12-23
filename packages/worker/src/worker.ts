@@ -158,7 +158,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
     const consumerDef = consumer as {
       queue: { name: string };
-      message: { "~standard": { validate: (value: unknown) => unknown } };
+      message: { payload: { "~standard": { validate: (value: unknown) => unknown } } };
       prefetch?: number;
       noAck?: boolean;
     };
@@ -199,7 +199,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         const content = parseResult.value;
 
         // Validate message using schema (supports sync and async validators)
-        const rawValidation = consumerDef.message["~standard"].validate(content);
+        const rawValidation = consumerDef.message.payload["~standard"].validate(content);
         const resolvedValidation =
           rawValidation instanceof Promise ? await rawValidation : rawValidation;
         const validationResult: Result<unknown, MessageValidationError> =
