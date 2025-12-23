@@ -38,7 +38,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   ): Future<Result<TypedAmqpWorker<TContract>, TechnicalError>> {
     const worker = new TypedAmqpWorker(options.contract, options.handlers, options.connection);
 
-    return Future.concurrent([worker.init, worker.consumeAll], { concurrency: 1 })
+    return Future.concurrent([() => worker.init(), () => worker.consumeAll()], { concurrency: 1 })
       .map((results) => Result.all([...results]))
       .mapOk(() => worker);
   }
@@ -145,7 +145,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     return Future.fromPromise(
       channel.consume(
         consumer.queue.name,
-        (msg) => {
+        async (msg) => {
           if (!msg) {
             return;
           }
@@ -169,7 +169,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           }
 
           const rawValidation = consumer.message.payload["~standard"].validate(parseResult.value);
-          Future.fromPromise(
+          await Future.fromPromise(
             rawValidation instanceof Promise ? rawValidation : Promise.resolve(rawValidation),
           )
             .mapOkToResult((validationResult) => {
@@ -212,7 +212,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
               if (!consumer.noAck) {
                 channel.ack(msg);
               }
-            });
+            })
+            .toPromise();
         },
         {
           noAck: consumer.noAck ?? false,

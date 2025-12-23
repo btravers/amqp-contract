@@ -140,9 +140,6 @@ export class AsyncAPIGenerator {
           channel: { $ref: `#/channels/${queueName}` },
           messages: [{ $ref: `#/channels/${queueName}/messages/${messageName}` }],
           summary: `Consume from ${consumer.queue.name}`,
-          ...(consumer.prefetch && {
-            description: `Prefetch: ${consumer.prefetch}`,
-          }),
         };
       }
     }
