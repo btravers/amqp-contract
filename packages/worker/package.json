@@ -50,6 +50,7 @@
   },
   "dependencies": {
     "@amqp-contract/contract": "workspace:*",
+    "@amqp-contract/core": "workspace:*",
     "@swan-io/boxed": "catalog:"
   },
   "devDependencies": {
