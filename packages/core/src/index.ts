@@ -9,7 +9,7 @@ import amqp, {
 
 export type AmqpClientOptions = {
   urls: ConnectionUrl[];
-  connectionOptions?: AmqpConnectionManagerOptions;
+  connectionOptions?: AmqpConnectionManagerOptions | undefined;
 };
 
 export class AmqpClient {

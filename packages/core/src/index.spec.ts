@@ -560,7 +560,9 @@ describe("AmqpClient", () => {
     ).__getMockChannel();
 
     // Mock one exchange to fail
-    (mockChannel.assertExchange as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("Exchange setup failed"));
+    (mockChannel.assertExchange as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error("Exchange setup failed"),
+    );
 
     // THEN
     if (!setupCallback) {
@@ -598,7 +600,9 @@ describe("AmqpClient", () => {
     ).__getMockChannel();
 
     // Mock one queue to fail
-    (mockChannel.assertQueue as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("Queue setup failed"));
+    (mockChannel.assertQueue as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error("Queue setup failed"),
+    );
 
     // THEN
     if (!setupCallback) {
@@ -641,7 +645,9 @@ describe("AmqpClient", () => {
     ).__getMockChannel();
 
     // Mock binding to fail
-    (mockChannel.bindQueue as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("Binding setup failed"));
+    (mockChannel.bindQueue as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error("Binding setup failed"),
+    );
 
     // THEN
     if (!setupCallback) {
@@ -668,7 +674,7 @@ describe("AmqpClient", () => {
         connect: { mock: { results: Array<{ value: { close: () => Promise<void> } }> } };
       }
     ).connect.mock.results[0]?.value;
-    
+
     if (!mockConnection) {
       throw new Error("Mock connection not found");
     }

@@ -42,7 +42,7 @@ vi.mock("amqp-connection-manager", () => ({
 vi.mock("@amqp-contract/core", () => {
   return {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    AmqpClient: vi.fn(function(this: any) {
+    AmqpClient: vi.fn(function (this: any) {
       this.channel = mockChannel;
       this.close = vi.fn().mockResolvedValue(undefined);
     }),

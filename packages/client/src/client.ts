@@ -12,7 +12,7 @@ import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connectio
 export type CreateClientOptions<TContract extends ContractDefinition> = {
   contract: TContract;
   urls: ConnectionUrl[];
-  connectionOptions?: AmqpConnectionManagerOptions;
+  connectionOptions?: AmqpConnectionManagerOptions | undefined;
 };
 
 /**
@@ -36,11 +36,7 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     urls,
     connectionOptions,
   }: CreateClientOptions<TContract>): TypedAmqpClient<TContract> {
-    const options: { urls: ConnectionUrl[]; connectionOptions?: AmqpConnectionManagerOptions } = { urls };
-    if (connectionOptions !== undefined) {
-      options.connectionOptions = connectionOptions;
-    }
-    return new TypedAmqpClient(contract, new AmqpClient(contract, options));
+    return new TypedAmqpClient(contract, new AmqpClient(contract, { urls, connectionOptions }));
   }
 
   /**

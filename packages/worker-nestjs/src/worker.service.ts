@@ -11,7 +11,7 @@ export interface AmqpWorkerModuleOptions<TContract extends ContractDefinition> {
   contract: TContract;
   handlers: WorkerInferConsumerHandlers<TContract>;
   urls: ConnectionUrl[];
-  connectionOptions?: AmqpConnectionManagerOptions;
+  connectionOptions?: AmqpConnectionManagerOptions | undefined;
 }
 
 /**
@@ -33,20 +33,7 @@ export class AmqpWorkerService<TContract extends ContractDefinition>
    * Initialize the worker when the NestJS module starts
    */
   async onModuleInit(): Promise<void> {
-    const createOptions: {
-      contract: TContract;
-      handlers: WorkerInferConsumerHandlers<TContract>;
-      urls: ConnectionUrl[];
-      connectionOptions?: AmqpConnectionManagerOptions;
-    } = {
-      contract: this.options.contract,
-      handlers: this.options.handlers,
-      urls: this.options.urls,
-    };
-    if (this.options.connectionOptions !== undefined) {
-      createOptions.connectionOptions = this.options.connectionOptions;
-    }
-    this.worker = await TypedAmqpWorker.create(createOptions).resultToPromise();
+    this.worker = await TypedAmqpWorker.create(this.options).resultToPromise();
   }
 
   /**
