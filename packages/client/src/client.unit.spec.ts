@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TypedAmqpClient } from "./client";
-import type { Channel } from "amqplib";
 import {
   defineContract,
   defineMessage,
@@ -69,9 +68,6 @@ describe("TypedAmqpClient", () => {
         contract,
         urls: ["amqp://localhost"],
       });
-      if (clientResult.isError()) {
-        throw clientResult.getError();
-      }
 
       // THEN
       // Type inference test - this should compile without errors
@@ -106,9 +102,6 @@ describe("TypedAmqpClient", () => {
         contract,
         urls: ["amqp://localhost"],
       });
-      if (clientResult.isError()) {
-        throw clientResult.getError();
-      }
 
       // WHEN
       // Type inference test - message type should be inferred correctly
@@ -146,9 +139,6 @@ describe("TypedAmqpClient", () => {
         contract,
         urls: ["amqp://localhost"],
       });
-      if (clientResult.isError()) {
-        throw clientResult.getError();
-      }
 
       // THEN
       expect(mockConnection.createChannel).toHaveBeenCalled();
@@ -177,9 +167,6 @@ describe("TypedAmqpClient", () => {
         contract,
         urls: ["amqp://localhost"],
       });
-      if (clientResult.isError()) {
-        throw clientResult.getError();
-      }
 
       // THEN
       expect(mockChannel.assertQueue).toHaveBeenCalledWith("test-queue", {
@@ -214,9 +201,6 @@ describe("TypedAmqpClient", () => {
         contract,
         urls: ["amqp://localhost"],
       });
-      if (clientResult.isError()) {
-        throw clientResult.getError();
-      }
 
       // THEN
       expect(mockChannel.bindQueue).toHaveBeenCalledWith(
@@ -249,9 +233,6 @@ describe("TypedAmqpClient", () => {
         contract,
         urls: ["amqp://localhost"],
       });
-      if (clientResult.isError()) {
-        throw clientResult.getError();
-      }
 
       // THEN
       expect(mockChannel.bindExchange).toHaveBeenCalledWith(
@@ -284,9 +265,6 @@ describe("TypedAmqpClient", () => {
         contract,
         urls: ["amqp://localhost"],
       });
-      if (clientResult.isError()) {
-        throw clientResult.getError();
-      }
 
       // WHEN
       const result = await client.publish("testPublisher", { id: "123" });
@@ -321,9 +299,6 @@ describe("TypedAmqpClient", () => {
         contract,
         urls: ["amqp://localhost"],
       });
-      if (clientResult.isError()) {
-        throw clientResult.getError();
-      }
 
       // WHEN
       const result = await client.publish("testPublisher", { id: "123" }, { persistent: true });
@@ -358,9 +333,6 @@ describe("TypedAmqpClient", () => {
         contract,
         urls: ["amqp://localhost"],
       });
-      if (clientResult.isError()) {
-        throw clientResult.getError();
-      }
 
       // WHEN
       // @ts-expect-error - testing runtime validation with invalid data
@@ -390,9 +362,6 @@ describe("TypedAmqpClient", () => {
         contract,
         urls: ["amqp://localhost"],
       });
-      if (clientResult.isError()) {
-        throw clientResult.getError();
-      }
 
       // WHEN
       const result = await client.close();
@@ -447,9 +416,6 @@ describe("TypedAmqpClient", () => {
         contract,
         urls: ["amqp://localhost"],
       });
-      if (clientResult.isError()) {
-        throw clientResult.getError();
-      }
 
       // THEN
       expect(client).toBeInstanceOf(TypedAmqpClient);

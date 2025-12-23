@@ -4,7 +4,7 @@ import { Future, Result } from "@swan-io/boxed";
 import { MessageValidationError, TechnicalError } from "./errors.js";
 import type { ClientInferPublisherInput } from "./types.js";
 import { AmqpClient } from "@amqp-contract/core";
-import type {AmqpConnectionManagerOptions, ConnectionUrl} from "amqp-connection-manager";
+import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
 
 /**
  * Options for creating a client
@@ -13,7 +13,7 @@ export type CreateClientOptions<TContract extends ContractDefinition> = {
   contract: TContract;
   urls: ConnectionUrl[];
   connectionOptions?: AmqpConnectionManagerOptions;
-} ;
+};
 
 /**
  * Type-safe AMQP client for publishing messages

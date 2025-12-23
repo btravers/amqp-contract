@@ -3,7 +3,7 @@ import { AmqpClient } from "@amqp-contract/core";
 import { Future, Result } from "@swan-io/boxed";
 import { MessageValidationError, TechnicalError } from "./errors.js";
 import type { WorkerInferConsumerHandlers, WorkerInferConsumerInput } from "./types.js";
-import type {AmqpConnectionManagerOptions, ConnectionUrl} from "amqp-connection-manager";
+import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
 
 /**
  * Options for creating a worker
