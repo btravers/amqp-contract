@@ -573,24 +573,28 @@ describe('OrderService', () => {
 
 ```typescript
 // contract.ts
-import { defineContract, defineExchange, definePublisher } from '@amqp-contract/contract';
+import { defineContract, defineExchange, definePublisher, defineMessage } from '@amqp-contract/contract';
 import { z } from 'zod';
 
+const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+
+const orderMessage = defineMessage(
+  z.object({
+    orderId: z.string(),
+    customerId: z.string(),
+    amount: z.number().positive(),
+    items: z.array(z.object({
+      productId: z.string(),
+      quantity: z.number().int().positive(),
+      price: z.number().positive(),
+    })),
+  })
+);
+
 export const contract = defineContract({
-  exchanges: {
-    orders: defineExchange('orders', 'topic', { durable: true }),
-  },
+  exchanges: { orders: ordersExchange },
   publishers: {
-    orderCreated: definePublisher('orders', z.object({
-      orderId: z.string(),
-      customerId: z.string(),
-      amount: z.number().positive(),
-      items: z.array(z.object({
-        productId: z.string(),
-        quantity: z.number().int().positive(),
-        price: z.number().positive(),
-      })),
-    }), {
+    orderCreated: definePublisher(ordersExchange, orderMessage, {
       routingKey: 'order.created',
     }),
   },

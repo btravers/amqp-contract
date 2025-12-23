@@ -95,38 +95,42 @@ import {
   defineQueueBinding,
   definePublisher,
   defineConsumer,
+  defineMessage,
 } from '@amqp-contract/contract';
 import { z } from 'zod';
 
-const orderSchema = z.object({
-  orderId: z.string(),
-  customerId: z.string(),
-  amount: z.number().positive(),
-  items: z.array(z.object({
-    productId: z.string(),
-    quantity: z.number().int().positive(),
-  })),
-});
+// Define resources
+const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+const orderProcessingQueue = defineQueue('order-processing', { durable: true });
+
+// Define message schema
+const orderMessage = defineMessage(
+  z.object({
+    orderId: z.string(),
+    customerId: z.string(),
+    amount: z.number().positive(),
+    items: z.array(z.object({
+      productId: z.string(),
+      quantity: z.number().int().positive(),
+    })),
+  })
+);
 
 export const contract = defineContract({
-  exchanges: {
-    orders: defineExchange('orders', 'topic', { durable: true }),
-  },
-  queues: {
-    orderProcessing: defineQueue('order-processing', { durable: true }),
-  },
+  exchanges: { orders: ordersExchange },
+  queues: { orderProcessing: orderProcessingQueue },
   bindings: {
-    orderBinding: defineQueueBinding('order-processing', 'orders', {
+    orderBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
       routingKey: 'order.created',
     }),
   },
   publishers: {
-    orderCreated: definePublisher('orders', orderSchema, {
+    orderCreated: definePublisher(ordersExchange, orderMessage, {
       routingKey: 'order.created',
     }),
   },
   consumers: {
-    processOrder: defineConsumer('order-processing', orderSchema),
+    processOrder: defineConsumer(orderProcessingQueue, orderMessage),
   },
 });
 ```

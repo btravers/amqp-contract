@@ -78,27 +78,35 @@ channel.consume('order-processing', (msg) => {
 **amqp-contract** transforms your AMQP messaging with a contract-first approach:
 
 ```typescript
-// ✅ Define once
+import { defineContract, defineExchange, defineQueue, definePublisher, defineConsumer, defineMessage, defineQueueBinding } from '@amqp-contract/contract';
+import { z } from 'zod';
+
+// Define resources and messages first
+const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+const orderProcessingQueue = defineQueue('order-processing', { durable: true });
+
+const orderMessage = defineMessage(z.object({
+  orderId: z.string(),
+  customerId: z.string(),
+  amount: z.number(),
+}));
+
+// ✅ Compose contract using object references
 const contract = defineContract({
-  exchanges: {
-    orders: defineExchange('orders', 'topic', { durable: true }),
-  },
-  queues: {
-    orderProcessing: defineQueue('order-processing', { durable: true }),
+  exchanges: { orders: ordersExchange },
+  queues: { orderProcessing: orderProcessingQueue },
+  bindings: {
+    orderBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
+      routingKey: 'order.created',
+    }),
   },
   publishers: {
-    orderCreated: definePublisher('orders', z.object({
-      orderId: z.string(),
-      customerId: z.string(),
-      amount: z.number(),
-    })),
+    orderCreated: definePublisher(ordersExchange, orderMessage, {
+      routingKey: 'order.created',
+    }),
   },
   consumers: {
-    processOrder: defineConsumer('order-processing', z.object({
-      orderId: z.string(),
-      customerId: z.string(),
-      amount: z.number(),
-    })),
+    processOrder: defineConsumer(orderProcessingQueue, orderMessage),
   },
 });
 
@@ -138,27 +146,28 @@ See how easy it is to get started:
 ::: code-group
 
 ```typescript [contract.ts]
-import { defineContract, defineExchange, defineQueue, definePublisher, defineConsumer } from '@amqp-contract/contract';
+import { defineContract, defineExchange, defineQueue, definePublisher, defineConsumer, defineMessage } from '@amqp-contract/contract';
 import { z } from 'zod';
 
+// Define resources and messages first
+const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+const orderProcessingQueue = defineQueue('order-processing', { durable: true });
+
+const orderMessage = defineMessage(z.object({
+  orderId: z.string(),
+  amount: z.number(),
+}));
+
 export const orderContract = defineContract({
-  exchanges: {
-    orders: defineExchange('orders', 'topic', { durable: true }),
-  },
-  queues: {
-    orderProcessing: defineQueue('order-processing', { durable: true }),
-  },
+  exchanges: { orders: ordersExchange },
+  queues: { orderProcessing: orderProcessingQueue },
   publishers: {
-    orderCreated: definePublisher('orders', z.object({
-      orderId: z.string(),
-      amount: z.number(),
-    })),
+    orderCreated: definePublisher(ordersExchange, orderMessage, {
+      routingKey: 'order.created',
+    }),
   },
   consumers: {
-    processOrder: defineConsumer('order-processing', z.object({
-      orderId: z.string(),
-      amount: z.number(),
-    })),
+    processOrder: defineConsumer(orderProcessingQueue, orderMessage),
   },
 });
 ```
