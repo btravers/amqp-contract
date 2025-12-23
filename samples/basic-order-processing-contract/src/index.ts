@@ -1,12 +1,12 @@
 import {
-  defineBinding,
+  defineQueueBinding,
   defineExchangeBinding,
   defineConsumer,
   defineContract,
   defineExchange,
-  defineMessage,
   definePublisher,
   defineQueue,
+  defineMessage,
 } from "@amqp-contract/contract";
 import { z } from "zod";
 
@@ -58,6 +58,8 @@ const orderStatusMessage = defineMessage(orderStatusSchema, {
   description: "Emitted when an order status changes",
 });
 
+const orderUnionMessage = defineMessage(z.union([orderSchema, orderStatusSchema]));
+
 /**
  * Order processing contract demonstrating RabbitMQ topic pattern
  *
@@ -107,27 +109,27 @@ export const orderContract = defineContract({
     // Queue-to-Exchange bindings for order events
 
     // Bind processing queue to order.created events
-    orderProcessingBinding: defineBinding(orderProcessingQueue, ordersExchange, {
+    orderProcessingBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
       routingKey: "order.created",
     }),
 
     // Bind notifications queue to ALL order events using wildcard
-    orderNotificationsBinding: defineBinding(orderNotificationsQueue, ordersExchange, {
+    orderNotificationsBinding: defineQueueBinding(orderNotificationsQueue, ordersExchange, {
       routingKey: "order.#",
     }),
 
     // Bind shipping queue only to shipped orders
-    orderShippingBinding: defineBinding(orderShippingQueue, ordersExchange, {
+    orderShippingBinding: defineQueueBinding(orderShippingQueue, ordersExchange, {
       routingKey: "order.shipped",
     }),
 
     // Bind urgent queue to any urgent order events
-    orderUrgentBinding: defineBinding(orderUrgentQueue, ordersExchange, {
+    orderUrgentBinding: defineQueueBinding(orderUrgentQueue, ordersExchange, {
       routingKey: "order.*.urgent",
     }),
 
     // Bind analytics queue to analytics exchange for all events
-    analyticsBinding: defineBinding(analyticsProcessingQueue, orderAnalyticsExchange, {
+    analyticsBinding: defineQueueBinding(analyticsProcessingQueue, orderAnalyticsExchange, {
       routingKey: "order.#",
     }),
   },
@@ -159,16 +161,9 @@ export const orderContract = defineContract({
     }),
 
     // Consumer for sending all notifications
-    notifyOrder: defineConsumer(
-      orderNotificationsQueue,
-      defineMessage(z.union([orderSchema, orderStatusSchema]), {
-        summary: "Order notification event",
-        description: "Any order-related event for notifications",
-      }),
-      {
-        prefetch: 5,
-      },
-    ),
+    notifyOrder: defineConsumer(orderNotificationsQueue, orderUnionMessage, {
+      prefetch: 5,
+    }),
 
     // Consumer for shipping department
     shipOrder: defineConsumer(orderShippingQueue, orderStatusMessage, {
@@ -181,15 +176,8 @@ export const orderContract = defineContract({
     }),
 
     // Consumer for analytics processing
-    processAnalytics: defineConsumer(
-      analyticsProcessingQueue,
-      defineMessage(z.union([orderSchema, orderStatusSchema]), {
-        summary: "Analytics event",
-        description: "Any order-related event for analytics processing",
-      }),
-      {
-        prefetch: 50, // Higher prefetch for analytics
-      },
-    ),
+    processAnalytics: defineConsumer(analyticsProcessingQueue, orderUnionMessage, {
+      prefetch: 50, // Higher prefetch for analytics
+    }),
   },
 });
