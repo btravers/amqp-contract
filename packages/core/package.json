@@ -48,18 +48,16 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@amqp-contract/contract": "workspace:*"
+    "@amqp-contract/contract": "workspace:*",
+    "amqp-connection-manager": "catalog:",
+    "amqplib": "catalog:"
   },
   "devDependencies": {
     "@amqp-contract/tsconfig": "workspace:*",
     "@types/amqplib": "catalog:",
     "@vitest/coverage-v8": "catalog:",
-    "amqplib": "catalog:",
     "tsdown": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
-  },
-  "peerDependencies": {
-    "amqplib": ">=0.10.0"
   }
 }

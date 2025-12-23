@@ -6,7 +6,8 @@ import type { AmqpWorkerModuleOptions } from "./worker.service.js";
  * This creates forRoot and forRootAsync methods automatically
  */
 export const { ConfigurableModuleClass, MODULE_OPTIONS_TOKEN } = new ConfigurableModuleBuilder<
-  AmqpWorkerModuleOptions<never>
+  // oxlint-disable-next-line  @typescript-eslint/no-explicit-any
+  AmqpWorkerModuleOptions<any>
 >()
   .setClassMethodName("forRoot")
   .build();

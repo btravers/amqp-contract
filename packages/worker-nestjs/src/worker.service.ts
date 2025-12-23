@@ -44,7 +44,7 @@ export class AmqpWorkerService<TContract extends ContractDefinition>
    */
   async onModuleDestroy(): Promise<void> {
     if (this.worker) {
-      await this.worker.close();
+      await this.worker.close().resultToPromise();
       this.worker = null;
     }
   }

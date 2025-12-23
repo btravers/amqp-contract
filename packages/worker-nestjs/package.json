@@ -56,7 +56,6 @@
     "@amqp-contract/tsconfig": "workspace:*",
     "@nestjs/common": "catalog:",
     "@swan-io/boxed": "catalog:",
-    "@types/amqplib": "catalog:",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "amqplib": "catalog:",
