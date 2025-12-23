@@ -67,7 +67,7 @@ packages/[package-name]/
    - Define exchanges, queues, bindings, publishers, and consumers
 
    ```typescript
-   import { defineContract, defineExchange, defineQueue, defineBinding, definePublisher, defineConsumer } from '@amqp-contract/contract';
+   import { defineContract, defineExchange, defineQueue, defineQueueBinding, definePublisher, defineConsumer } from '@amqp-contract/contract';
    import { z } from 'zod';
 
    const contract = defineContract({
@@ -78,7 +78,7 @@ packages/[package-name]/
        orderProcessing: defineQueue('order-processing', { durable: true }),
      },
      bindings: {
-       orderBinding: defineBinding('order-processing', 'orders', {
+       orderBinding: defineQueueBinding('order-processing', 'orders', {
          routingKey: 'order.created',
        }),
      },

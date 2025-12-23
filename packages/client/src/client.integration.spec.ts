@@ -1,7 +1,14 @@
 import { describe, expect } from "vitest";
 import { it } from "@amqp-contract/testing/extension";
 import { TypedAmqpClient } from "./client.js";
-import { defineContract, defineExchange, definePublisher } from "@amqp-contract/contract";
+import {
+  defineContract,
+  defineExchange,
+  definePublisher,
+  defineQueue,
+  defineQueueBinding,
+  defineMessage,
+} from "@amqp-contract/contract";
 import { Result } from "@swan-io/boxed";
 import { z } from "zod";
 
@@ -9,19 +16,24 @@ describe("AmqpClient Integration", () => {
   describe("end-to-end publishing", () => {
     it("should publish messages to a real RabbitMQ instance", async ({ amqpConnectionUrl }) => {
       // GIVEN
-      const TestMessage = z.object({
-        id: z.string(),
-        message: z.string(),
-      });
-
+      const exchange = defineExchange("test-exchange", "topic", { durable: false });
       const contract = defineContract({
         exchanges: {
-          test: defineExchange("test-exchange", "topic", { durable: false }),
+          test: exchange,
         },
         publishers: {
-          testPublisher: definePublisher("test-exchange", TestMessage, {
-            routingKey: "test.key",
-          }),
+          testPublisher: definePublisher(
+            exchange,
+            defineMessage(
+              z.object({
+                id: z.string(),
+                message: z.string(),
+              }),
+            ),
+            {
+              routingKey: "test.key",
+            },
+          ),
         },
       });
 
@@ -47,12 +59,14 @@ describe("AmqpClient Integration", () => {
         count: z.number().positive(),
       });
 
+      const exchange = defineExchange("test-validation-exchange", "topic", { durable: false });
+
       const contract = defineContract({
         exchanges: {
-          test: defineExchange("test-validation-exchange", "topic", { durable: false }),
+          test: exchange,
         },
         publishers: {
-          testPublisher: definePublisher("test-validation-exchange", TestMessage, {
+          testPublisher: definePublisher(exchange, defineMessage(TestMessage), {
             routingKey: "validation.test",
           }),
         },
@@ -82,12 +96,14 @@ describe("AmqpClient Integration", () => {
         content: z.string(),
       });
 
+      const exchange = defineExchange("test-routing-exchange", "topic", { durable: false });
+
       const contract = defineContract({
         exchanges: {
-          test: defineExchange("test-routing-exchange", "topic", { durable: false }),
+          test: exchange,
         },
         publishers: {
-          testPublisher: definePublisher("test-routing-exchange", TestMessage, {
+          testPublisher: definePublisher(exchange, defineMessage(TestMessage), {
             routingKey: "default.key",
           }),
         },
@@ -115,26 +131,23 @@ describe("AmqpClient Integration", () => {
       // GIVEN
       const TestMessage = z.object({ id: z.string() });
 
+      const exchange = defineExchange("integration-orders", "topic", { durable: false });
+      const queue = defineQueue("integration-processing", { durable: false });
+
       const contract = defineContract({
         exchanges: {
-          orders: defineExchange("integration-orders", "topic", { durable: false }),
+          orders: exchange,
         },
         queues: {
-          processing: {
-            name: "integration-processing",
-            durable: false,
-          },
+          processing: queue,
         },
         bindings: {
-          orderBinding: {
-            type: "queue" as const,
-            queue: "integration-processing",
-            exchange: "integration-orders",
+          orderBinding: defineQueueBinding(queue, exchange, {
             routingKey: "order.#",
-          },
+          }),
         },
         publishers: {
-          createOrder: definePublisher("integration-orders", TestMessage, {
+          createOrder: definePublisher(exchange, defineMessage(TestMessage), {
             routingKey: "order.created",
           }),
         },

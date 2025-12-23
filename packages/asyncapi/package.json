@@ -49,14 +49,21 @@
   },
   "dependencies": {
     "@amqp-contract/contract": "workspace:*",
+    "@orpc/openapi": "catalog:",
     "@standard-schema/spec": "catalog:"
   },
   "devDependencies": {
     "@amqp-contract/tsconfig": "workspace:*",
+    "@asyncapi/parser": "catalog:",
+    "@orpc/arktype": "catalog:",
+    "@orpc/valibot": "catalog:",
+    "@orpc/zod": "catalog:",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
+    "arktype": "catalog:",
     "tsdown": "catalog:",
     "typescript": "catalog:",
+    "valibot": "catalog:",
     "vitest": "catalog:",
     "zod": "catalog:"
   }

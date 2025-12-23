@@ -17,7 +17,7 @@ import { defineContract, defineExchange, defineQueue } from '@amqp-contract/cont
 - `defineContract` - Define a complete AMQP contract
 - `defineExchange` - Define an exchange
 - `defineQueue` - Define a queue
-- `defineBinding` - Define a binding
+- `defineQueueBinding` - Define a binding
 - `definePublisher` - Define a publisher with schema
 - `defineConsumer` - Define a consumer with schema
 

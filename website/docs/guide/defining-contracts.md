@@ -66,15 +66,15 @@ const contract = defineContract({
 Bindings connect queues to exchanges:
 
 ```typescript
-import { defineBinding } from '@amqp-contract/contract';
+import { defineQueueBinding } from '@amqp-contract/contract';
 
 const contract = defineContract({
   bindings: {
-    orderBinding: defineBinding('order-processing', 'orders', {
+    orderBinding: defineQueueBinding('order-processing', 'orders', {
       routingKey: 'order.created',
     }),
     // Topic exchange with pattern
-    allOrdersBinding: defineBinding('all-orders', 'orders', {
+    allOrdersBinding: defineQueueBinding('all-orders', 'orders', {
       routingKey: 'order.*',
     }),
   },
@@ -141,7 +141,7 @@ import {
   defineContract,
   defineExchange,
   defineQueue,
-  defineBinding,
+  defineQueueBinding,
   definePublisher,
   defineConsumer,
 } from '@amqp-contract/contract';
@@ -156,10 +156,10 @@ export const orderContract = defineContract({
     orderNotifications: defineQueue('order-notifications', { durable: true }),
   },
   bindings: {
-    processingBinding: defineBinding('order-processing', 'orders', {
+    processingBinding: defineQueueBinding('order-processing', 'orders', {
       routingKey: 'order.created',
     }),
-    notificationBinding: defineBinding('order-notifications', 'orders', {
+    notificationBinding: defineQueueBinding('order-notifications', 'orders', {
       routingKey: 'order.created',
     }),
   },

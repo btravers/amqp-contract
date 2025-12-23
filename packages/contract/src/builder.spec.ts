@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import {
-  defineBinding,
+  defineQueueBinding,
   defineExchangeBinding,
   defineConsumer,
   defineContract,
   defineExchange,
+  defineMessage,
   definePublisher,
   defineQueue,
 } from "./builder.js";
@@ -61,66 +62,86 @@ describe("builder", () => {
     });
   });
 
-  describe("defineBinding", () => {
+  describe("defineQueueBinding", () => {
     it("should create a queue binding definition", () => {
+      // GIVEN
+      const queue = defineQueue("test-queue");
+      const exchange = defineExchange("test-exchange", "topic");
+
       // WHEN
-      const binding = defineBinding("test-queue", "test-exchange", {
+      const binding = defineQueueBinding(queue, exchange, {
         routingKey: "test.key",
       });
 
       // THEN
       expect(binding).toEqual({
         type: "queue",
-        queue: "test-queue",
-        exchange: "test-exchange",
+        queue,
+        exchange,
         routingKey: "test.key",
       });
     });
 
     it("should create a queue binding with minimal options", () => {
+      // GIVEN
+      const queue = defineQueue("test-queue");
+      const exchange = defineExchange("test-exchange", "fanout");
+
       // WHEN
-      const binding = defineBinding("test-queue", "test-exchange");
+      const binding = defineQueueBinding(queue, exchange);
 
       // THEN
       expect(binding).toEqual({
         type: "queue",
-        queue: "test-queue",
-        exchange: "test-exchange",
+        queue,
+        exchange,
       });
     });
   });
 
   describe("defineExchangeBinding", () => {
     it("should create an exchange binding definition", () => {
+      // GIVEN
+      const destination = defineExchange("destination-exchange", "topic");
+      const source = defineExchange("source-exchange", "topic");
+
       // WHEN
-      const binding = defineExchangeBinding("destination-exchange", "source-exchange", {
+      const binding = defineExchangeBinding(destination, source, {
         routingKey: "test.key",
       });
 
       // THEN
       expect(binding).toEqual({
         type: "exchange",
-        destination: "destination-exchange",
-        source: "source-exchange",
+        destination,
+        source,
         routingKey: "test.key",
       });
     });
 
     it("should create an exchange binding with minimal options", () => {
+      // GIVEN
+      const destination = defineExchange("destination-exchange", "fanout");
+      const source = defineExchange("source-exchange", "fanout");
+
       // WHEN
-      const binding = defineExchangeBinding("destination-exchange", "source-exchange");
+      const binding = defineExchangeBinding(destination, source);
 
       // THEN
       expect(binding).toEqual({
         type: "exchange",
-        destination: "destination-exchange",
-        source: "source-exchange",
+        destination,
+        source,
       });
     });
 
     it("should create an exchange binding with arguments", () => {
+      // GIVEN
+      const destination = defineExchange("destination-exchange", "topic");
+      const source = defineExchange("source-exchange", "topic");
+
       // WHEN
-      const binding = defineExchangeBinding("destination-exchange", "source-exchange", {
+      const binding = defineExchangeBinding(destination, source, {
         routingKey: "order.*",
         arguments: { "x-match": "any" },
       });
@@ -128,10 +149,92 @@ describe("builder", () => {
       // THEN
       expect(binding).toEqual({
         type: "exchange",
-        destination: "destination-exchange",
-        source: "source-exchange",
+        destination,
+        source,
         routingKey: "order.*",
         arguments: { "x-match": "any" },
+      });
+    });
+  });
+
+  describe("defineMessage", () => {
+    it("should create a message definition with payload only", () => {
+      // GIVEN
+      const payload = z.object({
+        id: z.string(),
+        name: z.string(),
+      });
+
+      // WHEN
+      const message = defineMessage(payload);
+
+      // THEN
+      expect(message).toEqual({
+        payload,
+      });
+    });
+
+    it("should create a message definition with payload and summary", () => {
+      // GIVEN
+      const payload = z.object({
+        orderId: z.string(),
+        amount: z.number(),
+      });
+
+      // WHEN
+      const message = defineMessage(payload, {
+        summary: "Order created event",
+      });
+
+      // THEN
+      expect(message).toEqual({
+        payload,
+        summary: "Order created event",
+      });
+    });
+
+    it("should create a message definition with payload, summary and description", () => {
+      // GIVEN
+      const payload = z.object({
+        userId: z.string(),
+        email: z.string().email(),
+      });
+
+      // WHEN
+      const message = defineMessage(payload, {
+        summary: "User registered event",
+        description: "Emitted when a new user registers in the system",
+      });
+
+      // THEN
+      expect(message).toEqual({
+        payload,
+        summary: "User registered event",
+        description: "Emitted when a new user registers in the system",
+      });
+    });
+
+    it("should create a message definition with headers", () => {
+      // GIVEN
+      const payload = z.object({
+        orderId: z.string(),
+      });
+      const headers = z.object({
+        "x-correlation-id": z.string(),
+        "x-request-id": z.string(),
+      });
+
+      // WHEN
+      const message = defineMessage(payload, {
+        headers,
+        summary: "Order event with headers",
+      });
+
+      // THEN
+      expect(message).toEqual({
+        payload,
+        headers,
+        summary: "Order event with headers",
       });
     });
   });
@@ -139,32 +242,34 @@ describe("builder", () => {
   describe("definePublisher", () => {
     it("should create a publisher definition", () => {
       // GIVEN
-      const schema = z.object({ id: z.string() });
+      const message = defineMessage(z.object({ id: z.string() }));
+      const exchange = defineExchange("test-exchange", "topic");
 
       // WHEN
-      const publisher = definePublisher("test-exchange", schema, {
+      const publisher = definePublisher(exchange, message, {
         routingKey: "test.key",
       });
 
       // THEN
       expect(publisher).toEqual({
-        exchange: "test-exchange",
-        message: schema,
+        exchange,
+        message,
         routingKey: "test.key",
       });
     });
 
     it("should create a publisher with minimal options", () => {
       // GIVEN
-      const schema = z.object({ id: z.string() });
+      const message = defineMessage(z.object({ id: z.string() }));
+      const exchange = defineExchange("test-exchange", "fanout");
 
       // WHEN
-      const publisher = definePublisher("test-exchange", schema);
+      const publisher = definePublisher(exchange, message);
 
       // THEN
       expect(publisher).toEqual({
-        exchange: "test-exchange",
-        message: schema,
+        exchange,
+        message,
       });
     });
   });
@@ -172,32 +277,34 @@ describe("builder", () => {
   describe("defineConsumer", () => {
     it("should create a consumer definition", () => {
       // GIVEN
-      const schema = z.object({ id: z.string() });
+      const message = defineMessage(z.object({ id: z.string() }));
+      const queue = defineQueue("test-queue");
 
       // WHEN
-      const consumer = defineConsumer("test-queue", schema, {
+      const consumer = defineConsumer(queue, message, {
         prefetch: 10,
       });
 
       // THEN
       expect(consumer).toEqual({
-        queue: "test-queue",
-        message: schema,
+        queue,
+        message,
         prefetch: 10,
       });
     });
 
     it("should create a consumer with minimal options", () => {
       // GIVEN
-      const schema = z.object({ id: z.string() });
+      const message = defineMessage(z.object({ id: z.string() }));
+      const queue = defineQueue("test-queue");
 
       // WHEN
-      const consumer = defineConsumer("test-queue", schema);
+      const consumer = defineConsumer(queue, message);
 
       // THEN
       expect(consumer).toEqual({
-        queue: "test-queue",
-        message: schema,
+        queue,
+        message,
       });
     });
   });
@@ -205,42 +312,71 @@ describe("builder", () => {
   describe("defineContract", () => {
     it("should create a complete contract", () => {
       // GIVEN
-      const messageSchema = z.object({
-        orderId: z.string(),
-        amount: z.number(),
-      });
+      const message = defineMessage(
+        z.object({
+          orderId: z.string(),
+          amount: z.number(),
+        }),
+      );
+      const ordersExchange = defineExchange("orders", "topic", { durable: true });
+      const orderProcessingQueue = defineQueue("order-processing", { durable: true });
 
       // WHEN
       const contract = defineContract({
         exchanges: {
-          orders: defineExchange("orders", "topic", { durable: true }),
+          orders: ordersExchange,
         },
         queues: {
-          orderProcessing: defineQueue("order-processing", { durable: true }),
+          orderProcessing: orderProcessingQueue,
         },
         bindings: {
-          orderBinding: defineBinding("order-processing", "orders", {
+          orderBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
             routingKey: "order.created",
           }),
         },
         publishers: {
-          orderCreated: definePublisher("orders", messageSchema, {
+          orderCreated: definePublisher(ordersExchange, message, {
             routingKey: "order.created",
           }),
         },
         consumers: {
-          processOrder: defineConsumer("order-processing", messageSchema, {
+          processOrder: defineConsumer(orderProcessingQueue, message, {
             prefetch: 10,
           }),
         },
       });
 
       // THEN
-      expect(contract).toBeDefined();
-      expect(contract.exchanges?.orders.name).toBe("orders");
-      expect(contract.queues?.orderProcessing.name).toBe("order-processing");
-      expect(contract.publishers?.orderCreated.exchange).toBe("orders");
-      expect(contract.consumers?.processOrder.queue).toBe("order-processing");
+      expect(contract).toMatchObject({
+        exchanges: {
+          orders: { name: "orders", type: "topic", durable: true },
+        },
+        queues: {
+          orderProcessing: { name: "order-processing", durable: true },
+        },
+        bindings: {
+          orderBinding: {
+            type: "queue",
+            queue: orderProcessingQueue,
+            exchange: ordersExchange,
+            routingKey: "order.created",
+          },
+        },
+        publishers: {
+          orderCreated: {
+            exchange: ordersExchange,
+            message,
+            routingKey: "order.created",
+          },
+        },
+        consumers: {
+          processOrder: {
+            queue: orderProcessingQueue,
+            message,
+            prefetch: 10,
+          },
+        },
+      });
     });
 
     it("should create a minimal contract", () => {
@@ -253,35 +389,42 @@ describe("builder", () => {
 
     it("should create a contract with exchange-to-exchange bindings", () => {
       // GIVEN
-      const messageSchema = z.object({
-        orderId: z.string(),
-        amount: z.number(),
+      const message = defineMessage(
+        z.object({
+          orderId: z.string(),
+          amount: z.number(),
+        }),
+      );
+      const sourceExchange = defineExchange("source-exchange", "topic", { durable: true });
+      const destinationExchange = defineExchange("destination-exchange", "topic", {
+        durable: true,
       });
+      const finalQueue = defineQueue("final-queue", { durable: true });
 
       // WHEN
       const contract = defineContract({
         exchanges: {
-          sourceExchange: defineExchange("source-exchange", "topic", { durable: true }),
-          destinationExchange: defineExchange("destination-exchange", "topic", { durable: true }),
+          sourceExchange,
+          destinationExchange,
         },
         queues: {
-          finalQueue: defineQueue("final-queue", { durable: true }),
+          finalQueue,
         },
         bindings: {
-          exchangeToExchange: defineExchangeBinding("destination-exchange", "source-exchange", {
+          exchangeToExchange: defineExchangeBinding(destinationExchange, sourceExchange, {
             routingKey: "order.*",
           }),
-          queueBinding: defineBinding("final-queue", "destination-exchange", {
+          queueBinding: defineQueueBinding(finalQueue, destinationExchange, {
             routingKey: "order.created",
           }),
         },
         publishers: {
-          orderCreated: definePublisher("source-exchange", messageSchema, {
+          orderCreated: definePublisher(sourceExchange, message, {
             routingKey: "order.created",
           }),
         },
         consumers: {
-          processOrder: defineConsumer("final-queue", messageSchema, {
+          processOrder: defineConsumer(finalQueue, message, {
             prefetch: 10,
           }),
         },
@@ -296,13 +439,13 @@ describe("builder", () => {
         bindings: {
           exchangeToExchange: {
             type: "exchange",
-            source: "source-exchange",
-            destination: "destination-exchange",
+            source: sourceExchange,
+            destination: destinationExchange,
           },
           queueBinding: {
             type: "queue",
-            queue: "final-queue",
-            exchange: "destination-exchange",
+            queue: finalQueue,
+            exchange: destinationExchange,
           },
         },
       });

@@ -1,46 +1,44 @@
+import type { StandardSchemaV1 } from "@standard-schema/spec";
 import type {
-  AnySchema,
-  BindingDefinition,
   QueueBindingDefinition,
   ExchangeBindingDefinition,
   ConsumerDefinition,
   ContractDefinition,
   ExchangeDefinition,
-  ExchangeType,
   PublisherDefinition,
   QueueDefinition,
+  MessageDefinition,
+  FanoutExchangeDefinition,
+  TopicExchangeDefinition,
+  DirectExchangeDefinition,
+  BaseExchangeDefinition,
 } from "./types.js";
 
-/**
- * Message schema with metadata
- */
-export interface MessageSchema<TSchema extends AnySchema = AnySchema> extends AnySchema {
-  readonly name: string;
-  readonly schema: TSchema;
-  readonly "~standard": TSchema["~standard"];
-}
-
-/**
- * Define a message schema with metadata
- */
-export function defineMessage<TSchema extends AnySchema>(
+export function defineExchange(
   name: string,
-  schema: TSchema,
-): MessageSchema<TSchema> {
-  return {
-    name,
-    schema,
-    "~standard": schema["~standard"],
-  };
-}
+  type: "fanout",
+  options?: Omit<BaseExchangeDefinition, "name" | "type">,
+): FanoutExchangeDefinition;
+
+export function defineExchange(
+  name: string,
+  type: "direct",
+  options?: Omit<BaseExchangeDefinition, "name" | "type">,
+): DirectExchangeDefinition;
+
+export function defineExchange(
+  name: string,
+  type: "topic",
+  options?: Omit<BaseExchangeDefinition, "name" | "type">,
+): TopicExchangeDefinition;
 
 /**
  * Define an AMQP exchange
  */
 export function defineExchange(
   name: string,
-  type: ExchangeType,
-  options?: Omit<ExchangeDefinition, "name" | "type">,
+  type: "fanout" | "direct" | "topic",
+  options?: Omit<BaseExchangeDefinition, "name" | "type">,
 ): ExchangeDefinition {
   return {
     name,
@@ -63,63 +61,209 @@ export function defineQueue(
 }
 
 /**
- * Define a binding between queue and exchange
+ * Define a message definition with payload and optional headers/metadata
  */
-export function defineBinding(
-  queue: string,
-  exchange: string,
-  options?: Omit<QueueBindingDefinition, "type" | "queue" | "exchange">,
+export function defineMessage<
+  TPayload extends MessageDefinition["payload"],
+  THeaders extends StandardSchemaV1<Record<string, unknown>> | undefined = undefined,
+>(
+  payload: TPayload,
+  options?: {
+    headers?: THeaders;
+    summary?: string;
+    description?: string;
+  },
+): MessageDefinition<TPayload, THeaders> {
+  return {
+    payload,
+    ...options,
+  };
+}
+
+/**
+ * Define a binding between queue and fanout exchange (exchange -> queue)
+ * Fanout exchanges don't use routing keys
+ */
+export function defineQueueBinding(
+  queue: QueueDefinition,
+  exchange: FanoutExchangeDefinition,
+  options?: Omit<
+    Extract<QueueBindingDefinition, { exchange: FanoutExchangeDefinition }>,
+    "type" | "queue" | "exchange" | "routingKey"
+  >,
+): Extract<QueueBindingDefinition, { exchange: FanoutExchangeDefinition }>;
+
+/**
+ * Define a binding between queue and direct/topic exchange (exchange -> queue)
+ * Direct and topic exchanges require a routing key
+ */
+export function defineQueueBinding(
+  queue: QueueDefinition,
+  exchange: DirectExchangeDefinition | TopicExchangeDefinition,
+  options: Omit<
+    Extract<
+      QueueBindingDefinition,
+      { exchange: DirectExchangeDefinition | TopicExchangeDefinition }
+    >,
+    "type" | "queue" | "exchange"
+  >,
+): Extract<
+  QueueBindingDefinition,
+  { exchange: DirectExchangeDefinition | TopicExchangeDefinition }
+>;
+
+/**
+ * Define a binding between queue and exchange (exchange -> queue)
+ */
+export function defineQueueBinding(
+  queue: QueueDefinition,
+  exchange: ExchangeDefinition,
+  options?: {
+    routingKey?: string;
+    arguments?: Record<string, unknown>;
+  },
 ): QueueBindingDefinition {
+  if (exchange.type === "fanout") {
+    return {
+      type: "queue",
+      queue,
+      exchange,
+      ...(options?.arguments && { arguments: options.arguments }),
+    } as QueueBindingDefinition;
+  }
+
   return {
     type: "queue",
     queue,
     exchange,
-    ...options,
-  };
+    routingKey: options?.routingKey,
+    ...(options?.arguments && { arguments: options.arguments }),
+  } as QueueBindingDefinition;
 }
+
+/**
+ * Define a binding between fanout exchange and exchange (source -> destination)
+ * Fanout exchanges don't use routing keys
+ */
+export function defineExchangeBinding(
+  destination: ExchangeDefinition,
+  source: FanoutExchangeDefinition,
+  options?: Omit<
+    Extract<ExchangeBindingDefinition, { source: FanoutExchangeDefinition }>,
+    "type" | "source" | "destination" | "routingKey"
+  >,
+): Extract<ExchangeBindingDefinition, { source: FanoutExchangeDefinition }>;
+
+/**
+ * Define a binding between direct/topic exchange and exchange (source -> destination)
+ * Direct and topic exchanges require a routing key
+ */
+export function defineExchangeBinding(
+  destination: ExchangeDefinition,
+  source: DirectExchangeDefinition | TopicExchangeDefinition,
+  options: Omit<
+    Extract<
+      ExchangeBindingDefinition,
+      { source: DirectExchangeDefinition | TopicExchangeDefinition }
+    >,
+    "type" | "source" | "destination"
+  >,
+): Extract<
+  ExchangeBindingDefinition,
+  { source: DirectExchangeDefinition | TopicExchangeDefinition }
+>;
 
 /**
  * Define a binding between exchange and exchange (source -> destination)
  */
 export function defineExchangeBinding(
-  destination: string,
-  source: string,
-  options?: Omit<ExchangeBindingDefinition, "type" | "source" | "destination">,
+  destination: ExchangeDefinition,
+  source: ExchangeDefinition,
+  options?: {
+    routingKey?: string;
+    arguments?: Record<string, unknown>;
+  },
 ): ExchangeBindingDefinition {
+  if (source.type === "fanout") {
+    return {
+      type: "exchange",
+      source,
+      destination,
+      ...(options?.arguments && { arguments: options.arguments }),
+    } as ExchangeBindingDefinition;
+  }
+
   return {
     type: "exchange",
     source,
     destination,
-    ...options,
-  };
+    routingKey: options?.routingKey ?? "",
+    ...(options?.arguments && { arguments: options.arguments }),
+  } as ExchangeBindingDefinition;
 }
+
+/**
+ * Define a message publisher for fanout exchange
+ * Fanout exchanges don't use routing keys
+ */
+export function definePublisher<TMessage extends MessageDefinition>(
+  exchange: FanoutExchangeDefinition,
+  message: TMessage,
+  options?: Omit<
+    Extract<PublisherDefinition<TMessage>, { exchange: FanoutExchangeDefinition }>,
+    "exchange" | "message" | "routingKey"
+  >,
+): Extract<PublisherDefinition<TMessage>, { exchange: FanoutExchangeDefinition }>;
+
+/**
+ * Define a message publisher for direct/topic exchange
+ * Direct and topic exchanges require a routing key
+ */
+export function definePublisher<TMessage extends MessageDefinition>(
+  exchange: DirectExchangeDefinition | TopicExchangeDefinition,
+  message: TMessage,
+  options: Omit<
+    Extract<
+      PublisherDefinition<TMessage>,
+      { exchange: DirectExchangeDefinition | TopicExchangeDefinition }
+    >,
+    "exchange" | "message"
+  >,
+): Extract<
+  PublisherDefinition<TMessage>,
+  { exchange: DirectExchangeDefinition | TopicExchangeDefinition }
+>;
 
 /**
  * Define a message publisher
  */
-export function definePublisher<TMessageSchema extends AnySchema>(
-  exchange: string,
-  message: TMessageSchema,
-  options?: Omit<PublisherDefinition<TMessageSchema>, "exchange" | "message">,
-): PublisherDefinition<TMessageSchema> {
+export function definePublisher<TMessage extends MessageDefinition>(
+  exchange: ExchangeDefinition,
+  message: TMessage,
+  options?: { routingKey?: string },
+): PublisherDefinition<TMessage> {
+  if (exchange.type === "fanout") {
+    return {
+      exchange,
+      message,
+    } as PublisherDefinition<TMessage>;
+  }
+
   return {
     exchange,
     message,
-    ...options,
-  };
+    routingKey: options?.routingKey ?? "",
+  } as PublisherDefinition<TMessage>;
 }
 
 /**
  * Define a message consumer
  */
-export function defineConsumer<
-  TMessageSchema extends AnySchema,
-  THandlerResultSchema extends AnySchema = AnySchema,
->(
-  queue: string,
-  message: TMessageSchema,
-  options?: Omit<ConsumerDefinition<TMessageSchema, THandlerResultSchema>, "queue" | "message">,
-): ConsumerDefinition<TMessageSchema, THandlerResultSchema> {
+export function defineConsumer<TMessage extends MessageDefinition>(
+  queue: QueueDefinition,
+  message: TMessage,
+  options?: Omit<ConsumerDefinition<TMessage>, "queue" | "message">,
+): ConsumerDefinition<TMessage> {
   return {
     queue,
     message,
@@ -130,13 +274,8 @@ export function defineConsumer<
 /**
  * Define an AMQP contract
  */
-export function defineContract<
-  TContract extends ContractDefinition<TExchanges, TQueues, TBindings, TPublishers, TConsumers>,
-  TExchanges extends Record<string, ExchangeDefinition> = Record<string, ExchangeDefinition>,
-  TQueues extends Record<string, QueueDefinition> = Record<string, QueueDefinition>,
-  TBindings extends Record<string, BindingDefinition> = Record<string, BindingDefinition>,
-  TPublishers extends Record<string, PublisherDefinition> = Record<string, PublisherDefinition>,
-  TConsumers extends Record<string, ConsumerDefinition> = Record<string, ConsumerDefinition>,
->(definition: TContract): TContract {
+export function defineContract<TContract extends ContractDefinition>(
+  definition: TContract,
+): TContract {
   return definition;
 }

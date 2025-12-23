@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { defineContract, defineConsumer, defineMessage } from "@amqp-contract/contract";
+import {
+  defineContract,
+  defineConsumer,
+  defineMessage,
+  defineQueue,
+} from "@amqp-contract/contract";
 import { z } from "zod";
 import { defineHandler, defineHandlers } from "./handlers.js";
 import type { WorkerInferConsumerInput } from "@amqp-contract/contract";
@@ -7,7 +12,6 @@ import type { WorkerInferConsumerInput } from "@amqp-contract/contract";
 describe("handlers", () => {
   // Define test contracts
   const OrderMessage = defineMessage(
-    "OrderMessage",
     z.object({
       orderId: z.string(),
       amount: z.number(),
@@ -15,21 +19,23 @@ describe("handlers", () => {
   );
 
   const PaymentMessage = defineMessage(
-    "PaymentMessage",
     z.object({
       paymentId: z.string(),
       status: z.enum(["pending", "completed", "failed"]),
     }),
   );
 
+  const ordersQueue = defineQueue("orders");
+  const paymentsQueue = defineQueue("payments");
+
   const testContract = defineContract({
     queues: {
-      orders: { name: "orders" },
-      payments: { name: "payments" },
+      orders: ordersQueue,
+      payments: paymentsQueue,
     },
     consumers: {
-      processOrder: defineConsumer("orders", OrderMessage),
-      processPayment: defineConsumer("payments", PaymentMessage),
+      processOrder: defineConsumer(ordersQueue, OrderMessage),
+      processPayment: defineConsumer(paymentsQueue, PaymentMessage),
     },
   });
 

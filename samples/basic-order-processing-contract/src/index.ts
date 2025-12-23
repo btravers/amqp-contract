@@ -1,11 +1,12 @@
 import {
-  defineBinding,
+  defineQueueBinding,
   defineExchangeBinding,
   defineConsumer,
   defineContract,
   defineExchange,
   definePublisher,
   defineQueue,
+  defineMessage,
 } from "@amqp-contract/contract";
 import { z } from "zod";
 
@@ -35,6 +36,30 @@ const orderStatusSchema = z.object({
   updatedAt: z.string().datetime(),
 });
 
+// Define exchanges first so they can be referenced
+const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const orderAnalyticsExchange = defineExchange("order-analytics", "topic", { durable: true });
+
+// Define queues so they can be referenced
+const orderProcessingQueue = defineQueue("order-processing", { durable: true });
+const orderNotificationsQueue = defineQueue("order-notifications", { durable: true });
+const orderShippingQueue = defineQueue("order-shipping", { durable: true });
+const orderUrgentQueue = defineQueue("order-urgent", { durable: true });
+const analyticsProcessingQueue = defineQueue("analytics-processing", { durable: true });
+
+// Define messages with metadata
+const orderMessage = defineMessage(orderSchema, {
+  summary: "Order created event",
+  description: "Emitted when a new order is created in the system",
+});
+
+const orderStatusMessage = defineMessage(orderStatusSchema, {
+  summary: "Order status update event",
+  description: "Emitted when an order status changes",
+});
+
+const orderUnionMessage = defineMessage(z.union([orderSchema, orderStatusSchema]));
+
 /**
  * Order processing contract demonstrating RabbitMQ topic pattern
  *
@@ -53,110 +78,106 @@ const orderStatusSchema = z.object({
 export const orderContract = defineContract({
   exchanges: {
     // Primary exchange for all orders
-    orders: defineExchange("orders", "topic", { durable: true }),
+    orders: ordersExchange,
 
     // Secondary exchange for analytics (receives filtered events from orders exchange)
-    orderAnalytics: defineExchange("order-analytics", "topic", { durable: true }),
+    orderAnalytics: orderAnalyticsExchange,
   },
   queues: {
     // Queue for processing all new orders
-    orderProcessing: defineQueue("order-processing", { durable: true }),
+    orderProcessing: orderProcessingQueue,
 
     // Queue for all notifications (subscribes to all order events)
-    orderNotifications: defineQueue("order-notifications", { durable: true }),
+    orderNotifications: orderNotificationsQueue,
 
     // Queue for shipping department (only shipped orders)
-    orderShipping: defineQueue("order-shipping", { durable: true }),
+    orderShipping: orderShippingQueue,
 
     // Queue for urgent orders (any urgent event)
-    orderUrgent: defineQueue("order-urgent", { durable: true }),
+    orderUrgent: orderUrgentQueue,
 
     // Queue for analytics (receives events through orderAnalytics exchange)
-    analyticsProcessing: defineQueue("analytics-processing", { durable: true }),
+    analyticsProcessing: analyticsProcessingQueue,
   },
   bindings: {
     // Exchange-to-Exchange binding: Route all order events to analytics exchange
     // This demonstrates how messages can flow through multiple exchanges
-    orderToAnalytics: defineExchangeBinding("order-analytics", "orders", {
+    orderToAnalytics: defineExchangeBinding(orderAnalyticsExchange, ordersExchange, {
       routingKey: "order.#",
     }),
 
     // Queue-to-Exchange bindings for order events
 
     // Bind processing queue to order.created events
-    orderProcessingBinding: defineBinding("order-processing", "orders", {
+    orderProcessingBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
       routingKey: "order.created",
     }),
 
     // Bind notifications queue to ALL order events using wildcard
-    orderNotificationsBinding: defineBinding("order-notifications", "orders", {
+    orderNotificationsBinding: defineQueueBinding(orderNotificationsQueue, ordersExchange, {
       routingKey: "order.#",
     }),
 
     // Bind shipping queue only to shipped orders
-    orderShippingBinding: defineBinding("order-shipping", "orders", {
+    orderShippingBinding: defineQueueBinding(orderShippingQueue, ordersExchange, {
       routingKey: "order.shipped",
     }),
 
     // Bind urgent queue to any urgent order events
-    orderUrgentBinding: defineBinding("order-urgent", "orders", {
+    orderUrgentBinding: defineQueueBinding(orderUrgentQueue, ordersExchange, {
       routingKey: "order.*.urgent",
     }),
 
     // Bind analytics queue to analytics exchange for all events
-    analyticsBinding: defineBinding("analytics-processing", "order-analytics", {
+    analyticsBinding: defineQueueBinding(analyticsProcessingQueue, orderAnalyticsExchange, {
       routingKey: "order.#",
     }),
   },
   publishers: {
     // Publisher for new orders
-    orderCreated: definePublisher("orders", orderSchema, {
+    orderCreated: definePublisher(ordersExchange, orderMessage, {
       routingKey: "order.created",
     }),
 
     // Publisher for regular order updates
-    orderUpdated: definePublisher("orders", orderStatusSchema, {
+    orderUpdated: definePublisher(ordersExchange, orderStatusMessage, {
       routingKey: "order.updated",
     }),
 
     // Publisher for shipped orders
-    orderShipped: definePublisher("orders", orderStatusSchema, {
+    orderShipped: definePublisher(ordersExchange, orderStatusMessage, {
       routingKey: "order.shipped",
     }),
 
     // Publisher for urgent order updates
-    orderUrgentUpdate: definePublisher("orders", orderStatusSchema, {
+    orderUrgentUpdate: definePublisher(ordersExchange, orderStatusMessage, {
       routingKey: "order.updated.urgent",
     }),
   },
   consumers: {
     // Consumer for processing new orders
-    processOrder: defineConsumer("order-processing", orderSchema, {
+    processOrder: defineConsumer(orderProcessingQueue, orderMessage, {
       prefetch: 10,
     }),
 
     // Consumer for sending all notifications
-    notifyOrder: defineConsumer("order-notifications", z.union([orderSchema, orderStatusSchema]), {
+    notifyOrder: defineConsumer(orderNotificationsQueue, orderUnionMessage, {
       prefetch: 5,
     }),
 
     // Consumer for shipping department
-    shipOrder: defineConsumer("order-shipping", orderStatusSchema, {
+    shipOrder: defineConsumer(orderShippingQueue, orderStatusMessage, {
       prefetch: 5,
     }),
 
     // Consumer for urgent orders
-    handleUrgentOrder: defineConsumer("order-urgent", orderStatusSchema, {
+    handleUrgentOrder: defineConsumer(orderUrgentQueue, orderStatusMessage, {
       prefetch: 20,
     }),
 
     // Consumer for analytics processing
-    processAnalytics: defineConsumer(
-      "analytics-processing",
-      z.union([orderSchema, orderStatusSchema]),
-      {
-        prefetch: 50, // Higher prefetch for analytics
-      },
-    ),
+    processAnalytics: defineConsumer(analyticsProcessingQueue, orderUnionMessage, {
+      prefetch: 50, // Higher prefetch for analytics
+    }),
   },
 });

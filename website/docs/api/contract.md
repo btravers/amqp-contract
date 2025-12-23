@@ -115,14 +115,14 @@ const processingQueue = defineQueue('order-processing', {
 
 ---
 
-### `defineBinding`
+### `defineQueueBinding`
 
 Defines a binding between a queue and an exchange.
 
 **Signature:**
 
 ```typescript
-function defineBinding(
+function defineQueueBinding(
   queue: string,
   exchange: string,
   options?: BindingOptions
@@ -132,7 +132,7 @@ function defineBinding(
 **Example:**
 
 ```typescript
-const orderBinding = defineBinding('order-processing', 'orders', {
+const orderBinding = defineQueueBinding('order-processing', 'orders', {
   routingKey: 'order.created',
 });
 ```
@@ -304,7 +304,7 @@ import {
   defineContract,
   defineExchange,
   defineQueue,
-  defineBinding,
+  defineQueueBinding,
   definePublisher,
   defineConsumer,
 } from '@amqp-contract/contract';
@@ -335,7 +335,7 @@ export const contract = defineContract({
     }),
   },
   bindings: {
-    orderBinding: defineBinding('order-processing', 'orders', {
+    orderBinding: defineQueueBinding('order-processing', 'orders', {
       routingKey: 'order.created',
     }),
   },

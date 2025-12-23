@@ -2,7 +2,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TypedAmqpClient } from "./client";
 import type { Channel, ChannelModel } from "amqplib";
 import { connect } from "amqplib";
-import { defineContract, defineMessage } from "@amqp-contract/contract";
+import {
+  defineContract,
+  defineMessage,
+  defineExchange,
+  defineQueue,
+  definePublisher,
+  defineQueueBinding,
+  defineExchangeBinding,
+} from "@amqp-contract/contract";
 import { Result } from "@swan-io/boxed";
 import { z } from "zod";
 
@@ -37,21 +45,17 @@ describe("AmqpClient", () => {
   describe("Type Inference", () => {
     it("should infer publisher names correctly", async () => {
       // GIVEN
-      const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
+      const TestMessage = defineMessage(z.object({ id: z.string() }));
+      const testExchange = defineExchange("test-exchange", "topic", { durable: true });
 
       const contract = defineContract({
         exchanges: {
-          test: {
-            name: "test-exchange",
-            type: "topic" as const,
-            durable: true,
-          },
+          test: testExchange,
         },
         publishers: {
-          testPublisher: {
-            exchange: "test-exchange",
-            message: TestMessage,
-          },
+          testPublisher: definePublisher(testExchange, TestMessage, {
+            routingKey: "test.key",
+          }),
         },
       });
 
@@ -68,27 +72,22 @@ describe("AmqpClient", () => {
     it("should infer message types correctly", async () => {
       // GIVEN
       const OrderMessage = defineMessage(
-        "OrderMessage",
         z.object({
           orderId: z.string(),
           amount: z.number(),
         }),
       );
 
+      const ordersExchange = defineExchange("orders", "topic", { durable: true });
+
       const contract = defineContract({
         exchanges: {
-          orders: {
-            name: "orders",
-            type: "topic" as const,
-            durable: true,
-          },
+          orders: ordersExchange,
         },
         publishers: {
-          createOrder: {
-            exchange: "orders",
+          createOrder: definePublisher(ordersExchange, OrderMessage, {
             routingKey: "order.created",
-            message: OrderMessage,
-          },
+          }),
         },
       });
 
@@ -164,25 +163,20 @@ describe("AmqpClient", () => {
 
     it("should setup bindings when defined", async () => {
       // GIVEN
+      const testExchange = defineExchange("test-exchange", "topic");
+      const testQueue = defineQueue("test-queue");
+
       const contract = defineContract({
         exchanges: {
-          test: {
-            name: "test-exchange",
-            type: "topic" as const,
-          },
+          test: testExchange,
         },
         queues: {
-          testQueue: {
-            name: "test-queue",
-          },
+          testQueue,
         },
         bindings: {
-          testBinding: {
-            type: "queue" as const,
-            queue: "test-queue",
-            exchange: "test-exchange",
+          testBinding: defineQueueBinding(testQueue, testExchange, {
             routingKey: "test.#",
-          },
+          }),
         },
       });
 
@@ -200,24 +194,18 @@ describe("AmqpClient", () => {
 
     it("should setup exchange-to-exchange bindings when defined", async () => {
       // GIVEN
+      const sourceExchange = defineExchange("source-exchange", "topic");
+      const destinationExchange = defineExchange("destination-exchange", "topic");
+
       const contract = defineContract({
         exchanges: {
-          sourceExchange: {
-            name: "source-exchange",
-            type: "topic" as const,
-          },
-          destinationExchange: {
-            name: "destination-exchange",
-            type: "topic" as const,
-          },
+          sourceExchange,
+          destinationExchange,
         },
         bindings: {
-          exchangeBinding: {
-            type: "exchange" as const,
-            source: "source-exchange",
-            destination: "destination-exchange",
+          exchangeBinding: defineExchangeBinding(destinationExchange, sourceExchange, {
             routingKey: "test.*",
-          },
+          }),
         },
       });
 
@@ -237,21 +225,17 @@ describe("AmqpClient", () => {
   describe("publish", () => {
     it("should publish a valid message", async () => {
       // GIVEN
-      const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
+      const TestMessage = defineMessage(z.object({ id: z.string() }));
+      const testExchange = defineExchange("test-exchange", "topic");
 
       const contract = defineContract({
         exchanges: {
-          test: {
-            name: "test-exchange",
-            type: "topic" as const,
-          },
+          test: testExchange,
         },
         publishers: {
-          testPublisher: {
-            exchange: "test-exchange",
+          testPublisher: definePublisher(testExchange, TestMessage, {
             routingKey: "test.key",
-            message: TestMessage,
-          },
+          }),
         },
       });
 
@@ -272,21 +256,17 @@ describe("AmqpClient", () => {
 
     it("should use custom routing key from options", async () => {
       // GIVEN
-      const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
+      const TestMessage = defineMessage(z.object({ id: z.string() }));
+      const testExchange = defineExchange("test-exchange", "topic");
 
       const contract = defineContract({
         exchanges: {
-          test: {
-            name: "test-exchange",
-            type: "topic" as const,
-          },
+          test: testExchange,
         },
         publishers: {
-          testPublisher: {
-            exchange: "test-exchange",
+          testPublisher: definePublisher(testExchange, TestMessage, {
             routingKey: "test.default",
-            message: TestMessage,
-          },
+          }),
         },
       });
 
@@ -307,20 +287,17 @@ describe("AmqpClient", () => {
 
     it("should return error on invalid data", async () => {
       // GIVEN
-      const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
+      const TestMessage = defineMessage(z.object({ id: z.string() }));
+      const testExchange = defineExchange("test-exchange", "topic");
 
       const contract = defineContract({
         exchanges: {
-          test: {
-            name: "test-exchange",
-            type: "topic" as const,
-          },
+          test: testExchange,
         },
         publishers: {
-          testPublisher: {
-            exchange: "test-exchange",
-            message: TestMessage,
-          },
+          testPublisher: definePublisher(testExchange, TestMessage, {
+            routingKey: "test.key",
+          }),
         },
       });
 

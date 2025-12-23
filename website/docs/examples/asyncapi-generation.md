@@ -92,7 +92,7 @@ import {
   defineContract,
   defineExchange,
   defineQueue,
-  defineBinding,
+  defineQueueBinding,
   definePublisher,
   defineConsumer,
 } from '@amqp-contract/contract';
@@ -116,7 +116,7 @@ export const contract = defineContract({
     orderProcessing: defineQueue('order-processing', { durable: true }),
   },
   bindings: {
-    orderBinding: defineBinding('order-processing', 'orders', {
+    orderBinding: defineQueueBinding('order-processing', 'orders', {
       routingKey: 'order.created',
     }),
   },
