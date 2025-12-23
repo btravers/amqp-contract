@@ -143,24 +143,11 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       );
     }
 
-    // Set prefetch if specified
-    const prefetchFuture =
-      consumer.prefetch !== undefined
-        ? Future.fromPromise(channel.prefetch(consumer.prefetch)).mapError(
-            (error) =>
-              new TechnicalError(
-                `Failed to set prefetch for consumer "${String(consumerName)}"`,
-                error,
-              ),
-          )
-        : Future.value(Result.Ok(undefined));
-
     // Start consuming
-    return prefetchFuture.flatMapOk(() =>
-      Future.fromPromise(
-        channel.consume(
-          consumer.queue.name,
-          async (msg: ConsumeMessage | null) => {
+    return Future.fromPromise(
+      channel.consume(
+        consumer.queue.name,
+        (msg: ConsumeMessage | null) => {
           if (!msg) {
             return;
           }
@@ -184,7 +171,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           }
 
           const rawValidation = consumer.message.payload["~standard"].validate(parseResult.value);
-          await Future.fromPromise(
+          Future.fromPromise(
             rawValidation instanceof Promise ? rawValidation : Promise.resolve(rawValidation),
           )
             .mapOkToResult((validationResult) => {
@@ -227,22 +214,21 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
               if (!consumer.noAck) {
                 channel.ack(msg);
               }
-            })
-            .toPromise();
+            });
         },
         {
           noAck: consumer.noAck ?? false,
         },
-      ))
-        .mapError(
-          (error) =>
-            new TechnicalError(`Failed to start consuming for "${String(consumerName)}"`, error),
-        )
-        .tapOk((result) => {
-          this.consumerTags.push(result.consumerTag);
-        })
-        .mapOk(() => undefined),
-    );
+      ),
+    )
+      .mapError(
+        (error) =>
+          new TechnicalError(`Failed to start consuming for "${String(consumerName)}"`, error),
+      )
+      .tapOk((result) => {
+        this.consumerTags.push(result.consumerTag);
+      })
+      .mapOk(() => undefined);
   }
 
   /**

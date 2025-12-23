@@ -286,31 +286,6 @@ describe("AmqpWorker", () => {
       expect(mockChannel.ack).toHaveBeenCalledWith(mockMessage);
     });
 
-    it("should set prefetch when specified", async () => {
-      // GIVEN
-      const TestMessage = defineMessage(z.object({ id: z.string() }));
-      const testQueue = defineQueue("test-queue");
-
-      const contract = defineContract({
-        queues: {
-          test: testQueue,
-        },
-        consumers: {
-          testConsumer: defineConsumer(testQueue, TestMessage, { prefetch: 10 }),
-        },
-      });
-
-      // WHEN
-      await TypedAmqpWorker.create({
-        contract,
-        handlers: { testConsumer: vi.fn().mockReturnValue(Promise.resolve()) },
-        connection: "amqp://localhost",
-      }).resultToPromise();
-
-      // THEN
-      expect(mockChannel.prefetch).toHaveBeenCalledWith(10);
-    });
-
     it("should nack invalid messages", async () => {
       // GIVEN
       const TestMessage = defineMessage(z.object({ id: z.string() }));
