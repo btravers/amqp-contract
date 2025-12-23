@@ -240,55 +240,70 @@ const orderStatusSchema = z.object({
 ### Contract Structure
 
 ```typescript
+// 1. Define resources first
+const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+const orderProcessingQueue = defineQueue('order-processing', { durable: true });
+const orderNotificationsQueue = defineQueue('order-notifications', { durable: true });
+const orderShippingQueue = defineQueue('order-shipping', { durable: true });
+const orderUrgentQueue = defineQueue('order-urgent', { durable: true });
+
+// 2. Define messages
+const orderMessage = defineMessage(orderSchema, {
+  summary: 'Order created event',
+  description: 'Emitted when a new order is created',
+});
+const orderStatusMessage = defineMessage(orderStatusSchema);
+
+// 3. Compose contract using object references
 export const orderContract = defineContract({
   exchanges: {
-    orders: defineExchange('orders', 'topic', { durable: true }),
+    orders: ordersExchange,
   },
   queues: {
-    orderProcessing: defineQueue('order-processing', { durable: true }),
-    orderNotifications: defineQueue('order-notifications', { durable: true }),
-    orderShipping: defineQueue('order-shipping', { durable: true }),
-    orderUrgent: defineQueue('order-urgent', { durable: true }),
+    orderProcessing: orderProcessingQueue,
+    orderNotifications: orderNotificationsQueue,
+    orderShipping: orderShippingQueue,
+    orderUrgent: orderUrgentQueue,
   },
   bindings: {
-    orderProcessingBinding: defineQueueBinding('order-processing', 'orders', {
+    orderProcessingBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
       routingKey: 'order.created',
     }),
-    orderNotificationsBinding: defineQueueBinding('order-notifications', 'orders', {
+    orderNotificationsBinding: defineQueueBinding(orderNotificationsQueue, ordersExchange, {
       routingKey: 'order.#',
     }),
-    orderShippingBinding: defineQueueBinding('order-shipping', 'orders', {
+    orderShippingBinding: defineQueueBinding(orderShippingQueue, ordersExchange, {
       routingKey: 'order.shipped',
     }),
-    orderUrgentBinding: defineQueueBinding('order-urgent', 'orders', {
+    orderUrgentBinding: defineQueueBinding(orderUrgentQueue, ordersExchange, {
       routingKey: 'order.*.urgent',
     }),
   },
   publishers: {
-    orderCreated: definePublisher('orders', orderSchema, {
+    orderCreated: definePublisher(ordersExchange, orderMessage, {
       routingKey: 'order.created',
     }),
-    orderUpdated: definePublisher('orders', orderStatusSchema, {
+    orderUpdated: definePublisher(ordersExchange, orderStatusMessage, {
       routingKey: 'order.updated',
     }),
-    orderShipped: definePublisher('orders', orderStatusSchema, {
+    orderShipped: definePublisher(ordersExchange, orderStatusMessage, {
       routingKey: 'order.shipped',
     }),
-    orderUrgentUpdate: definePublisher('orders', orderStatusSchema, {
+    orderUrgentUpdate: definePublisher(ordersExchange, orderStatusMessage, {
       routingKey: 'order.updated.urgent',
     }),
   },
   consumers: {
-    processOrder: defineConsumer('order-processing', orderSchema, {
+    processOrder: defineConsumer(orderProcessingQueue, orderMessage, {
       prefetch: 10,
     }),
-    notifyOrder: defineConsumer('order-notifications', z.union([orderSchema, orderStatusSchema]), {
+    notifyOrder: defineConsumer(orderNotificationsQueue, defineMessage(z.union([orderSchema, orderStatusSchema])), {
       prefetch: 5,
     }),
-    shipOrder: defineConsumer('order-shipping', orderStatusSchema, {
+    shipOrder: defineConsumer(orderShippingQueue, orderStatusMessage, {
       prefetch: 5,
     }),
-    handleUrgentOrder: defineConsumer('order-urgent', orderStatusSchema, {
+    handleUrgentOrder: defineConsumer(orderUrgentQueue, orderStatusMessage, {
       prefetch: 20,
     }),
   },

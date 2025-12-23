@@ -122,30 +122,136 @@ Defines a binding between a queue and an exchange.
 **Signature:**
 
 ```typescript
+// For fanout exchanges (no routing key needed)
 function defineQueueBinding(
-  queue: string,
-  exchange: string,
-  options?: BindingOptions
-): BindingDefinition
+  queue: QueueDefinition,
+  exchange: FanoutExchangeDefinition,
+  options?: { arguments?: Record<string, unknown> }
+): QueueBindingDefinition
+
+// For direct/topic exchanges (routing key required)
+function defineQueueBinding(
+  queue: QueueDefinition,
+  exchange: DirectExchangeDefinition | TopicExchangeDefinition,
+  options: { 
+    routingKey: string;
+    arguments?: Record<string, unknown>;
+  }
+): QueueBindingDefinition
 ```
 
 **Example:**
 
 ```typescript
-const orderBinding = defineQueueBinding('order-processing', 'orders', {
+const orderProcessingQueue = defineQueue('order-processing', { durable: true });
+const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+
+const orderBinding = defineQueueBinding(orderProcessingQueue, ordersExchange, {
   routingKey: 'order.created',
 });
 ```
 
 **Parameters:**
 
-- `queue` - Queue name (must match a defined queue)
-- `exchange` - Exchange name (must match a defined exchange)
-- `options` - Optional binding options
-  - `routingKey` - Routing key pattern (default: `''`)
+- `queue` - Queue definition object (from `defineQueue`)
+- `exchange` - Exchange definition object (from `defineExchange`)
+- `options` - Binding options
+  - `routingKey` - Routing key pattern (required for direct/topic exchanges)
   - `arguments` - Additional AMQP arguments
 
 **Returns:** Binding definition
+
+---
+
+### `defineExchangeBinding`
+
+Defines a binding between two exchanges (source → destination).
+
+**Signature:**
+
+```typescript
+// For fanout exchanges (no routing key needed)
+function defineExchangeBinding(
+  destination: ExchangeDefinition,
+  source: FanoutExchangeDefinition,
+  options?: { arguments?: Record<string, unknown> }
+): ExchangeBindingDefinition
+
+// For direct/topic exchanges (routing key required)
+function defineExchangeBinding(
+  destination: ExchangeDefinition,
+  source: DirectExchangeDefinition | TopicExchangeDefinition,
+  options: { 
+    routingKey: string;
+    arguments?: Record<string, unknown>;
+  }
+): ExchangeBindingDefinition
+```
+
+**Example:**
+
+```typescript
+const sourceExchange = defineExchange('source', 'topic', { durable: true });
+const destExchange = defineExchange('destination', 'topic', { durable: true });
+
+const exchangeBinding = defineExchangeBinding(destExchange, sourceExchange, {
+  routingKey: 'order.#',
+});
+```
+
+**Parameters:**
+
+- `destination` - Destination exchange definition object
+- `source` - Source exchange definition object
+- `options` - Binding options
+  - `routingKey` - Routing key pattern (required for direct/topic exchanges)
+  - `arguments` - Additional AMQP arguments
+
+**Returns:** Exchange binding definition
+
+---
+
+### `defineMessage`
+
+Defines a message with payload schema and optional metadata.
+
+**Signature:**
+
+```typescript
+function defineMessage<TPayload, THeaders>(
+  payload: TPayload,
+  options?: {
+    headers?: THeaders;
+    summary?: string;
+    description?: string;
+  }
+): MessageDefinition<TPayload, THeaders>
+```
+
+**Example:**
+
+```typescript
+const orderMessage = defineMessage(
+  z.object({
+    orderId: z.string(),
+    amount: z.number(),
+  }),
+  {
+    summary: 'Order created event',
+    description: 'Emitted when a new order is created in the system',
+  }
+);
+```
+
+**Parameters:**
+
+- `payload` - Message payload schema (Standard Schema v1 compatible)
+- `options` - Optional message metadata
+  - `headers` - Optional header schema
+  - `summary` - Short description for documentation
+  - `description` - Detailed description for documentation
+
+**Returns:** Message definition
 
 ---
 
@@ -156,34 +262,44 @@ Defines a message publisher with schema validation.
 **Signature:**
 
 ```typescript
-function definePublisher<TSchema>(
-  exchange: string,
-  schema: TSchema,
-  options?: PublisherOptions
-): PublisherDefinition<TSchema>
+// For fanout exchanges (no routing key needed)
+function definePublisher<TMessage>(
+  exchange: FanoutExchangeDefinition,
+  message: TMessage,
+  options?: {}
+): PublisherDefinition<TMessage>
+
+// For direct/topic exchanges (routing key required)
+function definePublisher<TMessage>(
+  exchange: DirectExchangeDefinition | TopicExchangeDefinition,
+  message: TMessage,
+  options: { routingKey: string }
+): PublisherDefinition<TMessage>
 ```
 
 **Example:**
 
 ```typescript
-const orderCreatedPublisher = definePublisher(
-  'orders',
+const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+
+const orderMessage = defineMessage(
   z.object({
     orderId: z.string(),
     amount: z.number(),
-  }),
-  {
-    routingKey: 'order.created',
-  }
+  })
 );
+
+const orderCreatedPublisher = definePublisher(ordersExchange, orderMessage, {
+  routingKey: 'order.created',
+});
 ```
 
 **Parameters:**
 
-- `exchange` - Exchange name (must match a defined exchange)
-- `schema` - Message schema (Zod, Valibot, ArkType, or any Standard Schema)
-- `options` - Optional publisher options
-  - `routingKey` - Default routing key (can be overridden at publish time)
+- `exchange` - Exchange definition object (from `defineExchange`)
+- `message` - Message definition (from `defineMessage`)
+- `options` - Publisher options
+  - `routingKey` - Routing key (required for direct/topic exchanges)
 
 **Returns:** Publisher definition with inferred type
 
@@ -196,39 +312,38 @@ Defines a message consumer with schema validation.
 **Signature:**
 
 ```typescript
-function defineConsumer<TSchema>(
-  queue: string,
-  schema: TSchema,
+function defineConsumer<TMessage>(
+  queue: QueueDefinition,
+  message: TMessage,
   options?: ConsumerOptions
-): ConsumerDefinition<TSchema>
+): ConsumerDefinition<TMessage>
 ```
 
 **Example:**
 
 ```typescript
-const processOrderConsumer = defineConsumer(
-  'order-processing',
+const orderProcessingQueue = defineQueue('order-processing', { durable: true });
+
+const orderMessage = defineMessage(
   z.object({
     orderId: z.string(),
     amount: z.number(),
-  }),
-  {
-    prefetch: 10,
-    noAck: false,
-  }
+  })
 );
+
+const processOrderConsumer = defineConsumer(orderProcessingQueue, orderMessage, {
+  prefetch: 10,
+  noAck: false,
+});
 ```
 
 **Parameters:**
 
-- `queue` - Queue name (must match a defined queue)
-- `schema` - Message schema (Zod, Valibot, ArkType, or any Standard Schema)
+- `queue` - Queue definition object (from `defineQueue`)
+- `message` - Message definition (from `defineMessage`)
 - `options` - Optional consumer options
   - `prefetch` - Maximum unacknowledged messages (default: `0` = unlimited)
   - `noAck` - Automatic acknowledgment (default: `false`)
-  - `exclusive` - Exclusive consumer (default: `false`)
-  - `consumerTag` - Consumer identifier
-  - `arguments` - Additional AMQP arguments
 
 **Returns:** Consumer definition with inferred type
 
@@ -307,45 +422,60 @@ import {
   defineQueueBinding,
   definePublisher,
   defineConsumer,
+  defineMessage,
 } from '@amqp-contract/contract';
 import { z } from 'zod';
 
-const orderSchema = z.object({
-  orderId: z.string().uuid(),
-  customerId: z.string().uuid(),
-  amount: z.number().positive(),
-  items: z.array(z.object({
-    productId: z.string(),
-    quantity: z.number().int().positive(),
-  })),
-  createdAt: z.string().datetime(),
+// 1. Define exchanges
+const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+
+// 2. Define queues
+const orderProcessingQueue = defineQueue('order-processing', {
+  durable: true,
+  arguments: {
+    'x-message-ttl': 86400000, // 24 hours
+    'x-dead-letter-exchange': 'orders-dlx',
+  },
 });
 
+// 3. Define messages
+const orderMessage = defineMessage(
+  z.object({
+    orderId: z.string().uuid(),
+    customerId: z.string().uuid(),
+    amount: z.number().positive(),
+    items: z.array(z.object({
+      productId: z.string(),
+      quantity: z.number().int().positive(),
+    })),
+    createdAt: z.string().datetime(),
+  }),
+  {
+    summary: 'Order created event',
+    description: 'Emitted when a new order is created',
+  }
+);
+
+// 4. Compose contract using object references
 export const contract = defineContract({
   exchanges: {
-    orders: defineExchange('orders', 'topic', { durable: true }),
+    orders: ordersExchange,
   },
   queues: {
-    orderProcessing: defineQueue('order-processing', {
-      durable: true,
-      arguments: {
-        'x-message-ttl': 86400000, // 24 hours
-        'x-dead-letter-exchange': 'orders-dlx',
-      },
-    }),
+    orderProcessing: orderProcessingQueue,
   },
   bindings: {
-    orderBinding: defineQueueBinding('order-processing', 'orders', {
+    orderBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
       routingKey: 'order.created',
     }),
   },
   publishers: {
-    orderCreated: definePublisher('orders', orderSchema, {
+    orderCreated: definePublisher(ordersExchange, orderMessage, {
       routingKey: 'order.created',
     }),
   },
   consumers: {
-    processOrder: defineConsumer('order-processing', orderSchema, {
+    processOrder: defineConsumer(orderProcessingQueue, orderMessage, {
       prefetch: 10,
       noAck: false,
     }),
