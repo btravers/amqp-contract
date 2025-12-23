@@ -45,33 +45,38 @@ import {
   defineExchange,
   defineQueue,
   defineQueueBinding,
-  defineConsumer
+  defineConsumer,
+  defineMessage,
 } from '@amqp-contract/contract';
 import { z } from 'zod';
 
+// Define resources and messages
+const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+const orderProcessingQueue = defineQueue('order-processing', { durable: true });
+
+const orderMessage = defineMessage(
+  z.object({
+    orderId: z.string(),
+    customerId: z.string(),
+    amount: z.number(),
+    items: z.array(z.object({
+      productId: z.string(),
+      quantity: z.number(),
+      price: z.number(),
+    })),
+  })
+);
+
 export const contract = defineContract({
-  exchanges: {
-    orders: defineExchange('orders', 'topic', { durable: true }),
-  },
-  queues: {
-    orderProcessing: defineQueue('order-processing', { durable: true }),
-  },
+  exchanges: { orders: ordersExchange },
+  queues: { orderProcessing: orderProcessingQueue },
   bindings: {
-    orderBinding: defineQueueBinding('order-processing', 'orders', {
+    orderBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
       routingKey: 'order.created',
     }),
   },
   consumers: {
-    processOrder: defineConsumer('order-processing', z.object({
-      orderId: z.string(),
-      customerId: z.string(),
-      amount: z.number(),
-      items: z.array(z.object({
-        productId: z.string(),
-        quantity: z.number(),
-        price: z.number(),
-      })),
-    })),
+    processOrder: defineConsumer(orderProcessingQueue, orderMessage),
   },
 });
 ```
@@ -516,38 +521,42 @@ import {
   defineExchange,
   defineQueue,
   defineQueueBinding,
-  defineConsumer
+  defineConsumer,
+  defineMessage,
 } from '@amqp-contract/contract';
 import { z } from 'zod';
 
+const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+const orderProcessingQueue = defineQueue('order-processing', {
+  durable: true,
+  arguments: {
+    'x-dead-letter-exchange': 'orders-dlx',
+  },
+});
+
+const orderMessage = defineMessage(
+  z.object({
+    orderId: z.string(),
+    customerId: z.string(),
+    amount: z.number().positive(),
+    items: z.array(z.object({
+      productId: z.string(),
+      quantity: z.number().int().positive(),
+      price: z.number().positive(),
+    })),
+  })
+);
+
 export const contract = defineContract({
-  exchanges: {
-    orders: defineExchange('orders', 'topic', { durable: true }),
-  },
-  queues: {
-    orderProcessing: defineQueue('order-processing', {
-      durable: true,
-      arguments: {
-        'x-dead-letter-exchange': 'orders-dlx',
-      },
-    }),
-  },
+  exchanges: { orders: ordersExchange },
+  queues: { orderProcessing: orderProcessingQueue },
   bindings: {
-    orderBinding: defineQueueBinding('order-processing', 'orders', {
+    orderBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
       routingKey: 'order.created',
     }),
   },
   consumers: {
-    processOrder: defineConsumer('order-processing', z.object({
-      orderId: z.string(),
-      customerId: z.string(),
-      amount: z.number().positive(),
-      items: z.array(z.object({
-        productId: z.string(),
-        quantity: z.number().int().positive(),
-        price: z.number().positive(),
-      })),
-    })),
+    processOrder: defineConsumer(orderProcessingQueue, orderMessage),
   },
 });
 ```
