@@ -30,16 +30,12 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
    * Create a type-safe AMQP client from a contract
    * The client will automatically connect to the AMQP broker
    */
-  static async create<TContract extends ContractDefinition>({
+  static create<TContract extends ContractDefinition>({
     contract,
     connection,
-  }: CreateClientOptions<TContract>): Promise<TypedAmqpClient<TContract>> {
+  }: CreateClientOptions<TContract>): Future<Result<TypedAmqpClient<TContract>, TechnicalError>> {
     const client = new TypedAmqpClient(contract, connection);
-    const initResult = await client.init().toPromise();
-    if (initResult.isError()) {
-      throw initResult.getError();
-    }
-    return client;
+    return client.init().mapOk(() => client);
   }
 
   /**
