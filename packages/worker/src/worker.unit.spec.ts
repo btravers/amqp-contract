@@ -146,7 +146,11 @@ describe("AmqpWorker", () => {
       });
 
       // WHEN
-      await TypedAmqpWorker.create({ contract, handlers: {}, connection: "amqp://localhost" }).resultToPromise();
+      await TypedAmqpWorker.create({
+        contract,
+        handlers: {},
+        connection: "amqp://localhost",
+      }).resultToPromise();
 
       // THEN
       expect(mockConnection.createChannel).toHaveBeenCalled();
@@ -172,7 +176,11 @@ describe("AmqpWorker", () => {
       });
 
       // WHEN
-      await TypedAmqpWorker.create({ contract, handlers: {}, connection: "amqp://localhost" }).resultToPromise();
+      await TypedAmqpWorker.create({
+        contract,
+        handlers: {},
+        connection: "amqp://localhost",
+      }).resultToPromise();
 
       // THEN
       expect(mockChannel.assertQueue).toHaveBeenCalledWith("test-queue", {
@@ -204,7 +212,11 @@ describe("AmqpWorker", () => {
       });
 
       // WHEN
-      await TypedAmqpWorker.create({ contract, handlers: {}, connection: "amqp://localhost" }).resultToPromise();
+      await TypedAmqpWorker.create({
+        contract,
+        handlers: {},
+        connection: "amqp://localhost",
+      }).resultToPromise();
 
       // THEN
       expect(mockChannel.bindQueue).toHaveBeenCalledWith(
@@ -234,7 +246,11 @@ describe("AmqpWorker", () => {
       });
 
       // WHEN
-      await TypedAmqpWorker.create({ contract, handlers: {}, connection: "amqp://localhost" }).resultToPromise();
+      await TypedAmqpWorker.create({
+        contract,
+        handlers: {},
+        connection: "amqp://localhost",
+      }).resultToPromise();
 
       // THEN
       expect(mockChannel.bindExchange).toHaveBeenCalledWith(
@@ -470,7 +486,11 @@ describe("AmqpWorker", () => {
 
       // WHEN / THEN
       await expect(
-        TypedAmqpWorker.create({ contract, handlers: {}, connection: "amqp://localhost" }).resultToPromise(),
+        TypedAmqpWorker.create({
+          contract,
+          handlers: {},
+          connection: "amqp://localhost",
+        }).resultToPromise(),
       ).rejects.toThrow("No consumers defined in contract");
     });
   });
@@ -537,4 +557,3 @@ describe("AmqpWorker", () => {
     });
   });
 });
-
