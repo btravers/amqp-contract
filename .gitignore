@@ -150,4 +150,4 @@ vite.config.ts.timestamp-*
 
 # IDEs
 .vscode/
-.idea/setup-original.spec.ts
+.idea/

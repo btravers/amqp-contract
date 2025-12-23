@@ -105,11 +105,6 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     // Start consuming
     return Future.fromPromise(
       this.amqpClient.channel.consume(consumer.queue.name, async (msg) => {
-        if (!msg) {
-          // Message can be null when the consumer is cancelled by RabbitMQ
-          return;
-        }
-
         // Parse message
         const parseResult = Result.fromExecution(() => JSON.parse(msg.content.toString()));
         if (parseResult.isError()) {
