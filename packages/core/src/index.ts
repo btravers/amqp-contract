@@ -1,1 +1,1 @@
-export { setupContract } from "./setup.js";
+export { setupInfra } from "./setup.js";

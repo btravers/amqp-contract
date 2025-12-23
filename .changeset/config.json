@@ -9,6 +9,7 @@
       "@amqp-contract/client",
       "@amqp-contract/client-nestjs",
       "@amqp-contract/contract",
+      "@amqp-contract/core",
       "@amqp-contract/testing",
       "@amqp-contract/valibot",
       "@amqp-contract/worker",

@@ -14,11 +14,11 @@ yarn add @amqp-contract/core
 
 ## Usage
 
-The core package exports a `setupContract` function that handles the creation of all AMQP resources defined in a contract.
+The core package exports a `setupInfra` function that handles the creation of all AMQP resources defined in a contract.
 
 ```typescript
 import { connect } from "amqplib";
-import { setupContract } from "@amqp-contract/core";
+import { setupInfra } from "@amqp-contract/core";
 import {
   defineContract,
   defineExchange,
@@ -49,12 +49,12 @@ const contract = defineContract({
 const connection = await connect("amqp://localhost");
 const channel = await connection.createChannel();
 
-await setupContract(channel, contract);
+await setupInfra(channel, contract);
 ```
 
 ## API
 
-### `setupContract(channel: Channel, contract: ContractDefinition): Promise<void>`
+### `setupInfra(channel: Channel, contract: ContractDefinition): Promise<void>`
 
 Sets up all AMQP resources defined in the contract:
 
