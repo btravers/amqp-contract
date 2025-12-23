@@ -143,74 +143,69 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
     // Start consuming
     return Future.fromPromise(
-      channel.consume(
-        consumer.queue.name,
-        async (msg) => {
-          if (!msg) {
-            return;
-          }
+      channel.consume(consumer.queue.name, async (msg) => {
+        if (!msg) {
+          return;
+        }
 
-          // Parse message
-          const parseResult = Result.fromExecution(() => JSON.parse(msg.content.toString()));
-          if (parseResult.isError()) {
+        // Parse message
+        const parseResult = Result.fromExecution(() => JSON.parse(msg.content.toString()));
+        if (parseResult.isError()) {
+          // fixme: define a proper logging mechanism
+          // fixme: do not log just an error, use a proper logging mechanism
+          console.error(
+            new TechnicalError(
+              `Error parsing message for consumer "${String(consumerName)}"`,
+              parseResult.error,
+            ),
+          );
+
+          // fixme proper error handling strategy
+          // Reject message with no requeue (malformed JSON)
+          channel.nack(msg, false, false);
+          return;
+        }
+
+        const rawValidation = consumer.message.payload["~standard"].validate(parseResult.value);
+        await Future.fromPromise(
+          rawValidation instanceof Promise ? rawValidation : Promise.resolve(rawValidation),
+        )
+          .mapOkToResult((validationResult) => {
+            if (validationResult.issues) {
+              return Result.Error(
+                new MessageValidationError(String(consumerName), validationResult.issues),
+              );
+            }
+
+            return Result.Ok(validationResult.value as WorkerInferConsumerInput<TContract, TName>);
+          })
+          .tapError((error) => {
             // fixme: define a proper logging mechanism
             // fixme: do not log just an error, use a proper logging mechanism
-            console.error(
-              new TechnicalError(
-                `Error parsing message for consumer "${String(consumerName)}"`,
-                parseResult.error,
-              ),
-            );
+            console.error(error);
 
             // fixme proper error handling strategy
-            // Reject message with no requeue (malformed JSON)
+            // Reject message with no requeue (validation failed)
             channel.nack(msg, false, false);
-            return;
-          }
-
-          const rawValidation = consumer.message.payload["~standard"].validate(parseResult.value);
-          await Future.fromPromise(
-            rawValidation instanceof Promise ? rawValidation : Promise.resolve(rawValidation),
-          )
-            .mapOkToResult((validationResult) => {
-              if (validationResult.issues) {
-                return Result.Error(
-                  new MessageValidationError(String(consumerName), validationResult.issues),
-                );
-              }
-
-              return Result.Ok(
-                validationResult.value as WorkerInferConsumerInput<TContract, TName>,
-              );
-            })
-            .tapError((error) => {
+          })
+          .flatMapOk((validatedMessage) =>
+            Future.fromPromise(handler(validatedMessage)).tapError((error) => {
               // fixme: define a proper logging mechanism
               // fixme: do not log just an error, use a proper logging mechanism
-              console.error(error);
+              console.error(
+                new TechnicalError(
+                  `Error processing message for consumer "${String(consumerName)}"`,
+                  error,
+                ),
+              );
 
               // fixme proper error handling strategy
-              // Reject message with no requeue (validation failed)
-              channel.nack(msg, false, false);
-            })
-            .flatMapOk((validatedMessage) =>
-              Future.fromPromise(handler(validatedMessage)).tapError((error) => {
-                // fixme: define a proper logging mechanism
-                // fixme: do not log just an error, use a proper logging mechanism
-                console.error(
-                  new TechnicalError(
-                    `Error processing message for consumer "${String(consumerName)}"`,
-                    error,
-                  ),
-                );
-
-                // fixme proper error handling strategy
-                // Reject message and requeue (handler failed)
-                channel.nack(msg, false, true);
-              }),
-            )
-            .toPromise();
-        },
-      ),
+              // Reject message and requeue (handler failed)
+              channel.nack(msg, false, true);
+            }),
+          )
+          .toPromise();
+      }),
     )
       .mapError(
         (error) =>
