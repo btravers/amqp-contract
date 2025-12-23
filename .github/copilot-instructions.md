@@ -109,7 +109,6 @@ packages/[package-name]/
    - Set `durable: true` for persistent queues and exchanges
    - Use `autoDelete` sparingly, primarily for temporary resources
    - Configure `prefetch` on consumers to control message flow
-   - Use `noAck: true` only for non-critical messages
 
 4. **Routing Keys**
    - Use meaningful, hierarchical routing keys (e.g., `order.created`, `order.updated`)

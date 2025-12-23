@@ -433,11 +433,7 @@ const orderMessage = defineMessage(orderSchema);
 const contract = defineContract({
   queues: { orderProcessing: orderProcessingQueue },
   consumers: {
-    processOrder: defineConsumer(orderProcessingQueue, orderMessage, {
-      prefetch: 10,      // Process up to 10 messages concurrently
-      noAck: false,      // Require explicit acknowledgment
-      exclusive: false,  // Allow multiple consumers
-    }),
+    processOrder: defineConsumer(orderProcessingQueue, orderMessage),
   },
 });
 ```

@@ -155,13 +155,14 @@ export function defineHandlers<TContract extends ContractDefinition>(
 ): WorkerInferConsumerHandlers<TContract> {
   // Validate that all consumers in handlers exist in the contract
   const consumers = contract.consumers;
-  const availableConsumers = consumers ? Object.keys(consumers) : [];
+  const availableConsumers = Object.keys(consumers ?? {});
+  const availableConsumerNames =
+    availableConsumers.length > 0 ? availableConsumers.join(", ") : "none";
 
   for (const handlerName of Object.keys(handlers)) {
     if (!consumers || !(handlerName in consumers)) {
-      const available = availableConsumers.length > 0 ? availableConsumers.join(", ") : "none";
       throw new Error(
-        `Consumer "${handlerName}" not found in contract. Available consumers: ${available}`,
+        `Consumer "${handlerName}" not found in contract. Available consumers: ${availableConsumerNames}`,
       );
     }
   }
