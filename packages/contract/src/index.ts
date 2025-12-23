@@ -28,4 +28,6 @@ export type {
   InferConsumerNames,
   ClientInferPublisherInput,
   WorkerInferConsumerInput,
+  WorkerInferConsumerHandler,
+  WorkerInferConsumerHandlers,
 } from "./types.js";

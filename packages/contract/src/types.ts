@@ -173,3 +173,18 @@ export type WorkerInferConsumerInput<
         : never
       : never
     : never;
+
+/**
+ * Infer consumer handler type for a specific consumer
+ */
+export type WorkerInferConsumerHandler<
+  TContract extends ContractDefinition,
+  TName extends InferConsumerNames<TContract>,
+> = (message: WorkerInferConsumerInput<TContract, TName>) => Promise<void> | void;
+
+/**
+ * Infer all consumer handlers for a contract
+ */
+export type WorkerInferConsumerHandlers<TContract extends ContractDefinition> = {
+  [K in InferConsumerNames<TContract>]: WorkerInferConsumerHandler<TContract, K>;
+};

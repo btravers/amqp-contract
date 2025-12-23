@@ -6,9 +6,10 @@ import {
   defineContract,
   defineExchange,
   defineQueue,
-  defineBinding,
+  defineQueueBinding,
   definePublisher,
   defineConsumer,
+  defineMessage,
 } from "@amqp-contract/contract";
 import { z } from "zod";
 
@@ -20,25 +21,28 @@ describe("AmqpWorker Integration", () => {
       message: z.string(),
     });
 
+    const exchange = defineExchange("worker-test-exchange", "topic", { durable: false });
+    const queue = defineQueue("worker-test-queue", { durable: false });
+
     const contract = defineContract({
       exchanges: {
-        test: defineExchange("worker-test-exchange", "topic", { durable: false }),
+        test: exchange,
       },
       queues: {
-        testQueue: defineQueue("worker-test-queue", { durable: false }),
+        testQueue: queue,
       },
       bindings: {
-        testBinding: defineBinding("worker-test-queue", "worker-test-exchange", {
+        testBinding: defineQueueBinding(queue, exchange, {
           routingKey: "test.#",
         }),
       },
       publishers: {
-        testPublisher: definePublisher("worker-test-exchange", TestMessage, {
+        testPublisher: definePublisher(exchange, defineMessage(TestMessage), {
           routingKey: "test.message",
         }),
       },
       consumers: {
-        testConsumer: defineConsumer("worker-test-queue", TestMessage),
+        testConsumer: defineConsumer(queue, defineMessage(TestMessage)),
       },
     });
 
@@ -83,25 +87,28 @@ describe("AmqpWorker Integration", () => {
       count: z.number(),
     });
 
+    const exchange = defineExchange("worker-multi-exchange", "topic", { durable: false });
+    const queue = defineQueue("worker-multi-queue", { durable: false });
+
     const contract = defineContract({
       exchanges: {
-        test: defineExchange("worker-multi-exchange", "topic", { durable: false }),
+        test: exchange,
       },
       queues: {
-        testQueue: defineQueue("worker-multi-queue", { durable: false }),
+        testQueue: queue,
       },
       bindings: {
-        testBinding: defineBinding("worker-multi-queue", "worker-multi-exchange", {
+        testBinding: defineQueueBinding(queue, exchange, {
           routingKey: "multi.#",
         }),
       },
       publishers: {
-        testPublisher: definePublisher("worker-multi-exchange", TestMessage, {
+        testPublisher: definePublisher(exchange, defineMessage(TestMessage), {
           routingKey: "multi.test",
         }),
       },
       consumers: {
-        testConsumer: defineConsumer("worker-multi-queue", TestMessage),
+        testConsumer: defineConsumer(queue, defineMessage(TestMessage)),
       },
     });
 
@@ -146,33 +153,37 @@ describe("AmqpWorker Integration", () => {
     // GIVEN
     const TestMessage = z.object({ id: z.string() });
 
+    const exchange = defineExchange("worker-all-exchange", "topic", { durable: false });
+    const queue1 = defineQueue("worker-all-queue1", { durable: false });
+    const queue2 = defineQueue("worker-all-queue2", { durable: false });
+
     const contract = defineContract({
       exchanges: {
-        test: defineExchange("worker-all-exchange", "topic", { durable: false }),
+        test: exchange,
       },
       queues: {
-        queue1: defineQueue("worker-all-queue1", { durable: false }),
-        queue2: defineQueue("worker-all-queue2", { durable: false }),
+        queue1,
+        queue2,
       },
       bindings: {
-        binding1: defineBinding("worker-all-queue1", "worker-all-exchange", {
+        binding1: defineQueueBinding(queue1, exchange, {
           routingKey: "all.one",
         }),
-        binding2: defineBinding("worker-all-queue2", "worker-all-exchange", {
+        binding2: defineQueueBinding(queue2, exchange, {
           routingKey: "all.two",
         }),
       },
       publishers: {
-        pub1: definePublisher("worker-all-exchange", TestMessage, {
+        pub1: definePublisher(exchange, defineMessage(TestMessage), {
           routingKey: "all.one",
         }),
-        pub2: definePublisher("worker-all-exchange", TestMessage, {
+        pub2: definePublisher(exchange, defineMessage(TestMessage), {
           routingKey: "all.two",
         }),
       },
       consumers: {
-        consumer1: defineConsumer("worker-all-queue1", TestMessage),
-        consumer2: defineConsumer("worker-all-queue2", TestMessage),
+        consumer1: defineConsumer(queue1, defineMessage(TestMessage)),
+        consumer2: defineConsumer(queue2, defineMessage(TestMessage)),
       },
     });
 
