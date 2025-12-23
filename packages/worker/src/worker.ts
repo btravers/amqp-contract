@@ -6,6 +6,7 @@ import type {
   WorkerInferConsumerHandlers,
   WorkerInferConsumerInput,
 } from "@amqp-contract/contract";
+import { setupContract } from "@amqp-contract/core";
 import { Result } from "@swan-io/boxed";
 import { MessageValidationError, TechnicalError } from "./errors.js";
 
@@ -69,50 +70,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     this.connection = await connect(this.connectionOptions);
     this.channel = await this.connection.createChannel();
 
-    // Setup exchanges
-    if (this.contract.exchanges) {
-      for (const exchange of Object.values(this.contract.exchanges)) {
-        await this.channel.assertExchange(exchange.name, exchange.type, {
-          durable: exchange.durable,
-          autoDelete: exchange.autoDelete,
-          internal: exchange.internal,
-          arguments: exchange.arguments,
-        });
-      }
-    }
-
-    // Setup queues
-    if (this.contract.queues) {
-      for (const queue of Object.values(this.contract.queues)) {
-        await this.channel.assertQueue(queue.name, {
-          durable: queue.durable,
-          exclusive: queue.exclusive,
-          autoDelete: queue.autoDelete,
-          arguments: queue.arguments,
-        });
-      }
-    }
-
-    // Setup bindings
-    if (this.contract.bindings) {
-      for (const binding of Object.values(this.contract.bindings)) {
-        if (binding.type === "queue") {
-          await this.channel.bindQueue(
-            binding.queue.name,
-            binding.exchange.name,
-            binding.routingKey ?? "",
-            binding.arguments,
-          );
-        } else if (binding.type === "exchange") {
-          await this.channel.bindExchange(
-            binding.destination.name,
-            binding.source.name,
-            binding.routingKey ?? "",
-            binding.arguments,
-          );
-        }
-      }
-    }
+    // Setup exchanges, queues, and bindings
+    await setupContract(this.channel, this.contract);
   }
 
   /**
