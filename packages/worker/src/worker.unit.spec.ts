@@ -303,7 +303,7 @@ describe("AmqpWorker", () => {
       // WHEN
       await TypedAmqpWorker.create({
         contract,
-        handlers: { testConsumer: vi.fn().resultToPromise().mockReturnValue(Promise.resolve()) },
+        handlers: { testConsumer: vi.fn().mockReturnValue(Promise.resolve()) },
         connection: "amqp://localhost",
       }).resultToPromise();
 
@@ -473,7 +473,7 @@ describe("AmqpWorker", () => {
       await TypedAmqpWorker.create({
         contract,
         handlers: {
-          consumer1: vi.fn().resultToPromise().mockReturnValue(Promise.resolve()),
+          consumer1: vi.fn().mockReturnValue(Promise.resolve()),
           consumer2: vi.fn().mockReturnValue(Promise.resolve()),
         },
         connection: "amqp://localhost",
@@ -518,9 +518,9 @@ describe("AmqpWorker", () => {
 
       const worker = await TypedAmqpWorker.create({
         contract,
-        handlers: { testConsumer: vi.fn().resultToPromise().mockReturnValue(Promise.resolve()) },
+        handlers: { testConsumer: vi.fn().mockReturnValue(Promise.resolve()) },
         connection: "amqp://localhost",
-      });
+      }).resultToPromise();
 
       // WHEN
       await worker.close();
@@ -551,7 +551,7 @@ describe("AmqpWorker", () => {
       // WHEN
       const worker = await TypedAmqpWorker.create({
         contract,
-        handlers: { testConsumer: vi.fn().resultToPromise().mockReturnValue(Promise.resolve()) },
+        handlers: { testConsumer: vi.fn().mockReturnValue(Promise.resolve()) },
         connection: "amqp://localhost",
       }).resultToPromise();
 
