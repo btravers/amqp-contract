@@ -2,7 +2,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TypedAmqpWorker } from "./worker";
 import type { Channel, ChannelModel, ConsumeMessage } from "amqplib";
 import { connect } from "amqplib";
-import { defineContract, defineMessage } from "@amqp-contract/contract";
+import {
+  defineContract,
+  defineMessage,
+  defineQueue,
+  defineConsumer,
+  defineExchange,
+  defineQueueBinding,
+  defineExchangeBinding,
+} from "@amqp-contract/contract";
 import { z } from "zod";
 
 // Mock amqplib connect function
@@ -45,19 +53,15 @@ describe("AmqpWorker", () => {
   describe("Type Inference", () => {
     it("should infer consumer names correctly", async () => {
       // GIVEN
-      const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
+      const TestMessage = defineMessage(z.object({ id: z.string() }));
+      const testQueue = defineQueue("test-queue");
 
       const contract = defineContract({
         queues: {
-          testQueue: {
-            name: "test-queue",
-          },
+          testQueue,
         },
         consumers: {
-          testConsumer: {
-            queue: "test-queue",
-            message: TestMessage,
-          },
+          testConsumer: defineConsumer(testQueue, TestMessage),
         },
       });
 
@@ -83,24 +87,20 @@ describe("AmqpWorker", () => {
     it("should infer handler message types correctly", async () => {
       // GIVEN
       const OrderMessage = defineMessage(
-        "OrderMessage",
         z.object({
           orderId: z.string(),
           amount: z.number(),
         }),
       );
 
+      const ordersQueue = defineQueue("orders");
+
       const contract = defineContract({
         queues: {
-          orders: {
-            name: "orders",
-          },
+          orders: ordersQueue,
         },
         consumers: {
-          processOrder: {
-            queue: "orders",
-            message: OrderMessage,
-          },
+          processOrder: defineConsumer(ordersQueue, OrderMessage),
         },
       });
 
@@ -185,25 +185,20 @@ describe("AmqpWorker", () => {
 
     it("should setup bindings when defined", async () => {
       // GIVEN
+      const testExchange = defineExchange("test-exchange", "topic");
+      const testQueue = defineQueue("test-queue");
+
       const contract = defineContract({
         exchanges: {
-          test: {
-            name: "test-exchange",
-            type: "topic" as const,
-          },
+          test: testExchange,
         },
         queues: {
-          testQueue: {
-            name: "test-queue",
-          },
+          testQueue,
         },
         bindings: {
-          testBinding: {
-            type: "queue" as const,
-            queue: "test-queue",
-            exchange: "test-exchange",
+          testBinding: defineQueueBinding(testQueue, testExchange, {
             routingKey: "test.#",
-          },
+          }),
         },
         consumers: {},
       });
@@ -222,24 +217,18 @@ describe("AmqpWorker", () => {
 
     it("should setup exchange-to-exchange bindings when defined", async () => {
       // GIVEN
+      const sourceExchange = defineExchange("source-exchange", "topic");
+      const destinationExchange = defineExchange("destination-exchange", "topic");
+
       const contract = defineContract({
         exchanges: {
-          sourceExchange: {
-            name: "source-exchange",
-            type: "topic" as const,
-          },
-          destinationExchange: {
-            name: "destination-exchange",
-            type: "topic" as const,
-          },
+          sourceExchange,
+          destinationExchange,
         },
         bindings: {
-          exchangeBinding: {
-            type: "exchange" as const,
-            source: "source-exchange",
-            destination: "destination-exchange",
+          exchangeBinding: defineExchangeBinding(destinationExchange, sourceExchange, {
             routingKey: "test.*",
-          },
+          }),
         },
         consumers: {},
       });
@@ -260,19 +249,15 @@ describe("AmqpWorker", () => {
   describe("consume", () => {
     it("should setup consumer and process messages", async () => {
       // GIVEN
-      const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
+      const TestMessage = defineMessage(z.object({ id: z.string() }));
+      const testQueue = defineQueue("test-queue");
 
       const contract = defineContract({
         queues: {
-          test: {
-            name: "test-queue",
-          },
+          test: testQueue,
         },
         consumers: {
-          testConsumer: {
-            queue: "test-queue",
-            message: TestMessage,
-          },
+          testConsumer: defineConsumer(testQueue, TestMessage),
         },
       });
 
@@ -303,20 +288,15 @@ describe("AmqpWorker", () => {
 
     it("should set prefetch when specified", async () => {
       // GIVEN
-      const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
+      const TestMessage = defineMessage(z.object({ id: z.string() }));
+      const testQueue = defineQueue("test-queue");
 
       const contract = defineContract({
         queues: {
-          test: {
-            name: "test-queue",
-          },
+          test: testQueue,
         },
         consumers: {
-          testConsumer: {
-            queue: "test-queue",
-            message: TestMessage,
-            prefetch: 10,
-          },
+          testConsumer: defineConsumer(testQueue, TestMessage, { prefetch: 10 }),
         },
       });
 
@@ -333,19 +313,16 @@ describe("AmqpWorker", () => {
 
     it("should nack invalid messages", async () => {
       // GIVEN
-      const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
+      const TestMessage = defineMessage(z.object({ id: z.string() }));
+
+      const testQueue = defineQueue("test-queue");
 
       const contract = defineContract({
         queues: {
-          test: {
-            name: "test-queue",
-          },
+          test: testQueue,
         },
         consumers: {
-          testConsumer: {
-            queue: "test-queue",
-            message: TestMessage,
-          },
+          testConsumer: defineConsumer(testQueue, TestMessage),
         },
       });
 
@@ -373,19 +350,16 @@ describe("AmqpWorker", () => {
 
     it("should nack and requeue on handler error", async () => {
       // GIVEN
-      const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
+      const TestMessage = defineMessage(z.object({ id: z.string() }));
+
+      const testQueue = defineQueue("test-queue");
 
       const contract = defineContract({
         queues: {
-          test: {
-            name: "test-queue",
-          },
+          test: testQueue,
         },
         consumers: {
-          testConsumer: {
-            queue: "test-queue",
-            message: TestMessage,
-          },
+          testConsumer: defineConsumer(testQueue, TestMessage),
         },
       });
 
@@ -413,20 +387,15 @@ describe("AmqpWorker", () => {
 
     it("should not ack in noAck mode", async () => {
       // GIVEN
-      const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
+      const TestMessage = defineMessage(z.object({ id: z.string() }));
+      const testQueue = defineQueue("test-queue");
 
       const contract = defineContract({
         queues: {
-          test: {
-            name: "test-queue",
-          },
+          test: testQueue,
         },
         consumers: {
-          testConsumer: {
-            queue: "test-queue",
-            message: TestMessage,
-            noAck: true,
-          },
+          testConsumer: defineConsumer(testQueue, TestMessage, { noAck: true }),
         },
       });
 
@@ -454,19 +423,16 @@ describe("AmqpWorker", () => {
 
     it("should handle null messages", async () => {
       // GIVEN
-      const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
+      const TestMessage = defineMessage(z.object({ id: z.string() }));
+
+      const testQueue = defineQueue("test-queue");
 
       const contract = defineContract({
         queues: {
-          test: {
-            name: "test-queue",
-          },
+          test: testQueue,
         },
         consumers: {
-          testConsumer: {
-            queue: "test-queue",
-            message: TestMessage,
-          },
+          testConsumer: defineConsumer(testQueue, TestMessage),
         },
       });
 
@@ -488,26 +454,18 @@ describe("AmqpWorker", () => {
   describe("consumeAll", () => {
     it("should consume all consumers automatically on TypedAmqpWorker.create", async () => {
       // GIVEN
-      const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
+      const TestMessage = defineMessage(z.object({ id: z.string() }));
+      const queue1 = defineQueue("queue1");
+      const queue2 = defineQueue("queue2");
 
       const contract = defineContract({
         queues: {
-          queue1: {
-            name: "queue1",
-          },
-          queue2: {
-            name: "queue2",
-          },
+          queue1,
+          queue2,
         },
         consumers: {
-          consumer1: {
-            queue: "queue1",
-            message: TestMessage,
-          },
-          consumer2: {
-            queue: "queue2",
-            message: TestMessage,
-          },
+          consumer1: defineConsumer(queue1, TestMessage),
+          consumer2: defineConsumer(queue2, TestMessage),
         },
       });
 
@@ -545,19 +503,16 @@ describe("AmqpWorker", () => {
   describe("close", () => {
     it("should stop consuming and close channel and connection", async () => {
       // GIVEN
-      const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
+      const TestMessage = defineMessage(z.object({ id: z.string() }));
+
+      const testQueue = defineQueue("test-queue");
 
       const contract = defineContract({
         queues: {
-          test: {
-            name: "test-queue",
-          },
+          test: testQueue,
         },
         consumers: {
-          testConsumer: {
-            queue: "test-queue",
-            message: TestMessage,
-          },
+          testConsumer: defineConsumer(testQueue, TestMessage),
         },
       });
 
@@ -580,19 +535,16 @@ describe("AmqpWorker", () => {
   describe("TypedAmqpWorker.create", () => {
     it("should create a worker instance, connect and consumeAll automatically", async () => {
       // GIVEN
-      const TestMessage = defineMessage("TestMessage", z.object({ id: z.string() }));
+      const TestMessage = defineMessage(z.object({ id: z.string() }));
+
+      const testQueue = defineQueue("test-queue");
 
       const contract = defineContract({
         queues: {
-          test: {
-            name: "test-queue",
-          },
+          test: testQueue,
         },
         consumers: {
-          testConsumer: {
-            queue: "test-queue",
-            message: TestMessage,
-          },
+          testConsumer: defineConsumer(testQueue, TestMessage),
         },
       });
 

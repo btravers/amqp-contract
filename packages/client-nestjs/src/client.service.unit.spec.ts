@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { defineContract, defineExchange, definePublisher } from "@amqp-contract/contract";
+import {
+  defineContract,
+  defineExchange,
+  definePublisher,
+  defineMessage,
+} from "@amqp-contract/contract";
 import { z } from "zod";
 import { TypedAmqpClient } from "@amqp-contract/client";
 import { Result } from "@swan-io/boxed";
@@ -21,12 +26,15 @@ describe("AmqpClientService", () => {
 
   describe("lifecycle", () => {
     it("should initialize client on module init", async () => {
+      const testExchange = defineExchange("test-exchange", "topic", { durable: true });
+      const testMessage = defineMessage(z.object({ message: z.string() }));
+
       const contract = defineContract({
         exchanges: {
-          testExchange: defineExchange("test-exchange", "topic", { durable: true }),
+          testExchange,
         },
         publishers: {
-          testPublisher: definePublisher("test-exchange", z.object({ message: z.string() }), {
+          testPublisher: definePublisher(testExchange, testMessage, {
             routingKey: "test.key",
           }),
         },
@@ -46,12 +54,15 @@ describe("AmqpClientService", () => {
     });
 
     it("should close client on module destroy", async () => {
+      const testExchange = defineExchange("test-exchange", "topic", { durable: true });
+      const testMessage = defineMessage(z.object({ message: z.string() }));
+
       const contract = defineContract({
         exchanges: {
-          testExchange: defineExchange("test-exchange", "topic", { durable: true }),
+          testExchange,
         },
         publishers: {
-          testPublisher: definePublisher("test-exchange", z.object({ message: z.string() }), {
+          testPublisher: definePublisher(testExchange, testMessage, {
             routingKey: "test.key",
           }),
         },
@@ -71,12 +82,15 @@ describe("AmqpClientService", () => {
 
   describe("publish", () => {
     it("should publish message using the client", async () => {
+      const testExchange = defineExchange("test-exchange", "topic", { durable: true });
+      const testMessage = defineMessage(z.object({ message: z.string() }));
+
       const contract = defineContract({
         exchanges: {
-          testExchange: defineExchange("test-exchange", "topic", { durable: true }),
+          testExchange,
         },
         publishers: {
-          testPublisher: definePublisher("test-exchange", z.object({ message: z.string() }), {
+          testPublisher: definePublisher(testExchange, testMessage, {
             routingKey: "test.key",
           }),
         },
@@ -96,12 +110,15 @@ describe("AmqpClientService", () => {
     });
 
     it("should return error if client not initialized", async () => {
+      const testExchange = defineExchange("test-exchange", "topic", { durable: true });
+      const testMessage = defineMessage(z.object({ message: z.string() }));
+
       const contract = defineContract({
         exchanges: {
-          testExchange: defineExchange("test-exchange", "topic", { durable: true }),
+          testExchange,
         },
         publishers: {
-          testPublisher: definePublisher("test-exchange", z.object({ message: z.string() }), {
+          testPublisher: definePublisher(testExchange, testMessage, {
             routingKey: "test.key",
           }),
         },
