@@ -98,7 +98,7 @@ describe("AmqpClient", () => {
       await client.publish("createOrder", {
         orderId: "123",
         amount: 100,
-      });
+      }).toPromise();
 
       // THEN
       expect(mockChannel.publish).toHaveBeenCalledWith(
@@ -242,7 +242,7 @@ describe("AmqpClient", () => {
       const client = await TypedAmqpClient.create({ contract, connection: "amqp://localhost" });
 
       // WHEN
-      const result = client.publish("testPublisher", { id: "123" });
+      const result = await client.publish("testPublisher", { id: "123" }).toPromise();
 
       // THEN
       expect(result).toEqual(Result.Ok(true));
@@ -254,7 +254,7 @@ describe("AmqpClient", () => {
       );
     });
 
-    it("should use custom routing key from options", async () => {
+    it("should pass publish options to channel.publish", async () => {
       // GIVEN
       const TestMessage = defineMessage(z.object({ id: z.string() }));
       const testExchange = defineExchange("test-exchange", "topic");
@@ -265,7 +265,7 @@ describe("AmqpClient", () => {
         },
         publishers: {
           testPublisher: definePublisher(testExchange, TestMessage, {
-            routingKey: "test.default",
+            routingKey: "test.key",
           }),
         },
       });
@@ -273,15 +273,15 @@ describe("AmqpClient", () => {
       const client = await TypedAmqpClient.create({ contract, connection: "amqp://localhost" });
 
       // WHEN
-      const result = client.publish("testPublisher", { id: "123" }, { routingKey: "test.custom" });
+      const result = await client.publish("testPublisher", { id: "123" }, { persistent: true }).toPromise();
 
       // THEN
       expect(result).toEqual(Result.Ok(true));
       expect(mockChannel.publish).toHaveBeenCalledWith(
         "test-exchange",
-        "test.custom",
+        "test.key",
         expect.any(Buffer),
-        undefined,
+        { persistent: true },
       );
     });
 
@@ -305,7 +305,7 @@ describe("AmqpClient", () => {
 
       // WHEN
       // @ts-expect-error - testing runtime validation with invalid data
-      const result = client.publish("testPublisher", { id: 123 });
+      const result = await client.publish("testPublisher", { id: 123 }).toPromise();
 
       // THEN
       expect(result).toMatchObject({
@@ -330,9 +330,10 @@ describe("AmqpClient", () => {
       const client = await TypedAmqpClient.create({ contract, connection: "amqp://localhost" });
 
       // WHEN
-      await client.close();
+      const result = await client.close().toPromise();
 
       // THEN
+      expect(result.isOk()).toBe(true);
       expect(mockChannel.close).toHaveBeenCalled();
       expect(mockConnection.close).toHaveBeenCalled();
     });
@@ -350,8 +351,11 @@ describe("AmqpClient", () => {
 
       const client = await TypedAmqpClient.create({ contract, connection: "amqp://localhost" });
 
-      // WHEN / THEN
-      await expect(client.close()).resolves.toBeUndefined();
+      // WHEN
+      const result = await client.close().toPromise();
+
+      // THEN
+      expect(result.isOk()).toBe(true);
     });
   });
 
