@@ -2,7 +2,7 @@ import { connect } from "amqplib";
 import type { Channel, ChannelModel, Options } from "amqplib";
 import type { ContractDefinition, InferPublisherNames } from "@amqp-contract/contract";
 import { setupInfra } from "@amqp-contract/core";
-import { Result } from "@swan-io/boxed";
+import { Future, Result } from "@swan-io/boxed";
 import { MessageValidationError, TechnicalError } from "./errors.js";
 import type { ClientInferPublisherInput } from "./types.js";
 
@@ -12,14 +12,6 @@ import type { ClientInferPublisherInput } from "./types.js";
 export interface CreateClientOptions<TContract extends ContractDefinition> {
   contract: TContract;
   connection: string | Options.Connect;
-}
-
-/**
- * Options for publishing a message
- */
-export interface PublishOptions {
-  routingKey?: string;
-  options?: Options.Publish;
 }
 
 /**
@@ -38,10 +30,11 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
    * Create a type-safe AMQP client from a contract
    * The client will automatically connect to the AMQP broker
    */
-  static async create<TContract extends ContractDefinition>(
-    options: CreateClientOptions<TContract>,
-  ): Promise<TypedAmqpClient<TContract>> {
-    const client = new TypedAmqpClient(options.contract, options.connection);
+  static async create<TContract extends ContractDefinition>({
+    contract,
+    connection,
+  }: CreateClientOptions<TContract>): Promise<TypedAmqpClient<TContract>> {
+    const client = new TypedAmqpClient(contract, connection);
     await client.init();
     return client;
   }
@@ -53,90 +46,117 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
   publish<TName extends InferPublisherNames<TContract>>(
     publisherName: TName,
     message: ClientInferPublisherInput<TContract, TName>,
-    options?: PublishOptions,
-  ): Result<boolean, TechnicalError | MessageValidationError> {
-    if (!this.channel) {
-      throw new Error(
-        "Client not initialized. Create the client using TypedAmqpClient.create() to establish a connection.",
-      );
-    }
-
-    const publishers = this.contract.publishers as Record<string, unknown>;
-    if (!publishers) {
-      throw new Error("No publishers defined in contract");
-    }
-
-    const publisher = publishers[publisherName as string];
-    if (!publisher || typeof publisher !== "object") {
-      throw new Error(`Publisher "${String(publisherName)}" not found in contract`);
-    }
-
-    const publisherDef = publisher as {
-      exchange: { name: string; type: string };
-      routingKey?: string;
-      message: { payload: { "~standard": { validate: (value: unknown) => unknown } } };
-    };
-
-    // Validate message using schema
-    const validation = publisherDef.message.payload["~standard"].validate(message);
-    if (
-      typeof validation === "object" &&
-      validation !== null &&
-      "issues" in validation &&
-      validation.issues
-    ) {
-      return Result.Error(new MessageValidationError(String(publisherName), validation.issues));
-    }
-
-    const validatedMessage =
-      typeof validation === "object" && validation !== null && "value" in validation
-        ? validation.value
-        : message;
-
-    // Publish message
-    const routingKey = options?.routingKey ?? publisherDef.routingKey ?? "";
-    const content = Buffer.from(JSON.stringify(validatedMessage));
-
-    const published = this.channel.publish(
-      publisherDef.exchange.name,
-      routingKey,
-      content,
-      options?.options,
-    );
-
-    if (!published) {
-      return Result.Error(
-        new TechnicalError(
-          `Failed to publish message for publisher "${String(publisherName)}": Channel rejected the message (buffer full or other channel issue)`,
+    options?: Options.Publish,
+  ): Future<Result<boolean, TechnicalError | MessageValidationError>> {
+    const channel = this.channel;
+    if (!channel) {
+      return Future.value(
+        Result.Error(
+          new TechnicalError(
+            "Client not initialized. Create the client using TypedAmqpClient.create() to establish a connection.",
+          ),
         ),
       );
     }
 
-    return Result.Ok(published);
+    const publishers = this.contract.publishers;
+    if (!publishers) {
+      return Future.value(Result.Error(new TechnicalError("No publishers defined in contract")));
+    }
+
+    const publisher = publishers[publisherName as string];
+    if (!publisher) {
+      return Future.value(
+        Result.Error(
+          new TechnicalError(`Publisher "${String(publisherName)}" not found in contract`),
+        ),
+      );
+    }
+
+    const validateMessage = () =>
+      Future.fromPromise(
+        (async () => await publisher.message.payload["~standard"].validate(message))(),
+      )
+        .mapError((error) => new TechnicalError(`Validation failed`, error))
+        .mapOkToResult((validation) => {
+          if (validation.issues) {
+            return Result.Error(
+              new MessageValidationError(String(publisherName), validation.issues),
+            );
+          }
+
+          return Result.Ok(validation.value);
+        });
+
+    const publishMessage = (validatedMessage: unknown) => {
+      const routingKey = publisher.routingKey ?? "";
+      const content = Buffer.from(JSON.stringify(validatedMessage));
+
+      return Result.fromExecution(() =>
+        channel.publish(publisher.exchange.name, routingKey, content, options),
+      )
+        .mapError((error) => new TechnicalError(`Failed to publish message`, error))
+        .flatMap((published) => {
+          if (!published) {
+            return Result.Error(
+              new TechnicalError(
+                `Failed to publish message for publisher "${String(publisherName)}": Channel rejected the message (buffer full or other channel issue)`,
+              ),
+            );
+          }
+
+          return Result.Ok(published);
+        });
+    };
+
+    // Validate message using schema
+    return validateMessage().mapOkToResult((validatedMessage) => publishMessage(validatedMessage));
   }
 
   /**
    * Close the channel and connection
    */
-  async close(): Promise<void> {
-    if (this.channel) {
-      await this.channel.close();
-      this.channel = null;
-    }
-    if (this.connection) {
-      await this.connection.close();
-      this.connection = null;
-    }
+  close(): Future<Result<void, TechnicalError>> {
+    const closeChannel = () =>
+      Future.fromPromise(this.channel ? this.channel.close() : Promise.resolve()).mapError(
+        (error) => new TechnicalError("Failed to close channel", error),
+      );
+
+    const closeConnection = () =>
+      Future.fromPromise(this.connection ? this.connection.close() : Promise.resolve()).mapError(
+        (error) => new TechnicalError("Failed to close connection", error),
+      );
+
+    return Future.concurrent([closeChannel, closeConnection], { concurrency: 1 })
+      .map((results) => Result.all([...results]))
+      .mapOk(() => undefined);
   }
 
   /**
    * Connect to AMQP broker
    */
-  private async init(): Promise<void> {
-    this.connection = await connect(this.connectionOptions);
-    this.channel = await this.connection.createChannel();
+  private init(): Future<Result<void, TechnicalError>> {
+    const createConnectionFn = () =>
+      Future.fromPromise(connect(this.connectionOptions))
+        .mapError((error) => new TechnicalError("Failed to connect to AMQP broker", error))
+        .tapOk((connection) => {
+          this.connection = connection;
+        });
 
-    // Setup exchanges, queues, and bindings
-    await setupInfra(this.channel, this.contract);
+    const createChannelFn = () =>
+      Future.fromPromise(this.connection!.createChannel()).mapError(
+        (error) => new TechnicalError("Failed to create AMQP channel", error),
+      );
+
+    const setupInfraFn = () =>
+      Future.fromPromise(setupInfra(this.channel!, this.contract)).mapError(
+        (error) => new TechnicalError("Failed to setup AMQP infrastructure", error),
+      );
+
+    return Future.concurrent([createConnectionFn, createChannelFn, setupInfraFn], {
+      concurrency: 1,
+    })
+      .map((results) => Result.all([...results]))
+      .mapOk(() => undefined);
   }
 }
