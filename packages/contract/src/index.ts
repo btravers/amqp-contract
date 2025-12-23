@@ -25,8 +25,4 @@ export type {
   QueueDefinition,
   InferPublisherNames,
   InferConsumerNames,
-  ClientInferPublisherInput,
-  WorkerInferConsumerInput,
-  WorkerInferConsumerHandler,
-  WorkerInferConsumerHandlers,
 } from "./types.js";

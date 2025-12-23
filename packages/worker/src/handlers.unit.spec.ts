@@ -7,7 +7,7 @@ import {
 } from "@amqp-contract/contract";
 import { z } from "zod";
 import { defineHandler, defineHandlers } from "./handlers.js";
-import type { WorkerInferConsumerInput } from "@amqp-contract/contract";
+import type { WorkerInferConsumerInput } from "./types.js";
 
 describe("handlers", () => {
   // Define test contracts
