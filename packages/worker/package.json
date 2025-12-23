@@ -61,13 +61,11 @@
     "@types/amqplib": "catalog:",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
+    "amqp-connection-manager": "catalog:",
     "amqplib": "catalog:",
     "tsdown": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
     "zod": "catalog:"
-  },
-  "peerDependencies": {
-    "amqplib": ">=0.10.0"
   }
 }

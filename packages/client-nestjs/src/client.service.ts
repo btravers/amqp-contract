@@ -2,6 +2,7 @@ import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from "@ne
 import type { Options } from "amqplib";
 import { Future, Result } from "@swan-io/boxed";
 import type { ContractDefinition, InferPublisherNames } from "@amqp-contract/contract";
+import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
 import {
   MessageValidationError,
   TechnicalError,
@@ -15,7 +16,8 @@ import { MODULE_OPTIONS_TOKEN } from "./client.module-definition.js";
  */
 export interface AmqpClientModuleOptions<TContract extends ContractDefinition> {
   contract: TContract;
-  connection: string | Options.Connect;
+  urls: ConnectionUrl[];
+  connectionOptions?: AmqpConnectionManagerOptions | undefined;
 }
 
 /**
@@ -37,14 +39,7 @@ export class AmqpClientService<TContract extends ContractDefinition>
    * Initialize the client when the NestJS module starts
    */
   async onModuleInit(): Promise<void> {
-    await TypedAmqpClient.create({
-      contract: this.options.contract,
-      connection: this.options.connection,
-    })
-      .tapOk((client) => {
-        this.client = client;
-      })
-      .resultToPromise();
+    this.client = TypedAmqpClient.create(this.options);
   }
 
   /**
