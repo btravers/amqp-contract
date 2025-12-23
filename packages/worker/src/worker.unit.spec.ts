@@ -285,9 +285,7 @@ describe("AmqpWorker", () => {
       }).resultToPromise();
 
       // THEN
-      expect(mockChannel.consume).toHaveBeenCalledWith("test-queue", expect.any(Function), {
-        noAck: false,
-      });
+      expect(mockChannel.consume).toHaveBeenCalledWith("test-queue", expect.any(Function));
 
       // Simulate message
       const mockMessage = {
@@ -374,42 +372,6 @@ describe("AmqpWorker", () => {
       // THEN
       expect(handler).toHaveBeenCalled();
       expect(mockChannel.nack).toHaveBeenCalledWith(mockMessage, false, true);
-    });
-
-    it("should not ack in noAck mode", async () => {
-      // GIVEN
-      const TestMessage = defineMessage(z.object({ id: z.string() }));
-      const testQueue = defineQueue("test-queue");
-
-      const contract = defineContract({
-        queues: {
-          test: testQueue,
-        },
-        consumers: {
-          testConsumer: defineConsumer(testQueue, TestMessage, { noAck: true }),
-        },
-      });
-
-      const handler = vi.fn().mockReturnValue(Promise.resolve());
-      await TypedAmqpWorker.create({
-        contract,
-        handlers: { testConsumer: handler },
-        connection: "amqp://localhost",
-      }).resultToPromise();
-
-      // WHEN
-      // Simulate message
-      const mockMessage = {
-        content: Buffer.from(JSON.stringify({ id: "123" })),
-        fields: {},
-        properties: {},
-      } as ConsumeMessage;
-
-      await mockConsumeCallback?.(mockMessage);
-
-      // THEN
-      expect(handler).toHaveBeenCalled();
-      expect(mockChannel.ack).not.toHaveBeenCalled();
     });
 
     it("should handle null messages", async () => {

@@ -206,10 +206,7 @@ const orderMessage = defineMessage(
 const contract = defineContract({
   queues: { orderProcessing: orderProcessingQueue },
   consumers: {
-    processOrder: defineConsumer(orderProcessingQueue, orderMessage, {
-      prefetch: 10,   // Max unacked messages
-      noAck: false,   // Require acknowledgment
-    }),
+    processOrder: defineConsumer(orderProcessingQueue, orderMessage),
   },
 });
 ```

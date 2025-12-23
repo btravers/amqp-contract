@@ -380,8 +380,6 @@ const contract = defineContract({
       'order-processing',
       orderSchema,
       {
-        prefetch: 10,        // Process up to 10 messages concurrently
-        noAck: false,        // Require explicit acknowledgment
         exclusive: false,    // Allow multiple consumers
       }
     ),

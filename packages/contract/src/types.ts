@@ -117,7 +117,6 @@ export type PublisherDefinition<TMessage extends MessageDefinition = MessageDefi
 export type ConsumerDefinition<TMessage extends MessageDefinition = MessageDefinition> = {
   queue: QueueDefinition;
   message: TMessage;
-  noAck?: boolean;
 };
 
 /**

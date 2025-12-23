@@ -211,11 +211,7 @@ Consumers define message schemas for consuming:
 ```typescript
 const processOrderConsumer = defineConsumer(
   orderProcessingQueue,  // queue object
-  orderMessage,          // message definition
-  {
-    prefetch: 10,     // max unacked messages
-    noAck: false,     // require acknowledgment
-  }
+  orderMessage,
 );
 ```
 

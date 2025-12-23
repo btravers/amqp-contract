@@ -208,15 +208,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
                 channel.nack(msg, false, true);
               }),
             )
-            .tapOk(() => {
-              if (!consumer.noAck) {
-                channel.ack(msg);
-              }
-            })
             .toPromise();
-        },
-        {
-          noAck: consumer.noAck ?? false,
         },
       ),
     )

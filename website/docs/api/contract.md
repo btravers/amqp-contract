@@ -331,10 +331,7 @@ const orderMessage = defineMessage(
   })
 );
 
-const processOrderConsumer = defineConsumer(orderProcessingQueue, orderMessage, {
-  prefetch: 10,
-  noAck: false,
-});
+const processOrderConsumer = defineConsumer(orderProcessingQueue, orderMessage);
 ```
 
 **Parameters:**
@@ -342,8 +339,6 @@ const processOrderConsumer = defineConsumer(orderProcessingQueue, orderMessage, 
 - `queue` - Queue definition object (from `defineQueue`)
 - `message` - Message definition (from `defineMessage`)
 - `options` - Optional consumer options
-  - `prefetch` - Maximum unacknowledged messages (default: `0` = unlimited)
-  - `noAck` - Automatic acknowledgment (default: `false`)
 
 **Returns:** Consumer definition with inferred type
 
@@ -404,11 +399,6 @@ interface PublisherOptions {
 
 ```typescript
 interface ConsumerOptions {
-  prefetch?: number;
-  noAck?: boolean;
-  exclusive?: boolean;
-  consumerTag?: string;
-  arguments?: Record<string, any>;
 }
 ```
 
@@ -475,10 +465,7 @@ export const contract = defineContract({
     }),
   },
   consumers: {
-    processOrder: defineConsumer(orderProcessingQueue, orderMessage, {
-      prefetch: 10,
-      noAck: false,
-    }),
+    processOrder: defineConsumer(orderProcessingQueue, orderMessage),
   },
 });
 ```
