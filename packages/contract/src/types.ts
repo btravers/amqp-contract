@@ -173,14 +173,6 @@ export type InferPublisher<
 > = InferPublishers<TContract>[TName];
 
 /**
- * Infer publisher input type (message payload) for a specific publisher in a contract
- */
-export type ClientInferPublisherInput<
-  TContract extends ContractDefinition,
-  TName extends InferPublisherNames<TContract>,
-> = PublisherInferInput<InferPublisher<TContract, TName>>;
-
-/**
  * Infer all consumers from contract
  */
 export type InferConsumers<TContract extends ContractDefinition> = NonNullable<
@@ -201,26 +193,3 @@ export type InferConsumer<
 export type ConsumerInferInput<TConsumer extends ConsumerDefinition> = InferSchemaInput<
   TConsumer["message"]["payload"]
 >;
-
-/**
- * Worker perspective types - for consuming messages
- */
-export type WorkerInferConsumerInput<
-  TContract extends ContractDefinition,
-  TName extends InferConsumerNames<TContract>,
-> = ConsumerInferInput<InferConsumer<TContract, TName>>;
-
-/**
- * Infer consumer handler type for a specific consumer
- */
-export type WorkerInferConsumerHandler<
-  TContract extends ContractDefinition,
-  TName extends InferConsumerNames<TContract>,
-> = (message: WorkerInferConsumerInput<TContract, TName>) => Promise<void> | void;
-
-/**
- * Infer all consumer handlers for a contract
- */
-export type WorkerInferConsumerHandlers<TContract extends ContractDefinition> = {
-  [K in InferConsumerNames<TContract>]: WorkerInferConsumerHandler<TContract, K>;
-};

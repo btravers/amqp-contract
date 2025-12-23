@@ -2,7 +2,6 @@ import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from "@ne
 import type { Options } from "amqplib";
 import { Result } from "@swan-io/boxed";
 import type {
-  ClientInferPublisherInput,
   ContractDefinition,
   InferPublisherNames,
 } from "@amqp-contract/contract";
@@ -11,6 +10,7 @@ import {
   TechnicalError,
   TypedAmqpClient,
   type PublishOptions,
+  type ClientInferPublisherInput,
 } from "@amqp-contract/client";
 import { MODULE_OPTIONS_TOKEN } from "./client.module-definition.js";
 

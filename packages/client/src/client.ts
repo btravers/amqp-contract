@@ -1,13 +1,13 @@
 import { connect } from "amqplib";
 import type { Channel, ChannelModel, Options } from "amqplib";
 import type {
-  ClientInferPublisherInput,
   ContractDefinition,
   InferPublisherNames,
 } from "@amqp-contract/contract";
 import { setupInfra } from "@amqp-contract/core";
 import { Result } from "@swan-io/boxed";
 import { MessageValidationError, TechnicalError } from "./errors.js";
+import type { ClientInferPublisherInput } from "./types.js";
 
 /**
  * Options for creating a client

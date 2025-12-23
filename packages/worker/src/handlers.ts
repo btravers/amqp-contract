@@ -1,9 +1,11 @@
 import type {
   ContractDefinition,
   InferConsumerNames,
+} from "@amqp-contract/contract";
+import type {
   WorkerInferConsumerHandler,
   WorkerInferConsumerHandlers,
-} from "@amqp-contract/contract";
+} from "./types.js";
 
 /**
  * Define a type-safe handler for a specific consumer in a contract.

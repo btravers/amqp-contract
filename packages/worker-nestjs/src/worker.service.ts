@@ -1,7 +1,7 @@
 import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
 import type { Options } from "amqplib";
-import type { ContractDefinition, WorkerInferConsumerHandlers } from "@amqp-contract/contract";
-import { TypedAmqpWorker } from "@amqp-contract/worker";
+import type { ContractDefinition } from "@amqp-contract/contract";
+import { TypedAmqpWorker, type WorkerInferConsumerHandlers } from "@amqp-contract/worker";
 import { MODULE_OPTIONS_TOKEN } from "./worker.module-definition.js";
 
 /**
