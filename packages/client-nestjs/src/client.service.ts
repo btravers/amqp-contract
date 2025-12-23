@@ -49,9 +49,9 @@ export class AmqpClientService<TContract extends ContractDefinition>
   async onModuleDestroy(): Promise<void> {
     if (this.client) {
       const result = await this.client.close().toPromise();
-      if (Result.isError(result)) {
+      if (result.isError()) {
         // Log the error but don't throw to avoid disrupting shutdown
-        console.error("Failed to close AMQP client:", result.error);
+        console.error("Failed to close AMQP client:", result.getError());
       }
       this.client = null;
     }

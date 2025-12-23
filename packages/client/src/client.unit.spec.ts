@@ -254,7 +254,7 @@ describe("AmqpClient", () => {
       );
     });
 
-    it("should use custom routing key from options", async () => {
+    it("should pass publish options to channel.publish", async () => {
       // GIVEN
       const TestMessage = defineMessage(z.object({ id: z.string() }));
       const testExchange = defineExchange("test-exchange", "topic");
@@ -265,7 +265,7 @@ describe("AmqpClient", () => {
         },
         publishers: {
           testPublisher: definePublisher(testExchange, TestMessage, {
-            routingKey: "test.default",
+            routingKey: "test.key",
           }),
         },
       });
@@ -273,15 +273,15 @@ describe("AmqpClient", () => {
       const client = await TypedAmqpClient.create({ contract, connection: "amqp://localhost" });
 
       // WHEN
-      const result = await client.publish("testPublisher", { id: "123" }, { routingKey: "test.custom" }).toPromise();
+      const result = await client.publish("testPublisher", { id: "123" }, { persistent: true }).toPromise();
 
       // THEN
       expect(result).toEqual(Result.Ok(true));
       expect(mockChannel.publish).toHaveBeenCalledWith(
         "test-exchange",
-        "test.custom",
+        "test.key",
         expect.any(Buffer),
-        undefined,
+        { persistent: true },
       );
     });
 
@@ -333,7 +333,7 @@ describe("AmqpClient", () => {
       const result = await client.close().toPromise();
 
       // THEN
-      expect(Result.isOk(result)).toBe(true);
+      expect(result.isOk()).toBe(true);
       expect(mockChannel.close).toHaveBeenCalled();
       expect(mockConnection.close).toHaveBeenCalled();
     });
@@ -355,7 +355,7 @@ describe("AmqpClient", () => {
       const result = await client.close().toPromise();
 
       // THEN
-      expect(Result.isOk(result)).toBe(true);
+      expect(result.isOk()).toBe(true);
     });
   });
 

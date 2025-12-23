@@ -36,8 +36,8 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
   }: CreateClientOptions<TContract>): Promise<TypedAmqpClient<TContract>> {
     const client = new TypedAmqpClient(contract, connection);
     const initResult = await client.init().toPromise();
-    if (Result.isError(initResult)) {
-      throw initResult.error;
+    if (initResult.isError()) {
+      throw initResult.getError();
     }
     return client;
   }
@@ -76,8 +76,11 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
       );
     }
 
-    const validateMessage = () =>
-      Future.fromPromise(publisher.message.payload["~standard"].validate(message))
+    const validateMessage = () => {
+      const validationResult = publisher.message.payload["~standard"].validate(message);
+      return Future.fromPromise(
+        validationResult instanceof Promise ? validationResult : Promise.resolve(validationResult),
+      )
         .mapError((error) => new TechnicalError(`Validation failed`, error))
         .mapOkToResult((validation) => {
           if (validation.issues) {
@@ -88,6 +91,7 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
 
           return Result.Ok(validation.value);
         });
+    };
 
     const publishMessage = (validatedMessage: unknown) => {
       const routingKey = publisher.routingKey ?? "";

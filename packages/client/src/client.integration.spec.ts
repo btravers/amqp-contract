@@ -90,13 +90,13 @@ describe("AmqpClient Integration", () => {
       await client.close().toPromise();
     });
 
-    it("should handle custom routing keys", async ({ amqpConnectionUrl }) => {
+    it("should publish with options", async ({ amqpConnectionUrl }) => {
       // GIVEN
       const TestMessage = z.object({
         content: z.string(),
       });
 
-      const exchange = defineExchange("test-routing-exchange", "topic", { durable: false });
+      const exchange = defineExchange("test-options-exchange", "topic", { durable: false });
 
       const contract = defineContract({
         exchanges: {
@@ -104,7 +104,7 @@ describe("AmqpClient Integration", () => {
         },
         publishers: {
           testPublisher: definePublisher(exchange, defineMessage(TestMessage), {
-            routingKey: "default.key",
+            routingKey: "test.key",
           }),
         },
       });
@@ -115,7 +115,7 @@ describe("AmqpClient Integration", () => {
       const result = await client.publish(
         "testPublisher",
         { content: "test message" },
-        { routingKey: "custom.key" },
+        { persistent: true },
       ).toPromise();
 
       // THEN
