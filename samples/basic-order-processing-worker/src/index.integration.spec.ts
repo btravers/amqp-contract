@@ -9,7 +9,7 @@ describe("Basic Order Processing Worker Integration", () => {
   it("should process new orders from order.created queue", async ({ amqpConnectionUrl }) => {
     // GIVEN
     const processedOrders: Array<unknown> = [];
-    const worker = await TypedAmqpWorker.create({
+    const workerResult = await TypedAmqpWorker.create({
       contract: orderContract,
       handlers: {
         processOrder: (msg) => {
@@ -22,12 +22,20 @@ describe("Basic Order Processing Worker Integration", () => {
         processAnalytics: () => Promise.resolve(),
       },
       connection: amqpConnectionUrl,
-    });
+    }).toPromise();
+    if (workerResult.isError()) {
+      throw workerResult.getError();
+    }
+    const worker = workerResult.value;
 
-    const client = await TypedAmqpClient.create({
+    const clientResult = await TypedAmqpClient.create({
       contract: orderContract,
       connection: amqpConnectionUrl,
-    });
+    }).toPromise();
+    if (clientResult.isError()) {
+      throw clientResult.getError();
+    }
+    const client = clientResult.value;
 
     const newOrder = {
       orderId: "TEST-001",
@@ -54,7 +62,7 @@ describe("Basic Order Processing Worker Integration", () => {
   it("should receive notifications for all order events", async ({ amqpConnectionUrl }) => {
     // GIVEN
     const notifications: Array<unknown> = [];
-    const worker = await TypedAmqpWorker.create({
+    const workerResult = await TypedAmqpWorker.create({
       contract: orderContract,
       handlers: {
         processOrder: () => Promise.resolve(),
@@ -67,12 +75,20 @@ describe("Basic Order Processing Worker Integration", () => {
         processAnalytics: () => Promise.resolve(),
       },
       connection: amqpConnectionUrl,
-    });
+    }).toPromise();
+    if (workerResult.isError()) {
+      throw workerResult.getError();
+    }
+    const worker = workerResult.value;
 
-    const client = await TypedAmqpClient.create({
+    const clientResult = await TypedAmqpClient.create({
       contract: orderContract,
       connection: amqpConnectionUrl,
-    });
+    }).toPromise();
+    if (clientResult.isError()) {
+      throw clientResult.getError();
+    }
+    const client = clientResult.value;
 
     // WHEN
     const newOrder = {
@@ -107,7 +123,7 @@ describe("Basic Order Processing Worker Integration", () => {
     // GIVEN
     const processedOrders: Array<unknown> = [];
     const notifications: Array<unknown> = [];
-    const worker = await TypedAmqpWorker.create({
+    const workerResult = await TypedAmqpWorker.create({
       contract: orderContract,
       handlers: {
         processOrder: (msg) => {
@@ -123,12 +139,20 @@ describe("Basic Order Processing Worker Integration", () => {
         processAnalytics: () => Promise.resolve(),
       },
       connection: amqpConnectionUrl,
-    });
+    }).toPromise();
+    if (workerResult.isError()) {
+      throw workerResult.getError();
+    }
+    const worker = workerResult.value;
 
-    const client = await TypedAmqpClient.create({
+    const clientResult = await TypedAmqpClient.create({
       contract: orderContract,
       connection: amqpConnectionUrl,
-    });
+    }).toPromise();
+    if (clientResult.isError()) {
+      throw clientResult.getError();
+    }
+    const client = clientResult.value;
 
     const newOrder = {
       orderId: "TEST-003",
