@@ -93,8 +93,10 @@ describe("TypedAmqpClient", () => {
       });
 
       // THEN
-      expect(clientResult.isOk()).toBe(true);
-      const client = clientResult.get();
+      if (clientResult.isError()) {
+        throw clientResult.error;
+      }
+      const client = clientResult.value;
 
       // Type inference test - this should compile without errors
       type PublisherNames = Parameters<typeof client.publish>[0];
@@ -129,8 +131,10 @@ describe("TypedAmqpClient", () => {
         urls: ["amqp://localhost"],
       });
 
-      expect(clientResult.isOk()).toBe(true);
-      const client = clientResult.get();
+      if (clientResult.isError()) {
+        throw clientResult.error;
+      }
+      const client = clientResult.value;
 
       // WHEN
       // Type inference test - message type should be inferred correctly
@@ -176,8 +180,10 @@ describe("TypedAmqpClient", () => {
       });
 
       // THEN
-      expect(clientResult.isOk()).toBe(true);
-      const client = clientResult.get();
+      if (clientResult.isError()) {
+        throw clientResult.error;
+      }
+      const client = clientResult.value;
       expect(client).toBeDefined();
       expect(mockConnection.createChannel).toHaveBeenCalled();
       expect(mockSetupChannel.assertExchange).toHaveBeenCalledWith("test-exchange", "topic", {
@@ -207,8 +213,10 @@ describe("TypedAmqpClient", () => {
       });
 
       // THEN
-      expect(clientResult.isOk()).toBe(true);
-      const client = clientResult.get();
+      if (clientResult.isError()) {
+        throw clientResult.error;
+      }
+      const client = clientResult.value;
       expect(client).toBeDefined();
       expect(mockSetupChannel.assertQueue).toHaveBeenCalledWith("test-queue", {
         durable: true,
@@ -244,8 +252,10 @@ describe("TypedAmqpClient", () => {
       });
 
       // THEN
-      expect(clientResult.isOk()).toBe(true);
-      const client = clientResult.get();
+      if (clientResult.isError()) {
+        throw clientResult.error;
+      }
+      const client = clientResult.value;
       expect(client).toBeDefined();
       expect(mockSetupChannel.bindQueue).toHaveBeenCalledWith(
         "test-queue",
@@ -279,8 +289,10 @@ describe("TypedAmqpClient", () => {
       });
 
       // THEN
-      expect(clientResult.isOk()).toBe(true);
-      const client = clientResult.get();
+      if (clientResult.isError()) {
+        throw clientResult.error;
+      }
+      const client = clientResult.value;
       expect(client).toBeDefined();
       expect(mockSetupChannel.bindExchange).toHaveBeenCalledWith(
         "destination-exchange",
@@ -313,8 +325,10 @@ describe("TypedAmqpClient", () => {
         urls: ["amqp://localhost"],
       });
 
-      expect(clientResult.isOk()).toBe(true);
-      const client = clientResult.get();
+      if (clientResult.isError()) {
+        throw clientResult.error;
+      }
+      const client = clientResult.value;
 
       // WHEN
       const result = await client.publish("testPublisher", { id: "123" });
@@ -350,8 +364,10 @@ describe("TypedAmqpClient", () => {
         urls: ["amqp://localhost"],
       });
 
-      expect(clientResult.isOk()).toBe(true);
-      const client = clientResult.get();
+      if (clientResult.isError()) {
+        throw clientResult.error;
+      }
+      const client = clientResult.value;
 
       // WHEN
       const result = await client.publish("testPublisher", { id: "123" }, { persistent: true });
@@ -387,8 +403,10 @@ describe("TypedAmqpClient", () => {
         urls: ["amqp://localhost"],
       });
 
-      expect(clientResult.isOk()).toBe(true);
-      const client = clientResult.get();
+      if (clientResult.isError()) {
+        throw clientResult.error;
+      }
+      const client = clientResult.value;
 
       // WHEN
       // @ts-expect-error - testing runtime validation with invalid data
@@ -422,8 +440,10 @@ describe("TypedAmqpClient", () => {
         urls: ["amqp://localhost"],
       });
 
-      expect(clientResult.isOk()).toBe(true);
-      const client = clientResult.get();
+      if (clientResult.isError()) {
+        throw clientResult.error;
+      }
+      const client = clientResult.value;
 
       // Replace the close method with our mock
       // @ts-expect-error - accessing private field for testing
@@ -453,8 +473,10 @@ describe("TypedAmqpClient", () => {
         urls: ["amqp://localhost"],
       });
 
-      expect(clientResult.isOk()).toBe(true);
-      const client = clientResult.get();
+      if (clientResult.isError()) {
+        throw clientResult.error;
+      }
+      const client = clientResult.value;
 
       // WHEN
       const result = await client.close();

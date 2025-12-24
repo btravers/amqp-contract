@@ -64,8 +64,10 @@ describe("AmqpWorker Integration", () => {
       urls: [amqpConnectionUrl],
     });
 
-    expect(clientResult.isOk()).toBe(true);
-    const client = clientResult.get();
+    if (clientResult.isError()) {
+      throw clientResult.error;
+    }
+    const client = clientResult.value;
     const publishResult = await client.publish("testPublisher", {
       id: "123",
       message: "Hello from integration test!",
@@ -136,8 +138,10 @@ describe("AmqpWorker Integration", () => {
       urls: [amqpConnectionUrl],
     });
 
-    expect(clientResult.isOk()).toBe(true);
-    const client = clientResult.get();
+    if (clientResult.isError()) {
+      throw clientResult.error;
+    }
+    const client = clientResult.value;
 
     const result1 = await client.publish("testPublisher", { id: "1", count: 1 });
     const result2 = await client.publish("testPublisher", { id: "2", count: 2 });
@@ -222,8 +226,10 @@ describe("AmqpWorker Integration", () => {
       urls: [amqpConnectionUrl],
     });
 
-    expect(clientResult.isOk()).toBe(true);
-    const client = clientResult.get();
+    if (clientResult.isError()) {
+      throw clientResult.error;
+    }
+    const client = clientResult.value;
 
     const result1 = await client.publish("pub1", { id: "msg1" });
     const result2 = await client.publish("pub2", { id: "msg2" });

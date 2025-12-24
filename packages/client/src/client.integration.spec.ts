@@ -42,8 +42,10 @@ describe("AmqpClient Integration", () => {
         urls: [amqpConnectionUrl],
       });
 
-      expect(clientResult.isOk()).toBe(true);
-      const client = clientResult.get();
+      if (clientResult.isError()) {
+        throw clientResult.error;
+      }
+      const client = clientResult.value;
 
       // WHEN
       const result = await client.publish("testPublisher", {
@@ -83,8 +85,10 @@ describe("AmqpClient Integration", () => {
         urls: [amqpConnectionUrl],
       });
 
-      expect(clientResult.isOk()).toBe(true);
-      const client = clientResult.get();
+      if (clientResult.isError()) {
+        throw clientResult.error;
+      }
+      const client = clientResult.value;
 
       // WHEN
       const result = await client.publish("testPublisher", {
@@ -126,8 +130,10 @@ describe("AmqpClient Integration", () => {
         urls: [amqpConnectionUrl],
       });
 
-      expect(clientResult.isOk()).toBe(true);
-      const client = clientResult.get();
+      if (clientResult.isError()) {
+        throw clientResult.error;
+      }
+      const client = clientResult.value;
 
       // WHEN
       const result = await client.publish(
@@ -178,8 +184,10 @@ describe("AmqpClient Integration", () => {
       });
 
       // THEN - No errors should be thrown during topology setup
-      expect(clientResult.isOk()).toBe(true);
-      const client = clientResult.get();
+      if (clientResult.isError()) {
+        throw clientResult.error;
+      }
+      const client = clientResult.value;
       expect(client).toBeDefined();
 
       // CLEANUP
