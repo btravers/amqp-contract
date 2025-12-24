@@ -111,9 +111,9 @@ const spec = await generator.generate(contract, {
 ### JSON Export
 
 ```typescript
-import { writeFileSync } from 'fs';
 import { AsyncAPIGenerator } from '@amqp-contract/asyncapi';
 import { ZodToJsonSchemaConverter } from '@orpc/zod/zod4';
+import { writeFileSync } from 'fs';
 
 const generator = new AsyncAPIGenerator({
   schemaConverters: [new ZodToJsonSchemaConverter()],
@@ -126,9 +126,9 @@ writeFileSync('asyncapi.json', JSON.stringify(spec, null, 2));
 ### YAML Export
 
 ```typescript
-import { writeFileSync } from 'fs';
 import { AsyncAPIGenerator } from '@amqp-contract/asyncapi';
 import { ZodToJsonSchemaConverter } from '@orpc/zod/zod4';
+import { writeFileSync } from 'fs';
 import YAML from 'yaml';
 
 const generator = new AsyncAPIGenerator({
@@ -168,11 +168,12 @@ asyncapi validate asyncapi.json
 ## Complete Example
 
 ```typescript
-import { writeFileSync } from 'fs';
 import { AsyncAPIGenerator } from '@amqp-contract/asyncapi';
 import { ZodToJsonSchemaConverter } from '@orpc/zod/zod4';
-import { contract } from './contract';
+import { writeFileSync } from 'fs';
 import YAML from 'yaml';
+
+import { contract } from './contract';
 
 const generator = new AsyncAPIGenerator({
   schemaConverters: [new ZodToJsonSchemaConverter()],
