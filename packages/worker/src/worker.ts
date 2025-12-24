@@ -1,5 +1,5 @@
 import type { ContractDefinition, InferConsumerNames } from "@amqp-contract/contract";
-import { AmqpClient } from "@amqp-contract/core";
+import { AmqpClient, type Logger } from "@amqp-contract/core";
 import { Future, Result } from "@swan-io/boxed";
 import { MessageValidationError, TechnicalError } from "./errors.js";
 import type { WorkerInferConsumerHandlers, WorkerInferConsumerInput } from "./types.js";
@@ -22,7 +22,8 @@ import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connectio
  *   urls: ['amqp://localhost'],
  *   connectionOptions: {
  *     heartbeatIntervalInSeconds: 30
- *   }
+ *   },
+ *   logger: myLogger
  * };
  * ```
  */
@@ -35,6 +36,8 @@ export type CreateWorkerOptions<TContract extends ContractDefinition> = {
   urls: ConnectionUrl[];
   /** Optional connection configuration (heartbeat, reconnect settings, etc.) */
   connectionOptions?: AmqpConnectionManagerOptions | undefined;
+  /** Optional logger for logging message consumption and errors */
+  logger?: Logger | undefined;
 };
 
 /**
@@ -82,6 +85,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     private readonly contract: TContract,
     private readonly amqpClient: AmqpClient,
     private readonly handlers: WorkerInferConsumerHandlers<TContract>,
+    private readonly logger?: Logger,
   ) {}
 
   /**
@@ -115,6 +119,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     handlers,
     urls,
     connectionOptions,
+    logger,
   }: CreateWorkerOptions<TContract>): Future<Result<TypedAmqpWorker<TContract>, TechnicalError>> {
     const worker = new TypedAmqpWorker(
       contract,
@@ -123,6 +128,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         connectionOptions,
       }),
       handlers,
+      logger,
     );
 
     return worker
@@ -211,14 +217,11 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         // Parse message
         const parseResult = Result.fromExecution(() => JSON.parse(msg.content.toString()));
         if (parseResult.isError()) {
-          // fixme: define a proper logging mechanism
-          // fixme: do not log just an error, use a proper logging mechanism
-          console.error(
-            new TechnicalError(
-              `Error parsing message for consumer "${String(consumerName)}"`,
-              parseResult.error,
-            ),
-          );
+          this.logger?.error("Error parsing message", {
+            consumerName: String(consumerName),
+            queueName: consumer.queue.name,
+            error: parseResult.error,
+          });
 
           // fixme proper error handling strategy
           // Reject message with no requeue (malformed JSON)
@@ -240,9 +243,11 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
             return Result.Ok(validationResult.value as WorkerInferConsumerInput<TContract, TName>);
           })
           .tapError((error) => {
-            // fixme: define a proper logging mechanism
-            // fixme: do not log just an error, use a proper logging mechanism
-            console.error(error);
+            this.logger?.error("Message validation failed", {
+              consumerName: String(consumerName),
+              queueName: consumer.queue.name,
+              error,
+            });
 
             // fixme proper error handling strategy
             // Reject message with no requeue (validation failed)
@@ -250,14 +255,11 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           })
           .flatMapOk((validatedMessage) =>
             Future.fromPromise(handler(validatedMessage)).tapError((error) => {
-              // fixme: define a proper logging mechanism
-              // fixme: do not log just an error, use a proper logging mechanism
-              console.error(
-                new TechnicalError(
-                  `Error processing message for consumer "${String(consumerName)}"`,
-                  error,
-                ),
-              );
+              this.logger?.error("Error processing message", {
+                consumerName: String(consumerName),
+                queueName: consumer.queue.name,
+                error,
+              });
 
               // fixme proper error handling strategy
               // Reject message and requeue (handler failed)
@@ -265,6 +267,11 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
             }),
           )
           .tapOk(() => {
+            this.logger?.info("Message consumed successfully", {
+              consumerName: String(consumerName),
+              queueName: consumer.queue.name,
+            });
+
             // Acknowledge message
             this.amqpClient.channel.ack(msg);
           })

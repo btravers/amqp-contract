@@ -8,7 +8,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?logo=typescript)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-This package provides centralized functionality for establishing AMQP topology (exchanges, queues, and bindings) from contract definitions.
+This package provides centralized functionality for establishing AMQP topology (exchanges, queues, and bindings) from contract definitions, and defines the `Logger` interface used across amqp-contract packages.
 
 📖 **[Full documentation →](https://btravers.github.io/amqp-contract)**
 
@@ -24,11 +24,12 @@ yarn add @amqp-contract/core
 
 ## Usage
 
-The core package exports a `setupInfra` function that handles the creation of all AMQP resources defined in a contract.
+### AmqpClient
+
+The core package exports an `AmqpClient` class that handles the creation of all AMQP resources defined in a contract.
 
 ```typescript
-import { connect } from "amqplib";
-import { setupInfra } from "@amqp-contract/core";
+import { AmqpClient } from "@amqp-contract/core";
 import {
   defineContract,
   defineExchange,
@@ -56,34 +57,81 @@ const contract = defineContract({
 });
 
 // Setup AMQP resources
-const connection = await connect("amqp://localhost");
-const channel = await connection.createChannel();
+const amqpClient = new AmqpClient(contract, {
+  urls: ["amqp://localhost"],
+});
 
-await setupInfra(channel, contract);
+// Clean up
+await amqpClient.close();
+```
+
+### Logger Interface
+
+The core package exports a `Logger` interface that can be used to implement custom logging for AMQP operations:
+
+```typescript
+import type { Logger } from "@amqp-contract/core";
+
+const logger: Logger = {
+  debug: (message, context) => console.debug(message, context),
+  info: (message, context) => console.info(message, context),
+  warn: (message, context) => console.warn(message, context),
+  error: (message, context) => console.error(message, context),
+};
+
+// Pass the logger to client or worker
+import { TypedAmqpClient } from "@amqp-contract/client";
+
+const client = await TypedAmqpClient.create({
+  contract,
+  urls: ["amqp://localhost"],
+  logger, // Optional: logs published messages
+});
 ```
 
 ## API
 
-### `setupInfra(channel: Channel, contract: ContractDefinition): Promise<void>`
+### `AmqpClient`
 
-Sets up all AMQP resources defined in the contract:
+The `AmqpClient` class handles AMQP connection management and resource setup.
 
-- **Exchanges**: Creates all exchanges with their configurations
-- **Queues**: Creates all queues with their configurations
-- **Bindings**: Creates all bindings (queue-to-exchange and exchange-to-exchange)
+**Constructor:**
 
-#### Parameters
+```typescript
+new AmqpClient(contract: ContractDefinition, options: AmqpClientOptions)
+```
 
-- `channel`: AMQP channel to use for setup
+**Parameters:**
+
 - `contract`: Contract definition containing exchanges, queues, and bindings
+- `options.urls`: Array of AMQP connection URLs
+- `options.connectionOptions`: Optional connection manager options
 
-#### Returns
+**Methods:**
 
-A Promise that resolves when all resources are created.
+- `close(): Promise<void>` - Closes the channel and connection
+
+### `Logger` Interface
+
+The `Logger` interface defines the standard logging interface used by `@amqp-contract/client` and `@amqp-contract/worker`.
+
+```typescript
+interface Logger {
+  debug(message: string, context?: LoggerContext): void;
+  info(message: string, context?: LoggerContext): void;
+  warn(message: string, context?: LoggerContext): void;
+  error(message: string, context?: LoggerContext): void;
+}
+
+type LoggerContext = Record<string, unknown> & {
+  error?: unknown;
+};
+```
 
 ## Features
 
-- ✅ Type-safe contract setup
+- ✅ Type-safe AMQP client with connection management
+- ✅ Logger interface for custom logging implementations
 - ✅ Supports all exchange types (topic, direct, fanout)
 - ✅ Handles both queue-to-exchange and exchange-to-exchange bindings
 - ✅ Passes custom arguments to AMQP resources

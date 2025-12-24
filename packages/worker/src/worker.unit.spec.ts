@@ -351,8 +351,6 @@ describe("consume", () => {
 
   it("should nack invalid messages", async () => {
     // GIVEN
-    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
     const TestMessage = defineMessage(z.object({ id: z.string() }));
 
     const testQueue = defineQueue("test-queue");
@@ -386,15 +384,10 @@ describe("consume", () => {
     // THEN
     expect(handler).not.toHaveBeenCalled();
     expect(mockChannel.nack).toHaveBeenCalledWith(mockMessage, false, false);
-    expect(consoleErrorSpy).toHaveBeenCalled();
-
-    consoleErrorSpy.mockRestore();
   });
 
   it("should nack and requeue on handler error", async () => {
     // GIVEN
-    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
     const TestMessage = defineMessage(z.object({ id: z.string() }));
 
     const testQueue = defineQueue("test-queue");
@@ -428,9 +421,6 @@ describe("consume", () => {
     // THEN
     expect(handler).toHaveBeenCalled();
     expect(mockChannel.nack).toHaveBeenCalledWith(mockMessage, false, true);
-    expect(consoleErrorSpy).toHaveBeenCalled();
-
-    consoleErrorSpy.mockRestore();
   });
 
   it("should handle null messages", async () => {
@@ -573,5 +563,185 @@ describe("TypedAmqpWorker.create", () => {
     // THEN
     expect(worker).toBeInstanceOf(TypedAmqpWorker);
     expect(mockChannel.consume).toHaveBeenCalled();
+  });
+
+  describe("Logger", () => {
+    it("should call logger when message is consumed successfully", async () => {
+      // GIVEN
+      const mockLogger = {
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+      };
+
+      const TestMessage = defineMessage(z.object({ id: z.string() }));
+      const testQueue = defineQueue("test-queue", { durable: true });
+
+      const contract = defineContract({
+        queues: { test: testQueue },
+        consumers: {
+          testConsumer: defineConsumer(testQueue, TestMessage),
+        },
+      });
+
+      const mockHandler = vi.fn().mockResolvedValue(undefined);
+
+      const worker = await TypedAmqpWorker.create({
+        contract,
+        handlers: { testConsumer: mockHandler },
+        urls: ["amqp://localhost"],
+        logger: mockLogger,
+      }).resultToPromise();
+
+      expect(worker).toBeInstanceOf(TypedAmqpWorker);
+
+      // Simulate message consumption
+      const mockMessage = {
+        content: Buffer.from(JSON.stringify({ id: "123" })),
+        fields: { deliveryTag: 1, routingKey: "test.key" },
+        properties: {},
+      };
+
+      await mockConsumeCallback!(mockMessage as ConsumeMessage);
+
+      // THEN
+      expect(mockHandler).toHaveBeenCalledWith({ id: "123" });
+      expect(mockLogger.info).toHaveBeenCalledWith("Message consumed successfully", {
+        consumerName: "testConsumer",
+        queueName: "test-queue",
+      });
+    });
+
+    it("should call logger on validation error", async () => {
+      // GIVEN
+      const mockLogger = {
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+      };
+
+      const TestMessage = defineMessage(z.object({ id: z.string() }));
+      const testQueue = defineQueue("test-queue", { durable: true });
+
+      const contract = defineContract({
+        queues: { test: testQueue },
+        consumers: {
+          testConsumer: defineConsumer(testQueue, TestMessage),
+        },
+      });
+
+      const mockHandler = vi.fn().mockResolvedValue(undefined);
+
+      const worker = await TypedAmqpWorker.create({
+        contract,
+        handlers: { testConsumer: mockHandler },
+        urls: ["amqp://localhost"],
+        logger: mockLogger,
+      }).resultToPromise();
+
+      expect(worker).toBeInstanceOf(TypedAmqpWorker);
+
+      // Simulate message with invalid data
+      const mockMessage = {
+        content: Buffer.from(JSON.stringify({ invalid: "data" })),
+        fields: { deliveryTag: 1, routingKey: "test.key" },
+        properties: {},
+      };
+
+      await mockConsumeCallback!(mockMessage as ConsumeMessage);
+
+      // THEN
+      expect(mockHandler).not.toHaveBeenCalled();
+      expect(mockLogger.error).toHaveBeenCalled();
+      expect(mockChannel.nack).toHaveBeenCalledWith(mockMessage, false, false);
+    });
+
+    it("should call logger on handler error", async () => {
+      // GIVEN
+      const mockLogger = {
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+      };
+
+      const TestMessage = defineMessage(z.object({ id: z.string() }));
+      const testQueue = defineQueue("test-queue", { durable: true });
+
+      const contract = defineContract({
+        queues: { test: testQueue },
+        consumers: {
+          testConsumer: defineConsumer(testQueue, TestMessage),
+        },
+      });
+
+      const mockError = new Error("Handler failed");
+      const mockHandler = vi.fn().mockRejectedValue(mockError);
+
+      const worker = await TypedAmqpWorker.create({
+        contract,
+        handlers: { testConsumer: mockHandler },
+        urls: ["amqp://localhost"],
+        logger: mockLogger,
+      }).resultToPromise();
+
+      expect(worker).toBeInstanceOf(TypedAmqpWorker);
+
+      // Simulate message consumption
+      const mockMessage = {
+        content: Buffer.from(JSON.stringify({ id: "123" })),
+        fields: { deliveryTag: 1, routingKey: "test.key" },
+        properties: {},
+      };
+
+      await mockConsumeCallback!(mockMessage as ConsumeMessage);
+
+      // THEN
+      expect(mockHandler).toHaveBeenCalledWith({ id: "123" });
+      expect(mockLogger.error).toHaveBeenCalledWith("Error processing message", {
+        consumerName: "testConsumer",
+        queueName: "test-queue",
+        error: mockError,
+      });
+      expect(mockChannel.nack).toHaveBeenCalledWith(mockMessage, false, true);
+    });
+
+    it("should not throw error when logger is not provided", async () => {
+      // GIVEN
+      const TestMessage = defineMessage(z.object({ id: z.string() }));
+      const testQueue = defineQueue("test-queue", { durable: true });
+
+      const contract = defineContract({
+        queues: { test: testQueue },
+        consumers: {
+          testConsumer: defineConsumer(testQueue, TestMessage),
+        },
+      });
+
+      const mockHandler = vi.fn().mockResolvedValue(undefined);
+
+      // WHEN
+      await TypedAmqpWorker.create({
+        contract,
+        handlers: { testConsumer: mockHandler },
+        urls: ["amqp://localhost"],
+        // No logger provided
+      }).resultToPromise();
+
+      // Simulate message consumption
+      const mockMessage = {
+        content: Buffer.from(JSON.stringify({ id: "123" })),
+        fields: { deliveryTag: 1, routingKey: "test.key" },
+        properties: {},
+      };
+
+      await mockConsumeCallback!(mockMessage as ConsumeMessage);
+
+      // THEN
+      expect(mockHandler).toHaveBeenCalledWith({ id: "123" });
+      expect(mockChannel.ack).toHaveBeenCalledWith(mockMessage);
+    });
   });
 });

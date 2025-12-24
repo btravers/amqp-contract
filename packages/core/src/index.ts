@@ -7,6 +7,8 @@ import amqp, {
   ConnectionUrl,
 } from "amqp-connection-manager";
 
+export type { Logger, LoggerContext } from "./logger.js";
+
 export type AmqpClientOptions = {
   urls: ConnectionUrl[];
   connectionOptions?: AmqpConnectionManagerOptions | undefined;

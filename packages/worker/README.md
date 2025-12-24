@@ -20,7 +20,16 @@ pnpm add @amqp-contract/worker
 
 ```typescript
 import { TypedAmqpWorker } from '@amqp-contract/worker';
+import type { Logger } from '@amqp-contract/core';
 import { contract } from './contract';
+
+// Optional: Create a logger implementation
+const logger: Logger = {
+  debug: (message, context) => console.debug(message, context),
+  info: (message, context) => console.info(message, context),
+  warn: (message, context) => console.warn(message, context),
+  error: (message, context) => console.error(message, context),
+};
 
 // Create worker from contract with handlers (automatically connects and starts consuming)
 const worker = await TypedAmqpWorker.create({
@@ -36,7 +45,8 @@ const worker = await TypedAmqpWorker.create({
       // If an exception is thrown, the message is automatically requeued
     },
   },
-  connection: 'amqp://localhost',
+  urls: ['amqp://localhost'],
+  logger, // Optional: logs message consumption and errors
 });
 
 // Worker is already consuming messages
