@@ -18,12 +18,10 @@
   This release introduces a new `@amqp-contract/core` package that centralizes AMQP infrastructure setup logic. The core package provides a `setupInfra` function that handles the creation of exchanges, queues, and bindings, eliminating code duplication across client and worker packages.
 
   **New Features:**
-
   - New `@amqp-contract/core` package with centralized AMQP setup logic
   - `setupInfra` function for creating exchanges, queues, and bindings from contract definitions
 
   **Changes:**
-
   - Updated `@amqp-contract/client` to use core setup function
   - Updated `@amqp-contract/worker` to use core setup function
   - All packages are now versioned together as a fixed group
@@ -102,7 +100,6 @@
 ### Patch Changes
 
 - Refactor createClient and createWorker to accept options object and auto-connect
-
   - createClient now accepts { contract, connection } and auto-connects
   - createWorker now accepts { contract, handlers, connection } and auto-connects/consumeAll
   - Updated all tests and samples to use new API
