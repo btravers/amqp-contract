@@ -73,10 +73,10 @@ The core package exports a `Logger` interface that can be used to implement cust
 import type { Logger } from "@amqp-contract/core";
 
 const logger: Logger = {
-  debug: (message, meta) => console.debug(message, meta),
-  info: (message, meta) => console.info(message, meta),
-  warn: (message, meta) => console.warn(message, meta),
-  error: (message, meta) => console.error(message, meta),
+  debug: (message, context) => console.debug(message, context),
+  info: (message, context) => console.info(message, context),
+  warn: (message, context) => console.warn(message, context),
+  error: (message, context) => console.error(message, context),
 };
 
 // Pass the logger to client or worker
@@ -117,11 +117,15 @@ The `Logger` interface defines the standard logging interface used by `@amqp-con
 
 ```typescript
 interface Logger {
-  debug(message: string, meta?: Record<string, unknown>): void;
-  info(message: string, meta?: Record<string, unknown>): void;
-  warn(message: string, meta?: Record<string, unknown>): void;
-  error(message: string, meta?: Record<string, unknown>): void;
+  debug(message: string, context?: LoggerContext): void;
+  info(message: string, context?: LoggerContext): void;
+  warn(message: string, context?: LoggerContext): void;
+  error(message: string, context?: LoggerContext): void;
 }
+
+type LoggerContext = Record<string, unknown> & {
+  error?: unknown;
+};
 ```
 
 ## Features

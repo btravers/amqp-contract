@@ -700,13 +700,11 @@ describe("TypedAmqpWorker.create", () => {
 
       // THEN
       expect(mockHandler).toHaveBeenCalledWith({ id: "123" });
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        'Error processing message for consumer "testConsumer"',
-        expect.objectContaining({
-          consumerName: "testConsumer",
-          queueName: "test-queue",
-        }),
-      );
+      expect(mockLogger.error).toHaveBeenCalledWith("Error processing message", {
+        consumerName: "testConsumer",
+        queueName: "test-queue",
+        error: mockError,
+      });
       expect(mockChannel.nack).toHaveBeenCalledWith(mockMessage, false, true);
     });
 

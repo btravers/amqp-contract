@@ -25,10 +25,10 @@ import { contract } from './contract';
 
 // Optional: Create a logger implementation
 const logger: Logger = {
-  debug: (message, meta) => console.debug(message, meta),
-  info: (message, meta) => console.info(message, meta),
-  warn: (message, meta) => console.warn(message, meta),
-  error: (message, meta) => console.error(message, meta),
+  debug: (message, context) => console.debug(message, context),
+  info: (message, context) => console.info(message, context),
+  warn: (message, context) => console.warn(message, context),
+  error: (message, context) => console.error(message, context),
 };
 
 // Create worker from contract with handlers (automatically connects and starts consuming)

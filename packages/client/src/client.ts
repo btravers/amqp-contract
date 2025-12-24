@@ -110,7 +110,7 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
           this.logger?.info("Message published successfully", {
             publisherName: String(publisherName),
             exchange: publisher.exchange.name,
-            routingKey: publisher.routingKey ?? "",
+            routingKey: publisher.routingKey,
           });
 
           return Result.Ok(published);

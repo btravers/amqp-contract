@@ -217,14 +217,10 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         // Parse message
         const parseResult = Result.fromExecution(() => JSON.parse(msg.content.toString()));
         if (parseResult.isError()) {
-          const error = new TechnicalError(
-            `Error parsing message for consumer "${String(consumerName)}"`,
-            parseResult.error,
-          );
-          this.logger?.error(error.message, {
+          this.logger?.error("Error parsing message", {
             consumerName: String(consumerName),
             queueName: consumer.queue.name,
-            error: error.cause,
+            error: parseResult.error,
           });
 
           // fixme proper error handling strategy
@@ -247,14 +243,10 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
             return Result.Ok(validationResult.value as WorkerInferConsumerInput<TContract, TName>);
           })
           .tapError((error) => {
-            const errorMessage =
-              error instanceof MessageValidationError || error instanceof TechnicalError
-                ? error.message
-                : "Validation failed";
-            this.logger?.error(errorMessage, {
+            this.logger?.error("Message validation failed", {
               consumerName: String(consumerName),
               queueName: consumer.queue.name,
-              error: error instanceof MessageValidationError ? error.issues : error,
+              error,
             });
 
             // fixme proper error handling strategy
@@ -263,14 +255,10 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           })
           .flatMapOk((validatedMessage) =>
             Future.fromPromise(handler(validatedMessage)).tapError((error) => {
-              const technicalError = new TechnicalError(
-                `Error processing message for consumer "${String(consumerName)}"`,
-                error,
-              );
-              this.logger?.error(technicalError.message, {
+              this.logger?.error("Error processing message", {
                 consumerName: String(consumerName),
                 queueName: consumer.queue.name,
-                error: technicalError.cause,
+                error,
               });
 
               // fixme proper error handling strategy
