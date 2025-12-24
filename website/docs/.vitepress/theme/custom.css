@@ -121,12 +121,24 @@
  * -------------------------------------------------------------------------- */
 
 .vp-doc a {
+  color: var(--vp-c-brand-1);
   font-weight: 500;
   transition: color 0.2s ease;
+  text-decoration-color: var(--vp-c-brand-soft);
 }
 
 .vp-doc a:hover {
+  color: var(--vp-c-brand-2);
+  text-decoration-color: var(--vp-c-brand-1);
+}
+
+/* Navigation and other links */
+a {
   color: var(--vp-c-brand-1);
+}
+
+a:hover {
+  color: var(--vp-c-brand-2);
 }
 
 /**
