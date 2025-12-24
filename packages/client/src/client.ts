@@ -3,7 +3,7 @@ import type { ContractDefinition, InferPublisherNames } from "@amqp-contract/con
 import { Future, Result } from "@swan-io/boxed";
 import { MessageValidationError, TechnicalError } from "./errors.js";
 import type { ClientInferPublisherInput } from "./types.js";
-import { AmqpClient } from "@amqp-contract/core";
+import { AmqpClient, type Logger } from "@amqp-contract/core";
 import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
 
 /**
@@ -13,6 +13,7 @@ export type CreateClientOptions<TContract extends ContractDefinition> = {
   contract: TContract;
   urls: ConnectionUrl[];
   connectionOptions?: AmqpConnectionManagerOptions | undefined;
+  logger?: Logger | undefined;
 };
 
 /**
@@ -22,6 +23,7 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
   private constructor(
     private readonly contract: TContract,
     private readonly amqpClient: AmqpClient,
+    private readonly logger?: Logger,
   ) {}
 
   /**
@@ -35,10 +37,12 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     contract,
     urls,
     connectionOptions,
+    logger,
   }: CreateClientOptions<TContract>): Future<Result<TypedAmqpClient<TContract>, TechnicalError>> {
     const client = new TypedAmqpClient(
       contract,
       new AmqpClient(contract, { urls, connectionOptions }),
+      logger,
     );
 
     return client.waitForConnectionReady().mapOk(() => client);
@@ -102,6 +106,12 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
               ),
             );
           }
+
+          this.logger?.info("Message published successfully", {
+            publisherName: String(publisherName),
+            exchange: publisher.exchange.name,
+            routingKey: publisher.routingKey ?? "",
+          });
 
           return Result.Ok(published);
         });

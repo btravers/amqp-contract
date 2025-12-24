@@ -509,4 +509,104 @@ describe("TypedAmqpClient", () => {
       expect(mockConnection.createChannel).toHaveBeenCalled();
     });
   });
+
+  describe("Logger", () => {
+    it("should call logger when message is published successfully", async () => {
+      // GIVEN
+      const mockLogger = {
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+      };
+
+      const OrderMessage = defineMessage(
+        z.object({
+          orderId: z.string(),
+          amount: z.number(),
+        }),
+      );
+
+      const ordersExchange = defineExchange("orders", "topic", { durable: true });
+
+      const contract = defineContract({
+        exchanges: {
+          orders: ordersExchange,
+        },
+        publishers: {
+          createOrder: definePublisher(ordersExchange, OrderMessage, {
+            routingKey: "order.created",
+          }),
+        },
+      });
+
+      const clientResult = await TypedAmqpClient.create({
+        contract,
+        urls: ["amqp://localhost"],
+        logger: mockLogger,
+      });
+
+      if (clientResult.isError()) {
+        throw clientResult.error;
+      }
+      const client = clientResult.value;
+
+      // WHEN
+      const publishResult = await client.publish("createOrder", {
+        orderId: "123",
+        amount: 100,
+      });
+
+      // THEN
+      expect(publishResult).toEqual(Result.Ok(true));
+      expect(mockLogger.info).toHaveBeenCalledWith("Message published successfully", {
+        publisherName: "createOrder",
+        exchange: "orders",
+        routingKey: "order.created",
+      });
+    });
+
+    it("should not throw error when logger is not provided", async () => {
+      // GIVEN
+      const OrderMessage = defineMessage(
+        z.object({
+          orderId: z.string(),
+          amount: z.number(),
+        }),
+      );
+
+      const ordersExchange = defineExchange("orders", "topic", { durable: true });
+
+      const contract = defineContract({
+        exchanges: {
+          orders: ordersExchange,
+        },
+        publishers: {
+          createOrder: definePublisher(ordersExchange, OrderMessage, {
+            routingKey: "order.created",
+          }),
+        },
+      });
+
+      const clientResult = await TypedAmqpClient.create({
+        contract,
+        urls: ["amqp://localhost"],
+        // No logger provided
+      });
+
+      if (clientResult.isError()) {
+        throw clientResult.error;
+      }
+      const client = clientResult.value;
+
+      // WHEN
+      const publishResult = await client.publish("createOrder", {
+        orderId: "123",
+        amount: 100,
+      });
+
+      // THEN
+      expect(publishResult).toEqual(Result.Ok(true));
+    });
+  });
 });
