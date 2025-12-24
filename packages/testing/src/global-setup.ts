@@ -2,6 +2,7 @@ import { GenericContainer, Wait } from "testcontainers";
 import type { TestProject } from "vitest/node";
 
 declare module "vitest" {
+  // eslint-disable-next-line @typescript-eslint/consistent-type-definitions -- Module augmentation requires interface for declaration merging
   export interface ProvidedContext {
     __TESTCONTAINERS_RABBITMQ_IP__: string;
     __TESTCONTAINERS_RABBITMQ_PORT_5672__: number;
