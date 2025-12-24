@@ -1,5 +1,14 @@
 # @amqp-contract/client-nestjs
 
+## 0.2.1
+
+### Patch Changes
+
+- Documentation improvements including TypeDoc-generated API documentation and standardized package READMEs with badges and documentation links.
+- Updated dependencies
+  - @amqp-contract/client@0.2.1
+  - @amqp-contract/contract@0.2.1
+
 ## 0.2.0
 
 ### Minor Changes
