@@ -23,6 +23,11 @@ export default withMermaid(
 
     // Transform page metadata for better SEO
     transformPageData(pageData) {
+      // Only process markdown files
+      if (!pageData.relativePath.endsWith(".md")) {
+        return;
+      }
+
       const canonicalUrl = `https://btravers.github.io/amqp-contract/${pageData.relativePath}`
         .replace(/index\.md$/, "")
         .replace(/\.md$/, ".html");
@@ -159,7 +164,7 @@ export default withMermaid(
       ["meta", { property: "og:site_name", content: "amqp-contract" }],
       ["meta", { property: "og:locale", content: "en_US" }],
       // Twitter Card meta tags
-      ["meta", { name: "twitter:card", content: "summary_large_image" }],
+      ["meta", { name: "twitter:card", content: "summary" }],
       ["meta", { name: "twitter:title", content: "amqp-contract" }],
       [
         "meta",
