@@ -41,21 +41,22 @@ const contract = defineContract({
 });
 
 // 3. Client knows exact types
-const client = await TypedAmqpClient.create({
+const client = TypedAmqpClient.create({
   contract,
-  connection: 'amqp://localhost'
+  urls: ['amqp://localhost']
 });
 
-const result = client.publish('orderCreated', {
+const result = await client.publish('orderCreated', {
   orderId: 'ORD-123',  // ✅ TypeScript knows!
   amount: 99.99,        // ✅ TypeScript knows!
   // invalid: true,     // ❌ TypeScript error!
 });
 
-result.match({
-  Ok: () => console.log('Published'),
-  Error: (error) => console.error('Failed:', error),
-});
+if (result.isError()) {
+  console.error('Failed:', result.error);
+} else {
+  console.log('Published');
+}
 ```
 
 ## Automatic Validation
@@ -69,18 +70,15 @@ Invalid messages are caught early with clear error messages.
 
 ```typescript
 // This returns a validation error (doesn't throw)
-const result = client.publish('orderCreated', {
+const result = await client.publish('orderCreated', {
   orderId: 'ORD-123',
   amount: 'not-a-number',  // ❌ Validation error!
 });
 
-result.match({
-  Ok: () => console.log('Published'),
-  Error: (error) => {
-    // Handle MessageValidationError or TechnicalError
-    console.error('Failed:', error.message);
-  },
-});
+if (result.isError()) {
+  // Handle MessageValidationError or TechnicalError
+  console.error('Failed:', result.error.message);
+}
 ```
 
 ## Schema Libraries
@@ -197,10 +195,7 @@ Consumers define what messages can be consumed:
 ```typescript
 const processOrderConsumer = defineConsumer(
   orderProcessingQueue,  // queue
-  orderMessage,          // message definition
-  {
-    prefetch: 10,        // optional: max concurrent messages
-  }
+  orderMessage           // message definition
 );
 ```
 

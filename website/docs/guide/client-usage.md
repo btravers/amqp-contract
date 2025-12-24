@@ -14,9 +14,9 @@ Create a type-safe client from your contract:
 import { TypedAmqpClient } from '@amqp-contract/client';
 import { contract } from './contract';
 
-const client = await TypedAmqpClient.create({
+const client = TypedAmqpClient.create({
   contract,
-  connection: 'amqp://localhost'
+  urls: ['amqp://localhost']
 });
 ```
 
@@ -25,7 +25,7 @@ const client = await TypedAmqpClient.create({
 Publish messages with full type safety and explicit error handling:
 
 ```typescript
-const result = client.publish('orderCreated', {
+const result = await client.publish('orderCreated', {
   orderId: 'ORD-123',
   customerId: 'CUST-456',
   amount: 99.99,
@@ -34,10 +34,11 @@ const result = client.publish('orderCreated', {
   ],
 });
 
-result.match({
-  Ok: () => console.log('✅ Published'),
-  Error: (error) => console.error('❌ Failed:', error.message),
-});
+if (result.isError()) {
+  console.error('❌ Failed:', result.error.message);
+} else {
+  console.log('✅ Published');
+}
 ```
 
 ### Type Safety
@@ -51,24 +52,23 @@ The client enforces:
 
 ```typescript
 // ❌ TypeScript error: 'unknownPublisher' not in contract
-const result = client.publish('unknownPublisher', { ... });
+const result = await client.publish('unknownPublisher', { ... });
 
 // ❌ TypeScript error: missing required field
-const result = client.publish('orderCreated', {
+const result = await client.publish('orderCreated', {
   customerId: 'CUST-456',
 });
 
 // ❌ Runtime validation error returned in Result
-const result = client.publish('orderCreated', {
+const result = await client.publish('orderCreated', {
   orderId: 123, // should be string
   customerId: 'CUST-456',
   amount: 99.99,
 });
 
-result.match({
-  Ok: () => console.log('Published'),
-  Error: (error) => console.error('Validation failed:', error),
-});
+if (result.isError()) {
+  console.error('Validation failed:', result.error);
+}
 ```
 
 ## Publishing Options
@@ -78,7 +78,7 @@ result.match({
 Override the routing key for specific messages:
 
 ```typescript
-const result = client.publish(
+const result = await client.publish(
   'orderCreated',
   { orderId: 'ORD-123', amount: 99.99 },
   { routingKey: 'order.created.urgent' }
@@ -90,7 +90,7 @@ const result = client.publish(
 Set AMQP message properties:
 
 ```typescript
-const result = client.publish(
+const result = await client.publish(
   'orderCreated',
   { orderId: 'ORD-123', amount: 99.99 },
   {
@@ -119,23 +119,22 @@ Errors are returned via `Result` types, not thrown:
 import { MessageValidationError, TechnicalError } from '@amqp-contract/client';
 import { match, P } from 'ts-pattern';
 
-const result = client.publish('orderCreated', {
+const result = await client.publish('orderCreated', {
   orderId: 'ORD-123',
   amount: 99.99,
 });
 
-result.match({
-  Ok: () => console.log('✅ Published'),
-  Error: (error) =>
-    match(error)
-      .with(P.instanceOf(MessageValidationError), (err) =>
-        console.error('Validation failed:', err.issues)
-      )
-      .with(P.instanceOf(TechnicalError), (err) =>
-        console.error('Technical error:', err.message)
-      )
-      .exhaustive(),
-});
+if (result.isError()) {
+  const error = result.error;
+  match(error)
+    .with(P.instanceOf(MessageValidationError), (err) =>
+      console.error('Validation failed:', err.issues)
+    )
+    .with(P.instanceOf(TechnicalError), (err) =>
+      console.error('Technical error:', err.message)
+    )
+    .exhaustive();
+}
 ```
 
 **Error Types:**
@@ -156,12 +155,12 @@ async function main() {
   let client;
 
   try {
-    client = await TypedAmqpClient.create({
+    client = TypedAmqpClient.create({
       contract,
-      connection: 'amqp://localhost'
+      urls: ['amqp://localhost']
     });
 
-    const result = client.publish('orderCreated', {
+    const result = await client.publish('orderCreated', {
       orderId: 'ORD-123',
       customerId: 'CUST-456',
       amount: 99.99,
@@ -170,18 +169,19 @@ async function main() {
       ],
     });
 
-    result.match({
-      Ok: () => console.log('✅ Message published'),
-      Error: (error) =>
-        match(error)
-          .with(P.instanceOf(MessageValidationError), (err) =>
-            console.error('❌ Validation failed:', err.issues)
-          )
-          .with(P.instanceOf(TechnicalError), (err) =>
-            console.error('❌ Technical error:', err.message)
-          )
-          .exhaustive(),
-    });
+    if (result.isError()) {
+      const error = result.error;
+      match(error)
+        .with(P.instanceOf(MessageValidationError), (err) =>
+          console.error('❌ Validation failed:', err.issues)
+        )
+        .with(P.instanceOf(TechnicalError), (err) =>
+          console.error('❌ Technical error:', err.message)
+        )
+        .exhaustive();
+    } else {
+      console.log('✅ Message published');
+    }
   } catch (error) {
     console.error('Unexpected error:', error);
   } finally {

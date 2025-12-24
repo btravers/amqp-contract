@@ -319,13 +319,13 @@ The client is in a separate package (`@amqp-contract-samples/basic-order-process
 import { TypedAmqpClient } from '@amqp-contract/client';
 import { orderContract } from '@amqp-contract-samples/basic-order-processing-contract';
 
-const client = await TypedAmqpClient.create({
+const client = TypedAmqpClient.create({
   contract: orderContract,
-  connection: 'amqp://localhost'
+  urls: ['amqp://localhost']
 });
 
 // Publish new order with explicit error handling
-const result = client.publish('orderCreated', {
+const result = await client.publish('orderCreated', {
   orderId: 'ORD-001',
   customerId: 'CUST-123',
   items: [
@@ -335,25 +335,25 @@ const result = client.publish('orderCreated', {
   createdAt: new Date().toISOString(),
 });
 
-result.match({
-  Ok: () => console.log('Order published successfully'),
-  Error: (error) => {
-    console.error('Failed to publish:', error.message);
-    // Handle error appropriately
-  },
-});
+if (result.isError()) {
+  console.error('Failed to publish:', result.error.message);
+  // Handle error appropriately
+} else {
+  console.log('Order published successfully');
+}
 
 // Publish status update
-const updateResult = client.publish('orderUpdated', {
+const updateResult = await client.publish('orderUpdated', {
   orderId: 'ORD-001',
   status: 'processing',
   updatedAt: new Date().toISOString(),
 });
 
-updateResult.match({
-  Ok: () => console.log('Status update published'),
-  Error: (error) => console.error('Failed:', error),
-});
+if (updateResult.isError()) {
+  console.error('Failed:', updateResult.error);
+} else {
+  console.log('Status update published');
+}
 ```
 
 ## Worker Implementation

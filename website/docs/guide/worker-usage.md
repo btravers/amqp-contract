@@ -14,7 +14,7 @@ Create a worker with type-safe message handlers:
 import { TypedAmqpWorker } from '@amqp-contract/worker';
 import { contract } from './contract';
 
-const worker = await TypedAmqpWorker.create({
+const workerResult = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => {
@@ -25,8 +25,14 @@ const worker = await TypedAmqpWorker.create({
       console.log('Notifying:', message.orderId);
     },
   },
-  connection: 'amqp://localhost',
+  urls: ['amqp://localhost'],
 });
+
+if (workerResult.isError()) {
+  throw workerResult.error;
+}
+
+const worker = workerResult.value;
 
 console.log('✅ Worker ready!');
 ```
@@ -38,7 +44,7 @@ The worker automatically connects and starts consuming messages from all queues.
 Handlers receive validated, fully-typed messages:
 
 ```typescript
-const worker = await TypedAmqpWorker.create({
+const workerResult = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => {
@@ -66,24 +72,30 @@ The worker enforces:
 
 ```typescript
 // ❌ TypeScript error: missing handler
-const worker = await TypedAmqpWorker.create({
+const workerResult = await TypedAmqpWorker.create({
   contract,
   handlers: {
     notifyOrder: async (message) => { ... },
     // Missing processOrder handler!
   },
-  connection,
+  urls: ['amqp://localhost'],
 });
 
 // ✅ All handlers present
-const worker = await TypedAmqpWorker.create({
+const workerResult = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => { ... },
     notifyOrder: async (message) => { ... },
   },
-  connection,
+  urls: ['amqp://localhost'],
 });
+
+if (workerResult.isError()) {
+  throw workerResult.error;
+}
+
+const worker = workerResult.value;
 ```
 
 ## Defining Handlers Externally
@@ -110,7 +122,7 @@ const worker = await TypedAmqpWorker.create({
   handlers: {
     processOrder: processOrderHandler,
   },
-  connection: 'amqp://localhost',
+  urls: ['amqp://localhost'],
 });
 ```
 
@@ -132,7 +144,7 @@ const handlers = defineHandlers(contract, {
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers,
-  connection: 'amqp://localhost',
+  urls: ['amqp://localhost'],
 });
 ```
 
@@ -158,7 +170,7 @@ const handlers = defineHandlers(orderContract, {
 const worker = await TypedAmqpWorker.create({
   contract: orderContract,
   handlers,
-  connection: 'amqp://localhost',
+  urls: ['amqp://localhost'],
 });
 ```
 
@@ -215,7 +227,7 @@ import { orderHandlers } from './handlers/order-handlers';
 const worker = await TypedAmqpWorker.create({
   contract: orderContract,
   handlers: orderHandlers,
-  connection: 'amqp://localhost',
+  urls: ['amqp://localhost'],
 });
 ```
 
@@ -389,7 +401,7 @@ async function main() {
         await sendEmail(message);
       },
     },
-    connection: 'amqp://localhost',
+    urls: ['amqp://localhost'],
   });
 
   console.log('✅ Worker ready!');

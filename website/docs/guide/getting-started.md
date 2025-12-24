@@ -98,12 +98,12 @@ import { TypedAmqpClient } from '@amqp-contract/client';
 import { contract } from './contract';
 
 async function main() {
-  const client = await TypedAmqpClient.create({
+  const client = TypedAmqpClient.create({
     contract,
-    connection: 'amqp://localhost'
+    urls: ['amqp://localhost']
   });
 
-  const result = client.publish('orderCreated', {
+  const result = await client.publish('orderCreated', {
     orderId: 'ORD-123',
     customerId: 'CUST-456',
     amount: 99.99,
@@ -113,10 +113,11 @@ async function main() {
     ],
   });
 
-  result.match({
-    Ok: () => console.log('✅ Order published!'),
-    Error: (error) => console.error('❌ Failed:', error.message),
-  });
+  if (result.isError()) {
+    console.error('❌ Failed:', result.error.message);
+  } else {
+    console.log('✅ Order published!');
+  }
 
   await client.close();
 }
@@ -134,7 +135,7 @@ import { TypedAmqpWorker } from '@amqp-contract/worker';
 import { contract } from './contract';
 
 async function main() {
-  const worker = await TypedAmqpWorker.create({
+  const workerResult = await TypedAmqpWorker.create({
     contract,
     handlers: {
       processOrder: async (message) => {
@@ -149,8 +150,14 @@ async function main() {
         }
       },
     },
-    connection: 'amqp://localhost',
+    urls: ['amqp://localhost'],
   });
+
+  if (workerResult.isError()) {
+    throw workerResult.error;
+  }
+
+  const worker = workerResult.value;
 
   console.log('✅ Worker ready, waiting for messages...');
 }

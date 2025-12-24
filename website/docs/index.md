@@ -116,32 +116,39 @@ const contract = defineContract({
 });
 
 // 4. Type-safe client with explicit error handling
-const client = await TypedAmqpClient.create({
+const client = TypedAmqpClient.create({
   contract,
-  connection: 'amqp://localhost'
+  urls: ['amqp://localhost']
 });
 
-const result = client.publish('orderCreated', {
+const result = await client.publish('orderCreated', {
   orderId: 'ORD-123',      // ✅ TypeScript knows!
   customerId: 'CUST-456',
   amount: 99.99,
 });
 
-result.match({
-  Ok: () => console.log('Published'),
-  Error: (error) => console.error('Failed:', error),
-});
+if (result.isError()) {
+  console.error('Failed:', result.error);
+} else {
+  console.log('Published');
+}
 
 // 5. Type-safe worker
-const worker = await TypedAmqpWorker.create({
+const workerResult = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => {
       console.log(message.orderId);  // ✅ Fully typed!
     },
   },
-  connection: 'amqp://localhost',
+  urls: ['amqp://localhost'],
 });
+
+if (workerResult.isError()) {
+  throw workerResult.error;
+}
+
+const worker = workerResult.value;
 ```
 
 ## Quick Start
@@ -185,32 +192,43 @@ export const contract = defineContract({
 import { TypedAmqpClient } from '@amqp-contract/client';
 import { contract } from './contract';
 
-const client = await TypedAmqpClient.create({
+const client = TypedAmqpClient.create({
   contract,
-  connection: 'amqp://localhost'
+  urls: ['amqp://localhost']
 });
 
-const result = client.publish('orderCreated', {
+const result = await client.publish('orderCreated', {
   orderId: 'ORD-123',
   amount: 99.99,
 });
 
-result.match({
-  Ok: () => console.log('✅ Published'),
-  Error: (error) => console.error('❌ Failed:', error),
-});
+if (result.isError()) {
+  console.error('❌ Failed:', result.error);
+} else {
+  console.log('✅ Published');
+}
 ```
 
 ```typescript [3. Consume Messages]
 import { TypedAmqpWorker } from '@amqp-contract/worker';
 import { contract } from './contract';
 
-const worker = await TypedAmqpWorker.create({
+const workerResult = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => {
       console.log(`Processing: ${message.orderId}`);
       console.log(`Amount: $${message.amount}`);
+    },
+  },
+  urls: ['amqp://localhost'],
+});
+
+if (workerResult.isError()) {
+  throw workerResult.error;
+}
+
+const worker = workerResult.value;
     },
   },
   connection: 'amqp://localhost',
