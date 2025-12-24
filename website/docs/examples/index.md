@@ -95,11 +95,11 @@ flowchart TB
     Contract -.->|import| Client
     Contract -.->|import| Worker
 
-    Client -->|publish()| TypedClient
+    Client -->|publish| TypedClient
     TypedClient -->|Type-safe + Validation| Exchange
     Exchange -->|routing| Queue
     Queue -->|Type-safe + Validation| TypedWorker
-    TypedWorker -->|handle()| Worker
+    TypedWorker -->|handle| Worker
 
     style Contract fill:#e1f5ff
     style TypedClient fill:#d4edda
