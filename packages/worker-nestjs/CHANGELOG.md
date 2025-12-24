@@ -1,5 +1,18 @@
 # @amqp-contract/worker-nestjs
 
+## 0.3.3
+
+### Patch Changes
+
+- Fix handler export in worker-nestjs
+
+  This release fixes an issue where `defineHandler` and `defineHandlers` were incorrectly exported as types instead of functions, preventing their use in NestJS applications.
+
+  **Fixed:**
+  - Correctly export `defineHandler` and `defineHandlers` as functions from `@amqp-contract/worker`
+  - @amqp-contract/contract@0.3.3
+  - @amqp-contract/worker@0.3.3
+
 ## 0.3.2
 
 ### Patch Changes
