@@ -1,5 +1,19 @@
 # @amqp-contract/worker-nestjs
 
+## 0.3.4
+
+### Patch Changes
+
+- Add generic type parameters to NestJS module forRoot/forRootAsync methods
+
+  This change replaces ConfigurableModuleBuilder with manual forRoot/forRootAsync implementations that support generic type parameters. This enables full type safety for worker handlers and client publishers based on the specific contract type.
+
+  **BREAKING CHANGE**: MODULE_OPTIONS_TOKEN is now a Symbol instead of string|symbol union
+
+- Updated dependencies
+  - @amqp-contract/worker@0.3.4
+  - @amqp-contract/contract@0.3.4
+
 ## 0.3.3
 
 ### Patch Changes
