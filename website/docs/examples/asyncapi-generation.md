@@ -37,7 +37,7 @@ graph LR
         CodeGen["⚙️ Code Generation"]
     end
 
-    Contract -->|"generateAsyncAPI()"| Generator
+    Contract -->|"generateAsyncAPI"| Generator
     Generator --> JSON
     Generator --> YAML
 
@@ -343,7 +343,7 @@ flowchart LR
         AsyncAPI["channels:<br/>messages:<br/>payload: {...}"]
     end
 
-    ZodDef -->|"toJsonSchema()"| Converter
+    ZodDef -->|"toJsonSchema"| Converter
     Converter --> JSONSchema
     JSONSchema --> AsyncAPI
 
