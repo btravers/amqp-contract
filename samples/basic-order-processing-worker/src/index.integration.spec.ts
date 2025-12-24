@@ -29,10 +29,13 @@ describe("Basic Order Processing Worker Integration", () => {
     }
     const worker = workerResult.value;
 
-    const client = TypedAmqpClient.create({
+    const clientResult = await TypedAmqpClient.create({
       contract: orderContract,
       urls: [amqpConnectionUrl],
     });
+
+    expect(clientResult.isOk()).toBe(true);
+    const client = clientResult.get();
 
     const newOrder = {
       orderId: "TEST-001",
@@ -79,10 +82,13 @@ describe("Basic Order Processing Worker Integration", () => {
     }
     const worker = workerResult.value;
 
-    const client = TypedAmqpClient.create({
+    const clientResult = await TypedAmqpClient.create({
       contract: orderContract,
       urls: [amqpConnectionUrl],
     });
+
+    expect(clientResult.isOk()).toBe(true);
+    const client = clientResult.get();
 
     // WHEN
     const newOrder = {
@@ -140,10 +146,13 @@ describe("Basic Order Processing Worker Integration", () => {
     }
     const worker = workerResult.value;
 
-    const client = TypedAmqpClient.create({
+    const clientResult = await TypedAmqpClient.create({
       contract: orderContract,
       urls: [amqpConnectionUrl],
     });
+
+    expect(clientResult.isOk()).toBe(true);
+    const client = clientResult.get();
 
     const newOrder = {
       orderId: "TEST-003",

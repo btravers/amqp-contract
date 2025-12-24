@@ -7,10 +7,13 @@ import { orderContract } from "@amqp-contract-samples/basic-order-processing-con
 describe("Basic Order Processing Client Integration", () => {
   it("should publish a new order successfully", async ({ amqpConnectionUrl }) => {
     // GIVEN
-    const client = TypedAmqpClient.create({
+    const clientResult = await TypedAmqpClient.create({
       contract: orderContract,
       urls: [amqpConnectionUrl],
     });
+
+    expect(clientResult.isOk()).toBe(true);
+    const client = clientResult.get();
 
     const newOrder = {
       orderId: "TEST-001",
@@ -35,10 +38,13 @@ describe("Basic Order Processing Client Integration", () => {
 
   it("should publish order status updates", async ({ amqpConnectionUrl }) => {
     // GIVEN
-    const client = TypedAmqpClient.create({
+    const clientResult = await TypedAmqpClient.create({
       contract: orderContract,
       urls: [amqpConnectionUrl],
     });
+
+    expect(clientResult.isOk()).toBe(true);
+    const client = clientResult.get();
 
     const orderUpdate = {
       orderId: "TEST-001",
@@ -58,10 +64,13 @@ describe("Basic Order Processing Client Integration", () => {
 
   it("should validate order schema before publishing", async ({ amqpConnectionUrl }) => {
     // GIVEN
-    const client = TypedAmqpClient.create({
+    const clientResult = await TypedAmqpClient.create({
       contract: orderContract,
       urls: [amqpConnectionUrl],
     });
+
+    expect(clientResult.isOk()).toBe(true);
+    const client = clientResult.get();
 
     const invalidOrder = {
       orderId: "TEST-001",
