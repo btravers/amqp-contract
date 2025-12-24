@@ -10,23 +10,31 @@
 :root {
   /* Brand colors - Orange theme matching the logo */
   --vp-c-brand-1: #ff9900;
-  --vp-c-brand-2: #ff8800;
+  --vp-c-brand-2: #ff7700;
   --vp-c-brand-3: #ff6600;
   --vp-c-brand-soft: rgba(255, 102, 0, 0.14);
 
+  /* Link colors */
+  --vp-c-text-1: rgba(60, 60, 67);
+  --vp-c-text-2: rgba(60, 60, 67, 0.78);
+
   /* Background colors */
+  --vp-c-bg: #ffffff;
   --vp-c-bg-soft: #f6f6f7;
+  --vp-c-bg-mute: #f1f1f2;
 }
 
 .dark {
   /* Dark mode brand colors */
   --vp-c-brand-1: #ffb347;
   --vp-c-brand-2: #ff9a1a;
-  --vp-c-brand-3: #ff7a1a;
+  --vp-c-brand-3: #ff8800;
   --vp-c-brand-soft: rgba(255, 153, 0, 0.24);
 
   /* Dark mode background colors */
+  --vp-c-bg: #1a1a1a;
   --vp-c-bg-soft: #202127;
+  --vp-c-bg-mute: #2a2a32;
 }
 
 /**
@@ -67,4 +75,98 @@
   :root {
     --vp-home-hero-image-filter: blur(68px);
   }
+}
+
+/**
+ * Component: Features
+ * -------------------------------------------------------------------------- */
+
+.VPFeature {
+  transition: all 0.3s ease;
+}
+
+.VPFeature:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(255, 102, 0, 0.15);
+}
+
+.VPFeature .icon {
+  font-size: 2rem;
+  background: linear-gradient(120deg, #ff6600, #ff9900);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/**
+ * Component: Code Blocks
+ * -------------------------------------------------------------------------- */
+
+.vp-doc div[class*='language-'] {
+  border-radius: 8px;
+  margin: 1.5rem 0;
+}
+
+.vp-doc div[class*='language-'] > button.copy {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.vp-doc div[class*='language-']:hover > button.copy {
+  opacity: 1;
+}
+
+/**
+ * Component: Links
+ * -------------------------------------------------------------------------- */
+
+.vp-doc a {
+  font-weight: 500;
+  transition: color 0.2s ease;
+}
+
+.vp-doc a:hover {
+  color: var(--vp-c-brand-1);
+}
+
+/**
+ * Custom enhancements
+ * -------------------------------------------------------------------------- */
+
+/* Enhance hero section */
+.VPHero .name {
+  font-size: clamp(2.5rem, 8vw, 4rem);
+  line-height: 1.2;
+  font-weight: 800;
+}
+
+.VPHero .tagline {
+  font-size: clamp(1rem, 3vw, 1.5rem);
+  line-height: 1.5;
+  color: var(--vp-c-text-2);
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* Feature grid improvements */
+.VPFeatures {
+  padding: 3rem 0;
+}
+
+.VPFeatures .container {
+  max-width: 1200px;
+}
+
+/* Improve button styling */
+.VPButton.brand {
+  background: linear-gradient(135deg, var(--vp-c-brand-3), var(--vp-c-brand-1));
+  border: none;
+  transition: all 0.3s ease;
+  font-weight: 600;
+}
+
+.VPButton.brand:hover {
+  background: linear-gradient(135deg, var(--vp-c-brand-2), var(--vp-c-brand-3));
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(255, 102, 0, 0.3);
 }

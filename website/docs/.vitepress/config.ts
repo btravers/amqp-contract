@@ -1,19 +1,17 @@
 import { defineConfig } from "vitepress";
-import { withMermaid } from "vitepress-plugin-mermaid";
 
 // https://vitepress.dev/reference/site-config
-export default withMermaid(
-  defineConfig({
-    title: "amqp-contract",
-    description: "Type-safe contracts for AMQP/RabbitMQ messaging with AsyncAPI generation",
-    base: "/amqp-contract/",
+export default defineConfig({
+  title: "amqp-contract",
+  description: "Type-safe contracts for AMQP/RabbitMQ messaging with AsyncAPI generation",
+  base: "/amqp-contract/",
 
-    // Mermaid configuration
-    mermaidPlugin: {
-      class: "mermaid",
-    },
+  // Native mermaid support (VitePress 1.3+)
+  mermaid: {
+    theme: "default",
+  },
 
-    themeConfig: {
+  themeConfig: {
       // https://vitepress.dev/reference/default-theme-config
       logo: "/logo.svg",
 
@@ -114,5 +112,5 @@ export default withMermaid(
     },
 
     head: [["link", { rel: "icon", type: "image/svg+xml", href: "/amqp-contract/logo.svg" }]],
-  }),
+  },
 );

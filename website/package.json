@@ -23,7 +23,6 @@
     "@types/node": "catalog:",
     "mermaid": "catalog:",
     "tsx": "catalog:",
-    "vitepress": "catalog:",
-    "vitepress-plugin-mermaid": "catalog:"
+    "vitepress": "catalog:"
   }
 }
