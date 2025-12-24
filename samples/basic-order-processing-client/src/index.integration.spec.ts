@@ -12,8 +12,10 @@ describe("Basic Order Processing Client Integration", () => {
       urls: [amqpConnectionUrl],
     });
 
-    expect(clientResult.isOk()).toBe(true);
-    const client = clientResult.get();
+    if (clientResult.isError()) {
+      throw clientResult.error;
+    }
+    const client = clientResult.value;
 
     const newOrder = {
       orderId: "TEST-001",
@@ -43,8 +45,10 @@ describe("Basic Order Processing Client Integration", () => {
       urls: [amqpConnectionUrl],
     });
 
-    expect(clientResult.isOk()).toBe(true);
-    const client = clientResult.get();
+    if (clientResult.isError()) {
+      throw clientResult.error;
+    }
+    const client = clientResult.value;
 
     const orderUpdate = {
       orderId: "TEST-001",
@@ -69,8 +73,10 @@ describe("Basic Order Processing Client Integration", () => {
       urls: [amqpConnectionUrl],
     });
 
-    expect(clientResult.isOk()).toBe(true);
-    const client = clientResult.get();
+    if (clientResult.isError()) {
+      throw clientResult.error;
+    }
+    const client = clientResult.value;
 
     const invalidOrder = {
       orderId: "TEST-001",
