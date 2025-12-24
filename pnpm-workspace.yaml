@@ -22,7 +22,7 @@ catalog:
   amqp-connection-manager: 5.0.0
   amqplib: 0.10.9
   arktype: 2.1.29
-  knip: 5.76.3
+  knip: 5.77.1
   lefthook: 2.0.12
   mermaid: 11.12.2
   oxfmt: 0.20.0
@@ -35,8 +35,8 @@ catalog:
   testcontainers: 11.10.0
   tsdown: 0.18.2
   tsx: 4.21.0
-  turbo: 2.7.1
-  typedoc: 0.28.3
+  turbo: 2.7.2
+  typedoc: 0.28.15
   typedoc-plugin-markdown: 4.9.0
   typescript: 5.9.3
   valibot: 1.2.0
