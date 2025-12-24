@@ -21,7 +21,7 @@ export default withMermaid(
       },
     },
 
-    // Transform page metadata for better SEO
+    // Inject canonical URLs for each page to prevent duplicate content issues
     transformPageData(pageData) {
       // Only process markdown files
       if (!pageData.relativePath.endsWith(".md")) {
