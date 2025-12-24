@@ -7,6 +7,17 @@ export default withMermaid(
     title: "amqp-contract",
     description: "Type-safe contracts for AMQP/RabbitMQ messaging with AsyncAPI generation",
     base: "/amqp-contract/",
+    sitemap: {
+      hostname: "https://btravers.github.io",
+      transformItems: (items) => {
+        return items.map((item) => ({
+          ...item,
+          url: item.url.startsWith("/")
+            ? `/amqp-contract${item.url}`
+            : `/amqp-contract/${item.url}`,
+        }));
+      },
+    },
 
     // Mermaid configuration
     mermaidPlugin: {
