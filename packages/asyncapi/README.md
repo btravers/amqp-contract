@@ -1,6 +1,12 @@
 # @amqp-contract/asyncapi
 
-AsyncAPI 3.0.0 specification generator for amqp-contract.
+**AsyncAPI 3.0.0 specification generator for amqp-contract.**
+
+[![CI](https://github.com/btravers/amqp-contract/actions/workflows/ci.yml/badge.svg)](https://github.com/btravers/amqp-contract/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/@amqp-contract/asyncapi.svg?logo=npm)](https://www.npmjs.com/package/@amqp-contract/asyncapi)
+[![npm downloads](https://img.shields.io/npm/dm/@amqp-contract/asyncapi.svg)](https://www.npmjs.com/package/@amqp-contract/asyncapi)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?logo=typescript)](https://www.typescriptlang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 📖 **[Full documentation →](https://btravers.github.io/amqp-contract/api/asyncapi)**
 
@@ -67,6 +73,10 @@ Generate an AsyncAPI 3.0.0 specification from an AMQP contract.
 - ✅ Operations for publishers and consumers
 - ✅ Message schemas from Zod schemas
 - ✅ AMQP protocol bindings
+
+## Documentation
+
+📖 **[Read the full documentation →](https://btravers.github.io/amqp-contract)**
 
 ## License
 

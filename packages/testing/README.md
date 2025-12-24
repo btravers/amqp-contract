@@ -1,6 +1,12 @@
 # @amqp-contract/testing
 
-Testing utilities for AMQP contracts using testcontainers.
+**Testing utilities for AMQP contracts using testcontainers.**
+
+[![CI](https://github.com/btravers/amqp-contract/actions/workflows/ci.yml/badge.svg)](https://github.com/btravers/amqp-contract/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/@amqp-contract/testing.svg?logo=npm)](https://www.npmjs.com/package/@amqp-contract/testing)
+[![npm downloads](https://img.shields.io/npm/dm/@amqp-contract/testing.svg)](https://www.npmjs.com/package/@amqp-contract/testing)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?logo=typescript)](https://www.typescriptlang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 📖 **[Full documentation →](https://btravers.github.io/amqp-contract/guide/getting-started)**
 
@@ -100,3 +106,11 @@ The following variables are provided to tests:
 - `__TESTCONTAINERS_RABBITMQ_IP__` - Container host IP
 - `__TESTCONTAINERS_RABBITMQ_PORT_5672__` - Mapped AMQP port
 - `__TESTCONTAINERS_RABBITMQ_PORT_15672__` - Mapped management port
+
+## Documentation
+
+📖 **[Read the full documentation →](https://btravers.github.io/amqp-contract)**
+
+## License
+
+MIT

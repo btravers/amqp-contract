@@ -1,6 +1,16 @@
 # @amqp-contract/core
 
-Core utilities for AMQP setup and management in amqp-contract. This package provides centralized functionality for establishing AMQP topology (exchanges, queues, and bindings) from contract definitions.
+**Core utilities for AMQP setup and management in amqp-contract.**
+
+[![CI](https://github.com/btravers/amqp-contract/actions/workflows/ci.yml/badge.svg)](https://github.com/btravers/amqp-contract/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/@amqp-contract/core.svg?logo=npm)](https://www.npmjs.com/package/@amqp-contract/core)
+[![npm downloads](https://img.shields.io/npm/dm/@amqp-contract/core.svg)](https://www.npmjs.com/package/@amqp-contract/core)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?logo=typescript)](https://www.typescriptlang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+This package provides centralized functionality for establishing AMQP topology (exchanges, queues, and bindings) from contract definitions.
+
+📖 **[Full documentation →](https://btravers.github.io/amqp-contract)**
 
 ## Installation
 
@@ -84,6 +94,10 @@ A Promise that resolves when all resources are created.
 - [@amqp-contract/contract](../contract) - Contract definition builders
 - [@amqp-contract/client](../client) - Type-safe AMQP client
 - [@amqp-contract/worker](../worker) - Type-safe AMQP worker
+
+## Documentation
+
+📖 **[Read the full documentation →](https://btravers.github.io/amqp-contract)**
 
 ## License
 

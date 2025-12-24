@@ -1,6 +1,12 @@
 # @amqp-contract/worker
 
-Type-safe AMQP worker for consuming messages using amqp-contract with standard async/await error handling.
+**Type-safe AMQP worker for consuming messages using amqp-contract with standard async/await error handling.**
+
+[![CI](https://github.com/btravers/amqp-contract/actions/workflows/ci.yml/badge.svg)](https://github.com/btravers/amqp-contract/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/@amqp-contract/worker.svg?logo=npm)](https://www.npmjs.com/package/@amqp-contract/worker)
+[![npm downloads](https://img.shields.io/npm/dm/@amqp-contract/worker.svg)](https://www.npmjs.com/package/@amqp-contract/worker)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?logo=typescript)](https://www.typescriptlang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 📖 **[Full documentation →](https://btravers.github.io/amqp-contract/api/worker)**
 
@@ -75,6 +81,10 @@ These errors are logged but **handlers don't need to use them** - just throw sta
 ## API
 
 See the [Worker API documentation](https://btravers.github.io/amqp-contract/api/worker) for complete API reference.
+
+## Documentation
+
+📖 **[Read the full documentation →](https://btravers.github.io/amqp-contract)**
 
 ## License
 
