@@ -25,9 +25,21 @@
       "entry": ["*.json"]
     },
     "website": {
-      "entry": ["docs/.vitepress/config.ts", "docs/.vitepress/theme/index.ts"]
+      "entry": [
+        "docs/.vitepress/config.ts",
+        "docs/.vitepress/theme/index.ts",
+        "scripts/copy-docs.ts"
+      ],
+      "ignoreDependencies": [
+        "@amqp-contract/asyncapi",
+        "@amqp-contract/client",
+        "@amqp-contract/client-nestjs",
+        "@amqp-contract/contract",
+        "@amqp-contract/worker",
+        "@amqp-contract/worker-nestjs"
+      ]
     }
   },
   "ignore": ["coverage/**", "**/dist/**"],
-  "ignoreDependencies": ["pino-pretty"]
+  "ignoreDependencies": ["pino-pretty", "typedoc-plugin-markdown"]
 }
