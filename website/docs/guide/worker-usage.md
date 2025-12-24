@@ -3,68 +3,50 @@
 Learn how to use the type-safe AMQP worker to consume messages.
 
 ::: tip NestJS Users
-If you're building a NestJS application, check out the [NestJS Worker Usage](/guide/worker-nestjs-usage) guide for automatic lifecycle management and dependency injection.
-:::
-
-## Installation
-
-Install the required packages:
-
-::: code-group
-
-```bash [pnpm]
-pnpm add @amqp-contract/worker
-```
-
-```bash [npm]
-npm install @amqp-contract/worker
-```
-
-```bash [yarn]
-yarn add @amqp-contract/worker
-```
-
+For NestJS applications, see the [NestJS Worker Usage](/guide/worker-nestjs-usage) guide.
 :::
 
 ## Creating a Worker
 
-Create a type-safe worker with message handlers. The worker automatically connects to RabbitMQ and starts consuming all messages:
+Create a worker with type-safe message handlers:
 
 ```typescript
 import { TypedAmqpWorker } from '@amqp-contract/worker';
 import { contract } from './contract';
 
-// Create worker with handlers (automatically connects and starts consuming)
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => {
-      console.log('Processing order:', message.orderId);
+      console.log('Processing:', message.orderId);
       // Your business logic here
     },
     notifyOrder: async (message) => {
-      console.log('Sending notification for:', message.orderId);
+      console.log('Notifying:', message.orderId);
     },
   },
   connection: 'amqp://localhost',
 });
+
+console.log('✅ Worker ready!');
 ```
+
+The worker automatically connects and starts consuming messages from all queues.
 
 ## Message Handlers
 
-Each handler receives validated, fully-typed messages:
+Handlers receive validated, fully-typed messages:
 
 ```typescript
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => {
-      // message is typed based on the consumer schema
-      console.log(message.orderId);       // string
-      console.log(message.amount);        // number
-      console.log(message.items);         // array
+      // Message is fully typed!
+      console.log(message.orderId);   // ✅ string
+      console.log(message.amount);    // ✅ number
+      console.log(message.items);     // ✅ array
 
-      // Full autocomplete and type checking
       for (const item of message.items) {
         console.log(`${item.productId}: ${item.quantity}`);
       }
@@ -78,17 +60,17 @@ const worker = await TypedAmqpWorker.create({
 
 The worker enforces:
 
-- ✅ **Required handlers** - All consumers in the contract must have handlers
-- ✅ **Message schema** - Messages are validated with Zod before reaching handlers
-- ✅ **Type inference** - Handler parameters are fully typed
+- ✅ **Required handlers** - All consumers must have handlers
+- ✅ **Message validation** - Validated before reaching handlers
+- ✅ **Type inference** - Fully typed parameters
 
 ```typescript
-// ❌ TypeScript error: missing handler for 'processOrder'
+// ❌ TypeScript error: missing handler
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    // notifyOrder is defined, but processOrder is missing
     notifyOrder: async (message) => { ... },
+    // Missing processOrder handler!
   },
   connection,
 });
@@ -106,33 +88,25 @@ const worker = await TypedAmqpWorker.create({
 
 ## Defining Handlers Externally
 
-For better code organization and reusability, you can define handlers outside of the worker creation using `defineHandler` and `defineHandlers` utilities.
+For better organization, define handlers separately:
 
-### Single Handler Definition
-
-Use `defineHandler` to define individual handlers:
+### Single Handler
 
 ```typescript
 import { defineHandler } from '@amqp-contract/worker';
-import { orderContract } from './contract';
+import { contract } from './contract';
 
-// Define handler separately
 const processOrderHandler = defineHandler(
-  orderContract,
+  contract,
   'processOrder',
   async (message) => {
-    // message is fully typed based on the contract
-    console.log('Processing order:', message.orderId);
-
-    // Your business logic
+    console.log('Processing:', message.orderId);
     await saveToDatabase(message);
-    await updateInventory(message);
   }
 );
 
-// Use in worker
 const worker = await TypedAmqpWorker.create({
-  contract: orderContract,
+  contract,
   handlers: {
     processOrder: processOrderHandler,
   },
@@ -140,13 +114,27 @@ const worker = await TypedAmqpWorker.create({
 });
 ```
 
-### Multiple Handlers Definition
-
-Use `defineHandlers` to define all handlers at once:
+### Multiple Handlers
 
 ```typescript
 import { defineHandlers } from '@amqp-contract/worker';
-import { orderContract } from './contract';
+import { contract } from './contract';
+
+const handlers = defineHandlers(contract, {
+  processOrder: async (message) => {
+    await processPayment(message);
+  },
+  notifyOrder: async (message) => {
+    await sendEmail(message);
+  },
+});
+
+const worker = await TypedAmqpWorker.create({
+  contract,
+  handlers,
+  connection: 'amqp://localhost',
+});
+```
 
 // Define all handlers together
 const handlers = defineHandlers(orderContract, {
@@ -310,82 +298,52 @@ const worker = await TypedAmqpWorker.create({
         nack({ requeue: true });
       }
     },
-  },
-  connection,
-});
-```
 
-### Acknowledgment Options
+## Message Acknowledgment
 
-```typescript
-// Acknowledge (default)
-ack();
+### Automatic Acknowledgment
 
-// Negative acknowledge (requeue)
-nack({ requeue: true });
-
-// Negative acknowledge (don't requeue)
-nack({ requeue: false });
-
-// Reject message
-reject({ requeue: false });
-```
-
-## Error Handling
-
-### Handler Errors
-
-Errors in handlers are caught and logged:
+By default, messages are automatically acknowledged:
 
 ```typescript
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => {
-      if (!message.items.length) {
-        throw new Error('No items in order');
-      }
-      // Process order...
+      console.log('Processing:', message.orderId);
+      // Auto-acknowledged after handler completes
     },
   },
   connection,
 });
-
-// Errors are logged but don't crash the worker
 ```
 
-### Connection Errors
+### Manual Acknowledgment
 
-Handle connection issues:
-
-```typescript
-connection.on('error', (error) => {
-  console.error('Connection error:', error);
-});
-
-connection.on('close', () => {
-  console.log('Connection closed');
-  // Implement reconnection logic
-});
-```
-
-## Consumer Options
-
-Configure consumer behavior in the contract:
+For more control:
 
 ```typescript
-const contract = defineContract({
-  consumers: {
-    processOrder: defineConsumer(
-      'order-processing',
-      orderSchema,
-      {
-        exclusive: false,    // Allow multiple consumers
+const worker = await TypedAmqpWorker.create({
+  contract,
+  handlers: {
+    processOrder: async (message, { ack, nack, reject }) => {
+      try {
+        await processOrder(message);
+        ack();  // Acknowledge success
+      } catch (error) {
+        nack({ requeue: true });  // Requeue for retry
       }
-    ),
+    },
   },
+  connection,
 });
 ```
+
+**Options:**
+- `ack()` - Acknowledge message
+- `nack({ requeue: true })` - Requeue for retry
+- `nack({ requeue: false })` - Discard message
+- `reject({ requeue: false })` - Reject message
 
 ## Graceful Shutdown
 
@@ -394,90 +352,13 @@ Properly close the worker on shutdown:
 ```typescript
 async function shutdown() {
   console.log('Shutting down...');
-
-  // Stop consuming new messages
   await worker.close();
-
-  // Close the connection
-  await connection.close();
-
-  console.log('Shutdown complete');
   process.exit(0);
 }
 
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 ```
-
-## Advanced Usage
-
-### Multiple Workers
-
-Run multiple workers for different consumers:
-
-```typescript
-const processingWorker = await TypedAmqpWorker.create({
-  contract,
-  handlers: {
-    processOrder: async (message) => { ... },
-  },
-  connection: connection1,
-});
-
-const notificationWorker = await TypedAmqpWorker.create({
-  contract,
-  handlers: {
-    notifyOrder: async (message) => { ... },
-  },
-  connection: connection2,
-});
-```
-
-### Dead Letter Queues
-
-Configure dead letter handling in queues:
-
-```typescript
-const contract = defineContract({
-  queues: {
-    orderProcessing: defineQueue('order-processing', {
-      durable: true,
-      arguments: {
-        'x-dead-letter-exchange': 'order-dlx',
-        'x-dead-letter-routing-key': 'order-dead',
-      },
-    }),
-  },
-});
-```
-
-### Retry Logic
-
-Implement custom retry logic with requeuing:
-
-```typescript
-const worker = await TypedAmqpWorker.create({
-  contract,
-  handlers: {
-    processOrder: async (message, { ack, nack }) => {
-      try {
-        await processOrder(message);
-        ack();
-      } catch (error) {
-        console.error('Processing failed:', error);
-
-        // Requeue for retry (simple approach)
-        // For more sophisticated retry logic, use dead letter queues
-        // with TTL and message headers to track retry count
-        nack({ requeue: true });
-      }
-    },
-  },
-  connection,
-});
-```
-
-**Note:** For production-grade retry logic with retry counting, configure [Dead Letter Queues](#dead-letter-queues) with message TTL and use a separate retry exchange to track attempts.
 
 ## Complete Example
 
@@ -486,26 +367,23 @@ import { TypedAmqpWorker } from '@amqp-contract/worker';
 import { contract } from './contract';
 
 async function main() {
-  // Create worker with handlers (automatically connects and starts consuming)
   const worker = await TypedAmqpWorker.create({
     contract,
     handlers: {
       processOrder: async (message, { ack, nack }) => {
         try {
           console.log(`Processing order ${message.orderId}`);
-
-          // Your business logic
+          
           await saveToDatabase(message);
           await sendConfirmation(message.customerId);
-
-          // Acknowledge success
+          
           ack();
         } catch (error) {
           console.error('Processing failed:', error);
           nack({ requeue: true });
         }
       },
-
+      
       notifyOrder: async (message) => {
         console.log(`Sending notification for ${message.orderId}`);
         await sendEmail(message);
@@ -514,12 +392,12 @@ async function main() {
     connection: 'amqp://localhost',
   });
 
-  console.log('Worker ready, waiting for messages...');
+  console.log('✅ Worker ready!');
 
   // Graceful shutdown
   const shutdown = async () => {
     console.log('Shutting down...');
-    await worker.close(); // Closes worker, channel, and connection
+    await worker.close();
     process.exit(0);
   };
 
@@ -533,15 +411,13 @@ main().catch(console.error);
 ## Best Practices
 
 1. **Handle Errors** - Always wrap business logic in try-catch
-2. **Use Prefetch** - Limit concurrent message processing
-3. **Graceful Shutdown** - Properly close connections on shutdown
+2. **Use Prefetch** - Limit concurrent messages with `prefetch` option
+3. **Graceful Shutdown** - Properly close connections
 4. **Idempotency** - Handlers should be safe to retry
-5. **Logging** - Log message processing for debugging
-6. **Dead Letters** - Configure DLQ for failed messages
-7. **Monitoring** - Track message processing metrics
+5. **Dead Letters** - Configure DLQ for failed messages
 
 ## Next Steps
 
-- Learn about [Client Usage](/guide/client-usage) for publishing messages
+- Learn about [Client Usage](/guide/client-usage)
 - Explore [Defining Contracts](/guide/defining-contracts)
-- See [Examples](/examples/) for complete implementations
+- Check out [Examples](/examples/)
