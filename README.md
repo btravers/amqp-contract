@@ -168,9 +168,6 @@ export class AppModule {}
 | [@amqp-contract/client-nestjs](./packages/client-nestjs) | NestJS integration for client            |
 | [@amqp-contract/worker-nestjs](./packages/worker-nestjs) | NestJS integration for worker            |
 | [@amqp-contract/asyncapi](./packages/asyncapi)           | AsyncAPI 3.0 specification generator     |
-| [@amqp-contract/zod](./packages/zod)                     | Zod schema integration                   |
-| [@amqp-contract/valibot](./packages/valibot)             | Valibot schema integration               |
-| [@amqp-contract/arktype](./packages/arktype)             | ArkType schema integration               |
 
 ## AsyncAPI Generation
 
