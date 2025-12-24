@@ -5,27 +5,24 @@
 - Node.js 18 or higher
 - RabbitMQ or another AMQP 0.9.1 broker
 
-## Package Installation
+## Core Packages
 
-Install the core packages:
+Install the essentials:
 
 ::: code-group
 
 ```bash [pnpm]
-pnpm add @amqp-contract/contract @amqp-contract/client @amqp-contract/worker
-pnpm add amqplib zod
+pnpm add @amqp-contract/contract @amqp-contract/client @amqp-contract/worker amqplib zod
 pnpm add -D @types/amqplib
 ```
 
 ```bash [npm]
-npm install @amqp-contract/contract @amqp-contract/client @amqp-contract/worker
-npm install amqplib zod
+npm install @amqp-contract/contract @amqp-contract/client @amqp-contract/worker amqplib zod
 npm install -D @types/amqplib
 ```
 
 ```bash [yarn]
-yarn add @amqp-contract/contract @amqp-contract/client @amqp-contract/worker
-yarn add amqplib zod
+yarn add @amqp-contract/contract @amqp-contract/client @amqp-contract/worker amqplib zod
 yarn add -D @types/amqplib
 ```
 
@@ -35,7 +32,7 @@ yarn add -D @types/amqplib
 
 ### AsyncAPI Generation
 
-For generating AsyncAPI specifications:
+For generating AsyncAPI 3.0 specifications:
 
 ```bash
 pnpm add @amqp-contract/asyncapi
@@ -43,18 +40,11 @@ pnpm add @amqp-contract/asyncapi
 
 ### NestJS Integration
 
-For NestJS applications, use the dedicated integration packages:
+For NestJS applications:
 
 ::: code-group
 
 ```bash [pnpm]
-# For publishing messages
-pnpm add @amqp-contract/client-nestjs
-
-# For consuming messages
-pnpm add @amqp-contract/worker-nestjs
-
-# Or install both
 pnpm add @amqp-contract/client-nestjs @amqp-contract/worker-nestjs
 ```
 
@@ -68,25 +58,21 @@ yarn add @amqp-contract/client-nestjs @amqp-contract/worker-nestjs
 
 :::
 
-These packages include all necessary dependencies and provide automatic lifecycle management for NestJS applications.
-
 ### Alternative Schema Libraries
 
-Instead of Zod, you can use other Standard Schema-compatible libraries:
+Instead of Zod, use Valibot or ArkType:
 
 ```bash
 # Valibot
-pnpm add @amqp-contract/valibot valibot
+pnpm add valibot
 
 # ArkType
-pnpm add @amqp-contract/arktype arktype
+pnpm add arktype
 ```
 
 ## RabbitMQ Setup
 
-### Using Docker
-
-The easiest way to get started:
+### Using Docker (Recommended)
 
 ```bash
 docker run -d \
@@ -106,5 +92,4 @@ Follow the [official RabbitMQ installation guide](https://www.rabbitmq.com/downl
 
 - Follow the [Getting Started](/guide/getting-started) guide
 - Learn about [Core Concepts](/guide/core-concepts)
-- Explore [Examples](/examples/)
-- For NestJS users: Check out [NestJS Client Usage](/guide/client-nestjs-usage) and [NestJS Worker Usage](/guide/worker-nestjs-usage)
+- For NestJS: See [NestJS Client](/guide/client-nestjs-usage) and [NestJS Worker](/guide/worker-nestjs-usage)

@@ -253,6 +253,7 @@ const orderMessage = defineMessage(orderSchema, {
   description: 'Emitted when a new order is created',
 });
 const orderStatusMessage = defineMessage(orderStatusSchema);
+const orderUnionMessage = defineMessage(z.union([orderSchema, orderStatusSchema]));
 
 // 3. Compose contract using object references
 export const orderContract = defineContract({
@@ -294,18 +295,10 @@ export const orderContract = defineContract({
     }),
   },
   consumers: {
-    processOrder: defineConsumer(orderProcessingQueue, orderMessage, {
-      prefetch: 10,
-    }),
-    notifyOrder: defineConsumer(orderNotificationsQueue, defineMessage(z.union([orderSchema, orderStatusSchema])), {
-      prefetch: 5,
-    }),
-    shipOrder: defineConsumer(orderShippingQueue, orderStatusMessage, {
-      prefetch: 5,
-    }),
-    handleUrgentOrder: defineConsumer(orderUrgentQueue, orderStatusMessage, {
-      prefetch: 20,
-    }),
+    processOrder: defineConsumer(orderProcessingQueue, orderMessage),
+    notifyOrder: defineConsumer(orderNotificationsQueue, orderUnionMessage),
+    shipOrder: defineConsumer(orderShippingQueue, orderStatusMessage),
+    handleUrgentOrder: defineConsumer(orderUrgentQueue, orderStatusMessage),
   },
 });
 ```
@@ -318,13 +311,13 @@ The client is in a separate package (`@amqp-contract-samples/basic-order-process
 import { TypedAmqpClient } from '@amqp-contract/client';
 import { orderContract } from '@amqp-contract-samples/basic-order-processing-contract';
 
-const client = await TypedAmqpClient.create({
+const client = TypedAmqpClient.create({
   contract: orderContract,
-  connection: 'amqp://localhost'
+  urls: ['amqp://localhost']
 });
 
 // Publish new order with explicit error handling
-const result = client.publish('orderCreated', {
+const result = await client.publish('orderCreated', {
   orderId: 'ORD-001',
   customerId: 'CUST-123',
   items: [
@@ -343,7 +336,7 @@ result.match({
 });
 
 // Publish status update
-const updateResult = client.publish('orderUpdated', {
+const updateResult = await client.publish('orderUpdated', {
   orderId: 'ORD-001',
   status: 'processing',
   updatedAt: new Date().toISOString(),

@@ -19,11 +19,19 @@ pnpm add @amqp-contract/asyncapi
 ## Usage
 
 ```typescript
-import { generateAsyncAPI } from '@amqp-contract/asyncapi';
+import { AsyncAPIGenerator } from '@amqp-contract/asyncapi';
+import { ZodToJsonSchemaConverter } from '@orpc/zod/zod4';
+import { writeFileSync } from 'fs';
+
 import { contract } from './contract';
 
+// Create generator with schema converters
+const generator = new AsyncAPIGenerator({
+  schemaConverters: [new ZodToJsonSchemaConverter()],
+});
+
 // Generate AsyncAPI specification
-const asyncAPISpec = generateAsyncAPI(contract, {
+const asyncAPISpec = await generator.generate(contract, {
   info: {
     title: 'My AMQP API',
     version: '1.0.0',
@@ -47,24 +55,27 @@ const asyncAPISpec = generateAsyncAPI(contract, {
 console.log(JSON.stringify(asyncAPISpec, null, 2));
 
 // Or write to file
-import { writeFileSync } from 'fs';
 writeFileSync('asyncapi.json', JSON.stringify(asyncAPISpec, null, 2));
 ```
 
 ## API
 
-### `generateAsyncAPI(contract, options)`
+### `AsyncAPIGenerator`
 
-Generate an AsyncAPI 3.0.0 specification from an AMQP contract.
+Generator class for creating AsyncAPI 3.0.0 specifications from AMQP contracts.
 
-**Parameters:**
+**Constructor Parameters:**
 
-- `contract`: The AMQP contract definition
-- `options`: Configuration options
-  - `info`: API information (title, version, description, etc.)
-  - `servers`: Server configurations (optional)
+- `options.schemaConverters`: Array of schema converters (e.g., `ZodToJsonSchemaConverter`)
 
-**Returns:** AsyncAPI 3.0.0 document
+**Methods:**
+
+- `generate(contract, options)`: Generate an AsyncAPI specification
+  - `contract`: The AMQP contract definition
+  - `options`: Configuration options
+    - `info`: API information (title, version, description, etc.)
+    - `servers`: Server configurations (optional)
+  - Returns: `Promise<AsyncAPIObject>` - AsyncAPI 3.0.0 document
 
 ## Features
 

@@ -27,15 +27,15 @@ export default withMermaid(
       sidebar: {
         "/guide/": [
           {
-            text: "Introduction",
+            text: "Getting Started",
             items: [
-              { text: "Getting Started", link: "/guide/getting-started" },
-              { text: "Core Concepts", link: "/guide/core-concepts" },
+              { text: "Introduction", link: "/guide/getting-started" },
               { text: "Installation", link: "/guide/installation" },
+              { text: "Core Concepts", link: "/guide/core-concepts" },
             ],
           },
           {
-            text: "Usage",
+            text: "Core Usage",
             items: [
               { text: "Defining Contracts", link: "/guide/defining-contracts" },
               { text: "Client Usage", link: "/guide/client-usage" },
@@ -43,10 +43,10 @@ export default withMermaid(
             ],
           },
           {
-            text: "NestJS Integration",
+            text: "NestJS",
             items: [
-              { text: "NestJS Client Usage", link: "/guide/client-nestjs-usage" },
-              { text: "NestJS Worker Usage", link: "/guide/worker-nestjs-usage" },
+              { text: "Client", link: "/guide/client-nestjs-usage" },
+              { text: "Worker", link: "/guide/worker-nestjs-usage" },
             ],
           },
           {
