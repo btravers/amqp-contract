@@ -1,6 +1,5 @@
 {
   "name": "@amqp-contract/website",
-  "version": "0.0.1",
   "private": true,
   "description": "Documentation website for amqp-contract",
   "license": "MIT",

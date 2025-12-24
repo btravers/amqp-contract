@@ -1,5 +1,48 @@
 # @amqp-contract/client-nestjs
 
+## 0.3.0
+
+### Minor Changes
+
+- Add waitForConnectionReady feature
+
+  This release introduces connection readiness handling with the following changes:
+
+  **Breaking Changes:**
+  - `TypedAmqpClient.create()` now returns `Future<Result<TypedAmqpClient, TechnicalError>>` instead of directly returning the client instance
+  - `TypedAmqpWorker.create()` now returns `Future<Result<TypedAmqpWorker, TechnicalError>>` instead of directly returning the worker instance
+
+  **New Features:**
+  - Added `waitForConnectionReady()` method to ensure AMQP connection is established before operations
+  - Improved error handling with explicit Result types for connection failures
+
+  **Migration Guide:**
+  Update your client/worker creation code to handle the new async Result type:
+
+  Before:
+
+  ```typescript
+  const client = TypedAmqpClient.create({ contract, urls });
+  ```
+
+  After:
+
+  ```typescript
+  const result = await TypedAmqpClient.create({ contract, urls });
+  if (result.isError()) {
+    // Handle connection error
+    console.error("Failed to create client:", result.getError());
+    return;
+  }
+  const client = result.get();
+  ```
+
+### Patch Changes
+
+- Updated dependencies
+  - @amqp-contract/client@0.3.0
+  - @amqp-contract/contract@0.3.0
+
 ## 0.2.1
 
 ### Patch Changes
