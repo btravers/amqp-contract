@@ -6,111 +6,108 @@ export default defineConfig({
   description: "Type-safe contracts for AMQP/RabbitMQ messaging with AsyncAPI generation",
   base: "/amqp-contract/",
 
-  // Native mermaid support (VitePress 1.3+)
-  mermaid: {
-    theme: "default",
-  },
+  // Mermaid diagrams support
+  mermaid: {},
 
   themeConfig: {
-      // https://vitepress.dev/reference/default-theme-config
-      logo: "/logo.svg",
+    // https://vitepress.dev/reference/default-theme-config
+    logo: "/logo.svg",
 
-      nav: [
-        { text: "Home", link: "/" },
-        { text: "Guide", link: "/guide/getting-started" },
-        { text: "API", link: "/api/" },
-        { text: "Examples", link: "/examples/" },
-      ],
+    nav: [
+      { text: "Home", link: "/" },
+      { text: "Guide", link: "/guide/getting-started" },
+      { text: "API", link: "/api/" },
+      { text: "Examples", link: "/examples/" },
+    ],
 
-      sidebar: {
-        "/guide/": [
-          {
-            text: "Getting Started",
-            items: [
-              { text: "Getting Started", link: "/guide/getting-started" },
-              { text: "Core Concepts", link: "/guide/core-concepts" },
-            ],
-          },
-          {
-            text: "Core Usage",
-            items: [
-              { text: "Defining Contracts", link: "/guide/defining-contracts" },
-              { text: "Client Usage", link: "/guide/client-usage" },
-              { text: "Worker Usage", link: "/guide/worker-usage" },
-            ],
-          },
-          {
-            text: "NestJS",
-            items: [
-              { text: "Client", link: "/guide/client-nestjs-usage" },
-              { text: "Worker", link: "/guide/worker-nestjs-usage" },
-            ],
-          },
-          {
-            text: "Advanced",
-            items: [{ text: "AsyncAPI Generation", link: "/guide/asyncapi-generation" }],
-          },
-        ],
-        "/api/": [
-          {
-            text: "Core Packages",
-            items: [
-              { text: "Overview", link: "/api/" },
-              { text: "@amqp-contract/contract", link: "/api/contract/" },
-              { text: "@amqp-contract/client", link: "/api/client/" },
-              { text: "@amqp-contract/worker", link: "/api/worker/" },
-              { text: "@amqp-contract/asyncapi", link: "/api/asyncapi/" },
-            ],
-          },
-          {
-            text: "NestJS Integration",
-            items: [
-              { text: "@amqp-contract/client-nestjs", link: "/api/client-nestjs/" },
-              { text: "@amqp-contract/worker-nestjs", link: "/api/worker-nestjs/" },
-            ],
-          },
-        ],
-        "/examples/": [
-          {
-            text: "Examples",
-            items: [
-              { text: "Overview", link: "/examples/" },
-              {
-                text: "Basic Order Processing",
-                link: "/examples/basic-order-processing",
-              },
-              {
-                text: "AsyncAPI Generation",
-                link: "/examples/asyncapi-generation",
-              },
-            ],
-          },
-        ],
-      },
-
-      socialLinks: [
-        { icon: "github", link: "https://github.com/btravers/amqp-contract" },
+    sidebar: {
+      "/guide/": [
         {
-          icon: "npm",
-          link: "https://www.npmjs.com/package/@amqp-contract/contract",
+          text: "Getting Started",
+          items: [
+            { text: "Getting Started", link: "/guide/getting-started" },
+            { text: "Core Concepts", link: "/guide/core-concepts" },
+          ],
+        },
+        {
+          text: "Core Usage",
+          items: [
+            { text: "Defining Contracts", link: "/guide/defining-contracts" },
+            { text: "Client Usage", link: "/guide/client-usage" },
+            { text: "Worker Usage", link: "/guide/worker-usage" },
+          ],
+        },
+        {
+          text: "NestJS",
+          items: [
+            { text: "Client", link: "/guide/client-nestjs-usage" },
+            { text: "Worker", link: "/guide/worker-nestjs-usage" },
+          ],
+        },
+        {
+          text: "Advanced",
+          items: [{ text: "AsyncAPI Generation", link: "/guide/asyncapi-generation" }],
         },
       ],
-
-      footer: {
-        message: "Released under the MIT License.",
-        copyright: `Copyright © ${new Date().getFullYear()} Benoit TRAVERS`,
-      },
-
-      search: {
-        provider: "local",
-      },
-
-      editLink: {
-        pattern: "https://github.com/btravers/amqp-contract/edit/main/website/docs/:path",
-        text: "Edit this page on GitHub",
-      },
+      "/api/": [
+        {
+          text: "Core Packages",
+          items: [
+            { text: "Overview", link: "/api/" },
+            { text: "@amqp-contract/contract", link: "/api/contract/" },
+            { text: "@amqp-contract/client", link: "/api/client/" },
+            { text: "@amqp-contract/worker", link: "/api/worker/" },
+            { text: "@amqp-contract/asyncapi", link: "/api/asyncapi/" },
+          ],
+        },
+        {
+          text: "NestJS Integration",
+          items: [
+            { text: "@amqp-contract/client-nestjs", link: "/api/client-nestjs/" },
+            { text: "@amqp-contract/worker-nestjs", link: "/api/worker-nestjs/" },
+          ],
+        },
+      ],
+      "/examples/": [
+        {
+          text: "Examples",
+          items: [
+            { text: "Overview", link: "/examples/" },
+            {
+              text: "Basic Order Processing",
+              link: "/examples/basic-order-processing",
+            },
+            {
+              text: "AsyncAPI Generation",
+              link: "/examples/asyncapi-generation",
+            },
+          ],
+        },
+      ],
     },
 
-    head: [["link", { rel: "icon", type: "image/svg+xml", href: "/amqp-contract/logo.svg" }]],
+    socialLinks: [
+      { icon: "github", link: "https://github.com/btravers/amqp-contract" },
+      {
+        icon: "npm",
+        link: "https://www.npmjs.com/package/@amqp-contract/contract",
+      },
+    ],
+
+    footer: {
+      message: "Released under the MIT License.",
+      copyright: `Copyright © ${new Date().getFullYear()} Benoit TRAVERS`,
+    },
+
+    search: {
+      provider: "local",
+    },
+
+    editLink: {
+      pattern: "https://github.com/btravers/amqp-contract/edit/main/website/docs/:path",
+      text: "Edit this page on GitHub",
+    },
   },
-);
+
+  head: [["link", { rel: "icon", type: "image/svg+xml", href: "/amqp-contract/logo.svg" }]],
+});
