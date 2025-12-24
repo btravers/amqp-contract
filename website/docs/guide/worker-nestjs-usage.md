@@ -703,6 +703,6 @@ bootstrap();
 ## Next Steps
 
 - Learn about [NestJS Client Usage](/guide/client-nestjs-usage) for publishing messages
-- Explore [Worker API](/api/worker) for core functionality
-- See [Worker NestJS API](/api/worker-nestjs) for detailed API reference
+- Explore [Worker API](/api/worker/) for core functionality
+- See [Worker NestJS API](/api/worker-nestjs/) for detailed API reference
 - Read about [Defining Contracts](/guide/defining-contracts)

@@ -92,6 +92,10 @@ dist
 website/docs/.vitepress/cache
 website/docs/.vitepress/dist
 
+# TypeDoc generated API documentation
+website/docs/api/
+packages/*/docs/
+
 # Gatsby files
 .cache/
 # Comment in the public line in if your project uses Gatsby and not Next.js

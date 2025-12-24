@@ -59,17 +59,17 @@ export default withMermaid(
             text: "Core Packages",
             items: [
               { text: "Overview", link: "/api/" },
-              { text: "@amqp-contract/contract", link: "/api/contract" },
-              { text: "@amqp-contract/client", link: "/api/client" },
-              { text: "@amqp-contract/worker", link: "/api/worker" },
-              { text: "@amqp-contract/asyncapi", link: "/api/asyncapi" },
+              { text: "@amqp-contract/contract", link: "/api/contract/" },
+              { text: "@amqp-contract/client", link: "/api/client/" },
+              { text: "@amqp-contract/worker", link: "/api/worker/" },
+              { text: "@amqp-contract/asyncapi", link: "/api/asyncapi/" },
             ],
           },
           {
             text: "NestJS Integration",
             items: [
-              { text: "@amqp-contract/client-nestjs", link: "/api/client-nestjs" },
-              { text: "@amqp-contract/worker-nestjs", link: "/api/worker-nestjs" },
+              { text: "@amqp-contract/client-nestjs", link: "/api/client-nestjs/" },
+              { text: "@amqp-contract/worker-nestjs", link: "/api/worker-nestjs/" },
             ],
           },
         ],

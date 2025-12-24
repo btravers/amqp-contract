@@ -36,6 +36,8 @@ catalog:
   tsdown: 0.18.2
   tsx: 4.21.0
   turbo: 2.7.1
+  typedoc: 0.28.3
+  typedoc-plugin-markdown: 4.9.0
   typescript: 5.9.3
   valibot: 1.2.0
   vitepress: 1.6.4

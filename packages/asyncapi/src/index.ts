@@ -15,21 +15,119 @@ import type {
 } from "@amqp-contract/contract";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 
+/**
+ * Options for configuring the AsyncAPI generator.
+ *
+ * @example
+ * ```typescript
+ * import { AsyncAPIGenerator } from '@amqp-contract/asyncapi';
+ * import { zodToJsonSchema } from '@orpc/zod';
+ *
+ * const generator = new AsyncAPIGenerator({
+ *   schemaConverters: [zodToJsonSchema]
+ * });
+ * ```
+ */
 export interface AsyncAPIGeneratorOptions {
+  /**
+   * Schema converters for transforming validation schemas to JSON Schema.
+   * Supports Zod, Valibot, ArkType, and other Standard Schema v1 compatible libraries.
+   */
   schemaConverters?: ConditionalSchemaConverter[];
 }
 
+/**
+ * Options for generating an AsyncAPI document.
+ * These correspond to the top-level AsyncAPI document fields.
+ */
 export type AsyncAPIGeneratorGenerateOptions = Pick<AsyncAPIObject, "id" | "info" | "servers">;
 
+/**
+ * Generator for creating AsyncAPI 3.0 documentation from AMQP contracts.
+ *
+ * This class converts contract definitions into AsyncAPI 3.0 specification documents,
+ * which can be used for API documentation, code generation, and tooling integration.
+ *
+ * @example
+ * ```typescript
+ * import { AsyncAPIGenerator } from '@amqp-contract/asyncapi';
+ * import { zodToJsonSchema } from '@orpc/zod';
+ * import { z } from 'zod';
+ *
+ * const contract = defineContract({
+ *   exchanges: {
+ *     orders: defineExchange('orders', 'topic', { durable: true })
+ *   },
+ *   publishers: {
+ *     orderCreated: definePublisher('orders', z.object({
+ *       orderId: z.string(),
+ *       amount: z.number()
+ *     }), {
+ *       routingKey: 'order.created'
+ *     })
+ *   }
+ * });
+ *
+ * const generator = new AsyncAPIGenerator({
+ *   schemaConverters: [zodToJsonSchema]
+ * });
+ *
+ * const asyncapi = await generator.generate(contract, {
+ *   id: 'urn:com:example:order-service',
+ *   info: {
+ *     title: 'Order Service API',
+ *     version: '1.0.0',
+ *     description: 'Async API for order processing'
+ *   },
+ *   servers: {
+ *     production: {
+ *       host: 'rabbitmq.example.com',
+ *       protocol: 'amqp',
+ *       protocolVersion: '0.9.1'
+ *     }
+ *   }
+ * });
+ * ```
+ */
 export class AsyncAPIGenerator {
   private readonly converters: ConditionalSchemaConverter[];
 
+  /**
+   * Create a new AsyncAPI generator instance.
+   *
+   * @param options - Configuration options including schema converters
+   */
   constructor(options: AsyncAPIGeneratorOptions = {}) {
     this.converters = options.schemaConverters ?? [];
   }
 
   /**
-   * Generate an AsyncAPI 3.0 document from a contract definition
+   * Generate an AsyncAPI 3.0 document from a contract definition.
+   *
+   * Converts AMQP exchanges, queues, publishers, and consumers into
+   * AsyncAPI channels, operations, and messages with proper JSON Schema
+   * validation definitions.
+   *
+   * @param contract - The AMQP contract definition to convert
+   * @param options - AsyncAPI document metadata (id, info, servers)
+   * @returns Promise resolving to a complete AsyncAPI 3.0 document
+   *
+   * @example
+   * ```typescript
+   * const asyncapi = await generator.generate(contract, {
+   *   id: 'urn:com:example:api',
+   *   info: {
+   *     title: 'My API',
+   *     version: '1.0.0'
+   *   },
+   *   servers: {
+   *     dev: {
+   *       host: 'localhost:5672',
+   *       protocol: 'amqp'
+   *     }
+   *   }
+   * });
+   * ```
    */
   async generate(
     contract: ContractDefinition,

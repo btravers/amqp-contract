@@ -38,10 +38,12 @@
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.mts",
   "files": [
-    "dist"
+    "dist",
+    "docs"
   ],
   "scripts": {
     "build": "tsdown src/index.ts --format cjs,esm --dts --clean",
+    "build:docs": "typedoc",
     "dev": "tsdown src/index.ts --format cjs,esm --dts --watch",
     "test": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
@@ -57,12 +59,15 @@
   "devDependencies": {
     "@amqp-contract/testing": "workspace:*",
     "@amqp-contract/tsconfig": "workspace:*",
+    "@amqp-contract/typedoc": "workspace:*",
     "@types/amqplib": "catalog:",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "amqp-connection-manager": "catalog:",
     "amqplib": "catalog:",
     "tsdown": "catalog:",
+    "typedoc": "catalog:",
+    "typedoc-plugin-markdown": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
     "zod": "catalog:"

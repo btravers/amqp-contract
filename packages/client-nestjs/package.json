@@ -39,10 +39,12 @@
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.mts",
   "files": [
-    "dist"
+    "dist",
+    "docs"
   ],
   "scripts": {
     "build": "tsdown src/index.ts --format cjs,esm --dts --clean",
+    "build:docs": "typedoc",
     "dev": "tsdown src/index.ts --format cjs,esm --dts --watch",
     "test": "vitest run --project unit",
     "test:watch": "vitest --project unit",
@@ -54,6 +56,7 @@
   },
   "devDependencies": {
     "@amqp-contract/tsconfig": "workspace:*",
+    "@amqp-contract/typedoc": "workspace:*",
     "@nestjs/common": "catalog:",
     "@swan-io/boxed": "catalog:",
     "@types/amqplib": "catalog:",
@@ -64,6 +67,8 @@
     "reflect-metadata": "catalog:",
     "rxjs": "catalog:",
     "tsdown": "catalog:",
+    "typedoc": "catalog:",
+    "typedoc-plugin-markdown": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
     "zod": "catalog:"

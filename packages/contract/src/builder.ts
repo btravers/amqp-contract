@@ -14,18 +14,85 @@ import type {
   BaseExchangeDefinition,
 } from "./types.js";
 
+/**
+ * Define a fanout exchange.
+ *
+ * A fanout exchange routes messages to all bound queues without considering routing keys.
+ * This exchange type is ideal for broadcasting messages to multiple consumers.
+ *
+ * @param name - The name of the exchange
+ * @param type - Must be "fanout"
+ * @param options - Optional exchange configuration
+ * @param options.durable - If true, the exchange survives broker restarts (default: false)
+ * @param options.autoDelete - If true, the exchange is deleted when no queues are bound (default: false)
+ * @param options.internal - If true, the exchange cannot be directly published to (default: false)
+ * @param options.arguments - Additional AMQP arguments for the exchange
+ * @returns A fanout exchange definition
+ *
+ * @example
+ * ```typescript
+ * const logsExchange = defineExchange('logs', 'fanout', {
+ *   durable: true
+ * });
+ * ```
+ */
 export function defineExchange(
   name: string,
   type: "fanout",
   options?: Omit<BaseExchangeDefinition, "name" | "type">,
 ): FanoutExchangeDefinition;
 
+/**
+ * Define a direct exchange.
+ *
+ * A direct exchange routes messages to queues based on exact routing key matches.
+ * This exchange type is ideal for point-to-point messaging.
+ *
+ * @param name - The name of the exchange
+ * @param type - Must be "direct"
+ * @param options - Optional exchange configuration
+ * @param options.durable - If true, the exchange survives broker restarts (default: false)
+ * @param options.autoDelete - If true, the exchange is deleted when no queues are bound (default: false)
+ * @param options.internal - If true, the exchange cannot be directly published to (default: false)
+ * @param options.arguments - Additional AMQP arguments for the exchange
+ * @returns A direct exchange definition
+ *
+ * @example
+ * ```typescript
+ * const tasksExchange = defineExchange('tasks', 'direct', {
+ *   durable: true
+ * });
+ * ```
+ */
 export function defineExchange(
   name: string,
   type: "direct",
   options?: Omit<BaseExchangeDefinition, "name" | "type">,
 ): DirectExchangeDefinition;
 
+/**
+ * Define a topic exchange.
+ *
+ * A topic exchange routes messages to queues based on routing key patterns.
+ * Routing keys can use wildcards: `*` matches one word, `#` matches zero or more words.
+ * This exchange type is ideal for flexible message routing based on hierarchical topics.
+ *
+ * @param name - The name of the exchange
+ * @param type - Must be "topic"
+ * @param options - Optional exchange configuration
+ * @param options.durable - If true, the exchange survives broker restarts (default: false)
+ * @param options.autoDelete - If true, the exchange is deleted when no queues are bound (default: false)
+ * @param options.internal - If true, the exchange cannot be directly published to (default: false)
+ * @param options.arguments - Additional AMQP arguments for the exchange
+ * @returns A topic exchange definition
+ *
+ * @example
+ * ```typescript
+ * const ordersExchange = defineExchange('orders', 'topic', {
+ *   durable: true
+ * });
+ * ```
+ */
 export function defineExchange(
   name: string,
   type: "topic",
@@ -33,7 +100,17 @@ export function defineExchange(
 ): TopicExchangeDefinition;
 
 /**
- * Define an AMQP exchange
+ * Define an AMQP exchange.
+ *
+ * An exchange receives messages from publishers and routes them to queues based on the exchange type
+ * and routing rules. This is the implementation function - use the type-specific overloads for better
+ * type safety.
+ *
+ * @param name - The name of the exchange
+ * @param type - The type of exchange: "fanout", "direct", or "topic"
+ * @param options - Optional exchange configuration
+ * @returns An exchange definition
+ * @internal
  */
 export function defineExchange(
   name: string,
@@ -48,7 +125,29 @@ export function defineExchange(
 }
 
 /**
- * Define an AMQP queue
+ * Define an AMQP queue.
+ *
+ * A queue stores messages until they are consumed by workers. Queues can be bound to exchanges
+ * to receive messages based on routing rules.
+ *
+ * @param name - The name of the queue
+ * @param options - Optional queue configuration
+ * @param options.durable - If true, the queue survives broker restarts (default: false)
+ * @param options.exclusive - If true, the queue can only be used by the declaring connection (default: false)
+ * @param options.autoDelete - If true, the queue is deleted when the last consumer unsubscribes (default: false)
+ * @param options.arguments - Additional AMQP arguments (e.g., x-message-ttl, x-dead-letter-exchange)
+ * @returns A queue definition
+ *
+ * @example
+ * ```typescript
+ * const orderProcessingQueue = defineQueue('order-processing', {
+ *   durable: true,
+ *   arguments: {
+ *     'x-message-ttl': 86400000, // 24 hours
+ *     'x-dead-letter-exchange': 'orders-dlx'
+ *   }
+ * });
+ * ```
  */
 export function defineQueue(
   name: string,
@@ -61,7 +160,39 @@ export function defineQueue(
 }
 
 /**
- * Define a message definition with payload and optional headers/metadata
+ * Define a message definition with payload and optional headers/metadata.
+ *
+ * A message definition specifies the schema for message payloads and headers using
+ * Standard Schema v1 compatible libraries (Zod, Valibot, ArkType, etc.).
+ * The schemas are used for automatic validation when publishing or consuming messages.
+ *
+ * @param payload - The payload schema (must be Standard Schema v1 compatible)
+ * @param options - Optional message metadata
+ * @param options.headers - Optional header schema for message headers
+ * @param options.summary - Brief description for documentation (used in AsyncAPI generation)
+ * @param options.description - Detailed description for documentation (used in AsyncAPI generation)
+ * @returns A message definition with inferred types
+ *
+ * @example
+ * ```typescript
+ * import { z } from 'zod';
+ *
+ * const orderMessage = defineMessage(
+ *   z.object({
+ *     orderId: z.string().uuid(),
+ *     customerId: z.string().uuid(),
+ *     amount: z.number().positive(),
+ *     items: z.array(z.object({
+ *       productId: z.string(),
+ *       quantity: z.number().int().positive(),
+ *     })),
+ *   }),
+ *   {
+ *     summary: 'Order created event',
+ *     description: 'Emitted when a new order is created in the system'
+ *   }
+ * );
+ * ```
  */
 export function defineMessage<
   TPayload extends MessageDefinition["payload"],
@@ -81,8 +212,24 @@ export function defineMessage<
 }
 
 /**
- * Define a binding between queue and fanout exchange (exchange -> queue)
- * Fanout exchanges don't use routing keys
+ * Define a binding between a queue and a fanout exchange.
+ *
+ * Binds a queue to a fanout exchange to receive all messages published to the exchange.
+ * Fanout exchanges ignore routing keys, so this overload doesn't require one.
+ *
+ * @param queue - The queue definition to bind
+ * @param exchange - The fanout exchange definition
+ * @param options - Optional binding configuration
+ * @param options.arguments - Additional AMQP arguments for the binding
+ * @returns A queue binding definition
+ *
+ * @example
+ * ```typescript
+ * const logsQueue = defineQueue('logs-queue', { durable: true });
+ * const logsExchange = defineExchange('logs', 'fanout', { durable: true });
+ *
+ * const binding = defineQueueBinding(logsQueue, logsExchange);
+ * ```
  */
 export function defineQueueBinding(
   queue: QueueDefinition,
@@ -94,8 +241,38 @@ export function defineQueueBinding(
 ): Extract<QueueBindingDefinition, { exchange: FanoutExchangeDefinition }>;
 
 /**
- * Define a binding between queue and direct/topic exchange (exchange -> queue)
- * Direct and topic exchanges require a routing key
+ * Define a binding between a queue and a direct or topic exchange.
+ *
+ * Binds a queue to an exchange with a specific routing key pattern.
+ * Messages are only routed to the queue if the routing key matches the pattern.
+ *
+ * For direct exchanges: The routing key must match exactly.
+ * For topic exchanges: The routing key can include wildcards:
+ * - `*` matches exactly one word
+ * - `#` matches zero or more words
+ *
+ * @param queue - The queue definition to bind
+ * @param exchange - The direct or topic exchange definition
+ * @param options - Binding configuration (routingKey is required)
+ * @param options.routingKey - The routing key pattern for message routing
+ * @param options.arguments - Additional AMQP arguments for the binding
+ * @returns A queue binding definition
+ *
+ * @example
+ * ```typescript
+ * const orderQueue = defineQueue('order-processing', { durable: true });
+ * const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+ *
+ * // Bind with exact routing key
+ * const binding = defineQueueBinding(orderQueue, ordersExchange, {
+ *   routingKey: 'order.created'
+ * });
+ *
+ * // Bind with wildcard pattern
+ * const allOrdersBinding = defineQueueBinding(orderQueue, ordersExchange, {
+ *   routingKey: 'order.*'  // Matches order.created, order.updated, etc.
+ * });
+ * ```
  */
 export function defineQueueBinding(
   queue: QueueDefinition,
@@ -113,7 +290,15 @@ export function defineQueueBinding(
 >;
 
 /**
- * Define a binding between queue and exchange (exchange -> queue)
+ * Define a binding between a queue and an exchange.
+ *
+ * This is the implementation function - use the type-specific overloads for better type safety.
+ *
+ * @param queue - The queue definition to bind
+ * @param exchange - The exchange definition
+ * @param options - Optional binding configuration
+ * @returns A queue binding definition
+ * @internal
  */
 export function defineQueueBinding(
   queue: QueueDefinition,
@@ -142,8 +327,25 @@ export function defineQueueBinding(
 }
 
 /**
- * Define a binding between fanout exchange and exchange (source -> destination)
- * Fanout exchanges don't use routing keys
+ * Define a binding between two exchanges (exchange-to-exchange routing).
+ *
+ * Binds a destination exchange to a fanout source exchange.
+ * Messages published to the source exchange will be forwarded to the destination exchange.
+ * Fanout exchanges ignore routing keys, so this overload doesn't require one.
+ *
+ * @param destination - The destination exchange definition
+ * @param source - The fanout source exchange definition
+ * @param options - Optional binding configuration
+ * @param options.arguments - Additional AMQP arguments for the binding
+ * @returns An exchange binding definition
+ *
+ * @example
+ * ```typescript
+ * const sourceExchange = defineExchange('logs', 'fanout', { durable: true });
+ * const destExchange = defineExchange('all-logs', 'fanout', { durable: true });
+ *
+ * const binding = defineExchangeBinding(destExchange, sourceExchange);
+ * ```
  */
 export function defineExchangeBinding(
   destination: ExchangeDefinition,
@@ -155,8 +357,28 @@ export function defineExchangeBinding(
 ): Extract<ExchangeBindingDefinition, { source: FanoutExchangeDefinition }>;
 
 /**
- * Define a binding between direct/topic exchange and exchange (source -> destination)
- * Direct and topic exchanges require a routing key
+ * Define a binding between two exchanges (exchange-to-exchange routing).
+ *
+ * Binds a destination exchange to a direct or topic source exchange with a routing key pattern.
+ * Messages are forwarded from source to destination only if the routing key matches the pattern.
+ *
+ * @param destination - The destination exchange definition
+ * @param source - The direct or topic source exchange definition
+ * @param options - Binding configuration (routingKey is required)
+ * @param options.routingKey - The routing key pattern for message routing
+ * @param options.arguments - Additional AMQP arguments for the binding
+ * @returns An exchange binding definition
+ *
+ * @example
+ * ```typescript
+ * const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+ * const importantExchange = defineExchange('important-orders', 'topic', { durable: true });
+ *
+ * // Forward only high-value orders
+ * const binding = defineExchangeBinding(importantExchange, ordersExchange, {
+ *   routingKey: 'order.high-value.*'
+ * });
+ * ```
  */
 export function defineExchangeBinding(
   destination: ExchangeDefinition,
@@ -174,7 +396,15 @@ export function defineExchangeBinding(
 >;
 
 /**
- * Define a binding between exchange and exchange (source -> destination)
+ * Define a binding between two exchanges (exchange-to-exchange routing).
+ *
+ * This is the implementation function - use the type-specific overloads for better type safety.
+ *
+ * @param destination - The destination exchange definition
+ * @param source - The source exchange definition
+ * @param options - Optional binding configuration
+ * @returns An exchange binding definition
+ * @internal
  */
 export function defineExchangeBinding(
   destination: ExchangeDefinition,
@@ -203,8 +433,33 @@ export function defineExchangeBinding(
 }
 
 /**
- * Define a message publisher for fanout exchange
- * Fanout exchanges don't use routing keys
+ * Define a message publisher for a fanout exchange.
+ *
+ * A publisher sends messages to an exchange. For fanout exchanges, messages are broadcast
+ * to all bound queues regardless of routing key, so no routing key is required.
+ *
+ * The message schema is validated when publishing to ensure type safety.
+ *
+ * @param exchange - The fanout exchange definition to publish to
+ * @param message - The message definition with payload schema
+ * @param options - Optional publisher configuration
+ * @returns A publisher definition with inferred message types
+ *
+ * @example
+ * ```typescript
+ * import { z } from 'zod';
+ *
+ * const logsExchange = defineExchange('logs', 'fanout', { durable: true });
+ * const logMessage = defineMessage(
+ *   z.object({
+ *     level: z.enum(['info', 'warn', 'error']),
+ *     message: z.string(),
+ *     timestamp: z.string().datetime(),
+ *   })
+ * );
+ *
+ * const logPublisher = definePublisher(logsExchange, logMessage);
+ * ```
  */
 export function definePublisher<TMessage extends MessageDefinition>(
   exchange: FanoutExchangeDefinition,
@@ -216,8 +471,39 @@ export function definePublisher<TMessage extends MessageDefinition>(
 ): Extract<PublisherDefinition<TMessage>, { exchange: FanoutExchangeDefinition }>;
 
 /**
- * Define a message publisher for direct/topic exchange
- * Direct and topic exchanges require a routing key
+ * Define a message publisher for a direct or topic exchange.
+ *
+ * A publisher sends messages to an exchange with a specific routing key.
+ * The routing key determines which queues receive the message.
+ *
+ * The message schema is validated when publishing to ensure type safety.
+ *
+ * @param exchange - The direct or topic exchange definition to publish to
+ * @param message - The message definition with payload schema
+ * @param options - Publisher configuration (routingKey is required)
+ * @param options.routingKey - The routing key for message routing
+ * @returns A publisher definition with inferred message types
+ *
+ * @example
+ * ```typescript
+ * import { z } from 'zod';
+ *
+ * const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+ * const orderMessage = defineMessage(
+ *   z.object({
+ *     orderId: z.string().uuid(),
+ *     amount: z.number().positive(),
+ *   }),
+ *   {
+ *     summary: 'Order created event',
+ *     description: 'Emitted when a new order is created'
+ *   }
+ * );
+ *
+ * const orderCreatedPublisher = definePublisher(ordersExchange, orderMessage, {
+ *   routingKey: 'order.created'
+ * });
+ * ```
  */
 export function definePublisher<TMessage extends MessageDefinition>(
   exchange: DirectExchangeDefinition | TopicExchangeDefinition,
@@ -235,7 +521,15 @@ export function definePublisher<TMessage extends MessageDefinition>(
 >;
 
 /**
- * Define a message publisher
+ * Define a message publisher.
+ *
+ * This is the implementation function - use the type-specific overloads for better type safety.
+ *
+ * @param exchange - The exchange definition
+ * @param message - The message definition
+ * @param options - Optional publisher configuration
+ * @returns A publisher definition
+ * @internal
  */
 export function definePublisher<TMessage extends MessageDefinition>(
   exchange: ExchangeDefinition,
@@ -257,7 +551,46 @@ export function definePublisher<TMessage extends MessageDefinition>(
 }
 
 /**
- * Define a message consumer
+ * Define a message consumer.
+ *
+ * A consumer receives and processes messages from a queue. The message schema is validated
+ * automatically when messages are consumed, ensuring type safety for your handlers.
+ *
+ * Consumers are associated with a specific queue and message type. When you create a worker
+ * with this consumer, it will process messages from the queue according to the schema.
+ *
+ * @param queue - The queue definition to consume from
+ * @param message - The message definition with payload schema
+ * @param options - Optional consumer configuration
+ * @returns A consumer definition with inferred message types
+ *
+ * @example
+ * ```typescript
+ * import { z } from 'zod';
+ *
+ * const orderQueue = defineQueue('order-processing', { durable: true });
+ * const orderMessage = defineMessage(
+ *   z.object({
+ *     orderId: z.string().uuid(),
+ *     customerId: z.string().uuid(),
+ *     amount: z.number().positive(),
+ *   })
+ * );
+ *
+ * const processOrderConsumer = defineConsumer(orderQueue, orderMessage);
+ *
+ * // Later, when creating a worker, you'll provide a handler for this consumer:
+ * // const worker = await TypedAmqpWorker.create({
+ * //   contract,
+ * //   handlers: {
+ * //     processOrder: async (message) => {
+ * //       // message is automatically typed based on the schema
+ * //       console.log(message.orderId); // string
+ * //     }
+ * //   },
+ * //   connection
+ * // });
+ * ```
  */
 export function defineConsumer<TMessage extends MessageDefinition>(
   queue: QueueDefinition,
@@ -272,7 +605,73 @@ export function defineConsumer<TMessage extends MessageDefinition>(
 }
 
 /**
- * Define an AMQP contract
+ * Define an AMQP contract.
+ *
+ * A contract is the central definition of your AMQP messaging topology. It brings together
+ * all exchanges, queues, bindings, publishers, and consumers in a single, type-safe definition.
+ *
+ * The contract is used by both clients (for publishing) and workers (for consuming) to ensure
+ * type safety throughout your messaging infrastructure. TypeScript will infer all message types
+ * and publisher/consumer names from the contract.
+ *
+ * @param definition - The contract definition containing all AMQP resources
+ * @param definition.exchanges - Named exchange definitions
+ * @param definition.queues - Named queue definitions
+ * @param definition.bindings - Named binding definitions (queue-to-exchange or exchange-to-exchange)
+ * @param definition.publishers - Named publisher definitions for sending messages
+ * @param definition.consumers - Named consumer definitions for receiving messages
+ * @returns The same contract definition with full type inference
+ *
+ * @example
+ * ```typescript
+ * import {
+ *   defineContract,
+ *   defineExchange,
+ *   defineQueue,
+ *   defineQueueBinding,
+ *   definePublisher,
+ *   defineConsumer,
+ *   defineMessage,
+ * } from '@amqp-contract/contract';
+ * import { z } from 'zod';
+ *
+ * // Define resources
+ * const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+ * const orderQueue = defineQueue('order-processing', { durable: true });
+ * const orderMessage = defineMessage(
+ *   z.object({
+ *     orderId: z.string(),
+ *     amount: z.number(),
+ *   })
+ * );
+ *
+ * // Compose contract
+ * export const contract = defineContract({
+ *   exchanges: {
+ *     orders: ordersExchange,
+ *   },
+ *   queues: {
+ *     orderProcessing: orderQueue,
+ *   },
+ *   bindings: {
+ *     orderBinding: defineQueueBinding(orderQueue, ordersExchange, {
+ *       routingKey: 'order.created',
+ *     }),
+ *   },
+ *   publishers: {
+ *     orderCreated: definePublisher(ordersExchange, orderMessage, {
+ *       routingKey: 'order.created',
+ *     }),
+ *   },
+ *   consumers: {
+ *     processOrder: defineConsumer(orderQueue, orderMessage),
+ *   },
+ * });
+ *
+ * // TypeScript now knows:
+ * // - client.publish('orderCreated', { orderId: string, amount: number })
+ * // - handler: async (message: { orderId: string, amount: number }) => void
+ * ```
  */
 export function defineContract<TContract extends ContractDefinition>(
   definition: TContract,
