@@ -18,7 +18,7 @@ describe("AmqpClientModule - Type Safety", () => {
         z.object({
           orderId: z.string(),
           amount: z.number(),
-        })
+        }),
       );
 
       const testContract = defineContract({
@@ -49,14 +49,14 @@ describe("AmqpClientModule - Type Safety", () => {
         z.object({
           orderId: z.string(),
           amount: z.number(),
-        })
+        }),
       );
 
       const userMessage = defineMessage(
         z.object({
           userId: z.string(),
           email: z.string(),
-        })
+        }),
       );
 
       const testContract = defineContract({
@@ -91,7 +91,7 @@ describe("AmqpClientModule - Type Safety", () => {
         z.object({
           orderId: z.string(),
           amount: z.number(),
-        })
+        }),
       );
 
       const testContract = defineContract({
@@ -124,7 +124,7 @@ describe("AmqpClientModule - Type Safety", () => {
         z.object({
           orderId: z.string(),
           amount: z.number(),
-        })
+        }),
       );
 
       const testContract = defineContract({

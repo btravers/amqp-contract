@@ -1,4 +1,10 @@
-import { Module, type DynamicModule, type Provider, type Type, type ModuleMetadata } from "@nestjs/common";
+import {
+  Module,
+  type DynamicModule,
+  type Provider,
+  type Type,
+  type ModuleMetadata,
+} from "@nestjs/common";
 import type { ContractDefinition } from "@amqp-contract/contract";
 import { MODULE_OPTIONS_TOKEN } from "./worker.module-definition.js";
 import { AmqpWorkerService, type AmqpWorkerModuleOptions } from "./worker.service.js";
@@ -6,13 +12,17 @@ import { AmqpWorkerService, type AmqpWorkerModuleOptions } from "./worker.servic
 /**
  * Options for async module configuration using factory pattern
  */
-export interface AmqpWorkerModuleAsyncOptions<TContract extends ContractDefinition>
-  extends Pick<ModuleMetadata, "imports"> {
+export interface AmqpWorkerModuleAsyncOptions<TContract extends ContractDefinition> extends Pick<
+  ModuleMetadata,
+  "imports"
+> {
   /**
    * Factory function that returns the module options.
    * Can use injected dependencies to create configuration.
    */
-  useFactory: (...args: unknown[]) => Promise<AmqpWorkerModuleOptions<TContract>> | AmqpWorkerModuleOptions<TContract>;
+  useFactory: (
+    ...args: unknown[]
+  ) => Promise<AmqpWorkerModuleOptions<TContract>> | AmqpWorkerModuleOptions<TContract>;
   /**
    * Optional dependencies to inject into the factory function.
    * Can be a token (string/symbol), a class, or a reference to a provider.
@@ -76,7 +86,7 @@ export class AmqpWorkerModule {
    * @returns A dynamic module for NestJS
    */
   static forRoot<TContract extends ContractDefinition>(
-    options: AmqpWorkerModuleOptions<TContract>
+    options: AmqpWorkerModuleOptions<TContract>,
   ): DynamicModule {
     return {
       module: AmqpWorkerModule,
@@ -98,7 +108,7 @@ export class AmqpWorkerModule {
    * @returns A dynamic module for NestJS
    */
   static forRootAsync<TContract extends ContractDefinition>(
-    options: AmqpWorkerModuleAsyncOptions<TContract>
+    options: AmqpWorkerModuleAsyncOptions<TContract>,
   ): DynamicModule {
     const providers: Provider[] = [
       {
