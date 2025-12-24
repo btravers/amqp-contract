@@ -147,7 +147,7 @@ Visualize your API at [AsyncAPI Studio](https://studio.asyncapi.com/):
 
 1. Generate your specification
 2. Copy JSON or YAML
-3. Paste into Studio
+3. Paste into [AsyncAPI Studio](https://studio.asyncapi.com/)
 4. View interactive documentation
 
 ### AsyncAPI CLI

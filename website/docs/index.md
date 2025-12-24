@@ -26,7 +26,7 @@ features:
   
   - icon: ✅
     title: Automatic Validation
-    details: Schema validation at network boundaries with Zod, Valibot, or ArkType. No runtime surprises.
+    details: Schema validation at network boundaries with <a href="https://zod.dev/" target="_blank">Zod</a>, <a href="https://valibot.dev/" target="_blank">Valibot</a>, or <a href="https://arktype.io/" target="_blank">ArkType</a>. No runtime surprises.
   
   - icon: 🛠️
     title: Compile-time Checks
@@ -46,7 +46,7 @@ features:
 
   - icon: 🎯
     title: NestJS Integration
-    details: First-class NestJS support with automatic lifecycle management and dependency injection.
+    details: First-class <a href="https://nestjs.com/" target="_blank">NestJS</a> support with automatic lifecycle management and dependency injection.
 
   - icon: 🔌
     title: Framework Agnostic
@@ -55,7 +55,7 @@ features:
 
 ## The Problem
 
-Working with RabbitMQ/AMQP messaging is powerful, but comes with challenges:
+Working with [RabbitMQ](https://www.rabbitmq.com/)/AMQP messaging is powerful, but comes with challenges:
 
 ```typescript
 // ❌ No type safety
@@ -275,3 +275,7 @@ const spec = await generator.generate(contract, {
 ```
 
 📖 **[Learn more about AsyncAPI Generation →](/guide/asyncapi-generation)**
+
+## Inspiration
+
+This project was inspired by the contract-first approach of [tRPC](https://trpc.io/), [oRPC](https://orpc.dev/), and [ts-rest](https://ts-rest.com/). We've adapted their excellent ideas of end-to-end type safety and schema-driven development to the world of [RabbitMQ](https://www.rabbitmq.com/) and AMQP messaging.

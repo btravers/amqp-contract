@@ -108,6 +108,11 @@ const orderMessage = defineMessage(
 - Improves code readability
 - Allows header schema definition
 
+Learn more about schema libraries:
+- [Zod](https://zod.dev/)
+- [Valibot](https://valibot.dev/)
+- [ArkType](https://arktype.io/)
+
 ## Defining Bindings
 
 Bindings connect queues to exchanges:

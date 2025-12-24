@@ -1,10 +1,10 @@
 # NestJS Worker Usage
 
-Learn how to integrate the type-safe AMQP worker with NestJS applications for consuming messages with automatic lifecycle management.
+Learn how to integrate the type-safe AMQP worker with [NestJS](https://nestjs.com/) applications for consuming messages with automatic lifecycle management.
 
 ## Why Use NestJS Integration?
 
-The `@amqp-contract/worker-nestjs` package provides seamless integration with NestJS:
+The `@amqp-contract/worker-nestjs` package provides seamless integration with [NestJS](https://nestjs.com/):
 
 - ✅ **Automatic lifecycle management** - Worker starts and stops with your application
 - ✅ **Dependency injection** - Use NestJS services in your message handlers
