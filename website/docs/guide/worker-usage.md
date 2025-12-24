@@ -148,33 +148,6 @@ const worker = await TypedAmqpWorker.create({
 });
 ```
 
-// Define all handlers together
-const handlers = defineHandlers(orderContract, {
-processOrder: async (message) => {
-console.log('Processing order:', message.orderId);
-await processPayment(message);
-},
-
-notifyOrder: async (message) => {
-console.log('Sending notification for:', message.orderId);
-await sendEmail(message);
-},
-
-shipOrder: async (message) => {
-console.log('Preparing shipment for:', message.orderId);
-await prepareShipment(message);
-},
-});
-
-// Use in worker
-const worker = await TypedAmqpWorker.create({
-contract: orderContract,
-handlers,
-urls: ['amqp://localhost'],
-});
-
-````
-
 ### Benefits
 
 External handler definitions provide several advantages:
@@ -217,7 +190,7 @@ export const orderHandlers = defineHandlers(orderContract, {
   processOrder: processOrderHandler,
   notifyOrder: notifyOrderHandler,
 });
-````
+```
 
 ```typescript
 // worker.ts
@@ -294,46 +267,6 @@ const worker = await TypedAmqpWorker.create({
 ### Manual Acknowledgment
 
 For more control, use manual acknowledgment:
-
-````typescript
-const worker = await TypedAmqpWorker.create({
-  contract,
-  handlers: {
-    processOrder: async (message, { ack, nack, reject }) => {
-      try {
-        // Your business logic
-        await processOrder(message);
-
-        // Explicitly acknowledge
-        ack();
-      } catch (error) {
-        // Reject and requeue
-        nack({ requeue: true });
-      }
-    },
-
-## Message Acknowledgment
-
-### Automatic Acknowledgment
-
-By default, messages are automatically acknowledged:
-
-```typescript
-const workerResult = await TypedAmqpWorker.create({
-  contract,
-  handlers: {
-    processOrder: async (message) => {
-      console.log('Processing:', message.orderId);
-      // Auto-acknowledged after handler completes
-    },
-  },
-  urls: ['amqp://localhost'],
-});
-````
-
-### Manual Acknowledgment
-
-For more control:
 
 ```typescript
 const workerResult = await TypedAmqpWorker.create({
