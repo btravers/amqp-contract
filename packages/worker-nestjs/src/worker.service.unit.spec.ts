@@ -12,7 +12,7 @@ import { Future, Result } from "@swan-io/boxed";
 
 describe("AmqpWorkerService", () => {
   const mockWorker = {
-    close: vi.fn(),
+    close: vi.fn().mockReturnValue(Future.value(Result.Ok(undefined))),
   };
 
   beforeEach(() => {
@@ -42,7 +42,7 @@ describe("AmqpWorkerService", () => {
         handlers: {
           testConsumer: handler,
         },
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       });
 
       await service.onModuleInit();
@@ -52,7 +52,7 @@ describe("AmqpWorkerService", () => {
         handlers: {
           testConsumer: handler,
         },
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       });
     });
 
@@ -75,7 +75,7 @@ describe("AmqpWorkerService", () => {
         handlers: {
           testConsumer: handler,
         },
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       });
 
       await service.onModuleInit();

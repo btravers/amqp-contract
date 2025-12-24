@@ -48,6 +48,9 @@ catalogs:
     '@vitest/coverage-v8':
       specifier: 4.0.16
       version: 4.0.16
+    amqp-connection-manager:
+      specifier: 5.0.0
+      version: 5.0.0
     amqplib:
       specifier: 0.10.9
       version: 0.10.9
@@ -241,6 +244,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 4.0.16(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+      amqp-connection-manager:
+        specifier: 'catalog:'
+        version: 5.0.0(amqplib@0.10.9)
       amqplib:
         specifier: 'catalog:'
         version: 0.10.9
@@ -290,6 +296,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 4.0.16(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+      amqp-connection-manager:
+        specifier: 'catalog:'
+        version: 5.0.0(amqplib@0.10.9)
       amqplib:
         specifier: 'catalog:'
         version: 0.10.9
@@ -354,6 +363,12 @@ importers:
       '@amqp-contract/contract':
         specifier: workspace:*
         version: link:../contract
+      amqp-connection-manager:
+        specifier: 'catalog:'
+        version: 5.0.0(amqplib@0.10.9)
+      amqplib:
+        specifier: 'catalog:'
+        version: 0.10.9
     devDependencies:
       '@amqp-contract/tsconfig':
         specifier: workspace:*
@@ -364,9 +379,6 @@ importers:
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 4.0.16(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
-      amqplib:
-        specifier: 'catalog:'
-        version: 0.10.9
       tsdown:
         specifier: 'catalog:'
         version: 0.18.2(oxc-resolver@11.16.0)(typescript@5.9.3)
@@ -429,6 +441,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 4.0.16(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+      amqp-connection-manager:
+        specifier: 'catalog:'
+        version: 5.0.0(amqplib@0.10.9)
       amqplib:
         specifier: 'catalog:'
         version: 0.10.9
@@ -469,15 +484,15 @@ importers:
       '@swan-io/boxed':
         specifier: 'catalog:'
         version: 3.2.1(typescript@5.9.3)
-      '@types/amqplib':
-        specifier: 'catalog:'
-        version: 0.10.8
       '@types/node':
         specifier: 'catalog:'
         version: 25.0.3
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 4.0.16(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+      amqp-connection-manager:
+        specifier: 'catalog:'
+        version: 5.0.0(amqplib@0.10.9)
       amqplib:
         specifier: 'catalog:'
         version: 0.10.9
@@ -536,9 +551,6 @@ importers:
       '@amqp-contract/client':
         specifier: workspace:*
         version: link:../../packages/client
-      amqplib:
-        specifier: 'catalog:'
-        version: 0.10.9
       pino:
         specifier: 'catalog:'
         version: 10.1.0
@@ -558,9 +570,6 @@ importers:
       '@swan-io/boxed':
         specifier: 'catalog:'
         version: 3.2.1(typescript@5.9.3)
-      '@types/amqplib':
-        specifier: 'catalog:'
-        version: 0.10.8
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 4.0.16(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
@@ -601,9 +610,6 @@ importers:
       '@amqp-contract/worker':
         specifier: workspace:*
         version: link:../../packages/worker
-      amqplib:
-        specifier: 'catalog:'
-        version: 0.10.9
       pino:
         specifier: 'catalog:'
         version: 10.1.0
@@ -623,9 +629,6 @@ importers:
       '@amqp-contract/tsconfig':
         specifier: workspace:*
         version: link:../../tools/tsconfig
-      '@types/amqplib':
-        specifier: 'catalog:'
-        version: 0.10.8
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 4.0.16(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
@@ -2368,6 +2371,12 @@ packages:
     resolution: {integrity: sha512-39ol8Ulqb3MntofkXHlrcXKyU8BU0PXvQrXPBIX6eXj/EO4VT7651mhGVORI2oF8ydya9nFzT3fYDoqme/KL6w==}
     engines: {node: '>= 14.0.0'}
 
+  amqp-connection-manager@5.0.0:
+    resolution: {integrity: sha512-88yQzqa5RSBgnLl504XjvCQJ7d+osskdwvg35Lwm1LRbfLjNU9p7SQUMSP82BB7mseiq9tIUPJ3HE3eXQbpjEw==}
+    engines: {node: '>=10.0.0', npm: '>5.0.0'}
+    peerDependencies:
+      amqplib: '*'
+
   amqplib@0.10.9:
     resolution: {integrity: sha512-jwSftI4QjS3mizvnSnOrPGYiUnm1vI2OP1iXeOUz5pb74Ua0nbf6nPyyTzuiCLEE3fMpaJORXh2K/TQ08H5xGA==}
     engines: {node: '>=10'}
@@ -4078,6 +4087,9 @@ packages:
   process@0.11.10:
     resolution: {integrity: sha512-cdGef/drWFoydD1JsMzuFf8100nZl+GT+yacc2bEced5f9Rjk4z+WtFUTBu9PhOi9j/jfmBPu0mMEY4wIdAF8A==}
     engines: {node: '>= 0.6.0'}
+
+  promise-breaker@6.0.0:
+    resolution: {integrity: sha512-BthzO9yTPswGf7etOBiHCVuugs2N01/Q/94dIPls48z2zCmrnDptUUZzfIb+41xq0MnYZ/BzmOd6ikDR4ibNZA==}
 
   proper-lockfile@4.1.2:
     resolution: {integrity: sha512-TjNPblN4BwAWMXU8s9AEz4JmQxnD1NNL7bNOY/AKUzyamc379FWASUhc/K1pL2noVb+XmZKLL68cjzLsiOAMaA==}
@@ -6268,7 +6280,7 @@ snapshots:
 
   '@stoplight/json-ref-readers@1.2.2':
     dependencies:
-      node-fetch: 2.6.7
+      node-fetch: 2.7.0
       tslib: 1.14.1
     transitivePeerDependencies:
       - encoding
@@ -6835,6 +6847,11 @@ snapshots:
       '@algolia/requester-browser-xhr': 5.46.1
       '@algolia/requester-fetch': 5.46.1
       '@algolia/requester-node-http': 5.46.1
+
+  amqp-connection-manager@5.0.0(amqplib@0.10.9):
+    dependencies:
+      amqplib: 0.10.9
+      promise-breaker: 6.0.0
 
   amqplib@0.10.9:
     dependencies:
@@ -8675,6 +8692,8 @@ snapshots:
   process-warning@5.0.0: {}
 
   process@0.11.10: {}
+
+  promise-breaker@6.0.0: {}
 
   proper-lockfile@4.1.2:
     dependencies:

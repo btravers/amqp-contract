@@ -37,14 +37,10 @@ describe("AmqpClient Integration", () => {
         },
       });
 
-      const clientResult = await TypedAmqpClient.create({
+      const client = TypedAmqpClient.create({
         contract,
-        connection: amqpConnectionUrl,
+        urls: [amqpConnectionUrl],
       });
-      if (clientResult.isError()) {
-        throw clientResult.getError();
-      }
-      const client = clientResult.value;
 
       // WHEN
       const result = await client.publish("testPublisher", {
@@ -79,14 +75,10 @@ describe("AmqpClient Integration", () => {
         },
       });
 
-      const clientResult = await TypedAmqpClient.create({
+      const client = TypedAmqpClient.create({
         contract,
-        connection: amqpConnectionUrl,
+        urls: [amqpConnectionUrl],
       });
-      if (clientResult.isError()) {
-        throw clientResult.getError();
-      }
-      const client = clientResult.value;
 
       // WHEN
       const result = await client.publish("testPublisher", {
@@ -123,14 +115,10 @@ describe("AmqpClient Integration", () => {
         },
       });
 
-      const clientResult = await TypedAmqpClient.create({
+      const client = TypedAmqpClient.create({
         contract,
-        connection: amqpConnectionUrl,
+        urls: [amqpConnectionUrl],
       });
-      if (clientResult.isError()) {
-        throw clientResult.getError();
-      }
-      const client = clientResult.value;
 
       // WHEN
       const result = await client.publish(
@@ -175,14 +163,10 @@ describe("AmqpClient Integration", () => {
       });
 
       // WHEN
-      const clientResult = await TypedAmqpClient.create({
+      const client = TypedAmqpClient.create({
         contract,
-        connection: amqpConnectionUrl,
+        urls: [amqpConnectionUrl],
       });
-      if (clientResult.isError()) {
-        throw clientResult.getError();
-      }
-      const client = clientResult.value;
 
       // THEN - No errors should be thrown during topology setup
       expect(client).toBeDefined();
