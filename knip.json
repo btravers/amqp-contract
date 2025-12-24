@@ -41,5 +41,5 @@
     }
   },
   "ignore": ["coverage/**", "**/dist/**"],
-  "ignoreDependencies": ["pino-pretty", "typedoc-plugin-markdown"]
+  "ignoreDependencies": ["pino-pretty", "typedoc-plugin-markdown", "@amqp-contract/typedoc"]
 }
