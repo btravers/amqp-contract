@@ -22,14 +22,22 @@ pnpm add @amqp-contract/client
 import { TypedAmqpClient } from '@amqp-contract/client';
 import { contract } from './contract';
 
-// Create client from contract (automatically connects)
-const client = await TypedAmqpClient.create({
+// Create client from contract (automatically connects and waits for connection)
+const clientResult = await TypedAmqpClient.create({
   contract,
-  connection: 'amqp://localhost'
+  urls: ['amqp://localhost']
 });
 
+// Handle connection errors
+if (clientResult.isError()) {
+  console.error('Failed to create client:', clientResult.error);
+  throw clientResult.error; // or handle appropriately
+}
+
+const client = clientResult.get();
+
 // Publish message with explicit error handling
-const result = client.publish('orderCreated', {
+const result = await client.publish('orderCreated', {
   orderId: 'ORD-123',
   amount: 99.99,
 });
@@ -66,16 +74,31 @@ publish(): Result<boolean, TechnicalError | MessageValidationError>
 
 ### `TypedAmqpClient.create(options)`
 
-Create a type-safe AMQP client from a contract. Automatically connects to RabbitMQ.
+Create a type-safe AMQP client from a contract. Automatically connects to RabbitMQ and waits for the connection to be ready.
 
 **Parameters:**
 
 - `options.contract` - Contract definition
-- `options.connection` - AMQP connection URL (string) or connection options (Options.Connect)
+- `options.urls` - Array of AMQP connection URLs (e.g., `['amqp://localhost']`)
+- `options.connectionOptions` - Optional connection manager options
 
-**Returns:** `Promise<TypedAmqpClient>`
+**Returns:** `Future<Result<TypedAmqpClient, TechnicalError>>`
 
-**Throws:** Connection errors (programming errors)
+The method returns a Future that resolves to a Result. You must:
+
+1. Await the Future to get the Result
+2. Check if the Result is Ok or Error
+3. Extract the client using `.get()` if successful
+
+**Example:**
+
+```typescript
+const clientResult = await TypedAmqpClient.create({ contract, urls: ['amqp://localhost'] });
+if (clientResult.isError()) {
+  throw clientResult.error; // Handle connection error
+}
+const client = clientResult.get();
+```
 
 ### `TypedAmqpClient.publish(publisherName, message, options?)`
 

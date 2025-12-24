@@ -37,10 +37,15 @@ describe("AmqpClient Integration", () => {
         },
       });
 
-      const client = TypedAmqpClient.create({
+      const clientResult = await TypedAmqpClient.create({
         contract,
         urls: [amqpConnectionUrl],
       });
+
+      if (clientResult.isError()) {
+        throw clientResult.error;
+      }
+      const client = clientResult.value;
 
       // WHEN
       const result = await client.publish("testPublisher", {
@@ -75,10 +80,15 @@ describe("AmqpClient Integration", () => {
         },
       });
 
-      const client = TypedAmqpClient.create({
+      const clientResult = await TypedAmqpClient.create({
         contract,
         urls: [amqpConnectionUrl],
       });
+
+      if (clientResult.isError()) {
+        throw clientResult.error;
+      }
+      const client = clientResult.value;
 
       // WHEN
       const result = await client.publish("testPublisher", {
@@ -115,10 +125,15 @@ describe("AmqpClient Integration", () => {
         },
       });
 
-      const client = TypedAmqpClient.create({
+      const clientResult = await TypedAmqpClient.create({
         contract,
         urls: [amqpConnectionUrl],
       });
+
+      if (clientResult.isError()) {
+        throw clientResult.error;
+      }
+      const client = clientResult.value;
 
       // WHEN
       const result = await client.publish(
@@ -163,12 +178,16 @@ describe("AmqpClient Integration", () => {
       });
 
       // WHEN
-      const client = TypedAmqpClient.create({
+      const clientResult = await TypedAmqpClient.create({
         contract,
         urls: [amqpConnectionUrl],
       });
 
       // THEN - No errors should be thrown during topology setup
+      if (clientResult.isError()) {
+        throw clientResult.error;
+      }
+      const client = clientResult.value;
       expect(client).toBeDefined();
 
       // CLEANUP

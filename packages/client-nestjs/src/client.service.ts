@@ -101,7 +101,11 @@ export class AmqpClientService<TContract extends ContractDefinition>
    * in the background with automatic reconnection handling.
    */
   async onModuleInit(): Promise<void> {
-    this.client = TypedAmqpClient.create(this.options);
+    const clientResult = await TypedAmqpClient.create(this.options);
+    if (clientResult.isError()) {
+      throw new Error(`Failed to create AMQP client: ${clientResult.error.message}`);
+    }
+    this.client = clientResult.get();
   }
 
   /**

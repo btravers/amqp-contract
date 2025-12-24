@@ -98,10 +98,17 @@ import { TypedAmqpClient } from '@amqp-contract/client';
 import { contract } from './contract';
 
 async function main() {
-  const client = TypedAmqpClient.create({
+  const clientResult = await TypedAmqpClient.create({
     contract,
     urls: ['amqp://localhost']
   });
+
+  if (clientResult.isError()) {
+    console.error('Failed to create client:', clientResult.error);
+    throw clientResult.error;
+  }
+
+  const client = clientResult.get();
 
   const result = await client.publish('orderCreated', {
     orderId: 'ORD-123',

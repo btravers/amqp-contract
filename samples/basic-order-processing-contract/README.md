@@ -18,10 +18,17 @@ This package defines the contract for:
 ```typescript
 import { contract } from '@amqp-contract-samples/basic-order-processing-contract';
 import { TypedAmqpClient } from '@amqp-contract/client';
-import { connect } from 'amqplib';
 
-const connection = await connect('amqp://localhost');
-const client = await TypedAmqpClient.create({ contract, connection });
+const clientResult = await TypedAmqpClient.create({
+  contract,
+  urls: ['amqp://localhost']
+});
+
+if (clientResult.isError()) {
+  throw clientResult.error; // Handle connection error
+}
+
+const client = clientResult.get();
 await client.publish('orderCreated', { /* fully typed */ });
 ```
 

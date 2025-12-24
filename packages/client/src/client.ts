@@ -35,8 +35,13 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     contract,
     urls,
     connectionOptions,
-  }: CreateClientOptions<TContract>): TypedAmqpClient<TContract> {
-    return new TypedAmqpClient(contract, new AmqpClient(contract, { urls, connectionOptions }));
+  }: CreateClientOptions<TContract>): Future<Result<TypedAmqpClient<TContract>, TechnicalError>> {
+    const client = new TypedAmqpClient(
+      contract,
+      new AmqpClient(contract, { urls, connectionOptions }),
+    );
+
+    return client.waitForConnectionReady().mapOk(() => client);
   }
 
   /**
@@ -113,5 +118,11 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     return Future.fromPromise(this.amqpClient.close())
       .mapError((error) => new TechnicalError("Failed to close AMQP connection", error))
       .mapOk(() => undefined);
+  }
+
+  private waitForConnectionReady(): Future<Result<void, TechnicalError>> {
+    return Future.fromPromise(this.amqpClient.channel.waitForConnect()).mapError(
+      (error) => new TechnicalError("Failed to wait for connection ready", error),
+    );
   }
 }

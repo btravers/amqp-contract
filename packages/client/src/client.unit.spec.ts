@@ -20,12 +20,15 @@ vi.mock("amqp-connection-manager", () => {
     bindExchange: vi.fn().mockResolvedValue(undefined),
   };
 
+  let setupPromise: Promise<void> | null = null;
+
   const mockChannel = {
     publish: vi.fn().mockImplementation(() => Promise.resolve(true)),
     close: vi.fn().mockResolvedValue(undefined),
     prefetch: vi.fn().mockResolvedValue(undefined),
     ack: vi.fn(),
     nack: vi.fn(),
+    waitForConnect: vi.fn().mockImplementation(() => setupPromise || Promise.resolve()),
   };
 
   const mockConnection = {
@@ -34,8 +37,8 @@ vi.mock("amqp-connection-manager", () => {
       .mockImplementation(
         (options?: { json?: boolean; setup?: (channel: unknown) => Promise<void> }) => {
           if (options?.setup) {
-            // Execute setup function asynchronously
-            Promise.resolve().then(() => options.setup?.(mockSetupChannel));
+            // Execute setup function asynchronously and store the promise
+            setupPromise = Promise.resolve().then(() => options.setup?.(mockSetupChannel));
           }
           return mockChannel;
         },
@@ -84,12 +87,17 @@ describe("TypedAmqpClient", () => {
       });
 
       // WHEN
-      const client = TypedAmqpClient.create({
+      const clientResult = await TypedAmqpClient.create({
         contract,
         urls: ["amqp://localhost"],
       });
 
       // THEN
+      if (clientResult.isError()) {
+        throw clientResult.error;
+      }
+      const client = clientResult.value;
+
       // Type inference test - this should compile without errors
       type PublisherNames = Parameters<typeof client.publish>[0];
       const name: PublisherNames = "testPublisher";
@@ -118,10 +126,15 @@ describe("TypedAmqpClient", () => {
         },
       });
 
-      const client = TypedAmqpClient.create({
+      const clientResult = await TypedAmqpClient.create({
         contract,
         urls: ["amqp://localhost"],
       });
+
+      if (clientResult.isError()) {
+        throw clientResult.error;
+      }
+      const client = clientResult.value;
 
       // WHEN
       // Type inference test - message type should be inferred correctly
@@ -161,15 +174,16 @@ describe("TypedAmqpClient", () => {
       });
 
       // WHEN
-      const client = TypedAmqpClient.create({
+      const clientResult = await TypedAmqpClient.create({
         contract,
         urls: ["amqp://localhost"],
       });
 
-      // Wait for async setup
-      await new Promise((resolve) => setTimeout(resolve, 10));
-
       // THEN
+      if (clientResult.isError()) {
+        throw clientResult.error;
+      }
+      const client = clientResult.value;
       expect(client).toBeDefined();
       expect(mockConnection.createChannel).toHaveBeenCalled();
       expect(mockSetupChannel.assertExchange).toHaveBeenCalledWith("test-exchange", "topic", {
@@ -193,15 +207,16 @@ describe("TypedAmqpClient", () => {
       });
 
       // WHEN
-      const client = TypedAmqpClient.create({
+      const clientResult = await TypedAmqpClient.create({
         contract,
         urls: ["amqp://localhost"],
       });
 
-      // Wait for async setup
-      await new Promise((resolve) => setTimeout(resolve, 10));
-
       // THEN
+      if (clientResult.isError()) {
+        throw clientResult.error;
+      }
+      const client = clientResult.value;
       expect(client).toBeDefined();
       expect(mockSetupChannel.assertQueue).toHaveBeenCalledWith("test-queue", {
         durable: true,
@@ -231,15 +246,16 @@ describe("TypedAmqpClient", () => {
       });
 
       // WHEN
-      const client = TypedAmqpClient.create({
+      const clientResult = await TypedAmqpClient.create({
         contract,
         urls: ["amqp://localhost"],
       });
 
-      // Wait for async setup
-      await new Promise((resolve) => setTimeout(resolve, 10));
-
       // THEN
+      if (clientResult.isError()) {
+        throw clientResult.error;
+      }
+      const client = clientResult.value;
       expect(client).toBeDefined();
       expect(mockSetupChannel.bindQueue).toHaveBeenCalledWith(
         "test-queue",
@@ -267,15 +283,16 @@ describe("TypedAmqpClient", () => {
       });
 
       // WHEN
-      const client = TypedAmqpClient.create({
+      const clientResult = await TypedAmqpClient.create({
         contract,
         urls: ["amqp://localhost"],
       });
 
-      // Wait for async setup
-      await new Promise((resolve) => setTimeout(resolve, 10));
-
       // THEN
+      if (clientResult.isError()) {
+        throw clientResult.error;
+      }
+      const client = clientResult.value;
       expect(client).toBeDefined();
       expect(mockSetupChannel.bindExchange).toHaveBeenCalledWith(
         "destination-exchange",
@@ -303,10 +320,15 @@ describe("TypedAmqpClient", () => {
         },
       });
 
-      const client = TypedAmqpClient.create({
+      const clientResult = await TypedAmqpClient.create({
         contract,
         urls: ["amqp://localhost"],
       });
+
+      if (clientResult.isError()) {
+        throw clientResult.error;
+      }
+      const client = clientResult.value;
 
       // WHEN
       const result = await client.publish("testPublisher", { id: "123" });
@@ -337,10 +359,15 @@ describe("TypedAmqpClient", () => {
         },
       });
 
-      const client = TypedAmqpClient.create({
+      const clientResult = await TypedAmqpClient.create({
         contract,
         urls: ["amqp://localhost"],
       });
+
+      if (clientResult.isError()) {
+        throw clientResult.error;
+      }
+      const client = clientResult.value;
 
       // WHEN
       const result = await client.publish("testPublisher", { id: "123" }, { persistent: true });
@@ -371,10 +398,15 @@ describe("TypedAmqpClient", () => {
         },
       });
 
-      const client = TypedAmqpClient.create({
+      const clientResult = await TypedAmqpClient.create({
         contract,
         urls: ["amqp://localhost"],
       });
+
+      if (clientResult.isError()) {
+        throw clientResult.error;
+      }
+      const client = clientResult.value;
 
       // WHEN
       // @ts-expect-error - testing runtime validation with invalid data
@@ -403,10 +435,15 @@ describe("TypedAmqpClient", () => {
       // Create a mock close function for AmqpClient
       const mockAmqpClientClose = vi.fn().mockResolvedValue(undefined);
 
-      const client = TypedAmqpClient.create({
+      const clientResult = await TypedAmqpClient.create({
         contract,
         urls: ["amqp://localhost"],
       });
+
+      if (clientResult.isError()) {
+        throw clientResult.error;
+      }
+      const client = clientResult.value;
 
       // Replace the close method with our mock
       // @ts-expect-error - accessing private field for testing
@@ -431,10 +468,15 @@ describe("TypedAmqpClient", () => {
         },
       });
 
-      const client = TypedAmqpClient.create({
+      const clientResult = await TypedAmqpClient.create({
         contract,
         urls: ["amqp://localhost"],
       });
+
+      if (clientResult.isError()) {
+        throw clientResult.error;
+      }
+      const client = clientResult.value;
 
       // WHEN
       const result = await client.close();
@@ -457,16 +499,14 @@ describe("TypedAmqpClient", () => {
       });
 
       // WHEN
-      const client = TypedAmqpClient.create({
+      const clientResult = await TypedAmqpClient.create({
         contract,
         urls: ["amqp://localhost"],
       });
 
-      // Wait for async setup
-      await new Promise((resolve) => setTimeout(resolve, 10));
-
       // THEN
-      expect(client).toBeInstanceOf(TypedAmqpClient);
+      expect(clientResult).toEqual(Result.Ok(expect.any(TypedAmqpClient)));
+
       expect(mockConnection.createChannel).toHaveBeenCalled();
     });
   });

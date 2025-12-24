@@ -25,6 +25,8 @@ vi.mock("amqp-connection-manager", () => {
     prefetch: vi.fn().mockResolvedValue(undefined),
   };
 
+  let setupPromise: Promise<void> | null = null;
+
   const mockChannel = {
     consume: vi.fn().mockImplementation((_queue: string, callback) => {
       mockConsumeCallback = callback;
@@ -35,6 +37,7 @@ vi.mock("amqp-connection-manager", () => {
     cancel: vi.fn().mockResolvedValue(undefined),
     close: vi.fn().mockResolvedValue(undefined),
     prefetch: vi.fn().mockResolvedValue(undefined),
+    waitForConnect: vi.fn().mockImplementation(() => setupPromise || Promise.resolve()),
   };
 
   const mockConnection = {
@@ -44,7 +47,7 @@ vi.mock("amqp-connection-manager", () => {
         (options?: { json?: boolean; setup?: (channel: unknown) => Promise<void> }) => {
           if (options?.setup) {
             // Execute setup function asynchronously
-            Promise.resolve().then(() => options.setup?.(mockSetupChannel));
+            setupPromise = Promise.resolve().then(() => options.setup?.(mockSetupChannel));
           }
           return mockChannel;
         },
