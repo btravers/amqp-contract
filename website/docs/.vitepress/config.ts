@@ -7,6 +7,8 @@ export default withMermaid(
     title: "amqp-contract",
     description: "Type-safe contracts for AMQP/RabbitMQ messaging with AsyncAPI generation",
     base: "/amqp-contract/",
+    lang: "en-US",
+
     sitemap: {
       hostname: "https://btravers.github.io",
       transformItems: (items) => {
@@ -17,6 +19,16 @@ export default withMermaid(
             : `/amqp-contract/${item.url}`,
         }));
       },
+    },
+
+    // Transform page metadata for better SEO
+    transformPageData(pageData) {
+      const canonicalUrl = `https://btravers.github.io/amqp-contract/${pageData.relativePath}`
+        .replace(/index\.md$/, "")
+        .replace(/\.md$/, ".html");
+
+      pageData.frontmatter.head ??= [];
+      pageData.frontmatter.head.push(["link", { rel: "canonical", href: canonicalUrl }]);
     },
 
     // Mermaid configuration
@@ -133,6 +145,39 @@ export default withMermaid(
           content: "u6ZPW5bWbP9G1yF5Sv7B4fSOJm5rLbZWeH858tmisTc",
         },
       ],
+      // Open Graph meta tags for better social sharing and SEO
+      ["meta", { property: "og:type", content: "website" }],
+      ["meta", { property: "og:title", content: "amqp-contract" }],
+      [
+        "meta",
+        {
+          property: "og:description",
+          content: "Type-safe contracts for AMQP/RabbitMQ messaging with AsyncAPI generation",
+        },
+      ],
+      ["meta", { property: "og:url", content: "https://btravers.github.io/amqp-contract/" }],
+      ["meta", { property: "og:site_name", content: "amqp-contract" }],
+      ["meta", { property: "og:locale", content: "en_US" }],
+      // Twitter Card meta tags
+      ["meta", { name: "twitter:card", content: "summary_large_image" }],
+      ["meta", { name: "twitter:title", content: "amqp-contract" }],
+      [
+        "meta",
+        {
+          name: "twitter:description",
+          content: "Type-safe contracts for AMQP/RabbitMQ messaging with AsyncAPI generation",
+        },
+      ],
+      // Additional SEO meta tags
+      [
+        "meta",
+        {
+          name: "keywords",
+          content: "amqp, rabbitmq, typescript, contract, messaging, type-safe, asyncapi",
+        },
+      ],
+      ["meta", { name: "author", content: "Benoit TRAVERS" }],
+      ["meta", { name: "robots", content: "index, follow" }],
     ],
   }),
 );
