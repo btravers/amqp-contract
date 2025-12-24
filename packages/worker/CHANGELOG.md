@@ -1,5 +1,12 @@
 # @amqp-contract/worker
 
+## 0.3.1
+
+### Patch Changes
+
+- @amqp-contract/contract@0.3.1
+- @amqp-contract/core@0.3.1
+
 ## 0.3.0
 
 ### Minor Changes

@@ -1,5 +1,19 @@
 # @amqp-contract/worker-nestjs
 
+## 0.3.1
+
+### Patch Changes
+
+- Re-export types from base packages in NestJS integration libraries
+
+  The NestJS integration packages now re-export key types from their base packages:
+  - `@amqp-contract/client-nestjs` now re-exports `ClientInferPublisherInput`
+  - `@amqp-contract/worker-nestjs` now re-exports `WorkerInferConsumerInput`, `WorkerInferConsumerHandler`, and `WorkerInferConsumerHandlers`
+
+  This improves developer experience by allowing all necessary types to be imported from a single package.
+  - @amqp-contract/contract@0.3.1
+  - @amqp-contract/worker@0.3.1
+
 ## 0.3.0
 
 ### Minor Changes
