@@ -7,6 +7,8 @@ export default withMermaid(
     title: "amqp-contract",
     description: "Type-safe contracts for AMQP/RabbitMQ messaging with AsyncAPI generation",
     base: "/amqp-contract/",
+    lang: "en-US",
+
     sitemap: {
       hostname: "https://btravers.github.io",
       transformItems: (items) => {
@@ -17,6 +19,47 @@ export default withMermaid(
             : `/amqp-contract/${item.url}`,
         }));
       },
+    },
+
+    // Inject canonical URLs and dynamic meta tags for each page to prevent duplicate content issues
+    transformPageData(pageData) {
+      // Only process markdown files
+      if (!pageData.relativePath.endsWith(".md")) {
+        return;
+      }
+
+      // VitePress provides relativePath without leading slash (e.g., "guide/getting-started.md")
+      // Normalize the path by removing any leading slashes just in case
+      const normalizedPath = pageData.relativePath.replace(/^\/+/, "");
+      const canonicalUrl = `https://btravers.github.io/amqp-contract/${normalizedPath}`
+        .replace(/index\.md$/, "")
+        .replace(/\.md$/, ".html");
+
+      // Ensure frontmatter and head array exist
+      pageData.frontmatter ??= {};
+      pageData.frontmatter.head ??= [];
+
+      // Add canonical URL
+      pageData.frontmatter.head.push(["link", { rel: "canonical", href: canonicalUrl }]);
+
+      // Add dynamic Open Graph tags
+      const pageTitle = pageData.title || pageData.frontmatter.title || "amqp-contract";
+      const pageDescription =
+        pageData.description ||
+        pageData.frontmatter.description ||
+        "Type-safe contracts for AMQP/RabbitMQ messaging with AsyncAPI generation";
+
+      pageData.frontmatter.head.push(
+        ["meta", { property: "og:url", content: canonicalUrl }],
+        ["meta", { property: "og:title", content: pageTitle }],
+        ["meta", { property: "og:description", content: pageDescription }],
+      );
+
+      // Add dynamic Twitter Card tags
+      pageData.frontmatter.head.push(
+        ["meta", { name: "twitter:title", content: pageTitle }],
+        ["meta", { name: "twitter:description", content: pageDescription }],
+      );
     },
 
     // Mermaid configuration
@@ -133,6 +176,15 @@ export default withMermaid(
           content: "u6ZPW5bWbP9G1yF5Sv7B4fSOJm5rLbZWeH858tmisTc",
         },
       ],
+      // Open Graph meta tags for better social sharing and SEO
+      ["meta", { property: "og:type", content: "website" }],
+      ["meta", { property: "og:site_name", content: "amqp-contract" }],
+      ["meta", { property: "og:locale", content: "en_US" }],
+      // Twitter Card meta tags
+      ["meta", { name: "twitter:card", content: "summary" }],
+      // Additional SEO meta tags
+      ["meta", { name: "author", content: "Benoit TRAVERS" }],
+      ["meta", { name: "robots", content: "index, follow" }],
     ],
   }),
 );
