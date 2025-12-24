@@ -2,74 +2,18 @@
 
 Explore practical examples of using amqp-contract.
 
-## Architecture Overview
-
-The amqp-contract library enables type-safe AMQP messaging with three main components:
-
-```mermaid
-flowchart TB
-    subgraph "Contract Definition"
-        Contract["📋 Contract<br/>- Exchanges<br/>- Queues<br/>- Bindings<br/>- Publishers<br/>- Consumers"]
-    end
-
-    subgraph "Publisher Side"
-        Client["📤 Client App"]
-        TypedClient["TypedAmqpClient"]
-    end
-
-    subgraph "RabbitMQ"
-        Exchange["🔄 Exchange<br/>(topic/direct/fanout)"]
-        Queue1["📬 Queue 1"]
-        Queue2["📬 Queue 2"]
-        QueueN["📬 Queue N"]
-    end
-
-    subgraph "Consumer Side"
-        Worker["📥 Worker App"]
-        TypedWorker["TypedAmqpWorker"]
-    end
-
-    Contract -.->|"import"| Client
-    Contract -.->|"import"| Worker
-
-    Client -->|"publish()"| TypedClient
-    TypedClient -->|"Type-safe<br/>+ Validation"| Exchange
-
-    Exchange -->|"routing"| Queue1
-    Exchange -->|"routing"| Queue2
-    Exchange -->|"routing"| QueueN
-
-    Queue1 -->|"Type-safe<br/>+ Validation"| TypedWorker
-    Queue2 -->|"Type-safe<br/>+ Validation"| TypedWorker
-    QueueN -->|"Type-safe<br/>+ Validation"| TypedWorker
-
-    TypedWorker -->|"handle()"| Worker
-
-    style Contract fill:#e1f5ff
-    style TypedClient fill:#d4edda
-    style TypedWorker fill:#d4edda
-    style Exchange fill:#fff3cd
-    style Queue1 fill:#f8d7da
-    style Queue2 fill:#f8d7da
-    style QueueN fill:#f8d7da
-```
-
 ## Available Examples
 
 ### [Basic Order Processing](/examples/basic-order-processing)
 
 A complete example demonstrating:
 
-- Contract definition
-- Type-safe publishing
-- Type-safe consuming
+- Contract definition with exchanges, queues, and bindings
+- Type-safe message publishing
+- Type-safe message consuming
 - Multiple consumers (pub/sub pattern)
 
-**Technologies:**
-
-- RabbitMQ
-- TypeScript
-- Zod schemas
+**Technologies:** RabbitMQ • TypeScript • Zod
 
 ### [AsyncAPI Generation](/examples/asyncapi-generation)
 
@@ -77,35 +21,29 @@ Learn how to generate AsyncAPI 3.0 specifications:
 
 - Generate from contracts
 - Server configurations
-- Documentation generation
+- Export to JSON/YAML
 
-**Technologies:**
-
-- AsyncAPI 3.0
-- JSON/YAML output
-- Documentation tooling
+**Technologies:** AsyncAPI 3.0 • JSON/YAML
 
 ## Running Examples
 
-All examples are located in the `samples/` directory of the repository.
+All examples are in the `samples/` directory.
 
 ### Prerequisites
 
-1. RabbitMQ running on `localhost:5672`
+1. **RabbitMQ** running on `localhost:5672`
 
 ```bash
 docker run -d --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:4-management
 ```
 
-2. Build the packages
+2. **Build packages** (in repository root)
 
 ```bash
 pnpm build
 ```
 
-### Run an Example
-
-The basic order processing example is split into three packages:
+### Run Basic Order Processing
 
 ```bash
 # Terminal 1: Start the worker
@@ -117,25 +55,57 @@ pnpm --filter @amqp-contract-samples/basic-order-processing-client dev
 
 ## Example Structure
 
-The basic order processing example is structured as three separate packages for better separation of concerns:
+The basic order processing example uses three packages:
 
 ```
 samples/
 ├── basic-order-processing-contract/
-│   ├── src/
-│   │   └── index.ts       # Shared contract definition
-│   ├── package.json
-│   └── README.md
+│   └── src/index.ts       # Shared contract
 ├── basic-order-processing-client/
-│   ├── src/
-│   │   └── index.ts       # Message publisher
-│   ├── package.json
-│   └── README.md
+│   └── src/index.ts       # Publisher
 └── basic-order-processing-worker/
-    ├── src/
-    │   └── index.ts       # Message consumer
-    ├── package.json
-    └── README.md
+    └── src/index.ts       # Consumer
+```
+
+This separation mirrors real-world microservices architecture.
+
+## Architecture Overview
+
+```mermaid
+flowchart TB
+    subgraph "Contract"
+        Contract["📋 Contract<br/>Exchanges, Queues, Publishers, Consumers"]
+    end
+
+    subgraph "Publisher"
+        Client["📤 Client App"]
+        TypedClient["TypedAmqpClient"]
+    end
+
+    subgraph "RabbitMQ"
+        Exchange["🔄 Exchange"]
+        Queue["📬 Queue"]
+    end
+
+    subgraph "Consumer"
+        Worker["📥 Worker App"]
+        TypedWorker["TypedAmqpWorker"]
+    end
+
+    Contract -.->|import| Client
+    Contract -.->|import| Worker
+
+    Client -->|publish()| TypedClient
+    TypedClient -->|Type-safe + Validation| Exchange
+    Exchange -->|routing| Queue
+    Queue -->|Type-safe + Validation| TypedWorker
+    TypedWorker -->|handle()| Worker
+
+    style Contract fill:#e1f5ff
+    style TypedClient fill:#d4edda
+    style TypedWorker fill:#d4edda
+    style Exchange fill:#fff3cd
+    style Queue fill:#f8d7da
 ```
 
 ## Next Steps
