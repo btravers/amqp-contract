@@ -253,6 +253,7 @@ const orderMessage = defineMessage(orderSchema, {
   description: 'Emitted when a new order is created',
 });
 const orderStatusMessage = defineMessage(orderStatusSchema);
+const orderUnionMessage = defineMessage(z.union([orderSchema, orderStatusSchema]));
 
 // 3. Compose contract using object references
 export const orderContract = defineContract({
@@ -297,7 +298,7 @@ export const orderContract = defineContract({
     processOrder: defineConsumer(orderProcessingQueue, orderMessage, {
       prefetch: 10,
     }),
-    notifyOrder: defineConsumer(orderNotificationsQueue, defineMessage(z.union([orderSchema, orderStatusSchema])), {
+    notifyOrder: defineConsumer(orderNotificationsQueue, orderUnionMessage, {
       prefetch: 5,
     }),
     shipOrder: defineConsumer(orderShippingQueue, orderStatusMessage, {
