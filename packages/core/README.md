@@ -101,4 +101,4 @@ A Promise that resolves when all resources are created.
 
 ## License
 
-MIT © Benoit TRAVERS
+MIT
