@@ -150,29 +150,30 @@ const worker = await TypedAmqpWorker.create({
 
 // Define all handlers together
 const handlers = defineHandlers(orderContract, {
-  processOrder: async (message) => {
-    console.log('Processing order:', message.orderId);
-    await processPayment(message);
-  },
+processOrder: async (message) => {
+console.log('Processing order:', message.orderId);
+await processPayment(message);
+},
 
-  notifyOrder: async (message) => {
-    console.log('Sending notification for:', message.orderId);
-    await sendEmail(message);
-  },
+notifyOrder: async (message) => {
+console.log('Sending notification for:', message.orderId);
+await sendEmail(message);
+},
 
-  shipOrder: async (message) => {
-    console.log('Preparing shipment for:', message.orderId);
-    await prepareShipment(message);
-  },
+shipOrder: async (message) => {
+console.log('Preparing shipment for:', message.orderId);
+await prepareShipment(message);
+},
 });
 
 // Use in worker
 const worker = await TypedAmqpWorker.create({
-  contract: orderContract,
-  handlers,
-  urls: ['amqp://localhost'],
+contract: orderContract,
+handlers,
+urls: ['amqp://localhost'],
 });
-```
+
+````
 
 ### Benefits
 
@@ -216,7 +217,7 @@ export const orderHandlers = defineHandlers(orderContract, {
   processOrder: processOrderHandler,
   notifyOrder: notifyOrderHandler,
 });
-```
+````
 
 ```typescript
 // worker.ts
@@ -294,7 +295,7 @@ const worker = await TypedAmqpWorker.create({
 
 For more control, use manual acknowledgment:
 
-```typescript
+````typescript
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
@@ -328,7 +329,7 @@ const workerResult = await TypedAmqpWorker.create({
   },
   urls: ['amqp://localhost'],
 });
-```
+````
 
 ### Manual Acknowledgment
 
@@ -352,6 +353,7 @@ const workerResult = await TypedAmqpWorker.create({
 ```
 
 **Options:**
+
 - `ack()` - Acknowledge message
 - `nack({ requeue: true })` - Requeue for retry
 - `nack({ requeue: false })` - Discard message
@@ -385,17 +387,17 @@ async function main() {
       processOrder: async (message, { ack, nack }) => {
         try {
           console.log(`Processing order ${message.orderId}`);
-          
+
           await saveToDatabase(message);
           await sendConfirmation(message.customerId);
-          
+
           ack();
         } catch (error) {
           console.error('Processing failed:', error);
           nack({ requeue: true });
         }
       },
-      
+
       notifyOrder: async (message) => {
         console.log(`Sending notification for ${message.orderId}`);
         await sendEmail(message);

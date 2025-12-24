@@ -139,6 +139,7 @@ result.match({
 ```
 
 **Error Types:**
+
 - `MessageValidationError` - Schema validation failed
 - `TechnicalError` - Network or runtime failures
 

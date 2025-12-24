@@ -127,6 +127,7 @@ const ordersExchange = defineExchange(
 ```
 
 **Exchange Types:**
+
 - `direct` - Exact routing key match
 - `topic` - Pattern matching with wildcards (`*`, `#`)
 - `fanout` - Broadcast to all bound queues

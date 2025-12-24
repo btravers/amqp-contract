@@ -103,6 +103,7 @@ const orderMessage = defineMessage(
 ```
 
 **Benefits:**
+
 - Enables AsyncAPI documentation
 - Improves code readability
 - Allows header schema definition
@@ -138,6 +139,7 @@ const contract = defineContract({
 ```
 
 **Routing Key Requirements:**
+
 - **Fanout**: Routing key is optional (fanout ignores it)
 - **Direct/Topic**: Routing key is required
 
@@ -173,6 +175,7 @@ const contract = defineContract({
 ```
 
 **Routing Key Requirements:**
+
 - **Fanout**: Optional
 - **Direct/Topic**: Required
 
