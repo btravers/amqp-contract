@@ -90,7 +90,7 @@ These errors are logged but **handlers don't need to use them** - just throw sta
 
 ## API
 
-See the [Worker API documentation](https://btravers.github.io/amqp-contract/api/worker) for complete API reference.
+For complete API documentation, see the [Worker API Reference](https://btravers.github.io/amqp-contract/api/worker).
 
 ## Documentation
 

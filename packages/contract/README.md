@@ -80,74 +80,7 @@ const contract = defineContract({
 
 ## API
 
-### `defineExchange(name, type, options?)`
-
-Define an AMQP exchange. Returns an exchange definition object that can be referenced by bindings and publishers.
-
-**Types:** `'fanout'`, `'direct'`, or `'topic'`
-
-### `defineQueue(name, options?)`
-
-Define an AMQP queue. Returns a queue definition object that can be referenced by bindings and consumers.
-
-### `defineMessage(payloadSchema, options?)`
-
-Define a message definition with a payload schema and optional metadata (headers, summary, description).
-This is useful for documentation generation and type inference.
-
-### `defineQueueBinding(queue, exchange, options?)`
-
-Define a binding between a queue and an exchange. Pass the queue and exchange objects (not strings).
-
-**For fanout exchanges:** Routing key is optional (fanout ignores routing keys).
-**For direct/topic exchanges:** Routing key is required in options.
-
-### `defineExchangeBinding(destination, source, options?)`
-
-Define a binding between two exchanges (source → destination). Messages published to the source exchange will be routed to the destination exchange based on the routing key pattern.
-
-Pass the exchange objects (not strings).
-
-### `definePublisher(exchange, message, options?)`
-
-Define a message publisher with validation schema. Pass the exchange object (not a string).
-
-**For fanout exchanges:** Routing key is optional (fanout ignores routing keys).
-**For direct/topic exchanges:** Routing key is required in options.
-
-### `defineConsumer(queue, message, options?)`
-
-Define a message consumer with validation schema. Pass the queue object (not a string).
-
-### `defineContract(definition)`
-
-Create a complete AMQP contract with exchanges, queues, bindings, publishers, and consumers.
-
-## Key Concepts
-
-### Composition Pattern
-
-The contract API uses a composition pattern where you:
-
-1. Define exchanges and queues first as variables
-2. Reference these objects in bindings, publishers, and consumers
-3. Compose everything together in `defineContract`
-
-This provides:
-
-- **Better type safety**: TypeScript can validate exchange/queue types
-- **Better refactoring**: Rename an exchange in one place
-- **DRY principle**: Define once, reference many times
-
-### Exchange Types & Routing Keys
-
-The API enforces routing key requirements based on exchange type:
-
-- **Fanout exchanges**: Don't use routing keys (all messages go to all bound queues)
-- **Direct exchanges**: Require explicit routing keys for exact matching
-- **Topic exchanges**: Require routing key patterns (e.g., `order.*`, `order.#`)
-
-TypeScript enforces these rules at compile time through discriminated unions.
+For complete API documentation, see the [Contract API Reference](https://btravers.github.io/amqp-contract/api/contract).
 
 ## Documentation
 

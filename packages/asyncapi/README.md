@@ -60,30 +60,7 @@ writeFileSync('asyncapi.json', JSON.stringify(asyncAPISpec, null, 2));
 
 ## API
 
-### `AsyncAPIGenerator`
-
-Generator class for creating AsyncAPI 3.0.0 specifications from AMQP contracts.
-
-**Constructor Parameters:**
-
-- `options.schemaConverters`: Array of schema converters (e.g., `ZodToJsonSchemaConverter`)
-
-**Methods:**
-
-- `generate(contract, options)`: Generate an AsyncAPI specification
-  - `contract`: The AMQP contract definition
-  - `options`: Configuration options
-    - `info`: API information (title, version, description, etc.)
-    - `servers`: Server configurations (optional)
-  - Returns: `Promise<AsyncAPIObject>` - AsyncAPI 3.0.0 document
-
-## Features
-
-- ✅ Full AsyncAPI 3.0.0 support
-- ✅ Channels from exchanges and queues
-- ✅ Operations for publishers and consumers
-- ✅ Message schemas from Zod schemas
-- ✅ AMQP protocol bindings
+For complete API documentation, see the [AsyncAPI API Reference](https://btravers.github.io/amqp-contract/api/asyncapi).
 
 ## Documentation
 

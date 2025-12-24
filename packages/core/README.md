@@ -91,57 +91,7 @@ const client = await TypedAmqpClient.create({
 
 ## API
 
-### `AmqpClient`
-
-The `AmqpClient` class handles AMQP connection management and resource setup.
-
-**Constructor:**
-
-```typescript
-new AmqpClient(contract: ContractDefinition, options: AmqpClientOptions)
-```
-
-**Parameters:**
-
-- `contract`: Contract definition containing exchanges, queues, and bindings
-- `options.urls`: Array of AMQP connection URLs
-- `options.connectionOptions`: Optional connection manager options
-
-**Methods:**
-
-- `close(): Promise<void>` - Closes the channel and connection
-
-### `Logger` Interface
-
-The `Logger` interface defines the standard logging interface used by `@amqp-contract/client` and `@amqp-contract/worker`.
-
-```typescript
-interface Logger {
-  debug(message: string, context?: LoggerContext): void;
-  info(message: string, context?: LoggerContext): void;
-  warn(message: string, context?: LoggerContext): void;
-  error(message: string, context?: LoggerContext): void;
-}
-
-type LoggerContext = Record<string, unknown> & {
-  error?: unknown;
-};
-```
-
-## Features
-
-- ✅ Type-safe AMQP client with connection management
-- ✅ Logger interface for custom logging implementations
-- ✅ Supports all exchange types (topic, direct, fanout)
-- ✅ Handles both queue-to-exchange and exchange-to-exchange bindings
-- ✅ Passes custom arguments to AMQP resources
-- ✅ Used internally by `@amqp-contract/client` and `@amqp-contract/worker`
-
-## Related Packages
-
-- [@amqp-contract/contract](../contract) - Contract definition builders
-- [@amqp-contract/client](../client) - Type-safe AMQP client
-- [@amqp-contract/worker](../worker) - Type-safe AMQP worker
+For complete API documentation, see the [Core API Reference](https://btravers.github.io/amqp-contract/api/core).
 
 ## Documentation
 
