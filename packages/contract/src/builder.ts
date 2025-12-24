@@ -110,7 +110,6 @@ export function defineExchange(
  * @param type - The type of exchange: "fanout", "direct", or "topic"
  * @param options - Optional exchange configuration
  * @returns An exchange definition
- *
  * @internal
  */
 export function defineExchange(
@@ -299,7 +298,6 @@ export function defineQueueBinding(
  * @param exchange - The exchange definition
  * @param options - Optional binding configuration
  * @returns A queue binding definition
- *
  * @internal
  */
 export function defineQueueBinding(
@@ -406,7 +404,6 @@ export function defineExchangeBinding(
  * @param source - The source exchange definition
  * @param options - Optional binding configuration
  * @returns An exchange binding definition
- *
  * @internal
  */
 export function defineExchangeBinding(
@@ -532,7 +529,6 @@ export function definePublisher<TMessage extends MessageDefinition>(
  * @param message - The message definition
  * @param options - Optional publisher configuration
  * @returns A publisher definition
- *
  * @internal
  */
 export function definePublisher<TMessage extends MessageDefinition>(

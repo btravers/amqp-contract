@@ -109,12 +109,6 @@ export type TopicExchangeDefinition = BaseExchangeDefinition & {
  *
  * Represents any type of AMQP exchange: fanout, direct, or topic.
  */
-
-/**
- * Union type of all exchange definitions.
- *
- * Represents any type of AMQP exchange: fanout, direct, or topic.
- */
 export type ExchangeDefinition =
   | FanoutExchangeDefinition
   | DirectExchangeDefinition
