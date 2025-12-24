@@ -1,5 +1,48 @@
 # @amqp-contract/asyncapi
 
+## 0.3.2
+
+### Patch Changes
+
+- Add optional Logger interface for message publishing and consumption
+
+  This release introduces an optional Logger interface that allows users to integrate their preferred logging framework with amqp-contract:
+
+  **New Features:**
+  - Added `Logger` interface in `@amqp-contract/core` with debug, info, warn, and error methods
+  - Added `LoggerContext` type for structured logging context
+  - Client and Worker now accept an optional `logger` option to enable message logging
+  - NestJS modules support logger injection
+
+  **Usage:**
+
+  ```typescript
+  // Simple console logger implementation
+  const logger: Logger = {
+    debug: (message, context) => console.debug(message, context),
+    info: (message, context) => console.info(message, context),
+    warn: (message, context) => console.warn(message, context),
+    error: (message, context) => console.error(message, context),
+  };
+
+  // Use with client
+  const client = await TypedAmqpClient.create({
+    contract,
+    urls,
+    logger,
+  });
+
+  // Use with worker
+  const worker = await TypedAmqpWorker.create({
+    contract,
+    urls,
+    logger,
+  });
+  ```
+
+- Updated dependencies
+  - @amqp-contract/contract@0.3.2
+
 ## 0.3.1
 
 ### Patch Changes
