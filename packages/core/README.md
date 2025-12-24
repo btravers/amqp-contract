@@ -91,7 +91,7 @@ const client = await TypedAmqpClient.create({
 
 ## API
 
-For complete API documentation, see the [Core API Reference](https://btravers.github.io/amqp-contract/api/core).
+For complete API documentation, see the [Full documentation](https://btravers.github.io/amqp-contract).
 
 ## Documentation
 
