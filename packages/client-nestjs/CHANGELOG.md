@@ -1,5 +1,13 @@
 # @amqp-contract/client-nestjs
 
+## 0.3.5
+
+### Patch Changes
+
+- Fix NestJS factory type issue
+  - @amqp-contract/client@0.3.5
+  - @amqp-contract/contract@0.3.5
+
 ## 0.3.4
 
 ### Patch Changes

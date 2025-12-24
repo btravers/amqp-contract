@@ -1,6 +1,6 @@
 {
   "name": "@amqp-contract/core",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "description": "Core utilities for AMQP setup and management in amqp-contract",
   "keywords": [
     "amqp",
