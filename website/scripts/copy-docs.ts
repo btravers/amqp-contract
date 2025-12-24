@@ -1,12 +1,12 @@
 import { cp, mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const rootDir = join(__dirname, "..");
 const docsDir = join(rootDir, "docs", "api");
 
-interface PackageInfo {
+type PackageInfo = {
   name: string;
   folder: string;
 }

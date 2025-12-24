@@ -1,14 +1,14 @@
-import { describe, it, expectTypeOf } from "vitest";
-import { AmqpWorkerModule } from "./worker.module.js";
-import type { DynamicModule } from "@nestjs/common";
 import {
+  defineConsumer,
   defineContract,
   defineExchange,
+  defineMessage,
   defineQueue,
   defineQueueBinding,
-  defineConsumer,
-  defineMessage,
 } from "@amqp-contract/contract";
+import { describe, expectTypeOf, it } from "vitest";
+import { AmqpWorkerModule } from "./worker.module.js";
+import type { DynamicModule } from "@nestjs/common";
 import { z } from "zod";
 
 describe("AmqpWorkerModule - Type Safety", () => {

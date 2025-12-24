@@ -1,14 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { AmqpClient } from "./index.js";
-import type { Logger } from "./index.js";
-import type { Channel } from "amqplib";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   defineContract,
   defineExchange,
+  defineExchangeBinding,
   defineQueue,
   defineQueueBinding,
-  defineExchangeBinding,
 } from "@amqp-contract/contract";
+import { AmqpClient } from "./index.js";
+import type { Channel } from "amqplib";
+import type { Logger } from "./index.js";
 
 // Mock amqp-connection-manager
 vi.mock("amqp-connection-manager", () => {

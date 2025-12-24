@@ -1,15 +1,15 @@
-import { describe, expect } from "vitest";
-import { it } from "@amqp-contract/testing/extension";
-import { TypedAmqpClient } from "./client.js";
 import {
   defineContract,
   defineExchange,
+  defineMessage,
   definePublisher,
   defineQueue,
   defineQueueBinding,
-  defineMessage,
 } from "@amqp-contract/contract";
+import { describe, expect } from "vitest";
 import { Result } from "@swan-io/boxed";
+import { TypedAmqpClient } from "./client.js";
+import { it } from "@amqp-contract/testing/extension";
 import { z } from "zod";
 
 describe("AmqpClient Integration", () => {

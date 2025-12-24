@@ -1,22 +1,22 @@
-import { describe, expect, it } from "vitest";
-import { AsyncAPIGenerator } from "./index.js";
+import * as v from "valibot";
 import {
+  type MessageDefinition,
+  defineConsumer,
   defineContract,
   defineExchange,
+  defineMessage,
+  definePublisher,
   defineQueue,
   defineQueueBinding,
-  definePublisher,
-  defineConsumer,
-  defineMessage,
-  type MessageDefinition,
 } from "@amqp-contract/contract";
-import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
-import { experimental_ValibotToJsonSchemaConverter } from "@orpc/valibot";
-import { experimental_ArkTypeToJsonSchemaConverter } from "@orpc/arktype";
-import { z } from "zod";
-import * as v from "valibot";
-import { type } from "arktype";
+import { describe, expect, it } from "vitest";
+import { AsyncAPIGenerator } from "./index.js";
 import { Parser } from "@asyncapi/parser";
+import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
+import { experimental_ArkTypeToJsonSchemaConverter } from "@orpc/arktype";
+import { experimental_ValibotToJsonSchemaConverter } from "@orpc/valibot";
+import { type } from "arktype";
+import { z } from "zod";
 
 describe("AsyncAPIGenerator", () => {
   describe("with Zod schemas", () => {

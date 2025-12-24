@@ -27,7 +27,7 @@ export type LoggerContext = Record<string, unknown> & {
  * };
  * ```
  */
-export interface Logger {
+export type Logger = {
   /**
    * Log debug level messages
    * @param message - The log message

@@ -1,12 +1,12 @@
 import {
-  defineQueueBinding,
-  defineExchangeBinding,
   defineConsumer,
   defineContract,
   defineExchange,
+  defineExchangeBinding,
+  defineMessage,
   definePublisher,
   defineQueue,
-  defineMessage,
+  defineQueueBinding,
 } from "@amqp-contract/contract";
 import { z } from "zod";
 

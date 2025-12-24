@@ -1,13 +1,13 @@
+import { type AmqpClientModuleOptions, AmqpClientService } from "./client.service.js";
 import {
-  Module,
   type DynamicModule,
+  Module,
+  type ModuleMetadata,
   type Provider,
   type Type,
-  type ModuleMetadata,
 } from "@nestjs/common";
 import type { ContractDefinition } from "@amqp-contract/contract";
 import { MODULE_OPTIONS_TOKEN } from "./client.module-definition.js";
-import { AmqpClientService, type AmqpClientModuleOptions } from "./client.service.js";
 
 /**
  * Factory function return type for async module configuration
@@ -19,7 +19,7 @@ type AmqpClientModuleOptionsFactory<TContract extends ContractDefinition> =
 /**
  * Options for async module configuration using factory pattern
  */
-export interface AmqpClientModuleAsyncOptions<TContract extends ContractDefinition> {
+export type AmqpClientModuleAsyncOptions<TContract extends ContractDefinition> = {
   /**
    * Factory function that returns the module options.
    * Can use injected dependencies to create configuration.

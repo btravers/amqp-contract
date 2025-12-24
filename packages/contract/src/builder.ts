@@ -1,18 +1,18 @@
-import type { StandardSchemaV1 } from "@standard-schema/spec";
 import type {
-  QueueBindingDefinition,
-  ExchangeBindingDefinition,
+  BaseExchangeDefinition,
   ConsumerDefinition,
   ContractDefinition,
-  ExchangeDefinition,
-  PublisherDefinition,
-  QueueDefinition,
-  MessageDefinition,
-  FanoutExchangeDefinition,
-  TopicExchangeDefinition,
   DirectExchangeDefinition,
-  BaseExchangeDefinition,
+  ExchangeBindingDefinition,
+  ExchangeDefinition,
+  FanoutExchangeDefinition,
+  MessageDefinition,
+  PublisherDefinition,
+  QueueBindingDefinition,
+  QueueDefinition,
+  TopicExchangeDefinition,
 } from "./types.js";
+import type { StandardSchemaV1 } from "@standard-schema/spec";
 
 /**
  * Define a fanout exchange.

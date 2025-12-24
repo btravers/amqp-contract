@@ -1,13 +1,13 @@
-import { describe, expect, it, vi } from "vitest";
 import {
-  defineContract,
   defineConsumer,
+  defineContract,
   defineMessage,
   defineQueue,
 } from "@amqp-contract/contract";
-import { z } from "zod";
 import { defineHandler, defineHandlers } from "./handlers.js";
+import { describe, expect, it, vi } from "vitest";
 import type { WorkerInferConsumerInput } from "./types.js";
+import { z } from "zod";
 
 describe("handlers", () => {
   // Define test contracts

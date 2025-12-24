@@ -1,6 +1,6 @@
 import { defineHandler, defineHandlers } from "@amqp-contract/worker";
-import pino from "pino";
 import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
+import pino from "pino";
 
 const logger = pino({
   level: "info",

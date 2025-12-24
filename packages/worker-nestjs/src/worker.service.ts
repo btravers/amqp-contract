@@ -1,7 +1,7 @@
-import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
-import type { ContractDefinition } from "@amqp-contract/contract";
 import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
+import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
 import { TypedAmqpWorker, type WorkerInferConsumerHandlers } from "@amqp-contract/worker";
+import type { ContractDefinition } from "@amqp-contract/contract";
 import { MODULE_OPTIONS_TOKEN } from "./worker.module-definition.js";
 
 /**
@@ -25,7 +25,7 @@ import { MODULE_OPTIONS_TOKEN } from "./worker.module-definition.js";
  * };
  * ```
  */
-export interface AmqpWorkerModuleOptions<TContract extends ContractDefinition> {
+export type AmqpWorkerModuleOptions<TContract extends ContractDefinition> = {
   /** The AMQP contract definition specifying consumers and their message schemas */
   contract: TContract;
   /** Message handlers for each consumer defined in the contract */
