@@ -1,6 +1,12 @@
 # @amqp-contract/contract
 
-Contract builder for amqp-contract - Define type-safe AMQP messaging contracts.
+**Contract builder for amqp-contract - Define type-safe AMQP messaging contracts.**
+
+[![CI](https://github.com/btravers/amqp-contract/actions/workflows/ci.yml/badge.svg)](https://github.com/btravers/amqp-contract/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/@amqp-contract/contract.svg?logo=npm)](https://www.npmjs.com/package/@amqp-contract/contract)
+[![npm downloads](https://img.shields.io/npm/dm/@amqp-contract/contract.svg)](https://www.npmjs.com/package/@amqp-contract/contract)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?logo=typescript)](https://www.typescriptlang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 📖 **[Full documentation →](https://btravers.github.io/amqp-contract/api/contract)**
 
@@ -142,6 +148,10 @@ The API enforces routing key requirements based on exchange type:
 - **Topic exchanges**: Require routing key patterns (e.g., `order.*`, `order.#`)
 
 TypeScript enforces these rules at compile time through discriminated unions.
+
+## Documentation
+
+📖 **[Read the full documentation →](https://btravers.github.io/amqp-contract)**
 
 ## License
 
