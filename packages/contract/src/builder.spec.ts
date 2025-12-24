@@ -1,15 +1,15 @@
-import { describe, expect, it } from "vitest";
-import { z } from "zod";
 import {
-  defineQueueBinding,
-  defineExchangeBinding,
   defineConsumer,
   defineContract,
   defineExchange,
+  defineExchangeBinding,
   defineMessage,
   definePublisher,
   defineQueue,
+  defineQueueBinding,
 } from "./builder.js";
+import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 describe("builder", () => {
   describe("defineExchange", () => {

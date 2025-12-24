@@ -1,14 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { Future, Result } from "@swan-io/boxed";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   defineContract,
   defineExchange,
-  definePublisher,
   defineMessage,
+  definePublisher,
 } from "@amqp-contract/contract";
-import { z } from "zod";
-import { TypedAmqpClient } from "@amqp-contract/client";
-import { Future, Result } from "@swan-io/boxed";
 import { AmqpClientService } from "./client.service.js";
+import { TypedAmqpClient } from "@amqp-contract/client";
+import { z } from "zod";
 
 describe("AmqpClientService", () => {
   const mockClient = {

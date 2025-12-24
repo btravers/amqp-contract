@@ -1,7 +1,7 @@
 import { describe, expect } from "vitest";
-import { it } from "@amqp-contract/testing/extension";
 import { Result } from "@swan-io/boxed";
 import { TypedAmqpClient } from "@amqp-contract/client";
+import { it } from "@amqp-contract/testing/extension";
 import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
 
 describe("Basic Order Processing Client Integration", () => {

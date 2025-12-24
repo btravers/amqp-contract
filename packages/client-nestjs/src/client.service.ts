@@ -1,15 +1,15 @@
-import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
-import type { Options } from "amqplib";
-import { Future, Result } from "@swan-io/boxed";
-import type { ContractDefinition, InferPublisherNames } from "@amqp-contract/contract";
 import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
 import {
+  type ClientInferPublisherInput,
   MessageValidationError,
   TechnicalError,
   TypedAmqpClient,
-  type ClientInferPublisherInput,
 } from "@amqp-contract/client";
+import type { ContractDefinition, InferPublisherNames } from "@amqp-contract/contract";
+import { Future, Result } from "@swan-io/boxed";
+import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
 import { MODULE_OPTIONS_TOKEN } from "./client.module-definition.js";
+import type { Options } from "amqplib";
 
 /**
  * Configuration options for the AMQP client NestJS module.
@@ -27,14 +27,14 @@ import { MODULE_OPTIONS_TOKEN } from "./client.module-definition.js";
  * };
  * ```
  */
-export interface AmqpClientModuleOptions<TContract extends ContractDefinition> {
+export type AmqpClientModuleOptions<TContract extends ContractDefinition> = {
   /** The AMQP contract definition specifying publishers and their message schemas */
   contract: TContract;
   /** AMQP broker URL(s). Multiple URLs provide failover support */
   urls: ConnectionUrl[];
   /** Optional connection configuration (heartbeat, reconnect settings, etc.) */
   connectionOptions?: AmqpConnectionManagerOptions | undefined;
-}
+};
 
 /**
  * Type-safe AMQP client service for NestJS applications.

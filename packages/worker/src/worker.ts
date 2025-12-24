@@ -1,9 +1,9 @@
-import type { ContractDefinition, InferConsumerNames } from "@amqp-contract/contract";
 import { AmqpClient, type Logger } from "@amqp-contract/core";
+import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
+import type { ContractDefinition, InferConsumerNames } from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
 import { MessageValidationError, TechnicalError } from "./errors.js";
 import type { WorkerInferConsumerHandlers, WorkerInferConsumerInput } from "./types.js";
-import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
 
 /**
  * Options for creating a type-safe AMQP worker.

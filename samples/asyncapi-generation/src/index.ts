@@ -1,13 +1,13 @@
-import { AsyncAPIGenerator } from "@amqp-contract/asyncapi";
 import {
-  defineQueueBinding,
   defineConsumer,
   defineContract,
   defineExchange,
   defineMessage,
   definePublisher,
   defineQueue,
+  defineQueueBinding,
 } from "@amqp-contract/contract";
+import { AsyncAPIGenerator } from "@amqp-contract/asyncapi";
 import { ZodToJsonSchemaConverter } from "@orpc/zod";
 import { writeFileSync } from "fs";
 import { z } from "zod";

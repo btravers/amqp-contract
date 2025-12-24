@@ -1,13 +1,13 @@
+import { type AmqpWorkerModuleOptions, AmqpWorkerService } from "./worker.service.js";
 import {
-  Module,
   type DynamicModule,
+  Module,
+  type ModuleMetadata,
   type Provider,
   type Type,
-  type ModuleMetadata,
 } from "@nestjs/common";
 import type { ContractDefinition } from "@amqp-contract/contract";
 import { MODULE_OPTIONS_TOKEN } from "./worker.module-definition.js";
-import { AmqpWorkerService, type AmqpWorkerModuleOptions } from "./worker.service.js";
 
 /**
  * Factory function return type for async module configuration
@@ -19,7 +19,7 @@ type AmqpWorkerModuleOptionsFactory<TContract extends ContractDefinition> =
 /**
  * Options for async module configuration using factory pattern
  */
-export interface AmqpWorkerModuleAsyncOptions<TContract extends ContractDefinition> {
+export type AmqpWorkerModuleAsyncOptions<TContract extends ContractDefinition> = {
   /**
    * Factory function that returns the module options.
    * Can use injected dependencies to create configuration.
@@ -35,7 +35,7 @@ export interface AmqpWorkerModuleAsyncOptions<TContract extends ContractDefiniti
    * Optional list of imported modules that export providers needed by the factory
    */
   imports?: ModuleMetadata["imports"];
-}
+};
 
 /**
  * NestJS module for AMQP worker integration

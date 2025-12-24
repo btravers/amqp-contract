@@ -1,11 +1,11 @@
-import type { Channel } from "amqplib";
-import type { ContractDefinition } from "@amqp-contract/contract";
 import amqp, {
   AmqpConnectionManager,
   AmqpConnectionManagerOptions,
   ChannelWrapper,
   ConnectionUrl,
 } from "amqp-connection-manager";
+import type { Channel } from "amqplib";
+import type { ContractDefinition } from "@amqp-contract/contract";
 
 export type { Logger, LoggerContext } from "./logger.js";
 

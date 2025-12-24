@@ -1,17 +1,17 @@
-import { ConditionalSchemaConverter, JSONSchema } from "@orpc/openapi";
 import {
   AsyncAPIObject,
-  ChannelsObject,
-  OperationsObject,
-  MessagesObject,
-  MessageObject,
   ChannelObject,
+  ChannelsObject,
+  MessageObject,
+  MessagesObject,
+  OperationsObject,
 } from "@asyncapi/parser/esm/spec-types/v3";
+import { ConditionalSchemaConverter, JSONSchema } from "@orpc/openapi";
 import type {
   ContractDefinition,
+  ExchangeDefinition,
   MessageDefinition,
   QueueDefinition,
-  ExchangeDefinition,
 } from "@amqp-contract/contract";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 
@@ -28,13 +28,13 @@ import type { StandardSchemaV1 } from "@standard-schema/spec";
  * });
  * ```
  */
-export interface AsyncAPIGeneratorOptions {
+export type AsyncAPIGeneratorOptions = {
   /**
    * Schema converters for transforming validation schemas to JSON Schema.
    * Supports Zod, Valibot, ArkType, and other Standard Schema v1 compatible libraries.
    */
   schemaConverters?: ConditionalSchemaConverter[];
-}
+};
 
 /**
  * Options for generating an AsyncAPI document.

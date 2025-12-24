@@ -1,8 +1,7 @@
 import { describe, expect } from "vitest";
-import { it } from "@amqp-contract/testing/extension";
-import { TypedAmqpWorker } from "@amqp-contract/worker";
 import { TypedAmqpClient } from "@amqp-contract/client";
-
+import { TypedAmqpWorker } from "@amqp-contract/worker";
+import { it } from "@amqp-contract/testing/extension";
 import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
 
 describe("Basic Order Processing Worker Integration", () => {

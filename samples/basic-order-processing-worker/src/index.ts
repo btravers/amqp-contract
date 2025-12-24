@@ -1,7 +1,7 @@
 import { TypedAmqpWorker } from "@amqp-contract/worker";
+import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
 import pino from "pino";
 import { z } from "zod";
-import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
 
 const env = z
   .object({

@@ -1,16 +1,16 @@
-import { describe, expect } from "vitest";
-import { it } from "@amqp-contract/testing/extension";
-import { TypedAmqpWorker } from "./worker.js";
-import { TypedAmqpClient } from "@amqp-contract/client";
 import {
+  defineConsumer,
   defineContract,
   defineExchange,
+  defineMessage,
+  definePublisher,
   defineQueue,
   defineQueueBinding,
-  definePublisher,
-  defineConsumer,
-  defineMessage,
 } from "@amqp-contract/contract";
+import { describe, expect } from "vitest";
+import { TypedAmqpClient } from "@amqp-contract/client";
+import { TypedAmqpWorker } from "./worker.js";
+import { it } from "@amqp-contract/testing/extension";
 import { z } from "zod";
 
 describe("AmqpWorker Integration", () => {

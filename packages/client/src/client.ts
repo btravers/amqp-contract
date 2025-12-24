@@ -1,10 +1,10 @@
-import type { Options } from "amqplib";
+import { AmqpClient, type Logger } from "@amqp-contract/core";
+import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
 import type { ContractDefinition, InferPublisherNames } from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
 import { MessageValidationError, TechnicalError } from "./errors.js";
 import type { ClientInferPublisherInput } from "./types.js";
-import { AmqpClient, type Logger } from "@amqp-contract/core";
-import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
+import type { Options } from "amqplib";
 
 /**
  * Options for creating a client

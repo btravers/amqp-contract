@@ -1,15 +1,15 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { TypedAmqpClient } from "./client";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   defineContract,
-  defineMessage,
   defineExchange,
-  defineQueue,
-  definePublisher,
-  defineQueueBinding,
   defineExchangeBinding,
+  defineMessage,
+  definePublisher,
+  defineQueue,
+  defineQueueBinding,
 } from "@amqp-contract/contract";
 import { Result } from "@swan-io/boxed";
+import { TypedAmqpClient } from "./client";
 import { z } from "zod";
 
 vi.mock("amqp-connection-manager", () => {

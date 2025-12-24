@@ -1,15 +1,15 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { TypedAmqpWorker } from "./worker";
-import type { ConsumeMessage } from "amqplib";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  defineConsumer,
   defineContract,
+  defineExchange,
+  defineExchangeBinding,
   defineMessage,
   defineQueue,
-  defineConsumer,
-  defineExchange,
   defineQueueBinding,
-  defineExchangeBinding,
 } from "@amqp-contract/contract";
+import type { ConsumeMessage } from "amqplib";
+import { TypedAmqpWorker } from "./worker";
 import { z } from "zod";
 
 // Mock types for testing

@@ -1,9 +1,9 @@
-import type { StandardSchemaV1 } from "@standard-schema/spec";
 import type {
   ContractDefinition,
   InferPublisherNames,
   PublisherDefinition,
 } from "@amqp-contract/contract";
+import type { StandardSchemaV1 } from "@standard-schema/spec";
 
 /**
  * Infer the TypeScript type from a schema

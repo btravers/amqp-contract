@@ -1,8 +1,8 @@
 import { TypedAmqpWorker } from "@amqp-contract/worker";
+import { allHandlers } from "./handlers.js";
+import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
 import pino from "pino";
 import { z } from "zod";
-import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
-import { allHandlers } from "./handlers.js";
 
 const env = z
   .object({
