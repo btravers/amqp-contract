@@ -34,7 +34,7 @@ export type AsyncAPIGeneratorOptions = {
    * Supports Zod, Valibot, ArkType, and other Standard Schema v1 compatible libraries.
    */
   schemaConverters?: ConditionalSchemaConverter[];
-}
+};
 
 /**
  * Options for generating an AsyncAPI document.

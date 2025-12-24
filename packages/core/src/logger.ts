@@ -55,4 +55,4 @@ export type Logger = {
    * @param context - Optional context to include with the log
    */
   error(message: string, context?: LoggerContext): void;
-}
+};

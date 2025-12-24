@@ -9,7 +9,7 @@ const docsDir = join(rootDir, "docs", "api");
 type PackageInfo = {
   name: string;
   folder: string;
-}
+};
 
 const packages: PackageInfo[] = [
   { name: "@amqp-contract/contract", folder: "contract" },

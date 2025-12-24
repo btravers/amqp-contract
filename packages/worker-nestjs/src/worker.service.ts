@@ -34,7 +34,7 @@ export type AmqpWorkerModuleOptions<TContract extends ContractDefinition> = {
   urls: ConnectionUrl[];
   /** Optional connection configuration (heartbeat, reconnect settings, etc.) */
   connectionOptions?: AmqpConnectionManagerOptions | undefined;
-}
+};
 
 /**
  * Type-safe AMQP worker service for NestJS applications.

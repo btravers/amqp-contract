@@ -35,7 +35,7 @@ export type AmqpClientModuleAsyncOptions<TContract extends ContractDefinition> =
    * Optional list of imported modules that export providers needed by the factory
    */
   imports?: ModuleMetadata["imports"];
-}
+};
 
 /**
  * NestJS module for AMQP client integration
