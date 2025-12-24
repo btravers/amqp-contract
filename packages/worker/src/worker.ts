@@ -124,7 +124,11 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       }),
       handlers,
     );
-    return worker.consumeAll().mapOk(() => worker);
+
+    return worker
+      .waitForConnectionReady()
+      .flatMapOk(() => worker.consumeAll())
+      .mapOk(() => worker);
   }
 
   /**
@@ -162,6 +166,12 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     return Future.all(consumerNames.map((consumerName) => this.consume(consumerName)))
       .map(Result.all)
       .mapOk(() => undefined);
+  }
+
+  private waitForConnectionReady(): Future<Result<void, TechnicalError>> {
+    return Future.fromPromise(this.amqpClient.channel.waitForConnect()).mapError(
+      (error) => new TechnicalError("Failed to wait for connection ready", error),
+    );
   }
 
   /**
