@@ -6,6 +6,5 @@ export type {
   WorkerInferConsumerInput,
   WorkerInferConsumerHandler,
   WorkerInferConsumerHandlers,
-  defineHandler,
-  defineHandlers,
 } from "@amqp-contract/worker";
+export { defineHandler, defineHandlers } from "@amqp-contract/worker";
