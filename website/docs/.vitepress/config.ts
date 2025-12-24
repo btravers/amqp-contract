@@ -28,7 +28,10 @@ export default withMermaid(
         return;
       }
 
-      const canonicalUrl = `https://btravers.github.io/amqp-contract/${pageData.relativePath}`
+      // VitePress provides relativePath without leading slash (e.g., "guide/getting-started.md")
+      // Normalize the path by removing any leading slashes just in case
+      const normalizedPath = pageData.relativePath.replace(/^\/+/, "");
+      const canonicalUrl = `https://btravers.github.io/amqp-contract/${normalizedPath}`
         .replace(/index\.md$/, "")
         .replace(/\.md$/, ".html");
 
