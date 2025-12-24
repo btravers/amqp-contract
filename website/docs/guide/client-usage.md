@@ -8,16 +8,24 @@ For NestJS applications, see the [NestJS Client Usage](/guide/client-nestjs-usag
 
 ## Creating a Client
 
-Create a type-safe client from your contract:
+Create a type-safe client from your contract. The `create` method returns a `Future<Result<...>>` that must be awaited:
 
 ```typescript
 import { TypedAmqpClient } from '@amqp-contract/client';
 import { contract } from './contract';
 
-const client = TypedAmqpClient.create({
+const clientResult = await TypedAmqpClient.create({
   contract,
   urls: ['amqp://localhost']
 });
+
+// Handle connection errors
+if (clientResult.isError()) {
+  console.error('Failed to create client:', clientResult.error);
+  throw clientResult.error; // or handle appropriately
+}
+
+const client = clientResult.get();
 ```
 
 ## Publishing Messages
@@ -157,10 +165,17 @@ async function main() {
   let client;
 
   try {
-    client = TypedAmqpClient.create({
+    const clientResult = await TypedAmqpClient.create({
       contract,
       urls: ['amqp://localhost']
     });
+
+    if (clientResult.isError()) {
+      console.error('Failed to create client:', clientResult.error);
+      throw clientResult.error;
+    }
+
+    client = clientResult.get();
 
     const result = await client.publish('orderCreated', {
       orderId: 'ORD-123',
