@@ -1,0 +1,7 @@
+{
+  "name": "@amqp-contract/typedoc",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Shared TypeDoc configuration for amqp-contract packages",
+  "license": "MIT"
+}

@@ -1,61 +1,86 @@
+import { connect } from "amqplib";
+import type { Channel, ChannelModel, Options } from "amqplib";
 import type { ContractDefinition, InferConsumerNames } from "@amqp-contract/contract";
-import { AmqpClient } from "@amqp-contract/core";
+import { setupInfra } from "@amqp-contract/core";
 import { Future, Result } from "@swan-io/boxed";
 import { MessageValidationError, TechnicalError } from "./errors.js";
 import type { WorkerInferConsumerHandlers, WorkerInferConsumerInput } from "./types.js";
-import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
 
 /**
  * Options for creating a worker
  */
-export type CreateWorkerOptions<TContract extends ContractDefinition> = {
+export interface CreateWorkerOptions<TContract extends ContractDefinition> {
   contract: TContract;
   handlers: WorkerInferConsumerHandlers<TContract>;
-  urls: ConnectionUrl[];
-  connectionOptions?: AmqpConnectionManagerOptions | undefined;
-};
+  connection: string | Options.Connect;
+}
 
 /**
  * Type-safe AMQP worker for consuming messages
  */
 export class TypedAmqpWorker<TContract extends ContractDefinition> {
+  private channel: Channel | null = null;
+  private connection: ChannelModel | null = null;
+  private consumerTags: string[] = [];
+
   private constructor(
     private readonly contract: TContract,
-    private readonly amqpClient: AmqpClient,
     private readonly handlers: WorkerInferConsumerHandlers<TContract>,
+    private readonly connectionOptions: string | Options.Connect,
   ) {}
 
   /**
-   * Create a type-safe AMQP worker from a contract.
-   *
-   * Connection management (including automatic reconnection) is handled internally
-   * by amqp-connection-manager via the {@link AmqpClient}. The worker will set up
-   * consumers for all contract-defined handlers asynchronously in the background
-   * once the underlying connection and channels are ready.
+   * Create a type-safe AMQP worker from a contract
+   * The worker will automatically connect and start consuming all messages
    */
-  static create<TContract extends ContractDefinition>({
-    contract,
-    handlers,
-    urls,
-    connectionOptions,
-  }: CreateWorkerOptions<TContract>): Future<Result<TypedAmqpWorker<TContract>, TechnicalError>> {
-    const worker = new TypedAmqpWorker(
-      contract,
-      new AmqpClient(contract, {
-        urls,
-        connectionOptions,
-      }),
-      handlers,
-    );
-    return worker.consumeAll().mapOk(() => worker);
+  static create<TContract extends ContractDefinition>(
+    options: CreateWorkerOptions<TContract>,
+  ): Future<Result<TypedAmqpWorker<TContract>, TechnicalError>> {
+    const worker = new TypedAmqpWorker(options.contract, options.handlers, options.connection);
+
+    return Future.concurrent([() => worker.init(), () => worker.consumeAll()], { concurrency: 1 })
+      .map((results) => Result.all([...results]))
+      .mapOk(() => worker);
   }
 
   /**
-   * Close the channel and connection
+   * Close the connection
    */
-  close(): Future<Result<void, TechnicalError>> {
-    return Future.fromPromise(this.amqpClient.close())
-      .mapError((error) => new TechnicalError("Failed to close AMQP connection", error))
+  async close(): Promise<void> {
+    await this.stopConsuming();
+
+    if (this.channel) {
+      await this.channel.close();
+      this.channel = null;
+    }
+
+    if (this.connection) {
+      await this.connection.close();
+      this.connection = null;
+    }
+  }
+
+  /**
+   * Connect to AMQP broker
+   */
+  private init(): Future<Result<void, TechnicalError>> {
+    return Future.fromPromise(connect(this.connectionOptions))
+      .mapError((error) => new TechnicalError("Failed to connect to AMQP broker", error))
+      .tapOk((connection) => {
+        this.connection = connection;
+      })
+      .flatMapOk(() =>
+        Future.fromPromise(this.connection!.createChannel())
+          .mapError((error) => new TechnicalError("Failed to create AMQP channel", error))
+          .tapOk((channel) => {
+            this.channel = channel;
+          }),
+      )
+      .flatMapOk(() =>
+        Future.fromPromise(setupInfra(this.channel!, this.contract)).mapError(
+          (error) => new TechnicalError("Failed to setup AMQP infrastructure", error),
+        ),
+      )
       .mapOk(() => undefined);
   }
 
@@ -80,6 +105,17 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   private consume<TName extends InferConsumerNames<TContract>>(
     consumerName: TName,
   ): Future<Result<void, TechnicalError>> {
+    const channel = this.channel;
+    if (!channel) {
+      return Future.value(
+        Result.Error(
+          new TechnicalError(
+            "Worker not initialized. Use TypedAmqpWorker.create() to obtain an initialized worker instance.",
+          ),
+        ),
+      );
+    }
+
     const consumers = this.contract.consumers;
     if (!consumers) {
       return Future.value(Result.Error(new TechnicalError("No consumers defined in contract")));
@@ -107,7 +143,11 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
     // Start consuming
     return Future.fromPromise(
-      this.amqpClient.channel.consume(consumer.queue.name, async (msg) => {
+      channel.consume(consumer.queue.name, async (msg) => {
+        if (!msg) {
+          return;
+        }
+
         // Parse message
         const parseResult = Result.fromExecution(() => JSON.parse(msg.content.toString()));
         if (parseResult.isError()) {
@@ -122,7 +162,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
           // fixme proper error handling strategy
           // Reject message with no requeue (malformed JSON)
-          this.amqpClient.channel.nack(msg, false, false);
+          channel.nack(msg, false, false);
           return;
         }
 
@@ -146,7 +186,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
             // fixme proper error handling strategy
             // Reject message with no requeue (validation failed)
-            this.amqpClient.channel.nack(msg, false, false);
+            channel.nack(msg, false, false);
           })
           .flatMapOk((validatedMessage) =>
             Future.fromPromise(handler(validatedMessage)).tapError((error) => {
@@ -161,12 +201,12 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
               // fixme proper error handling strategy
               // Reject message and requeue (handler failed)
-              this.amqpClient.channel.nack(msg, false, true);
+              channel.nack(msg, false, true);
             }),
           )
           .tapOk(() => {
             // Acknowledge message
-            this.amqpClient.channel.ack(msg);
+            channel.ack(msg);
           })
           .toPromise();
       }),
@@ -175,6 +215,32 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         (error) =>
           new TechnicalError(`Failed to start consuming for "${String(consumerName)}"`, error),
       )
+      .tapOk((result) => {
+        this.consumerTags.push(result.consumerTag);
+      })
+      .mapOk(() => undefined);
+  }
+
+  /**
+   * Stop consuming messages
+   */
+  private stopConsuming(): Future<Result<void, TechnicalError>> {
+    const channel = this.channel;
+    if (!channel) {
+      return Future.value(Result.Ok(undefined));
+    }
+
+    return Future.all(
+      this.consumerTags.map((tag) =>
+        Future.fromPromise(channel.cancel(tag)).mapError(
+          (error) => new TechnicalError(`Failed to cancel consumer "${tag}"`, error),
+        ),
+      ),
+    )
+      .map((results) => Result.all(results))
+      .tapOk(() => {
+        this.consumerTags = [];
+      })
       .mapOk(() => undefined);
   }
 }

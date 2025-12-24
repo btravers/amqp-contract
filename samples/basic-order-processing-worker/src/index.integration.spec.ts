@@ -9,7 +9,7 @@ describe("Basic Order Processing Worker Integration", () => {
   it("should process new orders from order.created queue", async ({ amqpConnectionUrl }) => {
     // GIVEN
     const processedOrders: Array<unknown> = [];
-    const workerResult = await TypedAmqpWorker.create({
+    const worker = await TypedAmqpWorker.create({
       contract: orderContract,
       handlers: {
         processOrder: (msg) => {
@@ -21,18 +21,17 @@ describe("Basic Order Processing Worker Integration", () => {
         handleUrgentOrder: () => Promise.resolve(),
         processAnalytics: () => Promise.resolve(),
       },
-      urls: [amqpConnectionUrl],
-    });
+      connection: amqpConnectionUrl,
+    }).resultToPromise();
 
-    if (workerResult.isError()) {
-      throw workerResult.error;
-    }
-    const worker = workerResult.value;
-
-    const client = TypedAmqpClient.create({
+    const clientResult = await TypedAmqpClient.create({
       contract: orderContract,
-      urls: [amqpConnectionUrl],
+      connection: amqpConnectionUrl,
     });
+    if (clientResult.isError()) {
+      throw clientResult.getError();
+    }
+    const client = clientResult.value;
 
     const newOrder = {
       orderId: "TEST-001",
@@ -52,14 +51,14 @@ describe("Basic Order Processing Worker Integration", () => {
     expect(processedOrders[0]).toEqual(newOrder);
 
     // CLEANUP
-    await worker.close().resultToPromise();
-    await client.close().resultToPromise();
+    await worker.close();
+    await client.close();
   });
 
   it("should receive notifications for all order events", async ({ amqpConnectionUrl }) => {
     // GIVEN
     const notifications: Array<unknown> = [];
-    const workerResult = await TypedAmqpWorker.create({
+    const worker = await TypedAmqpWorker.create({
       contract: orderContract,
       handlers: {
         processOrder: () => Promise.resolve(),
@@ -71,18 +70,17 @@ describe("Basic Order Processing Worker Integration", () => {
         handleUrgentOrder: () => Promise.resolve(),
         processAnalytics: () => Promise.resolve(),
       },
-      urls: [amqpConnectionUrl],
-    });
+      connection: amqpConnectionUrl,
+    }).resultToPromise();
 
-    if (workerResult.isError()) {
-      throw workerResult.error;
-    }
-    const worker = workerResult.value;
-
-    const client = TypedAmqpClient.create({
+    const clientResult = await TypedAmqpClient.create({
       contract: orderContract,
-      urls: [amqpConnectionUrl],
+      connection: amqpConnectionUrl,
     });
+    if (clientResult.isError()) {
+      throw clientResult.getError();
+    }
+    const client = clientResult.value;
 
     // WHEN
     const newOrder = {
@@ -109,15 +107,15 @@ describe("Basic Order Processing Worker Integration", () => {
     expect(notifications.length).toBeGreaterThanOrEqual(2);
 
     // CLEANUP
-    await worker.close().resultToPromise();
-    await client.close().resultToPromise();
+    await worker.close();
+    await client.close();
   });
 
   it("should start all consumers with consumeAll", async ({ amqpConnectionUrl }) => {
     // GIVEN
     const processedOrders: Array<unknown> = [];
     const notifications: Array<unknown> = [];
-    const workerResult = await TypedAmqpWorker.create({
+    const worker = await TypedAmqpWorker.create({
       contract: orderContract,
       handlers: {
         processOrder: (msg) => {
@@ -132,18 +130,17 @@ describe("Basic Order Processing Worker Integration", () => {
         handleUrgentOrder: () => Promise.resolve(),
         processAnalytics: () => Promise.resolve(),
       },
-      urls: [amqpConnectionUrl],
-    });
+      connection: amqpConnectionUrl,
+    }).resultToPromise();
 
-    if (workerResult.isError()) {
-      throw workerResult.error;
-    }
-    const worker = workerResult.value;
-
-    const client = TypedAmqpClient.create({
+    const clientResult = await TypedAmqpClient.create({
       contract: orderContract,
-      urls: [amqpConnectionUrl],
+      connection: amqpConnectionUrl,
     });
+    if (clientResult.isError()) {
+      throw clientResult.getError();
+    }
+    const client = clientResult.value;
 
     const newOrder = {
       orderId: "TEST-003",
@@ -163,7 +160,7 @@ describe("Basic Order Processing Worker Integration", () => {
     expect(notifications.length).toBeGreaterThan(0); // Receives all events
 
     // CLEANUP
-    await worker.close().resultToPromise();
-    await client.close().resultToPromise();
+    await worker.close();
+    await client.close();
   });
 });

@@ -7,10 +7,14 @@ import { orderContract } from "@amqp-contract-samples/basic-order-processing-con
 describe("Basic Order Processing Client Integration", () => {
   it("should publish a new order successfully", async ({ amqpConnectionUrl }) => {
     // GIVEN
-    const client = TypedAmqpClient.create({
+    const clientResult = await TypedAmqpClient.create({
       contract: orderContract,
-      urls: [amqpConnectionUrl],
+      connection: amqpConnectionUrl,
     });
+    if (clientResult.isError()) {
+      throw clientResult.getError();
+    }
+    const client = clientResult.value;
 
     const newOrder = {
       orderId: "TEST-001",
@@ -30,15 +34,19 @@ describe("Basic Order Processing Client Integration", () => {
     expect(result).toEqual(Result.Ok(true));
 
     // CLEANUP
-    await client.close().resultToPromise();
+    await client.close();
   });
 
   it("should publish order status updates", async ({ amqpConnectionUrl }) => {
     // GIVEN
-    const client = TypedAmqpClient.create({
+    const clientResult = await TypedAmqpClient.create({
       contract: orderContract,
-      urls: [amqpConnectionUrl],
+      connection: amqpConnectionUrl,
     });
+    if (clientResult.isError()) {
+      throw clientResult.getError();
+    }
+    const client = clientResult.value;
 
     const orderUpdate = {
       orderId: "TEST-001",
@@ -53,15 +61,19 @@ describe("Basic Order Processing Client Integration", () => {
     expect(result).toEqual(Result.Ok(true));
 
     // CLEANUP
-    await client.close().resultToPromise();
+    await client.close();
   });
 
   it("should validate order schema before publishing", async ({ amqpConnectionUrl }) => {
     // GIVEN
-    const client = TypedAmqpClient.create({
+    const clientResult = await TypedAmqpClient.create({
       contract: orderContract,
-      urls: [amqpConnectionUrl],
+      connection: amqpConnectionUrl,
     });
+    if (clientResult.isError()) {
+      throw clientResult.getError();
+    }
+    const client = clientResult.value;
 
     const invalidOrder = {
       orderId: "TEST-001",
@@ -80,6 +92,6 @@ describe("Basic Order Processing Client Integration", () => {
     expect(result.isError()).toBe(true);
 
     // CLEANUP
-    await client.close().resultToPromise();
+    await client.close();
   });
 });

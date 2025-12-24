@@ -7,12 +7,23 @@
   "author": "Benoit TRAVERS",
   "type": "module",
   "scripts": {
+    "prebuild": "tsx scripts/copy-docs.ts",
     "build": "vitepress build docs",
     "dev": "vitepress dev docs",
     "preview": "vitepress preview docs"
   },
+  "dependencies": {
+    "@amqp-contract/asyncapi": "workspace:*",
+    "@amqp-contract/client": "workspace:*",
+    "@amqp-contract/client-nestjs": "workspace:*",
+    "@amqp-contract/contract": "workspace:*",
+    "@amqp-contract/worker": "workspace:*",
+    "@amqp-contract/worker-nestjs": "workspace:*"
+  },
   "devDependencies": {
+    "@types/node": "catalog:",
     "mermaid": "catalog:",
+    "tsx": "catalog:",
     "vitepress": "catalog:",
     "vitepress-plugin-mermaid": "catalog:"
   }

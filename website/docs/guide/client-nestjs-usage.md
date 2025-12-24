@@ -978,6 +978,6 @@ bootstrap();
 ## Next Steps
 
 - Learn about [NestJS Worker Usage](/guide/worker-nestjs-usage) for consuming messages
-- Explore [Client API](/api/client) for core functionality
-- See [Client NestJS API](/api/client-nestjs) for detailed API reference
+- Explore [Client API](/api/client/) for core functionality
+- See [Client NestJS API](/api/client-nestjs/) for detailed API reference
 - Read about [Defining Contracts](/guide/defining-contracts)

@@ -55,14 +55,18 @@ describe("AmqpWorker Integration", () => {
           return Promise.resolve();
         },
       },
-      urls: [amqpConnectionUrl],
+      connection: amqpConnectionUrl,
     }).resultToPromise();
 
     // WHEN - Publish a message using the client
-    const client = TypedAmqpClient.create({
+    const clientResult = await TypedAmqpClient.create({
       contract,
-      urls: [amqpConnectionUrl],
+      connection: amqpConnectionUrl,
     });
+    if (clientResult.isError()) {
+      throw clientResult.getError();
+    }
+    const client = clientResult.value;
     const publishResult = await client.publish("testPublisher", {
       id: "123",
       message: "Hello from integration test!",
@@ -124,14 +128,18 @@ describe("AmqpWorker Integration", () => {
           return Promise.resolve();
         },
       },
-      urls: [amqpConnectionUrl],
+      connection: amqpConnectionUrl,
     }).resultToPromise();
 
     // WHEN - Publish multiple messages
-    const client = TypedAmqpClient.create({
+    const clientResult = await TypedAmqpClient.create({
       contract,
-      urls: [amqpConnectionUrl],
+      connection: amqpConnectionUrl,
     });
+    if (clientResult.isError()) {
+      throw clientResult.getError();
+    }
+    const client = clientResult.value;
 
     const result1 = await client.publish("testPublisher", { id: "1", count: 1 });
     const result2 = await client.publish("testPublisher", { id: "2", count: 2 });
@@ -207,14 +215,18 @@ describe("AmqpWorker Integration", () => {
           return Promise.resolve();
         },
       },
-      urls: [amqpConnectionUrl],
+      connection: amqpConnectionUrl,
     }).resultToPromise();
 
     // WHEN - Publish messages to both queues
-    const client = TypedAmqpClient.create({
+    const clientResult = await TypedAmqpClient.create({
       contract,
-      urls: [amqpConnectionUrl],
+      connection: amqpConnectionUrl,
     });
+    if (clientResult.isError()) {
+      throw clientResult.getError();
+    }
+    const client = clientResult.value;
 
     const result1 = await client.publish("pub1", { id: "msg1" });
     const result2 = await client.publish("pub2", { id: "msg2" });

@@ -11,6 +11,7 @@
   "dependencies": {
     "@amqp-contract-samples/basic-order-processing-contract": "workspace:*",
     "@amqp-contract/worker": "workspace:*",
+    "amqplib": "catalog:",
     "pino": "catalog:",
     "pino-pretty": "catalog:",
     "zod": "catalog:"
@@ -19,6 +20,7 @@
     "@amqp-contract/client": "workspace:*",
     "@amqp-contract/testing": "workspace:*",
     "@amqp-contract/tsconfig": "workspace:*",
+    "@types/amqplib": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:",
