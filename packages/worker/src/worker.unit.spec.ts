@@ -22,7 +22,6 @@ vi.mock("amqp-connection-manager", () => {
     assertQueue: vi.fn().mockResolvedValue(undefined),
     bindQueue: vi.fn().mockResolvedValue(undefined),
     bindExchange: vi.fn().mockResolvedValue(undefined),
-    prefetch: vi.fn().mockResolvedValue(undefined),
   };
 
   let setupPromise: Promise<void> | null = null;
@@ -36,7 +35,6 @@ vi.mock("amqp-connection-manager", () => {
     nack: vi.fn(),
     cancel: vi.fn().mockResolvedValue(undefined),
     close: vi.fn().mockResolvedValue(undefined),
-    prefetch: vi.fn().mockResolvedValue(undefined),
     waitForConnect: vi.fn().mockImplementation(() => setupPromise || Promise.resolve()),
   };
 
