@@ -24,7 +24,8 @@ export interface AmqpClientModuleAsyncOptions<TContract extends ContractDefiniti
    * Factory function that returns the module options.
    * Can use injected dependencies to create configuration.
    */
-  useFactory: (...args: unknown[]) => AmqpClientModuleOptionsFactory<TContract>;
+  // oxlint-disable-next-line no-explicit-any
+  useFactory: (...args: any[]) => AmqpClientModuleOptionsFactory<TContract>;
   /**
    * Optional dependencies to inject into the factory function.
    * Can be a token (string/symbol) or a class reference to a provider.
