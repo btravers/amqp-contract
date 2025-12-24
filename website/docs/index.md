@@ -116,10 +116,16 @@ const contract = defineContract({
 });
 
 // 4. Type-safe client with explicit error handling
-const client = TypedAmqpClient.create({
+const clientResult = await TypedAmqpClient.create({
   contract,
   urls: ['amqp://localhost']
 });
+
+if (clientResult.isError()) {
+  throw clientResult.error; // Handle connection error
+}
+
+const client = clientResult.get();
 
 const result = await client.publish('orderCreated', {
   orderId: 'ORD-123',      // ✅ TypeScript knows!
@@ -194,10 +200,16 @@ export const contract = defineContract({
 import { TypedAmqpClient } from '@amqp-contract/client';
 import { contract } from './contract';
 
-const client = TypedAmqpClient.create({
+const clientResult = await TypedAmqpClient.create({
   contract,
   urls: ['amqp://localhost']
 });
+
+if (clientResult.isError()) {
+  throw clientResult.error; // Handle connection error
+}
+
+const client = clientResult.get();
 
 const result = await client.publish('orderCreated', {
   orderId: 'ORD-123',

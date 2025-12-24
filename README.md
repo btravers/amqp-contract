@@ -69,8 +69,13 @@ const contract = defineContract({
 });
 
 // 4. Client - type-safe publishing with explicit error handling
-const client = await TypedAmqpClient.create({ contract, connection });
-const result = client.publish('orderCreated', {
+const clientResult = await TypedAmqpClient.create({ contract, connection });
+if (clientResult.isError()) {
+  throw clientResult.error; // or handle error appropriately
+}
+const client = clientResult.get();
+
+const result = await client.publish('orderCreated', {
   orderId: 'ORD-123',  // ✅ TypeScript knows!
   amount: 99.99,
 });
