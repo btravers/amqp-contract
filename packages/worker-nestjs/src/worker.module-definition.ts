@@ -1,13 +1,5 @@
-import { ConfigurableModuleBuilder } from "@nestjs/common";
-import type { ContractDefinition } from "@amqp-contract/contract";
-import type { AmqpWorkerModuleOptions } from "./worker.service.js";
-
 /**
- * ConfigurableModuleBuilder for AMQP worker module
- * This creates forRoot and forRootAsync methods automatically
+ * Injection token for AMQP worker module options
+ * Used by NestJS DI system to inject configuration into AmqpWorkerService
  */
-export const { ConfigurableModuleClass, MODULE_OPTIONS_TOKEN } = new ConfigurableModuleBuilder<
-  AmqpWorkerModuleOptions<ContractDefinition>
->()
-  .setClassMethodName("forRoot")
-  .build();
+export const MODULE_OPTIONS_TOKEN = Symbol("AMQP_WORKER_MODULE_OPTIONS");
