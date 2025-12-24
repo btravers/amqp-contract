@@ -11,10 +11,15 @@ pnpm add @amqp-contract/asyncapi
 ## Basic Usage
 
 ```typescript
-import { generateAsyncAPI } from '@amqp-contract/asyncapi';
+import { AsyncAPIGenerator } from '@amqp-contract/asyncapi';
+import { ZodToJsonSchemaConverter } from '@orpc/zod/zod4';
 import { contract } from './contract';
 
-const spec = generateAsyncAPI(contract, {
+const generator = new AsyncAPIGenerator({
+  schemaConverters: [new ZodToJsonSchemaConverter()],
+});
+
+const spec = await generator.generate(contract, {
   info: {
     title: 'Order Processing API',
     version: '1.0.0',
@@ -53,7 +58,11 @@ The specification includes:
 Define multiple servers:
 
 ```typescript
-const spec = generateAsyncAPI(contract, {
+const generator = new AsyncAPIGenerator({
+  schemaConverters: [new ZodToJsonSchemaConverter()],
+});
+
+const spec = await generator.generate(contract, {
   info: { title: 'My API', version: '1.0.0' },
   servers: {
     production: {
@@ -75,7 +84,11 @@ const spec = generateAsyncAPI(contract, {
 Add metadata:
 
 ```typescript
-const spec = generateAsyncAPI(contract, {
+const generator = new AsyncAPIGenerator({
+  schemaConverters: [new ZodToJsonSchemaConverter()],
+});
+
+const spec = await generator.generate(contract, {
   info: {
     title: 'Order Processing API',
     version: '1.0.0',
@@ -99,9 +112,14 @@ const spec = generateAsyncAPI(contract, {
 
 ```typescript
 import { writeFileSync } from 'fs';
-import { generateAsyncAPI } from '@amqp-contract/asyncapi';
+import { AsyncAPIGenerator } from '@amqp-contract/asyncapi';
+import { ZodToJsonSchemaConverter } from '@orpc/zod/zod4';
 
-const spec = generateAsyncAPI(contract, { ... });
+const generator = new AsyncAPIGenerator({
+  schemaConverters: [new ZodToJsonSchemaConverter()],
+});
+
+const spec = await generator.generate(contract, { ... });
 writeFileSync('asyncapi.json', JSON.stringify(spec, null, 2));
 ```
 
@@ -109,9 +127,15 @@ writeFileSync('asyncapi.json', JSON.stringify(spec, null, 2));
 
 ```typescript
 import { writeFileSync } from 'fs';
+import { AsyncAPIGenerator } from '@amqp-contract/asyncapi';
+import { ZodToJsonSchemaConverter } from '@orpc/zod/zod4';
 import YAML from 'yaml';
 
-const spec = generateAsyncAPI(contract, { ... });
+const generator = new AsyncAPIGenerator({
+  schemaConverters: [new ZodToJsonSchemaConverter()],
+});
+
+const spec = await generator.generate(contract, { ... });
 writeFileSync('asyncapi.yaml', YAML.stringify(spec));
 ```
 
@@ -145,11 +169,16 @@ asyncapi validate asyncapi.json
 
 ```typescript
 import { writeFileSync } from 'fs';
-import { generateAsyncAPI } from '@amqp-contract/asyncapi';
+import { AsyncAPIGenerator } from '@amqp-contract/asyncapi';
+import { ZodToJsonSchemaConverter } from '@orpc/zod/zod4';
 import { contract } from './contract';
 import YAML from 'yaml';
 
-const spec = generateAsyncAPI(contract, {
+const generator = new AsyncAPIGenerator({
+  schemaConverters: [new ZodToJsonSchemaConverter()],
+});
+
+const spec = await generator.generate(contract, {
   info: {
     title: 'Order Processing API',
     version: '1.0.0',

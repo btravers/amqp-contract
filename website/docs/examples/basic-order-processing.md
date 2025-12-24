@@ -295,18 +295,10 @@ export const orderContract = defineContract({
     }),
   },
   consumers: {
-    processOrder: defineConsumer(orderProcessingQueue, orderMessage, {
-      prefetch: 10,
-    }),
-    notifyOrder: defineConsumer(orderNotificationsQueue, orderUnionMessage, {
-      prefetch: 5,
-    }),
-    shipOrder: defineConsumer(orderShippingQueue, orderStatusMessage, {
-      prefetch: 5,
-    }),
-    handleUrgentOrder: defineConsumer(orderUrgentQueue, orderStatusMessage, {
-      prefetch: 20,
-    }),
+    processOrder: defineConsumer(orderProcessingQueue, orderMessage),
+    notifyOrder: defineConsumer(orderNotificationsQueue, orderUnionMessage),
+    shipOrder: defineConsumer(orderShippingQueue, orderStatusMessage),
+    handleUrgentOrder: defineConsumer(orderUrgentQueue, orderStatusMessage),
   },
 });
 ```
@@ -335,12 +327,13 @@ const result = await client.publish('orderCreated', {
   createdAt: new Date().toISOString(),
 });
 
-if (result.isError()) {
-  console.error('Failed to publish:', result.error.message);
-  // Handle error appropriately
-} else {
-  console.log('Order published successfully');
-}
+result.match({
+  Ok: () => console.log('Order published successfully'),
+  Error: (error) => {
+    console.error('Failed to publish:', error.message);
+    // Handle error appropriately
+  },
+});
 
 // Publish status update
 const updateResult = await client.publish('orderUpdated', {
@@ -349,11 +342,10 @@ const updateResult = await client.publish('orderUpdated', {
   updatedAt: new Date().toISOString(),
 });
 
-if (updateResult.isError()) {
-  console.error('Failed:', updateResult.error);
-} else {
-  console.log('Status update published');
-}
+updateResult.match({
+  Ok: () => console.log('Status update published'),
+  Error: (error) => console.error('Failed:', error),
+});
 ```
 
 ## Worker Implementation

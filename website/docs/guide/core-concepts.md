@@ -52,11 +52,10 @@ const result = await client.publish('orderCreated', {
   // invalid: true,     // ❌ TypeScript error!
 });
 
-if (result.isError()) {
-  console.error('Failed:', result.error);
-} else {
-  console.log('Published');
-}
+result.match({
+  Ok: () => console.log('Published'),
+  Error: (error) => console.error('Failed:', error),
+});
 ```
 
 ## Automatic Validation
@@ -75,10 +74,13 @@ const result = await client.publish('orderCreated', {
   amount: 'not-a-number',  // ❌ Validation error!
 });
 
-if (result.isError()) {
-  // Handle MessageValidationError or TechnicalError
-  console.error('Failed:', result.error.message);
-}
+result.match({
+  Ok: () => console.log('Published'),
+  Error: (error) => {
+    // Handle MessageValidationError or TechnicalError
+    console.error('Failed:', error.message);
+  },
+});
 ```
 
 ## Schema Libraries

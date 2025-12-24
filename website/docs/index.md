@@ -127,11 +127,10 @@ const result = await client.publish('orderCreated', {
   amount: 99.99,
 });
 
-if (result.isError()) {
-  console.error('Failed:', result.error);
-} else {
-  console.log('Published');
-}
+result.match({
+  Ok: () => console.log('Published'),
+  Error: (error) => console.error('Failed:', error),
+});
 
 // 5. Type-safe worker
 const workerResult = await TypedAmqpWorker.create({
@@ -144,9 +143,12 @@ const workerResult = await TypedAmqpWorker.create({
   urls: ['amqp://localhost'],
 });
 
-if (workerResult.isError()) {
-  throw workerResult.error;
-}
+workerResult.match({
+  Ok: (worker) => console.log('Worker ready'),
+  Error: (error) => {
+    throw error;
+  },
+});
 
 const worker = workerResult.value;
 ```
@@ -202,11 +204,10 @@ const result = await client.publish('orderCreated', {
   amount: 99.99,
 });
 
-if (result.isError()) {
-  console.error('❌ Failed:', result.error);
-} else {
-  console.log('✅ Published');
-}
+result.match({
+  Ok: () => console.log('✅ Published'),
+  Error: (error) => console.error('❌ Failed:', error),
+});
 ```
 
 ```typescript [3. Consume Messages]
@@ -224,14 +225,11 @@ const workerResult = await TypedAmqpWorker.create({
   urls: ['amqp://localhost'],
 });
 
-if (workerResult.isError()) {
-  throw workerResult.error;
-}
-
-const worker = workerResult.value;
-    },
+workerResult.match({
+  Ok: (worker) => console.log('✅ Worker ready'),
+  Error: (error) => {
+    throw error;
   },
-  connection: 'amqp://localhost',
 });
 ```
 
@@ -242,10 +240,15 @@ const worker = workerResult.value;
 Automatically generate AsyncAPI 3.0 specifications from your contracts:
 
 ```typescript
-import { generateAsyncAPI } from '@amqp-contract/asyncapi';
+import { AsyncAPIGenerator } from '@amqp-contract/asyncapi';
+import { ZodToJsonSchemaConverter } from '@orpc/zod/zod4';
 import { contract } from './contract';
 
-const spec = generateAsyncAPI(contract, {
+const generator = new AsyncAPIGenerator({
+  schemaConverters: [new ZodToJsonSchemaConverter()],
+});
+
+const spec = await generator.generate(contract, {
   info: {
     title: 'Order Processing API',
     version: '1.0.0',

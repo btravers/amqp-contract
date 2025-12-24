@@ -28,13 +28,12 @@ const workerResult = await TypedAmqpWorker.create({
   urls: ['amqp://localhost'],
 });
 
-if (workerResult.isError()) {
-  throw workerResult.error;
-}
-
-const worker = workerResult.value;
-
-console.log('✅ Worker ready!');
+workerResult.match({
+  Ok: (worker) => console.log('✅ Worker ready!'),
+  Error: (error) => {
+    throw error;
+  },
+});
 ```
 
 The worker automatically connects and starts consuming messages from all queues.
@@ -91,11 +90,12 @@ const workerResult = await TypedAmqpWorker.create({
   urls: ['amqp://localhost'],
 });
 
-if (workerResult.isError()) {
-  throw workerResult.error;
-}
-
-const worker = workerResult.value;
+workerResult.match({
+  Ok: (worker) => console.log('✅ All handlers present'),
+  Error: (error) => {
+    throw error;
+  },
+});
 ```
 
 ## Defining Handlers Externally
@@ -318,7 +318,7 @@ const worker = await TypedAmqpWorker.create({
 By default, messages are automatically acknowledged:
 
 ```typescript
-const worker = await TypedAmqpWorker.create({
+const workerResult = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => {
@@ -326,7 +326,7 @@ const worker = await TypedAmqpWorker.create({
       // Auto-acknowledged after handler completes
     },
   },
-  connection,
+  urls: ['amqp://localhost'],
 });
 ```
 
@@ -335,7 +335,7 @@ const worker = await TypedAmqpWorker.create({
 For more control:
 
 ```typescript
-const worker = await TypedAmqpWorker.create({
+const workerResult = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message, { ack, nack, reject }) => {
@@ -347,7 +347,7 @@ const worker = await TypedAmqpWorker.create({
       }
     },
   },
-  connection,
+  urls: ['amqp://localhost'],
 });
 ```
 

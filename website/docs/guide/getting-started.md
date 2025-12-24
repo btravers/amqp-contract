@@ -113,11 +113,10 @@ async function main() {
     ],
   });
 
-  if (result.isError()) {
-    console.error('❌ Failed:', result.error.message);
-  } else {
-    console.log('✅ Order published!');
-  }
+  result.match({
+    Ok: () => console.log('✅ Order published!'),
+    Error: (error) => console.error('❌ Failed:', error.message),
+  });
 
   await client.close();
 }
@@ -153,13 +152,14 @@ async function main() {
     urls: ['amqp://localhost'],
   });
 
-  if (workerResult.isError()) {
-    throw workerResult.error;
-  }
-
-  const worker = workerResult.value;
-
-  console.log('✅ Worker ready, waiting for messages...');
+  workerResult.match({
+    Ok: (worker) => {
+      console.log('✅ Worker ready, waiting for messages...');
+    },
+    Error: (error) => {
+      throw error;
+    },
+  });
 }
 
 main();

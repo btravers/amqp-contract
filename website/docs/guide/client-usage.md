@@ -34,11 +34,10 @@ const result = await client.publish('orderCreated', {
   ],
 });
 
-if (result.isError()) {
-  console.error('❌ Failed:', result.error.message);
-} else {
-  console.log('✅ Published');
-}
+result.match({
+  Ok: () => console.log('✅ Published'),
+  Error: (error) => console.error('❌ Failed:', error.message),
+});
 ```
 
 ### Type Safety
@@ -66,9 +65,10 @@ const result = await client.publish('orderCreated', {
   amount: 99.99,
 });
 
-if (result.isError()) {
-  console.error('Validation failed:', result.error);
-}
+result.match({
+  Ok: () => console.log('Published'),
+  Error: (error) => console.error('Validation failed:', error),
+});
 ```
 
 ## Publishing Options
@@ -124,17 +124,18 @@ const result = await client.publish('orderCreated', {
   amount: 99.99,
 });
 
-if (result.isError()) {
-  const error = result.error;
-  match(error)
-    .with(P.instanceOf(MessageValidationError), (err) =>
-      console.error('Validation failed:', err.issues)
-    )
-    .with(P.instanceOf(TechnicalError), (err) =>
-      console.error('Technical error:', err.message)
-    )
-    .exhaustive();
-}
+result.match({
+  Ok: () => console.log('✅ Published'),
+  Error: (error) =>
+    match(error)
+      .with(P.instanceOf(MessageValidationError), (err) =>
+        console.error('Validation failed:', err.issues)
+      )
+      .with(P.instanceOf(TechnicalError), (err) =>
+        console.error('Technical error:', err.message)
+      )
+      .exhaustive(),
+});
 ```
 
 **Error Types:**
@@ -169,19 +170,18 @@ async function main() {
       ],
     });
 
-    if (result.isError()) {
-      const error = result.error;
-      match(error)
-        .with(P.instanceOf(MessageValidationError), (err) =>
-          console.error('❌ Validation failed:', err.issues)
-        )
-        .with(P.instanceOf(TechnicalError), (err) =>
-          console.error('❌ Technical error:', err.message)
-        )
-        .exhaustive();
-    } else {
-      console.log('✅ Message published');
-    }
+    result.match({
+      Ok: () => console.log('✅ Message published'),
+      Error: (error) =>
+        match(error)
+          .with(P.instanceOf(MessageValidationError), (err) =>
+            console.error('❌ Validation failed:', err.issues)
+          )
+          .with(P.instanceOf(TechnicalError), (err) =>
+            console.error('❌ Technical error:', err.message)
+          )
+          .exhaustive(),
+    });
   } catch (error) {
     console.error('Unexpected error:', error);
   } finally {
