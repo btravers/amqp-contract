@@ -21,7 +21,7 @@ export default withMermaid(
       },
     },
 
-    // Inject canonical URLs for each page to prevent duplicate content issues
+    // Inject canonical URLs and dynamic meta tags for each page to prevent duplicate content issues
     transformPageData(pageData) {
       // Only process markdown files
       if (!pageData.relativePath.endsWith(".md")) {
@@ -35,8 +35,31 @@ export default withMermaid(
         .replace(/index\.md$/, "")
         .replace(/\.md$/, ".html");
 
+      // Ensure frontmatter and head array exist
+      pageData.frontmatter ??= {};
       pageData.frontmatter.head ??= [];
+
+      // Add canonical URL
       pageData.frontmatter.head.push(["link", { rel: "canonical", href: canonicalUrl }]);
+
+      // Add dynamic Open Graph tags
+      const pageTitle = pageData.title || pageData.frontmatter.title || "amqp-contract";
+      const pageDescription =
+        pageData.description ||
+        pageData.frontmatter.description ||
+        "Type-safe contracts for AMQP/RabbitMQ messaging with AsyncAPI generation";
+
+      pageData.frontmatter.head.push(
+        ["meta", { property: "og:url", content: canonicalUrl }],
+        ["meta", { property: "og:title", content: pageTitle }],
+        ["meta", { property: "og:description", content: pageDescription }],
+      );
+
+      // Add dynamic Twitter Card tags
+      pageData.frontmatter.head.push(
+        ["meta", { name: "twitter:title", content: pageTitle }],
+        ["meta", { name: "twitter:description", content: pageDescription }],
+      );
     },
 
     // Mermaid configuration
@@ -155,35 +178,11 @@ export default withMermaid(
       ],
       // Open Graph meta tags for better social sharing and SEO
       ["meta", { property: "og:type", content: "website" }],
-      ["meta", { property: "og:title", content: "amqp-contract" }],
-      [
-        "meta",
-        {
-          property: "og:description",
-          content: "Type-safe contracts for AMQP/RabbitMQ messaging with AsyncAPI generation",
-        },
-      ],
-      ["meta", { property: "og:url", content: "https://btravers.github.io/amqp-contract/" }],
       ["meta", { property: "og:site_name", content: "amqp-contract" }],
       ["meta", { property: "og:locale", content: "en_US" }],
       // Twitter Card meta tags
       ["meta", { name: "twitter:card", content: "summary" }],
-      ["meta", { name: "twitter:title", content: "amqp-contract" }],
-      [
-        "meta",
-        {
-          name: "twitter:description",
-          content: "Type-safe contracts for AMQP/RabbitMQ messaging with AsyncAPI generation",
-        },
-      ],
       // Additional SEO meta tags
-      [
-        "meta",
-        {
-          name: "keywords",
-          content: "amqp, rabbitmq, typescript, contract, messaging, type-safe, asyncapi",
-        },
-      ],
       ["meta", { name: "author", content: "Benoit TRAVERS" }],
       ["meta", { name: "robots", content: "index, follow" }],
     ],
