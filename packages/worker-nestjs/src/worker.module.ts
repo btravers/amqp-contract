@@ -10,24 +10,30 @@ import { MODULE_OPTIONS_TOKEN } from "./worker.module-definition.js";
 import { AmqpWorkerService, type AmqpWorkerModuleOptions } from "./worker.service.js";
 
 /**
+ * Factory function return type for async module configuration
+ */
+type AmqpWorkerModuleOptionsFactory<TContract extends ContractDefinition> =
+  | AmqpWorkerModuleOptions<TContract>
+  | Promise<AmqpWorkerModuleOptions<TContract>>;
+
+/**
  * Options for async module configuration using factory pattern
  */
-export interface AmqpWorkerModuleAsyncOptions<TContract extends ContractDefinition> extends Pick<
-  ModuleMetadata,
-  "imports"
-> {
+export interface AmqpWorkerModuleAsyncOptions<TContract extends ContractDefinition> {
   /**
    * Factory function that returns the module options.
    * Can use injected dependencies to create configuration.
    */
-  useFactory: (
-    ...args: unknown[]
-  ) => Promise<AmqpWorkerModuleOptions<TContract>> | AmqpWorkerModuleOptions<TContract>;
+  useFactory: (...args: unknown[]) => AmqpWorkerModuleOptionsFactory<TContract>;
   /**
    * Optional dependencies to inject into the factory function.
    * Can be a token (string/symbol), a class, or a reference to a provider.
    */
   inject?: (string | symbol | Type | Function)[];
+  /**
+   * Optional list of imported modules that export providers needed by the factory
+   */
+  imports?: ModuleMetadata["imports"];
 }
 
 /**

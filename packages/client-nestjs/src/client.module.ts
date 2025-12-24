@@ -10,24 +10,30 @@ import { MODULE_OPTIONS_TOKEN } from "./client.module-definition.js";
 import { AmqpClientService, type AmqpClientModuleOptions } from "./client.service.js";
 
 /**
+ * Factory function return type for async module configuration
+ */
+type AmqpClientModuleOptionsFactory<TContract extends ContractDefinition> =
+  | AmqpClientModuleOptions<TContract>
+  | Promise<AmqpClientModuleOptions<TContract>>;
+
+/**
  * Options for async module configuration using factory pattern
  */
-export interface AmqpClientModuleAsyncOptions<TContract extends ContractDefinition> extends Pick<
-  ModuleMetadata,
-  "imports"
-> {
+export interface AmqpClientModuleAsyncOptions<TContract extends ContractDefinition> {
   /**
    * Factory function that returns the module options.
    * Can use injected dependencies to create configuration.
    */
-  useFactory: (
-    ...args: unknown[]
-  ) => Promise<AmqpClientModuleOptions<TContract>> | AmqpClientModuleOptions<TContract>;
+  useFactory: (...args: unknown[]) => AmqpClientModuleOptionsFactory<TContract>;
   /**
    * Optional dependencies to inject into the factory function.
    * Can be a token (string/symbol), a class, or a reference to a provider.
    */
   inject?: (string | symbol | Type | Function)[];
+  /**
+   * Optional list of imported modules that export providers needed by the factory
+   */
+  imports?: ModuleMetadata["imports"];
 }
 
 /**
