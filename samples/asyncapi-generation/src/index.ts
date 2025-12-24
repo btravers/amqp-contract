@@ -1,125 +1,106 @@
-import { generateAsyncAPI } from "@amqp-contract/asyncapi";
+import { AsyncAPIGenerator } from "@amqp-contract/asyncapi";
 import {
   defineQueueBinding,
   defineConsumer,
   defineContract,
   defineExchange,
+  defineMessage,
   definePublisher,
   defineQueue,
 } from "@amqp-contract/contract";
+import { ZodToJsonSchemaConverter } from "@orpc/zod";
 import { writeFileSync } from "fs";
 import { z } from "zod";
+
+// Define exchanges
+const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const notificationsExchange = defineExchange("notifications", "fanout", { durable: true });
+
+// Define queues
+const orderProcessingQueue = defineQueue("order-processing", { durable: true });
+const orderNotificationsQueue = defineQueue("order-notifications", { durable: true });
+const emailNotificationsQueue = defineQueue("email-notifications", { durable: true });
+
+// Define message schemas
+const orderSchema = z.object({
+  orderId: z.string(),
+  customerId: z.string(),
+  items: z.array(
+    z.object({
+      productId: z.string(),
+      quantity: z.number().int().positive(),
+      price: z.number().positive(),
+    }),
+  ),
+  totalAmount: z.number().positive(),
+  createdAt: z.string().datetime(),
+});
+
+const notificationSchema = z.object({
+  notificationId: z.string(),
+  recipientId: z.string(),
+  type: z.enum(["email", "sms", "push"]),
+  subject: z.string(),
+  message: z.string(),
+  sentAt: z.string().datetime(),
+});
+
+// Define messages with metadata
+const orderMessage = defineMessage(orderSchema, {
+  summary: "Order created event",
+  description: "Emitted when a new order is created in the system",
+});
+
+const notificationMessage = defineMessage(notificationSchema, {
+  summary: "Notification sent event",
+  description: "Emitted when a notification is sent to a user",
+});
 
 // Define the contract
 const orderContract = defineContract({
   exchanges: {
-    orders: defineExchange("orders", "topic", { durable: true }),
-    notifications: defineExchange("notifications", "fanout", { durable: true }),
+    orders: ordersExchange,
+    notifications: notificationsExchange,
   },
   queues: {
-    orderProcessing: defineQueue("order-processing", { durable: true }),
-    orderNotifications: defineQueue("order-notifications", { durable: true }),
-    emailNotifications: defineQueue("email-notifications", { durable: true }),
+    orderProcessing: orderProcessingQueue,
+    orderNotifications: orderNotificationsQueue,
+    emailNotifications: emailNotificationsQueue,
   },
   bindings: {
-    orderProcessingBinding: defineQueueBinding("order-processing", "orders", {
+    orderProcessingBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
       routingKey: "order.created",
     }),
-    orderNotificationsBinding: defineQueueBinding("order-notifications", "orders", {
+    orderNotificationsBinding: defineQueueBinding(orderNotificationsQueue, ordersExchange, {
       routingKey: "order.created",
     }),
-    emailNotificationsBinding: defineQueueBinding("email-notifications", "notifications"),
+    emailNotificationsBinding: defineQueueBinding(emailNotificationsQueue, notificationsExchange),
   },
   publishers: {
-    orderCreated: definePublisher(
-      "orders",
-      z.object({
-        orderId: z.string(),
-        customerId: z.string(),
-        items: z.array(
-          z.object({
-            productId: z.string(),
-            quantity: z.number().int().positive(),
-            price: z.number().positive(),
-          }),
-        ),
-        totalAmount: z.number().positive(),
-        createdAt: z.string().datetime(),
-      }),
-      {
-        routingKey: "order.created",
-      },
-    ),
-    notificationSent: definePublisher(
-      "notifications",
-      z.object({
-        notificationId: z.string(),
-        recipientId: z.string(),
-        type: z.enum(["email", "sms", "push"]),
-        subject: z.string(),
-        message: z.string(),
-        sentAt: z.string().datetime(),
-      }),
-    ),
+    orderCreated: definePublisher(ordersExchange, orderMessage, {
+      routingKey: "order.created",
+    }),
+    notificationSent: definePublisher(notificationsExchange, notificationMessage),
   },
   consumers: {
-    processOrder: defineConsumer(
-      "order-processing",
-      z.object({
-        orderId: z.string(),
-        customerId: z.string(),
-        items: z.array(
-          z.object({
-            productId: z.string(),
-            quantity: z.number().int().positive(),
-            price: z.number().positive(),
-          }),
-        ),
-        totalAmount: z.number().positive(),
-        createdAt: z.string().datetime(),
-      }),
-      {
-        prefetch: 10,
-      },
-    ),
-    notifyOrder: defineConsumer(
-      "order-notifications",
-      z.object({
-        orderId: z.string(),
-        customerId: z.string(),
-        items: z.array(
-          z.object({
-            productId: z.string(),
-            quantity: z.number().int().positive(),
-            price: z.number().positive(),
-          }),
-        ),
-        totalAmount: z.number().positive(),
-        createdAt: z.string().datetime(),
-      }),
-      {
-        prefetch: 5,
-      },
-    ),
-    sendEmail: defineConsumer(
-      "email-notifications",
-      z.object({
-        notificationId: z.string(),
-        recipientId: z.string(),
-        type: z.enum(["email", "sms", "push"]),
-        subject: z.string(),
-        message: z.string(),
-        sentAt: z.string().datetime(),
-      }),
-      {
-        prefetch: 20,
-      },
-    ),
+    processOrder: defineConsumer(orderProcessingQueue, orderMessage, {
+      prefetch: 10,
+    }),
+    notifyOrder: defineConsumer(orderNotificationsQueue, orderMessage, {
+      prefetch: 5,
+    }),
+    sendEmail: defineConsumer(emailNotificationsQueue, notificationMessage, {
+      prefetch: 20,
+    }),
   },
 });
 
 // Generate AsyncAPI specification
-const asyncAPISpec = generateAsyncAPI(orderContract, {
+const generator = new AsyncAPIGenerator({
+  schemaConverters: [new ZodToJsonSchemaConverter()],
+});
+
+const asyncAPISpec = await generator.generate(orderContract, {
   info: {
     title: "Order Processing API",
     version: "1.0.0",

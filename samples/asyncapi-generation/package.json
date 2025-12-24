@@ -4,15 +4,18 @@
   "description": "AsyncAPI generation sample using amqp-contract",
   "type": "module",
   "scripts": {
-    "generate": "tsx src/index.ts"
+    "generate": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@amqp-contract/asyncapi": "workspace:*",
     "@amqp-contract/contract": "workspace:*",
+    "@orpc/zod": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@amqp-contract/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:"
   }

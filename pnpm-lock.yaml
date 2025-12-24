@@ -547,6 +547,9 @@ importers:
       '@amqp-contract/contract':
         specifier: workspace:*
         version: link:../../packages/contract
+      '@orpc/zod':
+        specifier: 'catalog:'
+        version: 1.13.0(@orpc/contract@1.13.0)(@orpc/server@1.13.0)(zod@4.2.1)
       zod:
         specifier: 'catalog:'
         version: 4.2.1
@@ -554,6 +557,9 @@ importers:
       '@amqp-contract/tsconfig':
         specifier: workspace:*
         version: link:../../tools/tsconfig
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.0.3
       tsx:
         specifier: 'catalog:'
         version: 4.21.0
