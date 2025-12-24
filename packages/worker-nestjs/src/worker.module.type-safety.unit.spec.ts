@@ -215,8 +215,7 @@ describe("AmqpWorkerModule - Type Safety", () => {
 
       // This should compile with correct types and dependency injection
       const module = AmqpWorkerModule.forRootAsync({
-        useFactory: (...args: unknown[]) => {
-          const configService = args[0] as ConfigService;
+        useFactory: (configService: ConfigService) => {
           return {
             contract: testContract,
             handlers: {
