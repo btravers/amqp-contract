@@ -1,45 +1,32 @@
 # Getting Started
 
-Welcome to **amqp-contract**! This guide will help you get up and running quickly.
+Welcome to **amqp-contract**! This guide will help you build type-safe AMQP messaging in minutes.
 
 ## What is amqp-contract?
 
-amqp-contract is a TypeScript library that provides end-to-end type safety for AMQP/RabbitMQ messaging. It follows a contract-first approach where you define your message schemas once, and type safety flows throughout your application.
-
-## Key Features
-
-- 🔒 **End-to-end type safety** from contract to client and worker
-- ✅ **Automatic validation** using Zod schemas
-- 🛠️ **Compile-time checks** catch errors before runtime
-- 📄 **AsyncAPI generation** for documentation
-- 🚀 **Better DX** with full autocomplete and refactoring support
+amqp-contract brings end-to-end type safety to AMQP/RabbitMQ messaging. Define your contract once, and get automatic validation, type inference, and compile-time checks throughout your application.
 
 ## Installation
-
-Install the packages you need:
 
 ::: code-group
 
 ```bash [pnpm]
-pnpm add @amqp-contract/contract @amqp-contract/client @amqp-contract/worker
-pnpm add amqplib zod
+pnpm add @amqp-contract/contract @amqp-contract/client @amqp-contract/worker amqplib zod
 ```
 
 ```bash [npm]
-npm install @amqp-contract/contract @amqp-contract/client @amqp-contract/worker
-npm install amqplib zod
+npm install @amqp-contract/contract @amqp-contract/client @amqp-contract/worker amqplib zod
 ```
 
 ```bash [yarn]
-yarn add @amqp-contract/contract @amqp-contract/client @amqp-contract/worker
-yarn add amqplib zod
+yarn add @amqp-contract/contract @amqp-contract/client @amqp-contract/worker amqplib zod
 ```
 
 :::
 
-## Basic Example
+## Quick Start
 
-### 1. Define Your Contract
+### Step 1: Define Your Contract
 
 Create a contract that defines your AMQP resources and message schemas:
 
@@ -56,11 +43,11 @@ import {
 } from '@amqp-contract/contract';
 import { z } from 'zod';
 
-// Define exchanges and queues first
+// 1. Define resources
 const ordersExchange = defineExchange('orders', 'topic', { durable: true });
 const orderProcessingQueue = defineQueue('order-processing', { durable: true });
 
-// Define message schema
+// 2. Define message
 const orderMessage = defineMessage(
   z.object({
     orderId: z.string(),
@@ -75,7 +62,8 @@ const orderMessage = defineMessage(
   })
 );
 
-export const orderContract = defineContract({
+// 3. Compose contract
+export const contract = defineContract({
   exchanges: {
     orders: ordersExchange,
   },
@@ -100,23 +88,21 @@ export const orderContract = defineContract({
 });
 ```
 
-### 2. Publish Messages (Client)
+### Step 2: Publish Messages
 
 Use the type-safe client to publish messages:
 
 ```typescript
 // publisher.ts
 import { TypedAmqpClient } from '@amqp-contract/client';
-import { MessageValidationError, TechnicalError } from '@amqp-contract/client';
-import { orderContract } from './contract';
+import { contract } from './contract';
 
 async function main() {
   const client = await TypedAmqpClient.create({
-    contract: orderContract,
+    contract,
     connection: 'amqp://localhost'
   });
 
-  // Type-safe publishing with explicit error handling
   const result = client.publish('orderCreated', {
     orderId: 'ORD-123',
     customerId: 'CUST-456',
@@ -128,8 +114,8 @@ async function main() {
   });
 
   result.match({
-    Ok: () => console.log('Order published!'),
-    Error: (error) => console.error('Failed to publish:', error.message),
+    Ok: () => console.log('✅ Order published!'),
+    Error: (error) => console.error('❌ Failed:', error.message),
   });
 
   await client.close();
@@ -138,27 +124,26 @@ async function main() {
 main();
 ```
 
-### 3. Consume Messages (Worker)
+### Step 3: Consume Messages
 
 Create a worker with type-safe message handlers:
 
 ```typescript
 // consumer.ts
 import { TypedAmqpWorker } from '@amqp-contract/worker';
-import { orderContract } from './contract';
+import { contract } from './contract';
 
 async function main() {
   const worker = await TypedAmqpWorker.create({
-    contract: orderContract,
+    contract,
     handlers: {
       processOrder: async (message) => {
-        // message is fully typed!
+        // Message is fully typed!
         console.log(`Processing order: ${message.orderId}`);
         console.log(`Customer: ${message.customerId}`);
         console.log(`Amount: $${message.amount}`);
         console.log(`Items: ${message.items.length}`);
 
-        // Your business logic here
         for (const item of message.items) {
           console.log(`  - ${item.productId} x${item.quantity}`);
         }
@@ -167,16 +152,23 @@ async function main() {
     connection: 'amqp://localhost',
   });
 
-  console.log('Worker ready, waiting for messages...');
+  console.log('✅ Worker ready, waiting for messages...');
 }
 
 main();
 ```
 
-## What's Next?
+## Key Benefits
+
+- ✅ **Type Safety** - Full TypeScript inference from contract to handlers
+- ✅ **Auto Validation** - Zod validates messages at publish and consume time
+- ✅ **Compile Checks** - TypeScript catches errors before runtime
+- ✅ **Better DX** - Autocomplete, refactoring, inline docs
+- ✅ **Explicit Errors** - Result types for predictable error handling
+
+## Next Steps
 
 - Learn about [Core Concepts](/guide/core-concepts)
-- Explore [API Documentation](/api/)
+- Explore [Client Usage](/guide/client-usage) and [Worker Usage](/guide/worker-usage)
 - Check out [Examples](/examples/)
-- Generate [AsyncAPI specifications](/guide/asyncapi-generation)
-- **For NestJS users**: See [NestJS Client Usage](/guide/client-nestjs-usage) and [NestJS Worker Usage](/guide/worker-nestjs-usage)
+- For NestJS: See [NestJS Client](/guide/client-nestjs-usage) and [NestJS Worker](/guide/worker-nestjs-usage)

@@ -33,17 +33,19 @@ import { TypedAmqpClient } from '@amqp-contract/client';
 import { TypedAmqpWorker } from '@amqp-contract/worker';
 import { z } from 'zod';
 
-// Define resources
+// 1. Define resources
 const ordersExchange = defineExchange('orders', 'topic', { durable: true });
 const orderProcessingQueue = defineQueue('order-processing', { durable: true });
 
-// Define message schema
-const orderSchema = z.object({
-  orderId: z.string(),
-  amount: z.number(),
-});
+// 2. Define message with schema
+const orderMessage = defineMessage(
+  z.object({
+    orderId: z.string(),
+    amount: z.number(),
+  })
+);
 
-// Define contract once
+// 3. Define contract
 const contract = defineContract({
   exchanges: {
     orders: ordersExchange,
@@ -57,16 +59,16 @@ const contract = defineContract({
     }),
   },
   publishers: {
-    orderCreated: definePublisher(ordersExchange, defineMessage(orderSchema), {
+    orderCreated: definePublisher(ordersExchange, orderMessage, {
       routingKey: 'order.created',
     }),
   },
   consumers: {
-    processOrder: defineConsumer(orderProcessingQueue, defineMessage(orderSchema)),
+    processOrder: defineConsumer(orderProcessingQueue, orderMessage),
   },
 });
 
-// Client - fully typed publishing with explicit error handling
+// 4. Client - type-safe publishing with explicit error handling
 const client = await TypedAmqpClient.create({ contract, connection });
 const result = client.publish('orderCreated', {
   orderId: 'ORD-123',  // ✅ TypeScript knows!
@@ -82,7 +84,7 @@ result.match({
   },
 });
 
-// Worker - fully typed consuming
+// 5. Worker - type-safe consuming
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {

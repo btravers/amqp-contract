@@ -79,19 +79,24 @@ channel.consume('order-processing', (msg) => {
 
 ```typescript
 import { defineContract, defineExchange, defineQueue, definePublisher, defineConsumer, defineMessage, defineQueueBinding } from '@amqp-contract/contract';
+import { TypedAmqpClient } from '@amqp-contract/client';
+import { TypedAmqpWorker } from '@amqp-contract/worker';
 import { z } from 'zod';
 
-// Define resources and messages first
+// 1. Define resources
 const ordersExchange = defineExchange('orders', 'topic', { durable: true });
 const orderProcessingQueue = defineQueue('order-processing', { durable: true });
 
-const orderMessage = defineMessage(z.object({
-  orderId: z.string(),
-  customerId: z.string(),
-  amount: z.number(),
-}));
+// 2. Define message
+const orderMessage = defineMessage(
+  z.object({
+    orderId: z.string(),
+    customerId: z.string(),
+    amount: z.number(),
+  })
+);
 
-// ✅ Compose contract using object references
+// 3. Compose contract
 const contract = defineContract({
   exchanges: { orders: ordersExchange },
   queues: { orderProcessing: orderProcessingQueue },
@@ -110,14 +115,14 @@ const contract = defineContract({
   },
 });
 
-// ✅ Type-safe client with explicit error handling
+// 4. Type-safe client with explicit error handling
 const client = await TypedAmqpClient.create({
   contract,
   connection: 'amqp://localhost'
 });
 
 const result = client.publish('orderCreated', {
-  orderId: 'ORD-123',      // TypeScript knows!
+  orderId: 'ORD-123',      // ✅ TypeScript knows!
   customerId: 'CUST-456',
   amount: 99.99,
 });
@@ -127,7 +132,7 @@ result.match({
   Error: (error) => console.error('Failed:', error),
 });
 
-// ✅ Type-safe worker
+// 5. Type-safe worker
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
@@ -139,26 +144,30 @@ const worker = await TypedAmqpWorker.create({
 });
 ```
 
-## Quick Example
+## Quick Start
 
-See how easy it is to get started:
+Get up and running in three simple steps:
 
 ::: code-group
 
-```typescript [contract.ts]
+```typescript [1. Define Contract]
 import { defineContract, defineExchange, defineQueue, definePublisher, defineConsumer, defineMessage } from '@amqp-contract/contract';
 import { z } from 'zod';
 
-// Define resources and messages first
+// Define resources
 const ordersExchange = defineExchange('orders', 'topic', { durable: true });
 const orderProcessingQueue = defineQueue('order-processing', { durable: true });
 
-const orderMessage = defineMessage(z.object({
-  orderId: z.string(),
-  amount: z.number(),
-}));
+// Define message
+const orderMessage = defineMessage(
+  z.object({
+    orderId: z.string(),
+    amount: z.number(),
+  })
+);
 
-export const orderContract = defineContract({
+// Compose contract
+export const contract = defineContract({
   exchanges: { orders: ordersExchange },
   queues: { orderProcessing: orderProcessingQueue },
   publishers: {
@@ -172,36 +181,35 @@ export const orderContract = defineContract({
 });
 ```
 
-```typescript [client.ts]
+```typescript [2. Publish Messages]
 import { TypedAmqpClient } from '@amqp-contract/client';
-import { orderContract } from './contract';
+import { contract } from './contract';
 
 const client = await TypedAmqpClient.create({
-  contract: orderContract,
+  contract,
   connection: 'amqp://localhost'
 });
 
-// Type-safe publishing with explicit error handling
 const result = client.publish('orderCreated', {
   orderId: 'ORD-123',
   amount: 99.99,
 });
 
 result.match({
-  Ok: () => console.log('Published'),
-  Error: (error) => console.error('Failed:', error),
+  Ok: () => console.log('✅ Published'),
+  Error: (error) => console.error('❌ Failed:', error),
 });
 ```
 
-```typescript [worker.ts]
+```typescript [3. Consume Messages]
 import { TypedAmqpWorker } from '@amqp-contract/worker';
-import { orderContract } from './contract';
+import { contract } from './contract';
 
 const worker = await TypedAmqpWorker.create({
-  contract: orderContract,
+  contract,
   handlers: {
     processOrder: async (message) => {
-      console.log(`Processing order: ${message.orderId}`);
+      console.log(`Processing: ${message.orderId}`);
       console.log(`Amount: $${message.amount}`);
     },
   },
@@ -213,12 +221,13 @@ const worker = await TypedAmqpWorker.create({
 
 ## AsyncAPI Generation
 
-Generate AsyncAPI 3.0 specifications automatically:
+Automatically generate AsyncAPI 3.0 specifications from your contracts:
 
 ```typescript
 import { generateAsyncAPI } from '@amqp-contract/asyncapi';
+import { contract } from './contract';
 
-const spec = generateAsyncAPI(orderContract, {
+const spec = generateAsyncAPI(contract, {
   info: {
     title: 'Order Processing API',
     version: '1.0.0',
@@ -230,6 +239,6 @@ const spec = generateAsyncAPI(orderContract, {
     },
   },
 });
-
-// Use with AsyncAPI tooling, documentation, and code generation
 ```
+
+📖 **[Learn more about AsyncAPI Generation →](/guide/asyncapi-generation)**
