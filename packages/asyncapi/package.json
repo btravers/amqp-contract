@@ -56,6 +56,7 @@
   },
   "devDependencies": {
     "@amqp-contract/tsconfig": "workspace:*",
+    "@amqp-contract/typedoc": "workspace:*",
     "@asyncapi/parser": "catalog:",
     "@orpc/arktype": "catalog:",
     "@orpc/valibot": "catalog:",

@@ -6,17 +6,76 @@ import type { WorkerInferConsumerHandlers, WorkerInferConsumerInput } from "./ty
 import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
 
 /**
- * Options for creating a worker
+ * Options for creating a type-safe AMQP worker.
+ *
+ * @typeParam TContract - The contract definition type
+ *
+ * @example
+ * ```typescript
+ * const options: CreateWorkerOptions<typeof contract> = {
+ *   contract: myContract,
+ *   handlers: {
+ *     processOrder: async (message) => {
+ *       console.log('Processing order:', message.orderId);
+ *     }
+ *   },
+ *   urls: ['amqp://localhost'],
+ *   connectionOptions: {
+ *     heartbeatIntervalInSeconds: 30
+ *   }
+ * };
+ * ```
  */
 export type CreateWorkerOptions<TContract extends ContractDefinition> = {
+  /** The AMQP contract definition specifying consumers and their message schemas */
   contract: TContract;
+  /** Handlers for each consumer defined in the contract */
   handlers: WorkerInferConsumerHandlers<TContract>;
+  /** AMQP broker URL(s). Multiple URLs provide failover support */
   urls: ConnectionUrl[];
+  /** Optional connection configuration (heartbeat, reconnect settings, etc.) */
   connectionOptions?: AmqpConnectionManagerOptions | undefined;
 };
 
 /**
- * Type-safe AMQP worker for consuming messages
+ * Type-safe AMQP worker for consuming messages from RabbitMQ.
+ *
+ * This class provides automatic message validation, connection management,
+ * and error handling for consuming messages based on a contract definition.
+ *
+ * @typeParam TContract - The contract definition type
+ *
+ * @example
+ * ```typescript
+ * import { TypedAmqpWorker } from '@amqp-contract/worker';
+ * import { z } from 'zod';
+ *
+ * const contract = defineContract({
+ *   queues: {
+ *     orderProcessing: defineQueue('order-processing', { durable: true })
+ *   },
+ *   consumers: {
+ *     processOrder: defineConsumer('order-processing', z.object({
+ *       orderId: z.string(),
+ *       amount: z.number()
+ *     }))
+ *   }
+ * });
+ *
+ * const worker = await TypedAmqpWorker.create({
+ *   contract,
+ *   handlers: {
+ *     processOrder: async (message) => {
+ *       console.log('Processing order', message.orderId);
+ *       // Process the order...
+ *     }
+ *   },
+ *   urls: ['amqp://localhost']
+ * }).resultToPromise();
+ *
+ * // Close when done
+ * await worker.close().resultToPromise();
+ * ```
  */
 export class TypedAmqpWorker<TContract extends ContractDefinition> {
   private constructor(
@@ -32,6 +91,24 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * by amqp-connection-manager via the {@link AmqpClient}. The worker will set up
    * consumers for all contract-defined handlers asynchronously in the background
    * once the underlying connection and channels are ready.
+   *
+   * @param options - Configuration options for the worker
+   * @returns A Future that resolves to a Result containing the worker or an error
+   *
+   * @example
+   * ```typescript
+   * const workerResult = await TypedAmqpWorker.create({
+   *   contract: myContract,
+   *   handlers: {
+   *     processOrder: async (msg) => console.log('Order:', msg.orderId)
+   *   },
+   *   urls: ['amqp://localhost']
+   * }).resultToPromise();
+   *
+   * if (workerResult.isError()) {
+   *   console.error('Failed to create worker:', workerResult.error);
+   * }
+   * ```
    */
   static create<TContract extends ContractDefinition>({
     contract,
@@ -51,7 +128,20 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   }
 
   /**
-   * Close the channel and connection
+   * Close the AMQP channel and connection.
+   *
+   * This gracefully closes the connection to the AMQP broker,
+   * stopping all message consumption and cleaning up resources.
+   *
+   * @returns A Future that resolves to a Result indicating success or failure
+   *
+   * @example
+   * ```typescript
+   * const closeResult = await worker.close().resultToPromise();
+   * if (closeResult.isOk()) {
+   *   console.log('Worker closed successfully');
+   * }
+   * ```
    */
   close(): Future<Result<void, TechnicalError>> {
     return Future.fromPromise(this.amqpClient.close())
