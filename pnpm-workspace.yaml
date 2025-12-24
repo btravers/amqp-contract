@@ -5,20 +5,20 @@ packages:
   - website
 
 catalog:
-  '@asyncapi/parser': 3.4.0
-  '@changesets/cli': 2.29.8
-  '@commitlint/cli': 20.2.0
-  '@commitlint/config-conventional': 20.2.0
-  '@nestjs/common': 11.1.10
-  '@orpc/arktype': 1.13.0
-  '@orpc/openapi': 1.13.0
-  '@orpc/valibot': 1.13.0
-  '@orpc/zod': 1.13.0
-  '@standard-schema/spec': 1.1.0
-  '@swan-io/boxed': 3.2.1
-  '@types/amqplib': 0.10.8
-  '@types/node': 25.0.3
-  '@vitest/coverage-v8': 4.0.16
+  "@asyncapi/parser": 3.4.0
+  "@changesets/cli": 2.29.8
+  "@commitlint/cli": 20.2.0
+  "@commitlint/config-conventional": 20.2.0
+  "@nestjs/common": 11.1.10
+  "@orpc/arktype": 1.13.0
+  "@orpc/openapi": 1.13.0
+  "@orpc/valibot": 1.13.0
+  "@orpc/zod": 1.13.0
+  "@standard-schema/spec": 1.1.0
+  "@swan-io/boxed": 3.2.1
+  "@types/amqplib": 0.10.8
+  "@types/node": 25.0.3
+  "@vitest/coverage-v8": 4.0.16
   amqp-connection-manager: 5.0.0
   amqplib: 0.10.9
   arktype: 2.1.29
