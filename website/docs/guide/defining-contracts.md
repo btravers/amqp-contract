@@ -4,7 +4,7 @@ Learn how to define AMQP contracts with full type safety.
 
 ## Contract Structure
 
-A contract consists of five main parts:
+A contract has five main parts:
 
 ```typescript
 const contract = defineContract({
@@ -18,17 +18,17 @@ const contract = defineContract({
 
 ## Composition Pattern
 
-The contract API uses a **composition pattern** where you:
+amqp-contract uses a **composition pattern**:
 
 1. **Define resources first** - Create exchanges, queues, and messages as variables
 2. **Reference objects** - Use these objects (not strings) in bindings, publishers, and consumers
 3. **Compose together** - Combine everything in `defineContract`
 
-This provides:
+**Benefits:**
 
-- ✅ **Better type safety** - TypeScript validates exchange/queue types
-- ✅ **Better refactoring** - Rename in one place
-- ✅ **DRY principle** - Define once, reference many times
+- ✅ Better type safety - TypeScript validates exchange/queue types
+- ✅ Better refactoring - Rename in one place
+- ✅ DRY principle - Define once, reference many times
 
 ## Defining Exchanges
 
@@ -37,7 +37,7 @@ Exchanges route messages to queues:
 ```typescript
 import { defineExchange } from '@amqp-contract/contract';
 
-// Define exchanges as variables first
+// Define exchanges as variables
 const ordersExchange = defineExchange('orders', 'topic', {
   durable: true,
   autoDelete: false,
@@ -57,8 +57,8 @@ const contract = defineContract({
 
 **Exchange Types:**
 
-- `direct` - Routes based on exact routing key match
-- `topic` - Routes based on routing key patterns (supports wildcards `*` and `#`)
+- `direct` - Routes by exact routing key match
+- `topic` - Routes by routing key patterns (wildcards `*` and `#`)
 - `fanout` - Routes to all bound queues (ignores routing keys)
 
 ## Defining Queues
@@ -68,11 +68,10 @@ Queues store messages:
 ```typescript
 import { defineQueue } from '@amqp-contract/contract';
 
-// Define queues as variables first
 const orderProcessingQueue = defineQueue('order-processing', {
   durable: true,       // Survives broker restart
   exclusive: false,    // Can be accessed by other connections
-  autoDelete: false,   // Don't delete when last consumer disconnects
+  autoDelete: false,   // Stays after last consumer disconnects
 });
 
 const contract = defineContract({
@@ -90,7 +89,6 @@ Messages wrap schemas with optional metadata:
 import { defineMessage } from '@amqp-contract/contract';
 import { z } from 'zod';
 
-// Define message with schema and metadata
 const orderMessage = defineMessage(
   z.object({
     orderId: z.string(),
@@ -99,14 +97,13 @@ const orderMessage = defineMessage(
   }),
   {
     summary: 'Order created event',
-    description: 'Emitted when a new order is created in the system',
+    description: 'Emitted when a new order is created',
   }
 );
 ```
 
 **Benefits:**
-
-- Enables AsyncAPI documentation generation
+- Enables AsyncAPI documentation
 - Improves code readability
 - Allows header schema definition
 
@@ -115,9 +112,8 @@ const orderMessage = defineMessage(
 Bindings connect queues to exchanges:
 
 ```typescript
-import { defineQueueBinding, defineExchangeBinding } from '@amqp-contract/contract';
+import { defineQueueBinding } from '@amqp-contract/contract';
 
-// Define resources first
 const ordersExchange = defineExchange('orders', 'topic', { durable: true });
 const orderProcessingQueue = defineQueue('order-processing', { durable: true });
 const allOrdersQueue = defineQueue('all-orders', { durable: true });
@@ -129,11 +125,11 @@ const contract = defineContract({
     allOrders: allOrdersQueue,
   },
   bindings: {
-    // Queue-to-exchange binding with exact routing key
+    // Exact routing key
     orderBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
       routingKey: 'order.created',
     }),
-    // Topic exchange with wildcard pattern
+    // Wildcard pattern
     allOrdersBinding: defineQueueBinding(allOrdersQueue, ordersExchange, {
       routingKey: 'order.*',
     }),
@@ -142,9 +138,8 @@ const contract = defineContract({
 ```
 
 **Routing Key Requirements:**
-
-- **Fanout exchanges**: Routing key is optional (fanout ignores routing keys)
-- **Direct/Topic exchanges**: Routing key is required
+- **Fanout**: Routing key is optional (fanout ignores it)
+- **Direct/Topic**: Routing key is required
 
 TypeScript enforces these rules at compile time!
 
@@ -156,7 +151,6 @@ Publishers define message schemas for publishing:
 import { definePublisher, defineMessage } from '@amqp-contract/contract';
 import { z } from 'zod';
 
-// Define resources first
 const ordersExchange = defineExchange('orders', 'topic', { durable: true });
 
 const orderMessage = defineMessage(
@@ -179,9 +173,8 @@ const contract = defineContract({
 ```
 
 **Routing Key Requirements:**
-
-- **Fanout exchanges**: Routing key is optional
-- **Direct/Topic exchanges**: Routing key is required in options
+- **Fanout**: Optional
+- **Direct/Topic**: Required
 
 ## Defining Consumers
 
@@ -191,7 +184,6 @@ Consumers define message schemas for consuming:
 import { defineConsumer, defineMessage } from '@amqp-contract/contract';
 import { z } from 'zod';
 
-// Define resources first
 const orderProcessingQueue = defineQueue('order-processing', { durable: true });
 
 const orderMessage = defineMessage(
@@ -206,7 +198,9 @@ const orderMessage = defineMessage(
 const contract = defineContract({
   queues: { orderProcessing: orderProcessingQueue },
   consumers: {
-    processOrder: defineConsumer(orderProcessingQueue, orderMessage),
+    processOrder: defineConsumer(orderProcessingQueue, orderMessage, {
+      prefetch: 10,  // optional: max concurrent messages
+    }),
   },
 });
 ```
@@ -241,8 +235,8 @@ const orderMessage = defineMessage(
   })
 );
 
-// 4. Compose contract using object references
-export const orderContract = defineContract({
+// 4. Compose contract
+export const contract = defineContract({
   exchanges: {
     orders: ordersExchange,
   },
@@ -272,7 +266,7 @@ export const orderContract = defineContract({
 
 ## Exchange-to-Exchange Bindings
 
-You can also bind exchanges together for advanced routing:
+Bind exchanges together for advanced routing:
 
 ```typescript
 import { defineExchangeBinding } from '@amqp-contract/contract';
