@@ -72,70 +72,7 @@ publish(): Result<boolean, TechnicalError | MessageValidationError>
 
 ## API
 
-### `TypedAmqpClient.create(options)`
-
-Create a type-safe AMQP client from a contract. Automatically connects to RabbitMQ and waits for the connection to be ready.
-
-**Parameters:**
-
-- `options.contract` - Contract definition
-- `options.urls` - Array of AMQP connection URLs (e.g., `['amqp://localhost']`)
-- `options.connectionOptions` - Optional connection manager options
-- `options.logger` - Optional logger for logging published messages
-
-**Returns:** `Future<Result<TypedAmqpClient, TechnicalError>>`
-
-The method returns a Future that resolves to a Result. You must:
-
-1. Await the Future to get the Result
-2. Check if the Result is Ok or Error
-3. Extract the client using `.get()` if successful
-
-**Example:**
-
-```typescript
-const clientResult = await TypedAmqpClient.create({ contract, urls: ['amqp://localhost'] });
-if (clientResult.isError()) {
-  throw clientResult.error; // Handle connection error
-}
-const client = clientResult.get();
-```
-
-### `TypedAmqpClient.publish(publisherName, message, options?)`
-
-Publish a message using a defined publisher. The message will be validated against the schema and type-checked at compile time.
-
-**Parameters:**
-
-- `publisherName` - Name of the publisher (type-checked against contract)
-- `message` - Message payload (type-checked against publisher schema)
-- `options` - Optional publish options (e.g., headers, priority)
-
-**Returns:** `Result<boolean, TechnicalError | MessageValidationError>`
-
-**Example:**
-
-```typescript
-const result = client.publish('orderCreated', { orderId: '123' });
-
-if (result.isOk()) {
-  // Message published successfully
-  console.log('Published:', result.value); // true
-} else {
-  // Handle specific error types
-  if (result.error instanceof MessageValidationError) {
-    console.error('Validation failed:', result.error.issues);
-  } else if (result.error instanceof TechnicalError) {
-    console.error('Technical error:', result.error.message);
-  }
-}
-```
-
-### `TypedAmqpClient.close()`
-
-Close the channel and connection.
-
-**Returns:** `Promise<void>`
+For complete API documentation, see the [Client API Reference](https://btravers.github.io/amqp-contract/api/client).
 
 ## Documentation
 
