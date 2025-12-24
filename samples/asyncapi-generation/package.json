@@ -10,10 +10,12 @@
   "dependencies": {
     "@amqp-contract/asyncapi": "workspace:*",
     "@amqp-contract/contract": "workspace:*",
+    "@orpc/zod": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@amqp-contract/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:"
   }
