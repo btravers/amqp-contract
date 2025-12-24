@@ -23,7 +23,6 @@
   This release fixes an issue where `defineHandler` and `defineHandlers` were incorrectly exported as types instead of functions, preventing their use in NestJS applications.
 
   **Fixed:**
-
   - Correctly export `defineHandler` and `defineHandlers` as functions from `@amqp-contract/worker`
   - @amqp-contract/contract@0.3.3
   - @amqp-contract/worker@0.3.3
@@ -37,7 +36,6 @@
   This release introduces an optional Logger interface that allows users to integrate their preferred logging framework with amqp-contract:
 
   **New Features:**
-
   - Added `Logger` interface in `@amqp-contract/core` with debug, info, warn, and error methods
   - Added `LoggerContext` type for structured logging context
   - Client and Worker now accept an optional `logger` option to enable message logging
@@ -80,12 +78,10 @@
 - Re-export types from base packages in NestJS integration libraries
 
   The NestJS integration packages now re-export key types from their base packages:
-
   - `@amqp-contract/client-nestjs` now re-exports `ClientInferPublisherInput`
   - `@amqp-contract/worker-nestjs` now re-exports `WorkerInferConsumerInput`, `WorkerInferConsumerHandler`, and `WorkerInferConsumerHandlers`
 
   This improves developer experience by allowing all necessary types to be imported from a single package.
-
   - @amqp-contract/contract@0.3.1
   - @amqp-contract/worker@0.3.1
 
@@ -98,12 +94,10 @@
   This release introduces connection readiness handling with the following changes:
 
   **Breaking Changes:**
-
   - `TypedAmqpClient.create()` now returns `Future<Result<TypedAmqpClient, TechnicalError>>` instead of directly returning the client instance
   - `TypedAmqpWorker.create()` now returns `Future<Result<TypedAmqpWorker, TechnicalError>>` instead of directly returning the worker instance
 
   **New Features:**
-
   - Added `waitForConnectionReady()` method to ensure AMQP connection is established before operations
   - Improved error handling with explicit Result types for connection failures
 
@@ -152,12 +146,10 @@
   This release introduces a new `@amqp-contract/core` package that centralizes AMQP infrastructure setup logic. The core package provides a `setupInfra` function that handles the creation of exchanges, queues, and bindings, eliminating code duplication across client and worker packages.
 
   **New Features:**
-
   - New `@amqp-contract/core` package with centralized AMQP setup logic
   - `setupInfra` function for creating exchanges, queues, and bindings from contract definitions
 
   **Changes:**
-
   - Updated `@amqp-contract/client` to use core setup function
   - Updated `@amqp-contract/worker` to use core setup function
   - All packages are now versioned together as a fixed group
