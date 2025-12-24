@@ -81,6 +81,7 @@ Create a type-safe AMQP client from a contract. Automatically connects to Rabbit
 - `options.contract` - Contract definition
 - `options.urls` - Array of AMQP connection URLs (e.g., `['amqp://localhost']`)
 - `options.connectionOptions` - Optional connection manager options
+- `options.logger` - Optional logger for logging published messages
 
 **Returns:** `Future<Result<TypedAmqpClient, TechnicalError>>`
 
