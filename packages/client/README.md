@@ -85,11 +85,13 @@ Create a type-safe AMQP client from a contract. Automatically connects to Rabbit
 **Returns:** `Future<Result<TypedAmqpClient, TechnicalError>>`
 
 The method returns a Future that resolves to a Result. You must:
+
 1. Await the Future to get the Result
 2. Check if the Result is Ok or Error
 3. Extract the client using `.get()` if successful
 
 **Example:**
+
 ```typescript
 const clientResult = await TypedAmqpClient.create({ contract, urls: ['amqp://localhost'] });
 if (clientResult.isError()) {

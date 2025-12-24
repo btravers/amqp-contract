@@ -95,7 +95,7 @@ describe("TypedAmqpClient", () => {
       // THEN
       expect(clientResult.isOk()).toBe(true);
       const client = clientResult.get();
-      
+
       // Type inference test - this should compile without errors
       type PublisherNames = Parameters<typeof client.publish>[0];
       const name: PublisherNames = "testPublisher";

@@ -19,9 +19,9 @@ This package defines the contract for:
 import { contract } from '@amqp-contract-samples/basic-order-processing-contract';
 import { TypedAmqpClient } from '@amqp-contract/client';
 
-const clientResult = await TypedAmqpClient.create({ 
-  contract, 
-  urls: ['amqp://localhost'] 
+const clientResult = await TypedAmqpClient.create({
+  contract,
+  urls: ['amqp://localhost']
 });
 
 if (clientResult.isError()) {
