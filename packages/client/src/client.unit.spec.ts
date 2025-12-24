@@ -483,9 +483,8 @@ describe("TypedAmqpClient", () => {
       });
 
       // THEN
-      expect(clientResult.isOk()).toBe(true);
-      const client = clientResult.get();
-      expect(client).toBeInstanceOf(TypedAmqpClient);
+      expect(clientResult).toEqual(Result.Ok(expect.any(TypedAmqpClient)));
+
       expect(mockConnection.createChannel).toHaveBeenCalled();
     });
   });
