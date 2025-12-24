@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { AmqpClient } from "./index.js";
+import type { Logger } from "./index.js";
 import type { Channel } from "amqplib";
 import {
   defineContract,
@@ -690,5 +691,29 @@ describe("AmqpClient", () => {
     // THEN
     expect(mockChannel.close).toHaveBeenCalledTimes(1);
     expect(mockConnection.close).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("Logger", () => {
+  it("should export Logger type", () => {
+    // GIVEN
+    const logger: Logger = {
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    };
+
+    // WHEN
+    logger.debug("test debug", { key: "value" });
+    logger.info("test info", { key: "value" });
+    logger.warn("test warn", { key: "value" });
+    logger.error("test error", { key: "value" });
+
+    // THEN
+    expect(logger.debug).toHaveBeenCalledWith("test debug", { key: "value" });
+    expect(logger.info).toHaveBeenCalledWith("test info", { key: "value" });
+    expect(logger.warn).toHaveBeenCalledWith("test warn", { key: "value" });
+    expect(logger.error).toHaveBeenCalledWith("test error", { key: "value" });
   });
 });
