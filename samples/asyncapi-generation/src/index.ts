@@ -83,15 +83,9 @@ const orderContract = defineContract({
     notificationSent: definePublisher(notificationsExchange, notificationMessage),
   },
   consumers: {
-    processOrder: defineConsumer(orderProcessingQueue, orderMessage, {
-      prefetch: 10,
-    }),
-    notifyOrder: defineConsumer(orderNotificationsQueue, orderMessage, {
-      prefetch: 5,
-    }),
-    sendEmail: defineConsumer(emailNotificationsQueue, notificationMessage, {
-      prefetch: 20,
-    }),
+    processOrder: defineConsumer(orderProcessingQueue, orderMessage),
+    notifyOrder: defineConsumer(orderNotificationsQueue, orderMessage),
+    sendEmail: defineConsumer(emailNotificationsQueue, notificationMessage),
   },
 });
 

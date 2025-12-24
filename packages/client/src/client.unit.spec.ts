@@ -25,7 +25,6 @@ vi.mock("amqp-connection-manager", () => {
   const mockChannel = {
     publish: vi.fn().mockImplementation(() => Promise.resolve(true)),
     close: vi.fn().mockResolvedValue(undefined),
-    prefetch: vi.fn().mockResolvedValue(undefined),
     ack: vi.fn(),
     nack: vi.fn(),
     waitForConnect: vi.fn().mockImplementation(() => setupPromise || Promise.resolve()),
