@@ -13,7 +13,7 @@ A complete example demonstrating:
 - Type-safe message consuming
 - Multiple consumers (pub/sub pattern)
 
-**Technologies:** RabbitMQ • TypeScript • Zod
+**Technologies:** [RabbitMQ](https://www.rabbitmq.com/) • TypeScript • [Zod](https://zod.dev/)
 
 ### [AsyncAPI Generation](/examples/asyncapi-generation)
 
@@ -31,7 +31,7 @@ All examples are in the `samples/` directory.
 
 ### Prerequisites
 
-1. **RabbitMQ** running on `localhost:5672`
+1. **[RabbitMQ](https://www.rabbitmq.com/)** running on `localhost:5672`
 
 ```bash
 docker run -d --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:4-management

@@ -13,7 +13,7 @@ This example demonstrates:
 
 ## What is AsyncAPI?
 
-AsyncAPI is an open-source specification for describing and documenting event-driven APIs. It's like OpenAPI (Swagger) but for asynchronous messaging systems like RabbitMQ, Kafka, and MQTT.
+[AsyncAPI](https://www.asyncapi.com/) is an open-source specification for describing and documenting event-driven APIs. It's like OpenAPI (Swagger) but for asynchronous messaging systems like [RabbitMQ](https://www.rabbitmq.com/), Kafka, and MQTT.
 
 ```mermaid
 graph LR
