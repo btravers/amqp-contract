@@ -1,6 +1,6 @@
 # Architecture Review: amqp-contract
 
-**Date**: December 2024  
+**Date**: 2024-12-25  
 **Version**: 0.3.5  
 **Reviewer**: Project Maintainer
 
@@ -373,6 +373,19 @@ export type CreateUnifiedClientOptions<TContract extends ContractDefinition> = {
   logger?: Logger;
 };
 
+/**
+ * Error thrown when unified client is misconfigured
+ */
+class ConfigurationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ConfigurationError';
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, ConfigurationError);
+    }
+  }
+}
+
 export class TypedAmqpUnifiedClient<TContract extends ContractDefinition> {
   private readonly amqpClient: AmqpClient;
   private readonly _publisher?: TypedAmqpClient<TContract>;
@@ -387,49 +400,100 @@ export class TypedAmqpUnifiedClient<TContract extends ContractDefinition> {
     urls,
     connectionOptions,
     logger,
-  }: CreateUnifiedClientOptions<TContract>): Promise<Result<TypedAmqpUnifiedClient<TContract>, TechnicalError>> {
+  }: CreateUnifiedClientOptions<TContract>): Future<Result<TypedAmqpUnifiedClient<TContract>, TechnicalError>> {
+    // Create shared AmqpClient
     const amqpClient = new AmqpClient(contract, { urls, connectionOptions });
 
-    const publisher = publishers
-      ? await TypedAmqpClient.create({ contract, amqpClient, logger })
-      : undefined;
+    // Create publisher if enabled
+    const publisherFuture = publishers
+      ? TypedAmqpClient.create({ contract, amqpClient, logger })
+      : Future.value(Result.Ok(undefined));
 
-    const consumer = consumers
-      ? await TypedAmqpWorker.create({
+    // Create consumer if configured
+    const consumerFuture = consumers
+      ? TypedAmqpWorker.create({
           contract,
           handlers: consumers.handlers,
           amqpClient,
           logger,
         })
-      : undefined;
+      : Future.value(Result.Ok(undefined));
 
-    return Result.Ok(new TypedAmqpUnifiedClient(amqpClient, publisher, consumer));
+    // Wait for both to initialize
+    return Future.all([publisherFuture, consumerFuture]).map(
+      ([publisherResult, consumerResult]) => {
+        if (publisherResult.isError()) {
+          return Result.Error(publisherResult.error);
+        }
+        if (consumerResult.isError()) {
+          return Result.Error(consumerResult.error);
+        }
+
+        return Result.Ok(
+          new TypedAmqpUnifiedClient(
+            amqpClient,
+            publisherResult.value,
+            consumerResult.value,
+          ),
+        );
+      },
+    );
   }
 
+  /**
+   * Get the publisher instance
+   * @throws {ConfigurationError} If publishers were not enabled
+   */
   get publisher(): TypedAmqpClient<TContract> {
     if (!this._publisher) {
-      throw new Error('Publishers not enabled');
+      throw new ConfigurationError('Publishers not enabled in unified client configuration');
     }
     return this._publisher;
   }
 
+  /**
+   * Get the consumer instance
+   * @throws {ConfigurationError} If consumers were not configured
+   */
   get consumer(): TypedAmqpWorker<TContract> {
     if (!this._consumer) {
-      throw new Error('Consumers not enabled');
+      throw new ConfigurationError('Consumers not configured in unified client configuration');
     }
     return this._consumer;
   }
 
-  async close(): Promise<void> {
-    await Promise.all([
-      this._publisher?.close(),
-      this._consumer?.close(),
-    ]);
+  /**
+   * Close the unified client (closes shared connection and all channels)
+   */
+  close(): Future<Result<void, TechnicalError>> {
+    const closePublisher = this._publisher
+      ? this._publisher.close()
+      : Future.value(Result.Ok(undefined));
+
+    const closeConsumer = this._consumer
+      ? this._consumer.close()
+      : Future.value(Result.Ok(undefined));
+
+    return Future.all([closePublisher, closeConsumer]).flatMap(
+      ([publisherResult, consumerResult]) => {
+        if (publisherResult.isError()) {
+          return Future.value(Result.Error(publisherResult.error));
+        }
+        if (consumerResult.isError()) {
+          return Future.value(Result.Error(consumerResult.error));
+        }
+
+        // Close shared connection
+        return Future.fromPromise(this.amqpClient.close())
+          .mapError((error) => new TechnicalError('Failed to close shared connection', error))
+          .mapOk(() => undefined);
+      },
+    );
   }
 }
 
 // Usage:
-const unified = await TypedAmqpUnifiedClient.create({
+const unifiedResult = await TypedAmqpUnifiedClient.create({
   contract,
   publishers: true,
   consumers: {
@@ -440,13 +504,26 @@ const unified = await TypedAmqpUnifiedClient.create({
     },
   },
   urls: ['amqp://localhost'],
-});
+}).resultToPromise();
+
+if (unifiedResult.isError()) {
+  throw unifiedResult.error;
+}
+
+const unified = unifiedResult.value;
 
 // Publish
-await unified.publisher.publish('orderCreated', { orderId: '123', amount: 99.99 });
+const publishResult = await unified.publisher.publish('orderCreated', { orderId: '123', amount: 99.99 });
+publishResult.match({
+  Ok: () => console.log('Published'),
+  Error: (error) => console.error('Failed:', error),
+});
 
 // Close everything
-await unified.close();
+const closeResult = await unified.close().resultToPromise();
+if (closeResult.isError()) {
+  console.error('Failed to close:', closeResult.error);
+}
 
 // Result: 1 connection, 2 channels ✅
 ```
@@ -971,5 +1048,5 @@ The concerns raised about terminology and package structure are valid but not cr
 ---
 
 **Document Version**: 1.0  
-**Last Updated**: December 2024  
+**Last Updated**: 2024-12-25  
 **Next Review**: After unified package implementation

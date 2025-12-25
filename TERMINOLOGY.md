@@ -44,7 +44,7 @@ In **amqp-contract**, we use the term **"worker"** where AMQP documentation typi
 ## Terminology Mapping
 
 | amqp-contract               | AMQP Standard          | Description                             |
-| --------------------------- | ---------------------- | --------------------------------------- |
+| :-------------------------- | :--------------------- | :-------------------------------------- |
 | **Client**                  | Publisher / Producer   | Sends messages                          |
 | **Worker**                  | Consumer / Subscriber  | Receives and processes messages         |
 | **Contract**                | Schema / Specification | Defines exchanges, queues, and messages |
