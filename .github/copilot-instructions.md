@@ -563,7 +563,7 @@ packages/[package-name]/
      orderId: z.string(),
      amount: z.number(),
    }));
-   
+
    const publisher = definePublisher(ordersExchange, orderMessage, {
      routingKey: 'order.created',
    });
@@ -601,7 +601,7 @@ packages/[package-name]/
    // ✅ Good - define first, then reference (composition pattern)
    const ordersExchange = defineExchange('orders', 'topic', { durable: true });
    const orderProcessingQueue = defineQueue('order-processing', { durable: true });
-   
+
    const contract = defineContract({
      exchanges: {
        orders: ordersExchange,
@@ -634,31 +634,31 @@ packages/[package-name]/
    }
    ```
 
-5. **Ignoring TypeScript errors**
+6. **Ignoring TypeScript errors**
    - Never use `@ts-ignore` or `@ts-expect-error` without explanation
    - Fix the root cause instead of suppressing errors
 
-6. **Missing tests**
+7. **Missing tests**
    - Every new feature needs tests
    - Every bug fix needs a regression test
 
-7. **Not using Standard Schema v1**
+8. **Not using Standard Schema v1**
    - Always use Standard Schema v1 compliant libraries
    - Don't create custom validation logic
 
-8. **Incorrect exchange types**
+9. **Incorrect exchange types**
    - Choose the right exchange type for your use case
    - Don't use topic exchanges when direct would suffice
    - Document routing patterns clearly
 
-9. **Not running checks before PR**
-   ```bash
-   # Always run before submitting PR:
-   pnpm typecheck
-   pnpm lint
-   pnpm format --check
-   pnpm test
-   ```
+10. **Not running checks before PR**
+    ```bash
+    # Always run before submitting PR:
+    pnpm typecheck
+    pnpm lint
+    pnpm format --check
+    pnpm test
+    ```
 
 ---
 
