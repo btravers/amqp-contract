@@ -84,45 +84,53 @@ const contract = defineContract({
 
 **NEW**: Use `definePublisherFirst` or `defineConsumerFirst` to enforce consistency between publishers, consumers, and routing keys:
 
-#### Publisher-First Pattern
+#### Publisher-First Pattern (Event-Oriented)
 
-Use when you start with a publisher and want to ensure consumers receive the same message type:
+Use this pattern for events where publishers don't need to know about queues. Multiple consumers can be created for different queues, all using the same message schema:
 
 ```typescript
 import { definePublisherFirst, defineContract } from '@amqp-contract/contract';
 import { z } from 'zod';
 
 const ordersExchange = defineExchange('orders', 'topic', { durable: true });
-const orderQueue = defineQueue('order-processing', { durable: true });
 const orderMessage = defineMessage(z.object({
   orderId: z.string(),
   amount: z.number(),
 }));
 
-// Define publisher-first relationship - ensures message and routing key consistency
-const orderCreated = definePublisherFirst(
+// Define publisher-first relationship (event pattern)
+const orderCreatedEvent = definePublisherFirst(
   ordersExchange,
-  orderQueue,
   orderMessage,
   { routingKey: 'order.created' }
 );
 
+// Multiple queues can consume the same event
+const orderQueue = defineQueue('order-processing', { durable: true });
+const analyticsQueue = defineQueue('analytics', { durable: true });
+
+// Create consumers for each queue
+const { consumer: processConsumer, binding: processBinding } = orderCreatedEvent.createConsumer(orderQueue);
+const { consumer: analyticsConsumer, binding: analyticsBinding } = orderCreatedEvent.createConsumer(analyticsQueue);
+
 const contract = defineContract({
   exchanges: { orders: ordersExchange },
-  queues: { orderQueue },
+  queues: { orderQueue, analyticsQueue },
   bindings: {
-    orderBinding: orderCreated.binding, // Same routing key as publisher
+    orderBinding: processBinding,      // Same routing key as publisher
+    analyticsBinding: analyticsBinding, // Same routing key as publisher
   },
   publishers: {
-    orderCreated: orderCreated.publisher, // Original publisher
+    orderCreated: orderCreatedEvent.publisher,
   },
   consumers: {
-    processOrder: orderCreated.createConsumer(), // Same message schema
+    processOrder: processConsumer,     // Same message schema
+    trackOrder: analyticsConsumer,     // Same message schema
   },
 });
 ```
 
-#### Consumer-First Pattern
+#### Consumer-First Pattern (Command-Oriented)
 
 Use when you start with a consumer and want to ensure publishers send the correct message type:
 

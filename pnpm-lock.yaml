@@ -666,19 +666,6 @@ importers:
         specifier: 'catalog:'
         version: 4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
 
-  samples/contract-consistency-example:
-    dependencies:
-      '@amqp-contract/contract':
-        specifier: workspace:*
-        version: link:../../packages/contract
-      zod:
-        specifier: 'catalog:'
-        version: 4.2.1
-    devDependencies:
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-
   tools/tsconfig: {}
 
   tools/typedoc: {}

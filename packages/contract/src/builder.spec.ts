@@ -454,19 +454,20 @@ describe("builder", () => {
       const queue = defineQueue("test-queue");
 
       // WHEN
-      const result = definePublisherFirst(exchange, queue, message);
+      const result = definePublisherFirst(exchange, message);
+      const { consumer, binding } = result.createConsumer(queue);
 
       // THEN
       expect(result.publisher).toEqual({
         exchange,
         message,
       });
-      expect(result.binding).toEqual({
+      expect(binding).toEqual({
         type: "queue",
         queue,
         exchange,
       });
-      expect(result.createConsumer()).toEqual({
+      expect(consumer).toEqual({
         queue,
         message,
       });
@@ -484,9 +485,10 @@ describe("builder", () => {
       const queue = defineQueue("order-processing", { durable: true });
 
       // WHEN
-      const result = definePublisherFirst(exchange, queue, message, {
+      const result = definePublisherFirst(exchange, message, {
         routingKey: "order.created",
       });
+      const { consumer, binding } = result.createConsumer(queue);
 
       // THEN
       expect(result.publisher).toEqual({
@@ -494,13 +496,13 @@ describe("builder", () => {
         message,
         routingKey: "order.created",
       });
-      expect(result.binding).toEqual({
+      expect(binding).toEqual({
         type: "queue",
         queue,
         exchange,
         routingKey: "order.created",
       });
-      expect(result.createConsumer()).toEqual({
+      expect(consumer).toEqual({
         queue,
         message,
       });
@@ -513,9 +515,10 @@ describe("builder", () => {
       const queue = defineQueue("task-queue");
 
       // WHEN
-      const result = definePublisherFirst(exchange, queue, message, {
+      const result = definePublisherFirst(exchange, message, {
         routingKey: "task.execute",
       });
+      const { consumer, binding } = result.createConsumer(queue);
 
       // THEN
       expect(result.publisher).toEqual({
@@ -523,13 +526,13 @@ describe("builder", () => {
         message,
         routingKey: "task.execute",
       });
-      expect(result.binding).toEqual({
+      expect(binding).toEqual({
         type: "queue",
         queue,
         exchange,
         routingKey: "task.execute",
       });
-      expect(result.createConsumer()).toEqual({
+      expect(consumer).toEqual({
         queue,
         message,
       });
@@ -542,13 +545,14 @@ describe("builder", () => {
       const queue = defineQueue("event-queue");
 
       // WHEN
-      const result = definePublisherFirst(exchange, queue, message, {
+      const result = definePublisherFirst(exchange, message, {
         routingKey: "event.created",
       });
+      const { binding } = result.createConsumer(queue);
 
       // THEN - Routing key should be the same in both publisher and binding
       expect(result.publisher.routingKey).toBe("event.created");
-      expect(result.binding.routingKey).toBe("event.created");
+      expect(binding.routingKey).toBe("event.created");
     });
 
     it("should ensure message consistency between publisher and consumer", () => {
@@ -558,8 +562,8 @@ describe("builder", () => {
       const queue = defineQueue("user-queue");
 
       // WHEN
-      const result = definePublisherFirst(exchange, queue, message);
-      const consumer = result.createConsumer();
+      const result = definePublisherFirst(exchange, message);
+      const { consumer } = result.createConsumer(queue);
 
       // THEN - Message should be the same object reference
       expect(result.publisher.message).toBe(message);
@@ -578,9 +582,11 @@ describe("builder", () => {
       const orderQueue = defineQueue("order-processing", { durable: true });
 
       // WHEN
-      const orderPublisherFirst = definePublisherFirst(ordersExchange, orderQueue, message, {
+      const orderPublisherFirst = definePublisherFirst(ordersExchange, message, {
         routingKey: "order.created",
       });
+      const { consumer: processOrderConsumer, binding: orderBinding } =
+        orderPublisherFirst.createConsumer(orderQueue);
 
       const contract = defineContract({
         exchanges: {
@@ -590,13 +596,13 @@ describe("builder", () => {
           orderProcessing: orderQueue,
         },
         bindings: {
-          orderBinding: orderPublisherFirst.binding,
+          orderBinding,
         },
         publishers: {
           orderCreated: orderPublisherFirst.publisher,
         },
         consumers: {
-          processOrder: orderPublisherFirst.createConsumer(),
+          processOrder: processOrderConsumer,
         },
       });
 
@@ -829,14 +835,15 @@ describe("builder", () => {
       const message = defineMessage(z.object({ eventId: z.string() }));
 
       // WHEN - Use external exchange with local queue
-      const result = definePublisherFirst(externalExchange, localQueue, message, {
+      const result = definePublisherFirst(externalExchange, message, {
         routingKey: "external.event",
       });
+      const { consumer, binding } = result.createConsumer(localQueue);
 
       // THEN
       expect(result.publisher.exchange).toBe(externalExchange);
-      expect(result.binding.exchange).toBe(externalExchange);
-      expect(result.createConsumer().queue).toBe(localQueue);
+      expect(binding.exchange).toBe(externalExchange);
+      expect(consumer.queue).toBe(localQueue);
     });
 
     it("should support using external queue with consumer-first", () => {
@@ -863,9 +870,10 @@ describe("builder", () => {
       const sharedMessage = defineMessage(z.object({ id: z.string() }));
 
       // WHEN - Create a contract with external resources
-      const result = definePublisherFirst(externalExchange, localQueue, sharedMessage, {
+      const result = definePublisherFirst(externalExchange, sharedMessage, {
         routingKey: "shared.event",
       });
+      const { consumer, binding } = result.createConsumer(localQueue);
 
       const contract = defineContract({
         // Only include local resources in exchanges
@@ -874,13 +882,13 @@ describe("builder", () => {
           localQueue,
         },
         bindings: {
-          externalBinding: result.binding,
+          externalBinding: binding,
         },
         publishers: {
           publishToExternal: result.publisher,
         },
         consumers: {
-          consumeFromLocal: result.createConsumer(),
+          consumeFromLocal: consumer,
         },
       });
 
