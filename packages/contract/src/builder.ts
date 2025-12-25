@@ -705,9 +705,17 @@ export function defineContract<TContract extends ContractDefinition>(
  * @example
  * ```typescript
  * // Define subdomain contracts
+ * const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+ * const orderMessage = defineMessage(
+ *   z.object({
+ *     orderId: z.string(),
+ *     amount: z.number(),
+ *   })
+ * );
+ *
  * const orderContract = defineContract({
  *   exchanges: {
- *     orders: defineExchange('orders', 'topic', { durable: true }),
+ *     orders: ordersExchange,
  *   },
  *   publishers: {
  *     orderCreated: definePublisher(ordersExchange, orderMessage, {
@@ -716,9 +724,17 @@ export function defineContract<TContract extends ContractDefinition>(
  *   },
  * });
  *
+ * const paymentsExchange = defineExchange('payments', 'topic', { durable: true });
+ * const paymentMessage = defineMessage(
+ *   z.object({
+ *     paymentId: z.string(),
+ *     amount: z.number(),
+ *   })
+ * );
+ *
  * const paymentContract = defineContract({
  *   exchanges: {
- *     payments: defineExchange('payments', 'topic', { durable: true }),
+ *     payments: paymentsExchange,
  *   },
  *   publishers: {
  *     paymentReceived: definePublisher(paymentsExchange, paymentMessage, {

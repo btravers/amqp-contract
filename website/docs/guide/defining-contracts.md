@@ -305,12 +305,21 @@ For large applications, split your AMQP topology into logical subdomains and mer
 import { mergeContracts } from '@amqp-contract/contract';
 
 // Define order subdomain
+const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+const orderProcessingQueue = defineQueue('order-processing', { durable: true });
+const orderMessage = defineMessage(
+  z.object({
+    orderId: z.string(),
+    amount: z.number(),
+  })
+);
+
 const orderContract = defineContract({
   exchanges: {
-    orders: defineExchange('orders', 'topic', { durable: true }),
+    orders: ordersExchange,
   },
   queues: {
-    orderProcessing: defineQueue('order-processing', { durable: true }),
+    orderProcessing: orderProcessingQueue,
   },
   publishers: {
     orderCreated: definePublisher(ordersExchange, orderMessage, {
@@ -323,12 +332,21 @@ const orderContract = defineContract({
 });
 
 // Define payment subdomain
+const paymentsExchange = defineExchange('payments', 'topic', { durable: true });
+const paymentProcessingQueue = defineQueue('payment-processing', { durable: true });
+const paymentMessage = defineMessage(
+  z.object({
+    paymentId: z.string(),
+    amount: z.number(),
+  })
+);
+
 const paymentContract = defineContract({
   exchanges: {
-    payments: defineExchange('payments', 'topic', { durable: true }),
+    payments: paymentsExchange,
   },
   queues: {
-    paymentProcessing: defineQueue('payment-processing', { durable: true }),
+    paymentProcessing: paymentProcessingQueue,
   },
   publishers: {
     paymentReceived: definePublisher(paymentsExchange, paymentMessage, {
@@ -401,12 +419,15 @@ Define common infrastructure separately and merge it with application contracts:
 
 ```typescript
 // Shared infrastructure (maintained by platform team)
+const deadLetterExchange = defineExchange('dlx', 'topic', { durable: true });
+const deadLetterQueue = defineQueue('dlq', { durable: true });
+
 const sharedInfraContract = defineContract({
   exchanges: {
-    deadLetter: defineExchange('dlx', 'topic', { durable: true }),
+    deadLetter: deadLetterExchange,
   },
   queues: {
-    deadLetterQueue: defineQueue('dlq', { durable: true }),
+    deadLetterQueue: deadLetterQueue,
   },
   bindings: {
     dlqBinding: defineQueueBinding(deadLetterQueue, deadLetterExchange, {
