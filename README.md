@@ -101,6 +101,8 @@ const worker = await TypedAmqpWorker.create({
 });
 ```
 
+> **Note**: If your application both publishes and consumes messages, see the [Architecture Review](./docs/review/2025-12-25-architecture-review.md#3-connection-sharing-analysis) for connection sharing strategies to optimize resource usage.
+
 ## Installation
 
 ```bash
@@ -150,6 +152,8 @@ export class AppModule {}
 
 📖 **[Read the full documentation →](https://btravers.github.io/amqp-contract)**
 
+### Guides
+
 - [Getting Started](https://btravers.github.io/amqp-contract/guide/getting-started)
 - [Core Concepts](https://btravers.github.io/amqp-contract/guide/core-concepts)
 - [NestJS Client Usage](https://btravers.github.io/amqp-contract/guide/client-nestjs-usage)
@@ -157,6 +161,13 @@ export class AppModule {}
 - [AsyncAPI Generation](https://btravers.github.io/amqp-contract/guide/asyncapi-generation)
 - [API Reference](https://btravers.github.io/amqp-contract/api/)
 - [Examples](https://btravers.github.io/amqp-contract/examples/)
+
+### Architecture & Design
+
+- [Architecture Review](./docs/review/2025-12-25-architecture-review.md) - Comprehensive project assessment
+- [Review Summary](./docs/review/2025-12-25-review-summary.md) - Executive summary
+- [Terminology Guide](./TERMINOLOGY.md) - Understanding client/worker vs publisher/consumer
+- [Architecture Decision Records](./docs/adr/README.md) - Design decisions and rationale
 
 ## Packages
 
