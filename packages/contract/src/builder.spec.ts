@@ -304,6 +304,67 @@ describe("builder", () => {
         message,
       });
     });
+
+    it("should create a consumer with error handling strategy", () => {
+      // GIVEN
+      const message = defineMessage(z.object({ id: z.string() }));
+      const queue = defineQueue("test-queue");
+      const dlxExchange = defineExchange("dlx", "direct", { durable: true });
+      const retryQueue = defineQueue("retry-queue", { durable: true });
+
+      // WHEN
+      const consumer = defineConsumer(queue, message, {
+        errorHandling: {
+          deadLetterExchange: dlxExchange,
+          retryQueue: retryQueue,
+          exponentialBackoff: {
+            initialDelayMs: 1000,
+            multiplier: 2,
+            maxAttempts: 3,
+            maxDelayMs: 60000,
+          },
+        },
+      });
+
+      // THEN
+      expect(consumer).toEqual({
+        queue,
+        message,
+        errorHandling: {
+          deadLetterExchange: dlxExchange,
+          retryQueue: retryQueue,
+          exponentialBackoff: {
+            initialDelayMs: 1000,
+            multiplier: 2,
+            maxAttempts: 3,
+            maxDelayMs: 60000,
+          },
+        },
+      });
+    });
+
+    it("should create a consumer with minimal error handling (only dead letter exchange)", () => {
+      // GIVEN
+      const message = defineMessage(z.object({ id: z.string() }));
+      const queue = defineQueue("test-queue");
+      const dlxExchange = defineExchange("dlx", "direct", { durable: true });
+
+      // WHEN
+      const consumer = defineConsumer(queue, message, {
+        errorHandling: {
+          deadLetterExchange: dlxExchange,
+        },
+      });
+
+      // THEN
+      expect(consumer).toEqual({
+        queue,
+        message,
+        errorHandling: {
+          deadLetterExchange: dlxExchange,
+        },
+      });
+    });
   });
 
   describe("defineContract", () => {

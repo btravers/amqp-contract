@@ -25,4 +25,6 @@ export type {
   QueueDefinition,
   InferPublisherNames,
   InferConsumerNames,
+  ErrorHandlingStrategy,
+  ExponentialBackoffConfig,
 } from "./types.js";

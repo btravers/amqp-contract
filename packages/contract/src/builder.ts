@@ -562,6 +562,7 @@ export function definePublisher<TMessage extends MessageDefinition>(
  * @param queue - The queue definition to consume from
  * @param message - The message definition with payload schema
  * @param options - Optional consumer configuration
+ * @param options.errorHandling - Optional error handling strategy with dead letter and retry configuration
  * @returns A consumer definition with inferred message types
  *
  * @example
@@ -590,6 +591,26 @@ export function definePublisher<TMessage extends MessageDefinition>(
  * //   },
  * //   connection
  * // });
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Consumer with error handling and retry strategy
+ * const dlxExchange = defineExchange('orders-dlx', 'direct', { durable: true });
+ * const retryQueue = defineQueue('order-retry', { durable: true });
+ *
+ * const processOrderConsumer = defineConsumer(orderQueue, orderMessage, {
+ *   errorHandling: {
+ *     deadLetterExchange: dlxExchange,
+ *     retryQueue: retryQueue,
+ *     exponentialBackoff: {
+ *       initialDelayMs: 1000,
+ *       multiplier: 2,
+ *       maxAttempts: 5,
+ *       maxDelayMs: 60000
+ *     }
+ *   }
+ * });
  * ```
  */
 export function defineConsumer<TMessage extends MessageDefinition>(
