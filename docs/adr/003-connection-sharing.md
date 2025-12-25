@@ -45,7 +45,7 @@ How should we enable connection sharing for applications that both publish and c
 
 We will implement **multiple complementary approaches** to address this concern:
 
-### Primary Solution: Unified Package
+### Primary Solution: Unified Package (Proposed)
 
 Create a new **@amqp-contract/unified** package that provides:
 
@@ -53,7 +53,10 @@ Create a new **@amqp-contract/unified** package that provides:
 2. Convenient API for hybrid applications
 3. Automatic lifecycle management
 
+> **Note**: This is a proposed future implementation. The following code examples illustrate the intended design but are not yet implemented.
+
 ```typescript
+// PROPOSED IMPLEMENTATION - NOT YET AVAILABLE
 import { TypedAmqpUnifiedClient } from '@amqp-contract/unified';
 
 const unified = await TypedAmqpUnifiedClient.create({
@@ -78,11 +81,14 @@ await unified.close();
 // Result: 1 connection, 2 channels ✅
 ```
 
-### Secondary Solution: Low-Level API
+### Secondary Solution: Low-Level API (Proposed)
 
 Add support for passing an existing `AmqpClient` instance to both `TypedAmqpClient` and `TypedAmqpWorker`:
 
+> **Note**: This is a proposed enhancement to the existing API. The following examples show the intended design.
+
 ```typescript
+// PROPOSED ENHANCEMENT - NOT YET AVAILABLE
 import { AmqpClient } from '@amqp-contract/core';
 
 // Create shared AmqpClient
@@ -126,7 +132,9 @@ const worker = await TypedAmqpWorker.create({
 - Low-level API alone: Too much boilerplate for common cases
 - Both together: Covers all use cases with appropriate abstraction levels
 
-## Implementation: Unified Package
+## Implementation: Unified Package (Proposed)
+
+> **Important**: The following sections describe a proposed implementation design. This package does not yet exist. These details serve as a reference for future implementation and may be adjusted based on actual development needs.
 
 ### Package Structure
 
@@ -142,10 +150,13 @@ packages/unified/
 └── vitest.config.ts
 ```
 
-### Core Implementation
+### Core Implementation (Proposed)
+
+> **Note**: This section describes a proposed implementation design. When implementing this ADR, the actual implementation should be verified against the existing `AmqpClient` API and adjusted as needed.
 
 ```typescript
-// packages/unified/src/unified-client.ts
+// PROPOSED IMPLEMENTATION - packages/unified/src/unified-client.ts
+// This is a design sketch showing the intended architecture
 import { TypedAmqpClient } from '@amqp-contract/client';
 import { TypedAmqpWorker } from '@amqp-contract/worker';
 import { AmqpClient, type Logger } from '@amqp-contract/core';
@@ -283,11 +294,14 @@ export class TypedAmqpUnifiedClient<TContract extends ContractDefinition> {
 }
 ```
 
-### Usage Examples
+### Usage Examples (Proposed)
+
+> **Note**: These examples show the intended usage patterns. Code is illustrative and not yet implemented.
 
 #### Example 1: Full Hybrid Service
 
 ```typescript
+// PROPOSED USAGE - NOT YET AVAILABLE
 import { TypedAmqpUnifiedClient } from '@amqp-contract/unified';
 import { contract } from './contract';
 
@@ -353,14 +367,16 @@ const unified = await TypedAmqpUnifiedClient.create({
 // unified.publisher would throw
 ```
 
-## Implementation: Low-Level API
+## Implementation: Low-Level API (Proposed)
+
+> **Important**: The following sections describe proposed enhancements to the existing API. These changes have not yet been implemented.
 
 ### Add `amqpClient` Option
 
 Extend both `CreateClientOptions` and `CreateWorkerOptions`:
 
 ```typescript
-// packages/client/src/client.ts
+// PROPOSED ENHANCEMENT - packages/client/src/client.ts
 export type CreateClientOptions<TContract extends ContractDefinition> =
   | {
       contract: TContract;
@@ -376,7 +392,7 @@ export type CreateClientOptions<TContract extends ContractDefinition> =
 ```
 
 ```typescript
-// packages/worker/src/worker.ts
+// PROPOSED ENHANCEMENT - packages/worker/src/worker.ts
 export type CreateWorkerOptions<TContract extends ContractDefinition> =
   | {
       contract: TContract;
