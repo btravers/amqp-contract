@@ -18,6 +18,8 @@ pnpm add @amqp-contract/contract
 
 ## Usage
 
+### Basic Contract Definition
+
 ```typescript
 import { defineContract, defineExchange, defineQueue, defineQueueBinding, defineExchangeBinding, definePublisher, defineConsumer, defineMessage } from '@amqp-contract/contract';
 import { z } from 'zod';
@@ -77,6 +79,94 @@ const contract = defineContract({
   },
 });
 ```
+
+### Enforcing Contract Consistency
+
+**NEW**: Use `definePublisherFirst` or `defineConsumerFirst` to enforce consistency between publishers, consumers, and routing keys:
+
+#### Publisher-First Pattern
+
+Use when you start with a publisher and want to ensure consumers receive the same message type:
+
+```typescript
+import { definePublisherFirst, defineContract } from '@amqp-contract/contract';
+import { z } from 'zod';
+
+const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+const orderQueue = defineQueue('order-processing', { durable: true });
+const orderMessage = defineMessage(z.object({
+  orderId: z.string(),
+  amount: z.number(),
+}));
+
+// Define publisher-first relationship - ensures message and routing key consistency
+const orderCreated = definePublisherFirst(
+  ordersExchange,
+  orderQueue,
+  orderMessage,
+  { routingKey: 'order.created' }
+);
+
+const contract = defineContract({
+  exchanges: { orders: ordersExchange },
+  queues: { orderQueue },
+  bindings: {
+    orderBinding: orderCreated.binding, // Same routing key as publisher
+  },
+  publishers: {
+    orderCreated: orderCreated.publisher, // Original publisher
+  },
+  consumers: {
+    processOrder: orderCreated.createConsumer(), // Same message schema
+  },
+});
+```
+
+#### Consumer-First Pattern
+
+Use when you start with a consumer and want to ensure publishers send the correct message type:
+
+```typescript
+import { defineConsumerFirst, defineContract } from '@amqp-contract/contract';
+import { z } from 'zod';
+
+const taskQueue = defineQueue('tasks', { durable: true });
+const tasksExchange = defineExchange('tasks', 'direct', { durable: true });
+const taskMessage = defineMessage(z.object({
+  taskId: z.string(),
+  action: z.string(),
+}));
+
+// Define consumer-first relationship - ensures message and routing key consistency
+const taskConsumer = defineConsumerFirst(
+  taskQueue,
+  tasksExchange,
+  taskMessage,
+  { routingKey: 'task.execute' }
+);
+
+const contract = defineContract({
+  exchanges: { tasks: tasksExchange },
+  queues: { taskQueue },
+  bindings: {
+    taskBinding: taskConsumer.binding, // Same routing key as publisher
+  },
+  publishers: {
+    executeTask: taskConsumer.createPublisher(), // Same message schema and routing key
+  },
+  consumers: {
+    processTask: taskConsumer.consumer, // Original consumer
+  },
+});
+```
+
+#### Benefits
+
+- ✅ **Message Schema Consistency**: Publishers and consumers are guaranteed to use the same message schema
+- ✅ **Routing Key Consistency**: Routing keys are automatically synchronized between publishers and bindings
+- ✅ **External Resource Support**: Can consume from exchanges defined in other contracts
+- ✅ **Type Safety**: Full TypeScript type inference throughout
+- ✅ **Single Source of Truth**: Message schema and routing key defined once, used everywhere
 
 ## API
 
