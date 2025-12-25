@@ -1,7 +1,7 @@
 # ADR-003: Connection Sharing Strategy
 
 **Status**: Proposed  
-**Date**: 2024-12-25  
+**Date**: 2025-12-25  
 **Deciders**: Project Maintainers
 
 ## Context

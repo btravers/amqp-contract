@@ -1,7 +1,7 @@
 # ADR-002: Separate Client and Worker Packages
 
 **Status**: Accepted  
-**Date**: 2024-12-25  
+**Date**: 2025-12-25  
 **Deciders**: Project Maintainers
 
 ## Context

@@ -101,7 +101,7 @@ const worker = await TypedAmqpWorker.create({
 });
 ```
 
-> **Note**: If your application both publishes and consumes messages, see the [Architecture Review](./ARCHITECTURE_REVIEW.md#3-connection-sharing-analysis) for connection sharing strategies to optimize resource usage.
+> **Note**: If your application both publishes and consumes messages, see the [Architecture Review](./docs/review/2025-12-25-architecture-review.md#3-connection-sharing-analysis) for connection sharing strategies to optimize resource usage.
 
 ## Installation
 
@@ -164,7 +164,8 @@ export class AppModule {}
 
 ### Architecture & Design
 
-- [Architecture Review](./ARCHITECTURE_REVIEW.md) - Comprehensive project assessment
+- [Architecture Review](./docs/review/2025-12-25-architecture-review.md) - Comprehensive project assessment
+- [Review Summary](./docs/review/2025-12-25-review-summary.md) - Executive summary
 - [Terminology Guide](./TERMINOLOGY.md) - Understanding client/worker vs publisher/consumer
 - [Architecture Decision Records](./docs/adr/README.md) - Design decisions and rationale
 

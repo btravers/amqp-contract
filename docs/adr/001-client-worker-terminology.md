@@ -1,7 +1,7 @@
 # ADR-001: Client and Worker Terminology
 
 **Status**: Accepted  
-**Date**: 2024-12-25  
+**Date**: 2025-12-25  
 **Deciders**: Project Maintainers
 
 ## Context
