@@ -39,6 +39,7 @@ const orderStatusSchema = z.object({
 // Define exchanges first so they can be referenced
 const ordersExchange = defineExchange("orders", "topic", { durable: true });
 const orderAnalyticsExchange = defineExchange("order-analytics", "topic", { durable: true });
+const orderDlxExchange = defineExchange("orders-dlx", "direct", { durable: true });
 
 // Define queues so they can be referenced
 const orderProcessingQueue = defineQueue("order-processing", { durable: true });
@@ -46,6 +47,17 @@ const orderNotificationsQueue = defineQueue("order-notifications", { durable: tr
 const orderShippingQueue = defineQueue("order-shipping", { durable: true });
 const orderUrgentQueue = defineQueue("order-urgent", { durable: true });
 const analyticsProcessingQueue = defineQueue("analytics-processing", { durable: true });
+
+// Error handling queues
+const orderRetryQueue = defineQueue("order-retry", {
+  durable: true,
+  arguments: {
+    // When messages expire in the retry queue, they are sent back to the main queue
+    "x-dead-letter-exchange": "orders",
+    "x-dead-letter-routing-key": "order.created",
+  },
+});
+const orderDeadLetterQueue = defineQueue("order-dead-letter", { durable: true });
 
 // Define messages with metadata
 const orderMessage = defineMessage(orderSchema, {
@@ -82,6 +94,9 @@ export const orderContract = defineContract({
 
     // Secondary exchange for analytics (receives filtered events from orders exchange)
     orderAnalytics: orderAnalyticsExchange,
+
+    // Dead letter exchange for failed messages
+    ordersDlx: orderDlxExchange,
   },
   queues: {
     // Queue for processing all new orders
@@ -98,6 +113,10 @@ export const orderContract = defineContract({
 
     // Queue for analytics (receives events through orderAnalytics exchange)
     analyticsProcessing: analyticsProcessingQueue,
+
+    // Error handling queues
+    orderRetry: orderRetryQueue,
+    orderDeadLetter: orderDeadLetterQueue,
   },
   bindings: {
     // Exchange-to-Exchange binding: Route all order events to analytics exchange
@@ -132,6 +151,11 @@ export const orderContract = defineContract({
     analyticsBinding: defineQueueBinding(analyticsProcessingQueue, orderAnalyticsExchange, {
       routingKey: "order.#",
     }),
+
+    // Bind dead letter queue to dead letter exchange
+    dlxBinding: defineQueueBinding(orderDeadLetterQueue, orderDlxExchange, {
+      routingKey: "order.created",
+    }),
   },
   publishers: {
     // Publisher for new orders
@@ -155,8 +179,20 @@ export const orderContract = defineContract({
     }),
   },
   consumers: {
-    // Consumer for processing new orders
-    processOrder: defineConsumer(orderProcessingQueue, orderMessage),
+    // Consumer for processing new orders with error handling
+    // Demonstrates retry strategy with exponential backoff
+    processOrder: defineConsumer(orderProcessingQueue, orderMessage, {
+      errorHandling: {
+        deadLetterExchange: orderDlxExchange,
+        retryQueue: orderRetryQueue,
+        exponentialBackoff: {
+          initialDelayMs: 1000,
+          multiplier: 2,
+          maxAttempts: 5,
+          maxDelayMs: 60000,
+        },
+      },
+    }),
 
     // Consumer for sending all notifications
     notifyOrder: defineConsumer(orderNotificationsQueue, orderUnionMessage),
