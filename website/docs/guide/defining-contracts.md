@@ -2,6 +2,128 @@
 
 Learn how to define AMQP contracts with full type safety.
 
+## Recommended Approach: Publisher-First and Consumer-First Patterns
+
+::: tip RECOMMENDED
+For robust contract definitions with guaranteed consistency, use **`definePublisherFirst`** (for events) or **`defineConsumerFirst`** (for commands). These patterns ensure message schema and routing key consistency between publishers and consumers.
+:::
+
+### Publisher-First Pattern (Event-Oriented)
+
+Use this pattern for **events** where publishers don't need to know about queues. Multiple consumers can be created for different queues, all using the same message schema:
+
+```typescript
+import {
+  definePublisherFirst,
+  defineContract,
+  defineExchange,
+  defineQueue,
+  defineMessage,
+} from '@amqp-contract/contract';
+import { z } from 'zod';
+
+// Define exchange and message
+const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+const orderMessage = defineMessage(z.object({
+  orderId: z.string().uuid(),
+  amount: z.number().positive(),
+}));
+
+// Publisher-first: creates publisher without knowing about queues
+const orderCreatedEvent = definePublisherFirst(
+  ordersExchange,
+  orderMessage,
+  { routingKey: 'order.created' }
+);
+
+// Multiple queues can consume the same event
+const orderQueue = defineQueue('order-processing', { durable: true });
+const analyticsQueue = defineQueue('analytics', { durable: true });
+
+// Create consumers for each queue
+const { consumer: processConsumer, binding: processBinding } =
+  orderCreatedEvent.createConsumer(orderQueue);
+const { consumer: analyticsConsumer, binding: analyticsBinding } =
+  orderCreatedEvent.createConsumer(analyticsQueue);
+
+// Compose contract
+export const contract = defineContract({
+  exchanges: { orders: ordersExchange },
+  queues: { orderQueue, analyticsQueue },
+  bindings: {
+    orderBinding: processBinding,      // Same routing key
+    analyticsBinding: analyticsBinding, // Same routing key
+  },
+  publishers: {
+    orderCreated: orderCreatedEvent.publisher,
+  },
+  consumers: {
+    processOrder: processConsumer,      // Same message schema
+    trackOrder: analyticsConsumer,      // Same message schema
+  },
+});
+```
+
+**Benefits:**
+
+- ✅ Publishers don't need to know about queues (true event-oriented)
+- ✅ Multiple consumers can subscribe to the same event
+- ✅ Guaranteed message schema consistency
+- ✅ Automatic routing key synchronization
+
+### Consumer-First Pattern (Command-Oriented)
+
+Use this pattern for **commands** where consumers define what they expect:
+
+```typescript
+import {
+  defineConsumerFirst,
+  defineContract,
+  defineQueue,
+  defineExchange,
+  defineMessage,
+} from '@amqp-contract/contract';
+import { z } from 'zod';
+
+// Define queue, exchange, and message
+const taskQueue = defineQueue('tasks', { durable: true });
+const tasksExchange = defineExchange('tasks', 'direct', { durable: true });
+const taskMessage = defineMessage(z.object({
+  taskId: z.string(),
+  action: z.string(),
+}));
+
+// Consumer-first: defines consumer expectations
+const taskCommand = defineConsumerFirst(
+  taskQueue,
+  tasksExchange,
+  taskMessage,
+  { routingKey: 'task.execute' }
+);
+
+// Compose contract
+export const contract = defineContract({
+  exchanges: { tasks: tasksExchange },
+  queues: { taskQueue },
+  bindings: {
+    taskBinding: taskCommand.binding, // Consistent routing key
+  },
+  publishers: {
+    executeTask: taskCommand.createPublisher(), // Matching schema & routing key
+  },
+  consumers: {
+    processTask: taskCommand.consumer,
+  },
+});
+```
+
+**Benefits:**
+
+- ✅ Consumer defines the contract (command pattern)
+- ✅ Publishers automatically match consumer expectations
+- ✅ Guaranteed message schema consistency
+- ✅ Automatic routing key synchronization
+
 ## Contract Structure
 
 A contract has five main parts:
@@ -294,6 +416,32 @@ const contract = defineContract({
   },
 });
 ```
+
+## When to Use Each Approach
+
+### Use Publisher-First / Consumer-First (Recommended)
+
+✅ **Use for most cases** - Provides consistency guarantees and prevents runtime errors
+
+- Event-driven architectures (use `definePublisherFirst`)
+- Command patterns (use `defineConsumerFirst`)
+- When you want guaranteed message schema consistency
+- When you want automatic routing key synchronization
+
+### Use Basic Definition (Advanced)
+
+Use the basic `definePublisher`, `defineConsumer`, `defineQueueBinding` approach only when:
+
+- You need exchange-to-exchange bindings
+- You're working with complex routing patterns that don't fit the event/command model
+- You're integrating with existing AMQP infrastructure with specific requirements
+
+::: warning
+When using basic definitions, you must manually ensure:
+
+- Publishers and consumers use the same message schemas
+- Routing keys match between publishers and bindings
+  :::
 
 ## Next Steps
 
