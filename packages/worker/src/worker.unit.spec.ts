@@ -926,9 +926,9 @@ describe("TypedAmqpWorker.create", () => {
             "x-retry-count": 3,
           },
         },
-      };
+      } as unknown as ConsumeMessage;
 
-      await mockConsumeCallback!(mockMessage as ConsumeMessage);
+      await mockConsumeCallback!(mockMessage);
 
       // THEN
       expect(mockHandler).toHaveBeenCalled();
@@ -992,10 +992,10 @@ describe("TypedAmqpWorker.create", () => {
 
       // Test different retry counts
       const testCases = [
-        { retryCount: 0, expectedDelay: 1000 },  // 1000 * 2^0 = 1000
-        { retryCount: 1, expectedDelay: 2000 },  // 1000 * 2^1 = 2000
-        { retryCount: 2, expectedDelay: 4000 },  // 1000 * 2^2 = 4000
-        { retryCount: 3, expectedDelay: 8000 },  // 1000 * 2^3 = 8000
+        { retryCount: 0, expectedDelay: 1000 }, // 1000 * 2^0 = 1000
+        { retryCount: 1, expectedDelay: 2000 }, // 1000 * 2^1 = 2000
+        { retryCount: 2, expectedDelay: 4000 }, // 1000 * 2^2 = 4000
+        { retryCount: 3, expectedDelay: 8000 }, // 1000 * 2^3 = 8000
         { retryCount: 4, expectedDelay: 10000 }, // 1000 * 2^4 = 16000, but capped at maxDelayMs
       ];
 
@@ -1009,9 +1009,9 @@ describe("TypedAmqpWorker.create", () => {
           properties: {
             headers: testCase.retryCount > 0 ? { "x-retry-count": testCase.retryCount } : {},
           },
-        };
+        } as unknown as ConsumeMessage;
 
-        await mockConsumeCallback!(mockMessage as ConsumeMessage);
+        await mockConsumeCallback!(mockMessage);
 
         expect(mockChannel.publish).toHaveBeenCalledWith(
           "",
