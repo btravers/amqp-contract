@@ -16,75 +16,57 @@
 pnpm add @amqp-contract/contract
 ```
 
-## Usage
+## Quick Start
+
+### Recommended: Publisher-First / Consumer-First Patterns
+
+For robust contract definitions with guaranteed consistency, use `definePublisherFirst` (for events) or `defineConsumerFirst` (for commands):
 
 ```typescript
-import { defineContract, defineExchange, defineQueue, defineQueueBinding, defineExchangeBinding, definePublisher, defineConsumer, defineMessage } from '@amqp-contract/contract';
+import { definePublisherFirst, defineContract, defineExchange, defineQueue, defineMessage } from '@amqp-contract/contract';
 import { z } from 'zod';
 
-// Define exchanges and queues first so they can be referenced
+// Event-oriented pattern: publisher doesn't need to know about queues
 const ordersExchange = defineExchange('orders', 'topic', { durable: true });
-const analyticsExchange = defineExchange('analytics', 'topic', { durable: true });
-const orderProcessingQueue = defineQueue('order-processing', { durable: true });
-const analyticsProcessingQueue = defineQueue('analytics-processing', { durable: true });
+const orderMessage = defineMessage(z.object({
+  orderId: z.string(),
+  amount: z.number(),
+}));
 
-// Define message schemas with metadata
-const orderMessage = defineMessage(
-  z.object({
-    orderId: z.string(),
-    amount: z.number(),
-  }),
-  {
-    summary: 'Order created event',
-    description: 'Emitted when a new order is created',
-  }
+const orderCreatedEvent = definePublisherFirst(
+  ordersExchange,
+  orderMessage,
+  { routingKey: 'order.created' }
 );
 
-// Define your contract using object references
+// Multiple queues can consume the same event
+const orderQueue = defineQueue('order-processing', { durable: true });
+const { consumer, binding } = orderCreatedEvent.createConsumer(orderQueue);
+
 const contract = defineContract({
-  exchanges: {
-    orders: ordersExchange,
-    analytics: analyticsExchange,
-  },
-  queues: {
-    orderProcessing: orderProcessingQueue,
-    analyticsProcessing: analyticsProcessingQueue,
-  },
-  bindings: {
-    // Queue-to-exchange binding
-    orderBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
-      routingKey: 'order.created',
-    }),
-    // Exchange-to-exchange binding
-    analyticsBinding: defineExchangeBinding(analyticsExchange, ordersExchange, {
-      routingKey: 'order.#',
-    }),
-    // Queue receives from analytics exchange
-    analyticsQueueBinding: defineQueueBinding(analyticsProcessingQueue, analyticsExchange, {
-      routingKey: 'order.#',
-    }),
-  },
-  publishers: {
-    orderCreated: definePublisher(ordersExchange, orderMessage, {
-      routingKey: 'order.created',
-    }),
-  },
-  consumers: {
-    processOrder: defineConsumer(orderProcessingQueue, orderMessage, {
-      prefetch: 10,
-    }),
-    processAnalytics: defineConsumer(analyticsProcessingQueue, orderMessage),
-  },
+  exchanges: { orders: ordersExchange },
+  queues: { orderQueue },
+  bindings: { orderBinding: binding },
+  publishers: { orderCreated: orderCreatedEvent.publisher },
+  consumers: { processOrder: consumer },
 });
 ```
 
-## API
+**Benefits:**
 
-For complete API documentation, see the [Contract API Reference](https://btravers.github.io/amqp-contract/api/contract).
+- ✅ Guaranteed message schema consistency between publishers and consumers
+- ✅ Automatic routing key synchronization
+- ✅ Full type safety with TypeScript inference
+- ✅ Event-oriented (publisher-first) and command-oriented (consumer-first) patterns
 
 ## Documentation
 
 📖 **[Read the full documentation →](https://btravers.github.io/amqp-contract)**
+
+- [Getting Started Guide](https://btravers.github.io/amqp-contract/guide/defining-contracts)
+- [Publisher-First Pattern](https://btravers.github.io/amqp-contract/guide/defining-contracts#publisher-first-pattern)
+- [Consumer-First Pattern](https://btravers.github.io/amqp-contract/guide/defining-contracts#consumer-first-pattern)
+- [Complete API Reference](https://btravers.github.io/amqp-contract/api/contract)
 
 ## License
 
