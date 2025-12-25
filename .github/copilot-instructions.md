@@ -28,12 +28,12 @@ This guide provides coding standards and best practices for contributing to the 
 amqp-contract/
 ├── packages/
 │   ├── contract/          # Core contract builder
+│   ├── core/              # Core utilities for AMQP setup and management
 │   ├── client/            # Type-safe AMQP client
 │   ├── worker/            # Type-safe AMQP worker
+│   ├── client-nestjs/     # NestJS integration for client
+│   ├── worker-nestjs/     # NestJS integration for worker
 │   ├── asyncapi/          # AsyncAPI 3.0 generator
-│   ├── zod/               # Zod integration
-│   ├── valibot/           # Valibot integration
-│   ├── arktype/           # ArkType integration
 │   └── testing/           # Testing utilities
 ├── samples/               # Example implementations
 ├── website/               # Documentation site
@@ -64,37 +64,49 @@ packages/[package-name]/
 1. **Contract Definition**
    - Always validate contracts at definition time
    - Use Standard Schema v1 compliant schemas (Zod, Valibot, ArkType)
-   - Define exchanges, queues, bindings, publishers, and consumers
+   - Define exchanges, queues, messages, bindings, publishers, and consumers
+   - Use composition pattern: define resources first, then reference them
 
    ```typescript
-   import { defineContract, defineExchange, defineQueue, defineQueueBinding, definePublisher, defineConsumer } from '@amqp-contract/contract';
+   import { defineContract, defineExchange, defineQueue, defineQueueBinding, definePublisher, defineConsumer, defineMessage } from '@amqp-contract/contract';
    import { z } from 'zod';
 
+   // 1. Define exchanges and queues first
+   const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+   const orderProcessingQueue = defineQueue('order-processing', { durable: true });
+
+   // 2. Define message schemas with metadata
+   const orderMessage = defineMessage(
+     z.object({
+       orderId: z.string(),
+       amount: z.number(),
+     }),
+     {
+       summary: 'Order created event',
+       description: 'Emitted when a new order is created',
+     }
+   );
+
+   // 3. Compose the contract using object references
    const contract = defineContract({
      exchanges: {
-       orders: defineExchange('orders', 'topic', { durable: true }),
+       orders: ordersExchange,
      },
      queues: {
-       orderProcessing: defineQueue('order-processing', { durable: true }),
+       orderProcessing: orderProcessingQueue,
      },
      bindings: {
-       orderBinding: defineQueueBinding('order-processing', 'orders', {
+       orderBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
          routingKey: 'order.created',
        }),
      },
      publishers: {
-       orderCreated: definePublisher('orders', z.object({
-         orderId: z.string(),
-         amount: z.number(),
-       }), {
+       orderCreated: definePublisher(ordersExchange, orderMessage, {
          routingKey: 'order.created',
        }),
      },
      consumers: {
-       processOrder: defineConsumer('order-processing', z.object({
-         orderId: z.string(),
-         amount: z.number(),
-       })),
+       processOrder: defineConsumer(orderProcessingQueue, orderMessage),
      },
    });
    ```
@@ -110,28 +122,131 @@ packages/[package-name]/
    - Use `autoDelete` sparingly, primarily for temporary resources
    - Configure `prefetch` on consumers to control message flow
 
-4. **Routing Keys**
+4. **Bindings**
+   - Use `defineQueueBinding` for queue-to-exchange bindings
+   - Use `defineExchangeBinding` for exchange-to-exchange bindings
+   - Exchange-to-exchange bindings enable complex routing patterns
+   - For fanout exchanges, routing keys are optional
+
+   ```typescript
+   // Queue-to-exchange binding
+   const queueBinding = defineQueueBinding(orderProcessingQueue, ordersExchange, {
+     routingKey: 'order.created',
+   });
+
+   // Exchange-to-exchange binding for message routing
+   const exchangeBinding = defineExchangeBinding(analyticsExchange, ordersExchange, {
+     routingKey: 'order.#',  // Forward all order events
+   });
+   ```
+
+5. **Routing Keys**
    - Use meaningful, hierarchical routing keys (e.g., `order.created`, `order.updated`)
    - Topic patterns: `#` matches zero or more words, `*` matches exactly one word
    - Document routing key patterns in comments
 
-5. **Message Schemas**
+6. **Message Schemas**
    - Always validate both input and output messages
    - Use Standard Schema v1 compliant libraries (Zod, Valibot, ArkType)
    - Define schemas as const to enable type inference
+   - Use `defineMessage` to wrap schemas with optional metadata
 
    ```typescript
-   const orderSchema = z.object({
-     orderId: z.string(),
-     customerId: z.string(),
-     items: z.array(z.object({
-       productId: z.string(),
-       quantity: z.number().int().positive(),
-       price: z.number().positive(),
-     })),
-     totalAmount: z.number().positive(),
-   });
+   import { defineMessage } from '@amqp-contract/contract';
+   import { z } from 'zod';
+
+   const orderMessage = defineMessage(
+     z.object({
+       orderId: z.string(),
+       customerId: z.string(),
+       items: z.array(z.object({
+         productId: z.string(),
+         quantity: z.number().int().positive(),
+         price: z.number().positive(),
+       })),
+       totalAmount: z.number().positive(),
+     }),
+     {
+       summary: 'Order created event',
+       description: 'Emitted when a new order is created in the system'
+     }
+   );
    ```
+
+---
+
+## NestJS Integration
+
+### ✅ Required Practices
+
+1. **Module Configuration**
+   - Use `AmqpClientModule` for publishing messages
+   - Use `AmqpWorkerModule` for consuming messages
+   - Both modules provide automatic lifecycle management
+   - Connection is managed automatically (connect on init, disconnect on destroy)
+
+   ```typescript
+   import { Module } from '@nestjs/common';
+   import { AmqpClientModule } from '@amqp-contract/client-nestjs';
+   import { AmqpWorkerModule } from '@amqp-contract/worker-nestjs';
+   import { contract } from './contract';
+
+   @Module({
+     imports: [
+       AmqpClientModule.forRoot({
+         contract,
+         urls: ['amqp://localhost'],
+       }),
+       AmqpWorkerModule.forRoot({
+         contract,
+         handlers: {
+           processOrder: async (message) => {
+             console.log('Processing:', message.orderId);
+           },
+         },
+         urls: ['amqp://localhost'],
+       }),
+     ],
+   })
+   export class AppModule {}
+   ```
+
+2. **Dependency Injection**
+   - Inject `AmqpClientService<typeof contract>` directly via constructor injection
+   - The client is fully typed and ready to use (methods are inferred from your contract)
+   - No manual connection management needed; the service is provided by `AmqpClientModule`
+
+   ```typescript
+   import { AmqpClientService } from '@amqp-contract/client-nestjs';
+
+   @Injectable()
+   export class OrderService {
+     constructor(
+       private readonly amqpClient: AmqpClientService<typeof contract>
+     ) {}
+
+     async createOrder(order: Order) {
+       const result = await this.amqpClient.publish('orderCreated', {
+         orderId: order.id,
+         amount: order.total
+       }).resultToPromise();
+
+       if (result.isError()) {
+         throw new Error('Failed to publish order event');
+       }
+     }
+   }
+   ```
+
+3. **Connection Sharing**
+   - If using both client and worker, they can share a connection
+   - See Architecture Decision Records for connection sharing strategies
+   - For most cases, separate modules with separate connections is simpler
+
+4. **Error Handling**
+   - Worker errors are logged automatically
+   - Use try/catch in handlers for custom error handling
+   - Failed messages can be nacked or sent to dead letter exchanges
 
 ---
 
@@ -180,17 +295,6 @@ packages/[package-name]/
 
    // ✅ Good
    import { helper } from "./utils.js";
-   ```
-
-4. **Workspace Protocol**
-   - Use `workspace:*` for internal package dependencies
-   - This ensures correct version resolution in the monorepo
-
-   ```json
-   // ✅ Good in package.json
-   "dependencies": {
-     "@amqp-contract/contract": "workspace:*"
-   }
    ```
 
 ---
@@ -403,12 +507,56 @@ packages/[package-name]/
    - Minimize external dependencies
    - Use peer dependencies for amqplib and schema libraries
    - Keep bundle size small
+   - Use catalog-based dependencies from `pnpm-workspace.yaml` for consistent versions
 
 5. **AMQP Best Practices**
    - Reuse channels when possible
    - Set appropriate prefetch values
    - Use connection pooling for high throughput
    - Close connections and channels properly
+
+6. **Composition Pattern**
+   - Define exchanges, queues, and messages as separate variables
+   - Reference these objects (not strings) in bindings, publishers, and consumers
+   - This enables better type safety and refactoring support
+   - See Contract Definition examples above for the pattern
+
+---
+
+## Dependency Management
+
+### ✅ Required Practices
+
+1. **Catalog-Based Dependencies**
+   - This project uses pnpm's catalog feature for dependency management
+   - All shared dependencies are defined in `pnpm-workspace.yaml` under the `catalog` key
+   - Reference catalog dependencies in package.json as: `"package-name": "catalog:"`
+   - This ensures consistent versions across all packages
+
+   ```json
+   // ✅ Good in package.json
+   "devDependencies": {
+     "vitest": "catalog:",
+     "typescript": "catalog:",
+     "zod": "catalog:"
+   }
+   ```
+
+2. **Workspace Protocol**
+   - Use `workspace:*` for internal package dependencies
+   - This ensures correct version resolution in the monorepo
+
+   ```json
+   // ✅ Good in package.json
+   "dependencies": {
+     "@amqp-contract/contract": "workspace:*"
+   }
+   ```
+
+3. **Adding New Dependencies**
+   - Add to the catalog in `pnpm-workspace.yaml` first
+   - Then reference as `catalog:` in package.json
+   - Run `pnpm install` to update lock file
 
 ---
 
@@ -426,17 +574,19 @@ packages/[package-name]/
 2. **Missing validation**
 
    ```typescript
-   // ❌ Bad - no schema validation
+   // ❌ Bad - no message definition
    const publisher = {
-     exchange: 'orders',
+     exchange: ordersExchange,
      routingKey: 'order.created',
    };
 
-   // ✅ Good - with schema validation
-   const publisher = definePublisher('orders', z.object({
+   // ✅ Good - with message definition and schema validation
+   const orderMessage = defineMessage(z.object({
      orderId: z.string(),
      amount: z.number(),
-   }), {
+   }));
+
+   const publisher = definePublisher(ordersExchange, orderMessage, {
      routingKey: 'order.created',
    });
    ```
@@ -451,45 +601,86 @@ packages/[package-name]/
    import { helper } from "./utils.js";
    ```
 
-4. **Not using workspace protocol**
+4. **Not using composition pattern**
+
+   ```typescript
+   // ❌ Bad - using strings directly
+   const contract = defineContract({
+     exchanges: {
+       orders: defineExchange('orders', 'topic', { durable: true }),
+     },
+     queues: {
+       orderProcessing: defineQueue('order-processing', { durable: true }),
+     },
+     bindings: {
+       // Cannot reference exchange/queue objects, must use strings
+       orderBinding: defineQueueBinding('order-processing', 'orders', {
+         routingKey: 'order.created',
+       }),
+     },
+   });
+
+   // ✅ Good - define first, then reference (composition pattern)
+   const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+   const orderProcessingQueue = defineQueue('order-processing', { durable: true });
+
+   const contract = defineContract({
+     exchanges: {
+       orders: ordersExchange,
+     },
+     queues: {
+       orderProcessing: orderProcessingQueue,
+     },
+     bindings: {
+       // References the actual objects for better type safety
+       orderBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
+         routingKey: 'order.created',
+       }),
+     },
+   });
+   ```
+
+5. **Not using catalog dependencies**
 
    ```json
-   // ❌ Bad in package.json
-   "dependencies": {
-     "@amqp-contract/contract": "^0.1.0"
+   // ❌ Bad in package.json - hardcoded version
+   "devDependencies": {
+     "vitest": "^4.0.0",
+     "typescript": "^5.9.0"
    }
 
-   // ✅ Good in package.json (for monorepo)
-   "dependencies": {
-     "@amqp-contract/contract": "workspace:*"
+   // ✅ Good in package.json - using catalog
+   "devDependencies": {
+     "vitest": "catalog:",
+     "typescript": "catalog:"
    }
    ```
 
-5. **Ignoring TypeScript errors**
+6. **Ignoring TypeScript errors**
    - Never use `@ts-ignore` or `@ts-expect-error` without explanation
    - Fix the root cause instead of suppressing errors
 
-6. **Missing tests**
+7. **Missing tests**
    - Every new feature needs tests
    - Every bug fix needs a regression test
 
-7. **Not using Standard Schema v1**
+8. **Not using Standard Schema v1**
    - Always use Standard Schema v1 compliant libraries
    - Don't create custom validation logic
 
-8. **Incorrect exchange types**
+9. **Incorrect exchange types**
    - Choose the right exchange type for your use case
    - Don't use topic exchanges when direct would suffice
    - Document routing patterns clearly
 
-9. **Not running checks before PR**
-   ```bash
-   # Always run before submitting PR:
-   pnpm typecheck
-   pnpm lint
-   pnpm format --check
-   pnpm test
-   ```
+10. **Not running checks before PR**
+    ```bash
+    # Always run before submitting PR:
+    pnpm typecheck
+    pnpm lint
+    pnpm format --check
+    pnpm test
+    ```
 
 ---
 
@@ -570,7 +761,10 @@ Before submitting code, ensure:
 - [ ] No `any` types used
 - [ ] Standard Schema v1 used for validation
 - [ ] `.js` extensions in all imports
-- [ ] AMQP patterns documented (routing keys, exchange types, etc.)
+- [ ] Composition pattern used (define resources first, then reference)
+- [ ] Catalog dependencies used for shared packages
+- [ ] AMQP patterns documented (routing keys, exchange types, bindings)
+- [ ] Message definitions use `defineMessage` with metadata
 
 ---
 
