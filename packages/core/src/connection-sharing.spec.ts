@@ -172,7 +172,7 @@ describe("AmqpClient Connection Sharing", () => {
     });
 
     const sharedConnection = primaryClient.getConnection();
-    const secondaryClient = AmqpClient.fromConnection(contract2, sharedConnection);
+    void AmqpClient.fromConnection(contract2, sharedConnection);
 
     const amqpModule = await import("amqp-connection-manager");
     const setupCallbacks = (

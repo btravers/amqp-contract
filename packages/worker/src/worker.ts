@@ -27,30 +27,32 @@ import type { WorkerInferConsumerHandlers, WorkerInferConsumerInput } from "./ty
  * };
  * ```
  */
-export type CreateWorkerOptions<TContract extends ContractDefinition> = {
-  /** The AMQP contract definition specifying consumers and their message schemas */
-  contract: TContract;
-  /** Handlers for each consumer defined in the contract */
-  handlers: WorkerInferConsumerHandlers<TContract>;
-  /** AMQP broker URL(s). Multiple URLs provide failover support */
-  urls: ConnectionUrl[];
-  /** Optional connection configuration (heartbeat, reconnect settings, etc.) */
-  connectionOptions?: AmqpConnectionManagerOptions | undefined;
-  /** Optional logger for logging message consumption and errors */
-  logger?: Logger | undefined;
-  amqpClient?: never;
-} | {
-  /** The AMQP contract definition specifying consumers and their message schemas */
-  contract: TContract;
-  /** Handlers for each consumer defined in the contract */
-  handlers: WorkerInferConsumerHandlers<TContract>;
-  /** Shared AmqpClient instance for connection reuse */
-  amqpClient: AmqpClient;
-  /** Optional logger for logging message consumption and errors */
-  logger?: Logger | undefined;
-  urls?: never;
-  connectionOptions?: never;
-};
+export type CreateWorkerOptions<TContract extends ContractDefinition> =
+  | {
+      /** The AMQP contract definition specifying consumers and their message schemas */
+      contract: TContract;
+      /** Handlers for each consumer defined in the contract */
+      handlers: WorkerInferConsumerHandlers<TContract>;
+      /** AMQP broker URL(s). Multiple URLs provide failover support */
+      urls: ConnectionUrl[];
+      /** Optional connection configuration (heartbeat, reconnect settings, etc.) */
+      connectionOptions?: AmqpConnectionManagerOptions | undefined;
+      /** Optional logger for logging message consumption and errors */
+      logger?: Logger | undefined;
+      amqpClient?: never;
+    }
+  | {
+      /** The AMQP contract definition specifying consumers and their message schemas */
+      contract: TContract;
+      /** Handlers for each consumer defined in the contract */
+      handlers: WorkerInferConsumerHandlers<TContract>;
+      /** Shared AmqpClient instance for connection reuse */
+      amqpClient: AmqpClient;
+      /** Optional logger for logging message consumption and errors */
+      logger?: Logger | undefined;
+      urls?: never;
+      connectionOptions?: never;
+    };
 
 /**
  * Type-safe AMQP worker for consuming messages from RabbitMQ.
@@ -133,14 +135,13 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   static create<TContract extends ContractDefinition>(
     options: CreateWorkerOptions<TContract>,
   ): Future<Result<TypedAmqpWorker<TContract>, TechnicalError>> {
-    const amqpClient = options.amqpClient ?? new AmqpClient(
-      options.contract,
-      {
+    const amqpClient =
+      options.amqpClient ??
+      new AmqpClient(options.contract, {
         urls: options.urls,
         connectionOptions: options.connectionOptions,
-      }
-    );
-    
+      });
+
     const worker = new TypedAmqpWorker(
       options.contract,
       amqpClient,
