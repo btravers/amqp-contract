@@ -195,7 +195,7 @@ packages/[package-name]/
      imports: [
        AmqpClientModule.forRoot({
          contract,
-         connection: 'amqp://localhost',
+         urls: ['amqp://localhost'],
        }),
        AmqpWorkerModule.forRoot({
          contract,
@@ -204,7 +204,7 @@ packages/[package-name]/
              console.log('Processing:', message.orderId);
            },
          },
-         connection: 'amqp://localhost',
+         urls: ['amqp://localhost'],
        }),
      ],
    })
@@ -212,9 +212,31 @@ packages/[package-name]/
    ```
 
 2. **Dependency Injection**
-   - Inject `TypedAmqpClient` using `@Inject(AMQP_CLIENT_TOKEN)`
-   - The client is fully typed and ready to use
-   - No manual connection management needed
+   - Inject `AmqpClientService<typeof contract>` directly via constructor injection
+   - The client is fully typed and ready to use (methods are inferred from your contract)
+   - No manual connection management needed; the service is provided by `AmqpClientModule`
+
+   ```typescript
+   import { AmqpClientService } from '@amqp-contract/client-nestjs';
+
+   @Injectable()
+   export class OrderService {
+     constructor(
+       private readonly amqpClient: AmqpClientService<typeof contract>
+     ) {}
+
+     async createOrder(order: Order) {
+       const result = await this.amqpClient.publish('orderCreated', {
+         orderId: order.id,
+         amount: order.total
+       }).resultToPromise();
+
+       if (result.isError()) {
+         throw new Error('Failed to publish order event');
+       }
+     }
+   }
+   ```
 
 3. **Connection Sharing**
    - If using both client and worker, they can share a connection
