@@ -2,7 +2,7 @@
 
 # amqp-contract
 
-**Type-safe contracts for AMQP/RabbitMQ**
+**Type-safe contracts for [AMQP](https://www.amqp.org/)/[RabbitMQ](https://www.rabbitmq.com/)**
 
 End-to-end type safety and automatic validation for AMQP messaging
 
@@ -19,9 +19,9 @@ End-to-end type safety and automatic validation for AMQP messaging
 ## Features
 
 - ✅ **End-to-end type safety** — From contract to client and worker
-- ✅ **Automatic validation** — Schema validation with Zod, Valibot, or ArkType
+- ✅ **Automatic validation** — Schema validation with [Zod](https://zod.dev/), [Valibot](https://valibot.dev/), or [ArkType](https://arktype.io/)
 - ✅ **Compile-time checks** — TypeScript catches missing or incorrect implementations
-- ✅ **NestJS integration** — First-class support with automatic lifecycle management
+- ✅ **NestJS integration** — First-class [NestJS](https://nestjs.com/) support with automatic lifecycle management
 - ✅ **AsyncAPI generation** — Generate AsyncAPI 3.0 specs from contracts
 - ✅ **Better DX** — Autocomplete, refactoring support, inline documentation
 
@@ -113,7 +113,7 @@ pnpm add @amqp-contract/client-nestjs @amqp-contract/worker-nestjs
 
 ## NestJS Integration
 
-Use the dedicated NestJS packages for automatic lifecycle management:
+Use the dedicated [NestJS](https://nestjs.com/) packages for automatic lifecycle management:
 
 ```typescript
 // app.module.ts
@@ -187,6 +187,10 @@ const spec = generateAsyncAPI(contract, {
   },
 });
 ```
+
+## Inspiration
+
+This project was inspired by the contract-first approach of [tRPC](https://trpc.io/), [oRPC](https://orpc.dev/), and [ts-rest](https://ts-rest.com/). We've adapted their excellent ideas of end-to-end type safety and schema-driven development to the world of [RabbitMQ](https://www.rabbitmq.com/) and AMQP messaging.
 
 ## Contributing
 

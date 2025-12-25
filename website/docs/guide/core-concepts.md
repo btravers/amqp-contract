@@ -93,11 +93,11 @@ result.match({
 
 amqp-contract uses [Standard Schema](https://github.com/standard-schema/standard-schema), supporting:
 
-- ✅ [Zod](https://github.com/colinhacks/zod) (most popular)
+- ✅ [Zod](https://zod.dev/) (most popular)
 - ✅ [Valibot](https://valibot.dev/)
 - ✅ [ArkType](https://arktype.io/)
 
-All examples use Zod, but you can use any compatible library:
+All examples use [Zod](https://zod.dev/), but you can use any compatible library:
 
 ```typescript
 import { z } from 'zod';

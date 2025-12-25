@@ -1,10 +1,10 @@
 # NestJS Client Usage
 
-Learn how to integrate the type-safe AMQP client with NestJS applications for publishing messages with automatic lifecycle management.
+Learn how to integrate the type-safe AMQP client with [NestJS](https://nestjs.com/) applications for publishing messages with automatic lifecycle management.
 
 ## Why Use NestJS Integration?
 
-The `@amqp-contract/client-nestjs` package provides seamless integration with NestJS:
+The `@amqp-contract/client-nestjs` package provides seamless integration with [NestJS](https://nestjs.com/):
 
 - ✅ **Automatic lifecycle management** - Client connects and disconnects with your application
 - ✅ **Dependency injection** - Use the client service anywhere in your application
@@ -441,7 +441,7 @@ export class OrderService {
 
 ### oRPC Integration
 
-Use oRPC for type-safe RPC that aligns with amqp-contract's contract-first philosophy:
+Use [oRPC](https://orpc.dev/) for type-safe RPC that aligns with amqp-contract's contract-first philosophy:
 
 ```typescript
 // order.router.ts

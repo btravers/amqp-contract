@@ -1,15 +1,15 @@
 # Basic Order Processing
 
-A complete example demonstrating type-safe AMQP messaging with the RabbitMQ topic pattern.
+A complete example demonstrating type-safe AMQP messaging with the [RabbitMQ](https://www.rabbitmq.com/) topic pattern.
 
 ## Overview
 
 This example showcases:
 
-- ✅ Contract definition with Zod schemas
+- ✅ Contract definition with [Zod](https://zod.dev/) schemas
 - ✅ Type-safe message publishing
 - ✅ Type-safe message consumption
-- ✅ RabbitMQ topic exchange with wildcards
+- ✅ [RabbitMQ](https://www.rabbitmq.com/) topic exchange with wildcards
 - ✅ Multiple consumers with different routing patterns
 - ✅ Full end-to-end type safety
 
@@ -49,7 +49,7 @@ graph LR
 
 ## Topic Exchange Pattern
 
-This example demonstrates RabbitMQ's powerful topic exchange pattern for flexible message routing.
+This example demonstrates [RabbitMQ](https://www.rabbitmq.com/)'s powerful topic exchange pattern for flexible message routing.
 
 ### Routing Diagram
 
@@ -127,7 +127,7 @@ The example uses these routing keys:
 
 ### Prerequisites
 
-Start RabbitMQ:
+Start [RabbitMQ](https://www.rabbitmq.com/):
 
 ```bash
 docker run -d --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:4-management

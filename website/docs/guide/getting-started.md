@@ -4,12 +4,12 @@ Welcome to **amqp-contract**! This guide will help you build type-safe AMQP mess
 
 ## What is amqp-contract?
 
-amqp-contract brings end-to-end type safety to AMQP/RabbitMQ messaging. Define your contract once, and get automatic validation, type inference, and compile-time checks throughout your application.
+amqp-contract brings end-to-end type safety to [AMQP](https://www.amqp.org/)/[RabbitMQ](https://www.rabbitmq.com/) messaging. Define your contract once, and get automatic validation, type inference, and compile-time checks throughout your application.
 
 ## Prerequisites
 
 - Node.js 18 or higher
-- RabbitMQ or another AMQP 0.9.1 broker
+- [RabbitMQ](https://www.rabbitmq.com/) or another AMQP 0.9.1 broker
 
 ## Installation
 
@@ -48,7 +48,7 @@ pnpm add @amqp-contract/asyncapi
 
 #### NestJS Integration
 
-For NestJS applications:
+For [NestJS](https://nestjs.com/) applications:
 
 ::: code-group
 
@@ -68,7 +68,7 @@ yarn add @amqp-contract/client-nestjs @amqp-contract/worker-nestjs
 
 #### Alternative Schema Libraries
 
-Instead of Zod, use Valibot or ArkType:
+Instead of [Zod](https://zod.dev/), use [Valibot](https://valibot.dev/) or [ArkType](https://arktype.io/):
 
 ```bash
 # Valibot
@@ -94,7 +94,7 @@ Access the management UI at `http://localhost:15672` (guest/guest).
 
 ### Manual Installation
 
-Follow the [official RabbitMQ installation guide](https://www.rabbitmq.com/download.html).
+Follow the [official RabbitMQ installation guide](https://www.rabbitmq.com/docs/download).
 
 ## Quick Start
 
@@ -247,7 +247,7 @@ main();
 ## Key Benefits
 
 - ✅ **Type Safety** - Full TypeScript inference from contract to handlers
-- ✅ **Auto Validation** - Zod validates messages at publish and consume time
+- ✅ **Auto Validation** - [Zod](https://zod.dev/) validates messages at publish and consume time
 - ✅ **Compile Checks** - TypeScript catches errors before runtime
 - ✅ **Better DX** - Autocomplete, refactoring, inline docs
 - ✅ **Explicit Errors** - Result types for predictable error handling
