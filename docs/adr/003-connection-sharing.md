@@ -13,6 +13,7 @@ When an application uses both `TypedAmqpClient` (for publishing) and `TypedAmqpW
 3. **Violation of Best Practices**: RabbitMQ documentation recommends sharing connections
 
 According to [RabbitMQ best practices](https://www.rabbitmq.com/connections.html):
+
 - Connections are expensive (TCP connection, TLS handshake, authentication, heartbeat)
 - Channels are lightweight (multiplexed over a connection)
 - **Best practice**: Share one connection, use multiple channels
@@ -47,6 +48,7 @@ We will implement **multiple complementary approaches** to address this concern:
 ### Primary Solution: Unified Package
 
 Create a new **@amqp-contract/unified** package that provides:
+
 1. Single connection shared between publisher and consumer
 2. Convenient API for hybrid applications
 3. Automatic lifecycle management
@@ -296,7 +298,7 @@ const unified = await TypedAmqpUnifiedClient.create({
     handlers: {
       processOrder: async (message) => {
         console.log('Processing order:', message.orderId);
-        
+
         // Can publish from within consumer
         await unified.publisher.publish('orderProcessed', {
           orderId: message.orderId,
@@ -503,7 +505,7 @@ Test with real RabbitMQ:
 describe('Unified Client Integration', () => {
   it('should publish and consume using shared connection', async () => {
     const messages: any[] = [];
-    
+
     const unified = await TypedAmqpUnifiedClient.create({
       contract,
       publishers: true,
@@ -523,7 +525,7 @@ describe('Unified Client Integration', () => {
     }).resultToPromise();
 
     await waitFor(() => messages.length > 0);
-    
+
     expect(messages[0]).toMatchObject({
       orderId: 'TEST-123',
       amount: 99.99,
@@ -539,12 +541,14 @@ describe('Unified Client Integration', () => {
 ### Connection Overhead
 
 **Before (separate packages):**
+
 - 2 TCP connections
 - 2 authentication handshakes
 - 2 heartbeat loops
 - ~100-200ms additional latency for second connection
 
 **After (unified package):**
+
 - 1 TCP connection
 - 1 authentication handshake
 - 1 heartbeat loop
@@ -561,11 +565,13 @@ describe('Unified Client Integration', () => {
 **Scenario**: 100 microservices, 50% are hybrid (both publish and consume)
 
 **Before:**
+
 - 150 total connections (100 single-purpose + 50 hybrid × 2)
 - More memory usage on RabbitMQ server
 - More network overhead
 
 **After (with unified package):**
+
 - 100 total connections (100 single-purpose + 50 hybrid × 1)
 - 33% reduction in connection count
 - Less memory and network overhead
@@ -577,9 +583,11 @@ describe('Unified Client Integration', () => {
 Update READMEs to mention connection sharing:
 
 **@amqp-contract/client/README.md:**
+
 > **Note**: If your application also consumes messages, consider using `@amqp-contract/unified` for optimized connection sharing.
 
 **@amqp-contract/worker/README.md:**
+
 > **Note**: If your application also publishes messages, consider using `@amqp-contract/unified` for optimized connection sharing.
 
 ### New Documentation Pages

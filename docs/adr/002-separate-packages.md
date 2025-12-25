@@ -9,11 +9,13 @@
 In the amqp-contract project, we need to decide how to structure the packages for publishing (client) and consuming (worker) functionality. The core question is:
 
 **Should client (publisher) and worker (consumer) functionality be:**
+
 1. Combined in a single package?
 2. Separated into distinct packages?
 3. Offered both ways?
 
 This decision affects:
+
 - Bundle size for applications
 - Developer experience and clarity
 - Maintenance burden
@@ -34,6 +36,7 @@ Additionally, we will create a **@amqp-contract/unified** package for applicatio
 ### 1. Modularity and Single Responsibility
 
 Each package has a clear, focused purpose:
+
 - Client package: Send messages
 - Worker package: Receive and process messages
 
@@ -72,6 +75,7 @@ No circular dependencies, and each package declares exactly what it needs.
 ### 4. Independent Evolution
 
 Packages can evolve independently:
+
 - Client-specific features (e.g., message batching, compression)
 - Worker-specific features (e.g., concurrent handlers, prefetch tuning)
 - Different release cycles if needed
@@ -82,7 +86,7 @@ Packages can evolve independently:
 Many real-world applications use a microservices architecture where services have specialized roles:
 
 - **API Services**: Only publish events (client package)
-- **Worker Services**: Only consume and process (worker package)  
+- **Worker Services**: Only consume and process (worker package)
 - **Hybrid Services**: Both publish and consume (both packages, or unified package)
 
 Separate packages align perfectly with this architecture.
@@ -119,6 +123,7 @@ This provides maximum flexibility for NestJS applications.
 ### 7. Testing and Development
 
 Separate packages make it easier to:
+
 - Test publishing logic independently
 - Test consuming logic independently
 - Mock one side while testing the other
@@ -138,6 +143,7 @@ Separate packages make it easier to:
 ### Negative
 
 1. **Multiple Installations**: Applications using both need to install two packages
+
    ```json
    {
      "dependencies": {
@@ -165,6 +171,7 @@ To address the drawbacks:
 ### Alternative 1: Single Combined Package
 
 **Structure:**
+
 ```typescript
 // @amqp-contract/amqp (single package)
 export { TypedAmqpClient } from './client';
@@ -172,11 +179,13 @@ export { TypedAmqpWorker } from './worker';
 ```
 
 **Pros:**
+
 - Single installation
 - Simpler for applications using both
 - Less documentation needed
 
 **Cons:**
+
 - Larger bundle size for specialized services
 - Less modular
 - Client and worker code always bundled together
@@ -188,6 +197,7 @@ export { TypedAmqpWorker } from './worker';
 ### Alternative 2: Monolithic Package with Tree-Shakeable Exports
 
 **Structure:**
+
 ```typescript
 // @amqp-contract/amqp (single package)
 export { TypedAmqpClient } from './client/index';
@@ -197,11 +207,13 @@ export { TypedAmqpWorker } from './worker/index';
 With separate entry points for tree shaking.
 
 **Pros:**
+
 - Single installation
 - Potentially tree-shakeable
 - Unified versioning
 
 **Cons:**
+
 - Requires careful build configuration
 - Tree shaking not guaranteed (depends on bundler)
 - Still bundles both in package
@@ -213,6 +225,7 @@ With separate entry points for tree shaking.
 ### Alternative 3: Core Package with Plugin Architecture
 
 **Structure:**
+
 ```typescript
 // @amqp-contract/core (base)
 export { AmqpConnection } from './connection';
@@ -225,11 +238,13 @@ export { WorkerPlugin } from './plugin';
 ```
 
 **Pros:**
+
 - Maximum flexibility
 - Extensible architecture
 - Clear plugin boundaries
 
 **Cons:**
+
 - Overly complex for the problem
 - Steeper learning curve
 - More boilerplate

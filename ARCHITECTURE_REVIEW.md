@@ -24,10 +24,10 @@ This document provides a comprehensive architectural review of the **amqp-contra
 
 ### Current Terminology
 
-| Package | Class | Purpose |
-|---------|-------|---------|
+| Package                 | Class             | Purpose             |
+| ----------------------- | ----------------- | ------------------- |
 | `@amqp-contract/client` | `TypedAmqpClient` | Publishing messages |
-| `@amqp-contract/worker` | `TypedAmqpWorker` | Consuming messages |
+| `@amqp-contract/worker` | `TypedAmqpWorker` | Consuming messages  |
 
 ### Standard AMQP Terminology
 
@@ -79,6 +79,7 @@ In the AMQP/RabbitMQ ecosystem, the standard terms are:
 **Option A: Keep Current Terminology (RECOMMENDED)**
 
 **Rationale:**
+
 - Changing would be a **breaking change** requiring major version bump
 - Current terminology is not incorrect, just different
 - Users have already adopted the current terms
@@ -86,6 +87,7 @@ In the AMQP/RabbitMQ ecosystem, the standard terms are:
 - Can add aliases in a future version for gradual migration
 
 **Action Items:**
+
 - ✅ Add a terminology section to documentation explaining the choice
 - ✅ Document the mapping: client = publisher, worker = consumer
 - ✅ Consider adding type aliases in a future minor version:
@@ -98,6 +100,7 @@ In the AMQP/RabbitMQ ecosystem, the standard terms are:
 **Option B: Rename to Standard Terms**
 
 If chosen for v1.0:
+
 - Rename `TypedAmqpClient` → `TypedAmqpPublisher`
 - Rename `TypedAmqpWorker` → `TypedAmqpConsumer`
 - Update all documentation, examples, and tests
@@ -192,6 +195,7 @@ packages/
 **Keep Separate Packages (RECOMMENDED)**
 
 **Rationale:**
+
 - Modular architecture is a strength
 - Tree-shaking benefits outweigh minor inconvenience
 - Matches industry patterns
@@ -243,12 +247,14 @@ static create<TContract extends ContractDefinition>({
 ```
 
 Each `AmqpClient` creates:
+
 - Its own `AmqpConnectionManager` connection
 - Its own `ChannelWrapper` channel
 
 ### Problem
 
 When an application uses both `TypedAmqpClient` and `TypedAmqpWorker`:
+
 - Two separate connections to RabbitMQ are established
 - Two separate channels are created
 - Double the connection overhead
@@ -257,6 +263,7 @@ When an application uses both `TypedAmqpClient` and `TypedAmqpWorker`:
 ### RabbitMQ Best Practices
 
 According to [RabbitMQ documentation](https://www.rabbitmq.com/connections.html):
+
 - Connections are expensive (TCP connection + authentication + heartbeat)
 - Channels are lightweight (multiplexed over a connection)
 - **Best practice**: Share one connection, use multiple channels
@@ -285,17 +292,20 @@ const worker = await TypedAmqpWorker.create({
 #### Impact Assessment
 
 **Resource Usage:**
+
 - ✅ Acceptable for low-frequency messaging
 - ⚠️ Suboptimal for high-throughput applications
 - ⚠️ Wastes connection slots on RabbitMQ server
 - ⚠️ Double heartbeat overhead
 
 **Performance:**
+
 - Minor impact in most cases
 - RabbitMQ handles multiple connections well
 - Network overhead is negligible for most use cases
 
 **Scalability:**
+
 - Potential issue at scale (many services × 2 connections)
 - Connection limits could be reached faster
 - More memory usage on RabbitMQ server
@@ -330,12 +340,14 @@ const worker = await TypedAmqpWorker.create({
 ```
 
 **Pros:**
+
 - Simple to implement
 - Maximum flexibility
 - No new packages needed
 - Backward compatible (new overload)
 
 **Cons:**
+
 - Users need to manage `AmqpClient` lifecycle
 - More boilerplate
 - Easy to misuse
@@ -440,6 +452,7 @@ await unified.close();
 ```
 
 **Pros:**
+
 - Clean API for combined use case
 - Single connection shared automatically
 - Easy to use
@@ -447,6 +460,7 @@ await unified.close();
 - Backward compatible (new package)
 
 **Cons:**
+
 - New package to maintain
 - Additional documentation needed
 - Slightly more complex setup
@@ -488,11 +502,13 @@ const worker = await TypedAmqpWorker.create({
 ```
 
 **Pros:**
+
 - Automatic connection reuse
 - Simple API
 - Backward compatible
 
 **Cons:**
+
 - Global state (singleton pattern)
 - Harder to test
 - Lifecycle management is complex
@@ -503,6 +519,7 @@ const worker = await TypedAmqpWorker.create({
 **Implement Solution 2: Unified Package**
 
 **Action Items:**
+
 1. ✅ Create `@amqp-contract/unified` package
 2. ✅ Implement `TypedAmqpUnifiedClient` class
 3. ✅ Add comprehensive tests
@@ -514,6 +531,7 @@ const worker = await TypedAmqpWorker.create({
 6. ✅ Update architecture documentation
 
 **Also consider Solution 1** as a low-level API:
+
 - Add `amqpClient` option to both create methods
 - Document for advanced users
 - Implement as part of minor version update
@@ -525,6 +543,7 @@ const worker = await TypedAmqpWorker.create({
 ### Strengths
 
 #### 1. Type Safety ⭐⭐⭐⭐⭐
+
 - Excellent use of TypeScript generics
 - End-to-end type inference from contract
 - Standard Schema v1 integration
@@ -541,6 +560,7 @@ const result = await client.publish('orderCreated', {
 ```
 
 #### 2. Error Handling ⭐⭐⭐⭐⭐
+
 - No exceptions thrown (Result/Future pattern)
 - Explicit error types (`TechnicalError`, `MessageValidationError`)
 - Forces developers to handle errors
@@ -557,6 +577,7 @@ result.match({
 ```
 
 #### 3. Developer Experience ⭐⭐⭐⭐⭐
+
 - Excellent autocomplete
 - Clear API design
 - Comprehensive documentation
@@ -564,6 +585,7 @@ result.match({
 - NestJS integration
 
 #### 4. Architecture ⭐⭐⭐⭐⭐
+
 - Clean separation of concerns
 - Contract-first design
 - Modular package structure
@@ -571,12 +593,14 @@ result.match({
 - Well-organized monorepo
 
 #### 5. Testing ⭐⭐⭐⭐
+
 - Unit tests for all packages
 - Integration tests with real AMQP
 - Good test coverage
 - Testing utilities package
 
 #### 6. Documentation ⭐⭐⭐⭐⭐
+
 - Comprehensive website
 - API documentation
 - Working examples
@@ -586,19 +610,23 @@ result.match({
 ### Areas for Improvement
 
 #### 1. Connection Management ⚠️
+
 **Current**: Each client/worker creates separate connections  
 **Recommendation**: Implement unified package (see Section 3)  
 **Priority**: Medium  
 **Impact**: Resource optimization for hybrid services
 
 #### 2. Terminology Clarity ⚠️
+
 **Current**: Uses "client/worker" instead of "publisher/consumer"  
 **Recommendation**: Document the mapping, consider aliases  
 **Priority**: Low  
 **Impact**: Reduced confusion for AMQP veterans
 
 #### 3. Advanced Features
-**Missing**: 
+
+**Missing**:
+
 - Message priority
 - TTL (time-to-live)
 - Dead letter exchanges (DLX)
@@ -610,8 +638,10 @@ result.match({
 **Impact**: Enhanced functionality for advanced use cases
 
 #### 4. Observability
+
 **Current**: Basic logging support  
 **Recommendation**: Add:
+
 - OpenTelemetry integration
 - Metrics (messages published/consumed, errors)
 - Distributed tracing
@@ -621,8 +651,10 @@ result.match({
 **Impact**: Better production monitoring
 
 #### 5. Testing Utilities
+
 **Current**: Basic testing package  
 **Recommendation**: Expand with:
+
 - In-memory message broker for tests
 - Test fixtures for contracts
 - Assertion helpers
@@ -675,24 +707,26 @@ result.match({
 ### Comparison with Alternatives
 
 #### vs. amqplib (raw)
-| Feature | amqp-contract | amqplib |
-|---------|---------------|---------|
-| Type Safety | ⭐⭐⭐⭐⭐ | ⭐ |
-| Validation | ⭐⭐⭐⭐⭐ (automatic) | ❌ (manual) |
-| DX | ⭐⭐⭐⭐⭐ | ⭐⭐ |
-| Learning Curve | ⭐⭐⭐⭐ | ⭐⭐⭐ |
-| Flexibility | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
-| Bundle Size | Larger | Smaller |
+
+| Feature        | amqp-contract          | amqplib     |
+| -------------- | ---------------------- | ----------- |
+| Type Safety    | ⭐⭐⭐⭐⭐             | ⭐          |
+| Validation     | ⭐⭐⭐⭐⭐ (automatic) | ❌ (manual) |
+| DX             | ⭐⭐⭐⭐⭐             | ⭐⭐        |
+| Learning Curve | ⭐⭐⭐⭐               | ⭐⭐⭐      |
+| Flexibility    | ⭐⭐⭐⭐               | ⭐⭐⭐⭐⭐  |
+| Bundle Size    | Larger                 | Smaller     |
 
 **Verdict**: amqp-contract provides much better DX and safety at cost of abstraction
 
 #### vs. amqp-ts
-| Feature | amqp-contract | amqp-ts |
-|---------|---------------|---------|
-| Type Safety | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ |
-| Contract-First | ⭐⭐⭐⭐⭐ | ❌ |
-| Active Development | ⭐⭐⭐⭐⭐ | ⭐⭐ |
-| Community | Smaller | Larger |
+
+| Feature            | amqp-contract | amqp-ts |
+| ------------------ | ------------- | ------- |
+| Type Safety        | ⭐⭐⭐⭐⭐    | ⭐⭐⭐  |
+| Contract-First     | ⭐⭐⭐⭐⭐    | ❌      |
+| Active Development | ⭐⭐⭐⭐⭐    | ⭐⭐    |
+| Community          | Smaller       | Larger  |
 
 **Verdict**: amqp-contract has better type safety and contract approach
 
@@ -703,6 +737,7 @@ result.match({
 **Ready for production with considerations:**
 
 ✅ **Production-Ready Features:**
+
 - Automatic reconnection
 - Error handling
 - Message validation
@@ -710,6 +745,7 @@ result.match({
 - NestJS integration
 
 ⚠️ **Needs Attention Before Production:**
+
 - Add connection sharing for hybrid services
 - Add observability (metrics, tracing)
 - Document production best practices
@@ -717,6 +753,7 @@ result.match({
 - Load testing and benchmarks
 
 **Recommended Production Setup:**
+
 ```typescript
 import { TypedAmqpClient } from '@amqp-contract/client';
 import { TypedAmqpWorker } from '@amqp-contract/worker';
@@ -787,17 +824,20 @@ const client = await TypedAmqpClient.create({
 ### Performance Characteristics
 
 #### Message Throughput
+
 - ✅ High throughput for typical use cases
 - ✅ Channel pooling via amqp-connection-manager
 - ⚠️ Validation overhead (acceptable for most cases)
 - ⚠️ Boxed Result/Future has minimal overhead
 
 #### Memory Usage
+
 - ✅ Efficient channel management
 - ⚠️ Two connections for hybrid apps (see Section 3)
 - ✅ No memory leaks detected in tests
 
 #### Latency
+
 - ✅ Minimal added latency
 - ✅ Schema validation is fast (Zod/Valibot)
 - ✅ No unnecessary serialization
@@ -878,6 +918,7 @@ const client = await TypedAmqpClient.create({
 **The amqp-contract project is exceptionally well-designed and implemented.**
 
 #### Key Strengths:
+
 - ✅ Excellent type safety and developer experience
 - ✅ Clean, modular architecture
 - ✅ Comprehensive documentation
@@ -885,6 +926,7 @@ const client = await TypedAmqpClient.create({
 - ✅ Active development and maintenance
 
 #### Key Opportunities:
+
 - ⚠️ Connection sharing for hybrid applications
 - ⚠️ Enhanced observability features
 - ⚠️ Additional advanced AMQP features
@@ -894,6 +936,7 @@ const client = await TypedAmqpClient.create({
 **The project makes excellent sense** and fills a gap in the TypeScript/Node.js ecosystem. The contract-first approach with end-to-end type safety is exactly what's needed for building reliable AMQP-based systems.
 
 The concerns raised about terminology and package structure are valid but not critical:
+
 - **Terminology**: Current approach is acceptable; can evolve based on community feedback
 - **Package Structure**: Separate packages are the right choice; add unified package for convenience
 - **Connection Sharing**: Valid concern; implement unified package to address

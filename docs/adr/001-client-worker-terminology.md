@@ -23,6 +23,7 @@ We have decided to use **"client"** and **"worker"** terminology for the runtime
 - **TypedAmqpWorker** - For consuming and processing messages
 
 However, within **contract definitions**, we continue to use standard terms:
+
 - `publishers: { ... }` - Publishing endpoints in the contract
 - `consumers: { ... }` - Consuming endpoints in the contract
 
@@ -79,15 +80,18 @@ To address the divergence from AMQP standards, we will:
 ### Alternative 1: Use Standard AMQP Terms (Publisher/Consumer)
 
 **Classes:**
+
 - `TypedAmqpPublisher`
 - `TypedAmqpConsumer`
 
 **Pros:**
+
 - Aligns with AMQP/RabbitMQ documentation
 - Consistent with other AMQP libraries
 - No explanation needed for AMQP veterans
 
 **Cons:**
+
 - `TypedAmqpConsumer` is longer and less intuitive
 - "Consumer" is ambiguous (technical vs. business meaning)
 - Less familiar to developers from other domains
@@ -98,14 +102,17 @@ To address the divergence from AMQP standards, we will:
 ### Alternative 2: Use Producer/Consumer
 
 **Classes:**
+
 - `TypedAmqpProducer`
 - `TypedAmqpConsumer`
 
 **Pros:**
+
 - Common in messaging systems (Kafka uses this)
 - Shorter than "publisher"
 
 **Cons:**
+
 - Still has the "consumer" ambiguity issue
 - "Producer" less familiar than "client"
 - Not as clear as "client/worker"
@@ -115,14 +122,17 @@ To address the divergence from AMQP standards, we will:
 ### Alternative 3: Use Sender/Receiver
 
 **Classes:**
+
 - `TypedAmqpSender`
 - `TypedAmqpReceiver`
 
 **Pros:**
+
 - Very simple and clear
 - No domain-specific terminology
 
 **Cons:**
+
 - Too generic, doesn't convey processing intent
 - "Receiver" implies passive listening only
 - Loses the semantic meaning of message processing
@@ -144,12 +154,14 @@ We may revisit this decision for a major version (v1.0 or v2.0) if:
 If we decide to change terminology in the future:
 
 1. **Phase 1**: Add type aliases
+
    ```typescript
    export { TypedAmqpClient as TypedAmqpPublisher };
    export { TypedAmqpWorker as TypedAmqpConsumer };
    ```
 
 2. **Phase 2**: Deprecate old names with warnings
+
    ```typescript
    /** @deprecated Use TypedAmqpPublisher instead */
    export const TypedAmqpClient = TypedAmqpPublisher;
