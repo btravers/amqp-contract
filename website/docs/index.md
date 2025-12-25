@@ -26,7 +26,7 @@ features:
   
   - icon: ✅
     title: Automatic Validation
-    details: Schema validation at network boundaries with <a href="https://zod.dev/" target="_blank">Zod</a>, <a href="https://valibot.dev/" target="_blank">Valibot</a>, or <a href="https://arktype.io/" target="_blank">ArkType</a>. No runtime surprises.
+    details: Schema validation at network boundaries with <a href="https://zod.dev/" target="_blank" rel="noopener noreferrer">Zod</a>, <a href="https://valibot.dev/" target="_blank" rel="noopener noreferrer">Valibot</a>, or <a href="https://arktype.io/" target="_blank" rel="noopener noreferrer">ArkType</a>. No runtime surprises.
   
   - icon: 🛠️
     title: Compile-time Checks
@@ -46,7 +46,7 @@ features:
 
   - icon: 🎯
     title: NestJS Integration
-    details: First-class <a href="https://nestjs.com/" target="_blank">NestJS</a> support with automatic lifecycle management and dependency injection.
+    details: First-class <a href="https://nestjs.com/" target="_blank" rel="noopener noreferrer">NestJS</a> support with automatic lifecycle management and dependency injection.
 
   - icon: 🔌
     title: Framework Agnostic
