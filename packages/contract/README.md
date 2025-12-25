@@ -78,6 +78,58 @@ const contract = defineContract({
 });
 ```
 
+### Merging Contracts (Subdomains)
+
+Split your AMQP topology into logical subdomains or modules and merge them together:
+
+```typescript
+import { mergeContracts } from '@amqp-contract/contract';
+
+// Define order subdomain
+const orderContract = defineContract({
+  exchanges: {
+    orders: defineExchange('orders', 'topic', { durable: true }),
+  },
+  queues: {
+    orderProcessing: defineQueue('order-processing', { durable: true }),
+  },
+  publishers: {
+    orderCreated: definePublisher(ordersExchange, orderMessage, {
+      routingKey: 'order.created',
+    }),
+  },
+});
+
+// Define payment subdomain
+const paymentContract = defineContract({
+  exchanges: {
+    payments: defineExchange('payments', 'topic', { durable: true }),
+  },
+  queues: {
+    paymentProcessing: defineQueue('payment-processing', { durable: true }),
+  },
+  publishers: {
+    paymentReceived: definePublisher(paymentsExchange, paymentMessage, {
+      routingKey: 'payment.received',
+    }),
+  },
+});
+
+// Merge subdomains into a single contract
+const appContract = mergeContracts(orderContract, paymentContract);
+
+// Use the merged contract with client and worker
+const client = await TypedAmqpClient.create({ contract: appContract, connection });
+await client.publish('orderCreated', orderData);
+await client.publish('paymentReceived', paymentData);
+```
+
+**Benefits:**
+- **Modular architecture** - Split large contracts into logical domains
+- **Team ownership** - Different teams can own different contract modules
+- **Reusability** - Share common infrastructure contracts across applications
+- **Better testing** - Test subdomains in isolation
+
 ## API
 
 For complete API documentation, see the [Contract API Reference](https://btravers.github.io/amqp-contract/api/contract).

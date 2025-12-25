@@ -7,6 +7,7 @@ export {
   defineMessage,
   definePublisher,
   defineQueue,
+  mergeContracts,
 } from "./builder.js";
 export type {
   AnySchema,

@@ -678,3 +678,154 @@ export function defineContract<TContract extends ContractDefinition>(
 ): TContract {
   return definition;
 }
+
+/**
+ * Merge multiple contracts into a single contract.
+ *
+ * This function enables splitting your AMQP topology into logical subdomains or modules,
+ * then combining them into a unified contract. This is particularly useful for:
+ * - Large applications with multiple bounded contexts or subdomains
+ * - Team-owned contract modules that need to be composed
+ * - Shared infrastructure contracts that are reused across applications
+ * - Testing scenarios where you want to test subsets of your topology
+ *
+ * **Conflict Handling:**
+ * When merging contracts, resources with the same name are handled as follows:
+ * - Later contracts override earlier ones for the same resource name
+ * - No validation is performed to ensure resource definitions are compatible
+ * - It's recommended to use unique prefixes or namespaces for resources to avoid conflicts
+ *
+ * @param contracts - Variable number of contract definitions to merge
+ * @returns A new contract containing all resources from the input contracts
+ *
+ * @example
+ * ```typescript
+ * // Define subdomain contracts
+ * const orderContract = defineContract({
+ *   exchanges: {
+ *     orders: defineExchange('orders', 'topic', { durable: true }),
+ *   },
+ *   queues: {
+ *     orderProcessing: defineQueue('order-processing', { durable: true }),
+ *   },
+ *   publishers: {
+ *     orderCreated: definePublisher(ordersExchange, orderMessage, {
+ *       routingKey: 'order.created',
+ *     }),
+ *   },
+ * });
+ *
+ * const paymentContract = defineContract({
+ *   exchanges: {
+ *     payments: defineExchange('payments', 'topic', { durable: true }),
+ *   },
+ *   queues: {
+ *     paymentProcessing: defineQueue('payment-processing', { durable: true }),
+ *   },
+ *   publishers: {
+ *     paymentReceived: definePublisher(paymentsExchange, paymentMessage, {
+ *       routingKey: 'payment.received',
+ *     }),
+ *   },
+ * });
+ *
+ * // Merge into a single contract
+ * const appContract = mergeContracts(orderContract, paymentContract);
+ *
+ * // Now you can use all publishers and consumers from both contracts
+ * const client = await TypedAmqpClient.create({ contract: appContract, connection });
+ * await client.publish('orderCreated', orderData);
+ * await client.publish('paymentReceived', paymentData);
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Shared infrastructure contract
+ * const sharedInfraContract = defineContract({
+ *   exchanges: {
+ *     deadLetter: defineExchange('dlx', 'topic', { durable: true }),
+ *   },
+ *   queues: {
+ *     deadLetterQueue: defineQueue('dlq', { durable: true }),
+ *   },
+ * });
+ *
+ * // Application-specific contract
+ * const appContract = defineContract({
+ *   exchanges: {
+ *     app: defineExchange('app', 'topic', { durable: true }),
+ *   },
+ *   // ... rest of contract
+ * });
+ *
+ * // Merge with shared infrastructure
+ * const fullContract = mergeContracts(sharedInfraContract, appContract);
+ * ```
+ */
+export function mergeContracts<TContracts extends ContractDefinition[]>(
+  ...contracts: TContracts
+): ContractDefinition {
+  const merged: ContractDefinition = {
+    exchanges: {},
+    queues: {},
+    bindings: {},
+    publishers: {},
+    consumers: {},
+  };
+
+  for (const contract of contracts) {
+    if (contract.exchanges) {
+      merged.exchanges = {
+        ...merged.exchanges,
+        ...contract.exchanges,
+      };
+    }
+
+    if (contract.queues) {
+      merged.queues = {
+        ...merged.queues,
+        ...contract.queues,
+      };
+    }
+
+    if (contract.bindings) {
+      merged.bindings = {
+        ...merged.bindings,
+        ...contract.bindings,
+      };
+    }
+
+    if (contract.publishers) {
+      merged.publishers = {
+        ...merged.publishers,
+        ...contract.publishers,
+      };
+    }
+
+    if (contract.consumers) {
+      merged.consumers = {
+        ...merged.consumers,
+        ...contract.consumers,
+      };
+    }
+  }
+
+  // Remove empty objects if no resources were added
+  if (Object.keys(merged.exchanges ?? {}).length === 0) {
+    delete merged.exchanges;
+  }
+  if (Object.keys(merged.queues ?? {}).length === 0) {
+    delete merged.queues;
+  }
+  if (Object.keys(merged.bindings ?? {}).length === 0) {
+    delete merged.bindings;
+  }
+  if (Object.keys(merged.publishers ?? {}).length === 0) {
+    delete merged.publishers;
+  }
+  if (Object.keys(merged.consumers ?? {}).length === 0) {
+    delete merged.consumers;
+  }
+
+  return merged;
+}
