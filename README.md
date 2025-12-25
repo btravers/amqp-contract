@@ -166,7 +166,7 @@ export class AppModule {}
 
 - [Architecture Review](website/docs/review/2025-12-25-architecture-review.md) - Comprehensive project assessment
 - [Review Summary](website/docs/review/2025-12-25-review-summary.md) - Executive summary
-- [Terminology Guide](./TERMINOLOGY.md) - Understanding client/worker vs publisher/consumer
+- [Terminology Guide](website/docs/TERMINOLOGY.md) - Understanding client/worker vs publisher/consumer
 - [Architecture Decision Records](website/docs/adr/README.md) - Design decisions and rationale
 
 ## Packages
