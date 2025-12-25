@@ -858,8 +858,10 @@ describe("builder", () => {
       });
 
       // THEN
-      expect(result.consumer.queue).toBe(externalQueue);
-      expect(result.binding.queue).toBe(externalQueue);
+      expect(result).toMatchObject({
+        consumer: { queue: externalQueue },
+        binding: { queue: externalQueue },
+      });
       expect(result.createPublisher().exchange).toBe(localExchange);
     });
 
@@ -893,9 +895,11 @@ describe("builder", () => {
       });
 
       // THEN - Contract should work with external resources
-      expect(contract.publishers?.publishToExternal?.exchange).toBe(externalExchange);
-      expect(contract.bindings?.externalBinding?.exchange).toBe(externalExchange);
-      expect(contract.consumers?.consumeFromLocal?.queue).toBe(localQueue);
+      expect(contract).toMatchObject({
+        publishers: { publishToExternal: { exchange: externalExchange } },
+        bindings: { externalBinding: { exchange: externalExchange } },
+        consumers: { consumeFromLocal: { queue: localQueue } },
+      });
     });
   });
 });

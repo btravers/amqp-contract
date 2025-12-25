@@ -72,11 +72,9 @@ const orderCreatedEvent = definePublisherFirst(ordersExchange, orderMessage, {
   routingKey: "order.created",
 });
 
-// Multiple consumers can be created from the same event
+// Create consumer for processing queue using publisher-first pattern
 const { consumer: processOrderConsumer, binding: processOrderBinding } =
   orderCreatedEvent.createConsumer(orderProcessingQueue);
-const { consumer: notifyOrderConsumer, binding: notifyOrderBinding } =
-  orderCreatedEvent.createConsumer(orderNotificationsQueue);
 
 /**
  * RECOMMENDED APPROACH: Consumer-First Pattern (Command-Oriented)
@@ -128,9 +126,14 @@ export const orderContract = defineContract({
     analyticsProcessing: analyticsProcessingQueue,
   },
   bindings: {
-    // Bindings from Publisher-First pattern (guaranteed consistent routing keys)
+    // Binding from Publisher-First pattern (guaranteed consistent routing key)
     orderProcessingBinding: processOrderBinding,
-    orderNotificationsBinding: notifyOrderBinding,
+
+    // Traditional approach for notifications queue to receive ALL order events
+    // (Use wildcard pattern for notifications that need all events)
+    orderNotificationsBinding: defineQueueBinding(orderNotificationsQueue, ordersExchange, {
+      routingKey: "order.#",
+    }),
 
     // Binding from Consumer-First pattern (guaranteed consistent routing key)
     orderShippingBinding: shipOrderCommand.binding,
@@ -168,9 +171,11 @@ export const orderContract = defineContract({
     }),
   },
   consumers: {
-    // Consumers from Publisher-First pattern (same message schema guaranteed)
+    // Consumer from Publisher-First pattern (same message schema guaranteed)
     processOrder: processOrderConsumer,
-    notifyOrder: notifyOrderConsumer,
+
+    // Traditional consumer for notifications (receives all order events via wildcard)
+    notifyOrder: defineConsumer(orderNotificationsQueue, orderUnionMessage),
 
     // Consumer from Consumer-First pattern
     shipOrder: shipOrderCommand.consumer,
