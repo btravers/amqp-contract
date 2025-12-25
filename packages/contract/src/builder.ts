@@ -680,16 +680,11 @@ export function defineContract<TContract extends ContractDefinition>(
 }
 
 /**
- * Helper function to create a publisher based on exchange type.
- * Handles the conditional logic for fanout vs direct/topic exchanges.
- *
- * Note: The type assertion for direct/topic exchanges is safe because:
- * - The overloaded public functions ensure routingKey is provided for direct/topic
- * - This function is only called from contexts where type safety is already enforced
- *
+ * Helper to call definePublisher with proper type handling.
+ * Type safety is enforced by overloaded public function signatures.
  * @internal
  */
-function createPublisherForExchange<TMessage extends MessageDefinition>(
+function callDefinePublisher<TMessage extends MessageDefinition>(
   exchange: ExchangeDefinition,
   message: TMessage,
   options?: {
@@ -697,24 +692,19 @@ function createPublisherForExchange<TMessage extends MessageDefinition>(
     arguments?: Record<string, unknown>;
   },
 ): PublisherDefinition<TMessage> {
+  // Type assertion is safe because overloaded signatures enforce routingKey requirement
   if (exchange.type === "fanout") {
     return definePublisher(exchange, message, options);
   }
-  // Safe assertion: routingKey is guaranteed by caller context
   return definePublisher(exchange, message, options as { routingKey: string });
 }
 
 /**
- * Helper function to create a queue binding based on exchange type.
- * Handles the conditional logic for fanout vs direct/topic exchanges.
- *
- * Note: The type assertion for direct/topic exchanges is safe because:
- * - The overloaded public functions ensure routingKey is provided for direct/topic
- * - This function is only called from contexts where type safety is already enforced
- *
+ * Helper to call defineQueueBinding with proper type handling.
+ * Type safety is enforced by overloaded public function signatures.
  * @internal
  */
-function createQueueBindingForExchange(
+function callDefineQueueBinding(
   queue: QueueDefinition,
   exchange: ExchangeDefinition,
   options?: {
@@ -722,10 +712,10 @@ function createQueueBindingForExchange(
     arguments?: Record<string, unknown>;
   },
 ): QueueBindingDefinition {
+  // Type assertion is safe because overloaded signatures enforce routingKey requirement
   if (exchange.type === "fanout") {
     return defineQueueBinding(queue, exchange, options);
   }
-  // Safe assertion: routingKey is guaranteed by caller context
   return defineQueueBinding(queue, exchange, options as { routingKey: string });
 }
 
@@ -914,12 +904,12 @@ export function definePublisherFirst<TMessage extends MessageDefinition>(
     arguments?: Record<string, unknown>;
   },
 ): PublisherFirstResult<TMessage, PublisherDefinition<TMessage>> {
-  // Create the publisher using helper function
-  const publisher = createPublisherForExchange(exchange, message, options);
+  // Create the publisher
+  const publisher = callDefinePublisher(exchange, message, options);
 
   // Factory function to create a consumer with the same message type
   const createConsumer = (queue: QueueDefinition) => {
-    const binding = createQueueBindingForExchange(queue, exchange, options);
+    const binding = callDefineQueueBinding(queue, exchange, options);
     const consumer = defineConsumer(queue, message);
     return {
       consumer,
@@ -1104,12 +1094,12 @@ export function defineConsumerFirst<TMessage extends MessageDefinition>(
   // Create the consumer
   const consumer = defineConsumer(queue, message);
 
-  // Create the binding using helper function
-  const binding = createQueueBindingForExchange(queue, exchange, options);
+  // Create the binding
+  const binding = callDefineQueueBinding(queue, exchange, options);
 
   // Factory function to create a publisher with the same message type and routing key
   const createPublisher = (): PublisherDefinition<TMessage> => {
-    return createPublisherForExchange(exchange, message, options);
+    return callDefinePublisher(exchange, message, options);
   };
 
   return {
