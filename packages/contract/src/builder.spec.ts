@@ -632,9 +632,11 @@ describe("builder", () => {
       const merged = mergeContracts(contract1, contract2);
 
       // THEN
-      expect(merged.exchanges?.["shared"]).toEqual(exchange2);
-      expect(merged.exchanges?.["shared"]?.type).toBe("direct");
-      expect(merged.exchanges?.["shared"]?.durable).toBe(false);
+      expect(merged.exchanges?.["shared"]).toEqual({
+        name: "shared-exchange",
+        type: "direct",
+        durable: false,
+      });
     });
 
     it("should merge contracts with partial resource definitions", () => {
@@ -796,8 +798,11 @@ describe("builder", () => {
       // THEN
       expect(merged.publishers).toBeDefined();
       expect(Object.keys(merged.publishers ?? {})).toEqual(["pub1", "shared", "pub2"]);
-      expect(merged.publishers?.["shared"]?.message).toBe(message2);
-      expect(merged.publishers?.["shared"]?.routingKey).toBe("v2");
+      expect(merged.publishers?.["shared"]).toEqual({
+        exchange,
+        message: message2,
+        routingKey: "v2",
+      });
     });
   });
 });
