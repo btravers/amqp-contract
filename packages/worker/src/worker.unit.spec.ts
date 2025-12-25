@@ -744,4 +744,284 @@ describe("TypedAmqpWorker.create", () => {
       expect(mockChannel.ack).toHaveBeenCalledWith(mockMessage);
     });
   });
+
+  describe("Error Handling", () => {
+    it("should send non-retryable errors to dead letter exchange", async () => {
+      // GIVEN
+      const { NonRetryableError } = await import("./errors.js");
+      const testMessage = defineMessage(z.object({ id: z.string() }));
+      const testQueue = defineQueue("test-queue", { durable: true });
+      const dlxExchange = defineExchange("dlx", "direct", { durable: true });
+
+      const contract = defineContract({
+        exchanges: {
+          dlx: dlxExchange,
+        },
+        queues: {
+          testQueue,
+        },
+        consumers: {
+          testConsumer: defineConsumer(testQueue, testMessage, {
+            errorHandling: {
+              deadLetterExchange: dlxExchange,
+            },
+          }),
+        },
+      });
+
+      const mockHandler = vi.fn().mockRejectedValue(new NonRetryableError("Test error"));
+      mockChannel.publish = vi.fn().mockResolvedValue(true);
+
+      // WHEN
+      await TypedAmqpWorker.create({
+        urls: ["amqp://localhost"],
+        contract,
+        handlers: {
+          testConsumer: mockHandler,
+        },
+      }).resultToPromise();
+
+      const mockMessage = {
+        content: Buffer.from(JSON.stringify({ id: "123" })),
+        fields: { deliveryTag: 1, routingKey: "test.key" },
+        properties: {},
+      };
+
+      await mockConsumeCallback!(mockMessage as ConsumeMessage);
+
+      // THEN
+      expect(mockHandler).toHaveBeenCalled();
+      expect(mockChannel.publish).toHaveBeenCalledWith(
+        "dlx",
+        "test.key",
+        mockMessage.content,
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            "x-error-type": "NonRetryableError",
+            "x-original-queue": "test-queue",
+          }),
+        }),
+      );
+      // Should ack after publishing to DLX
+      expect(mockChannel.ack).toHaveBeenCalledWith(mockMessage);
+    });
+
+    it("should send retryable errors to retry queue with exponential backoff", async () => {
+      // GIVEN
+      const { RetryableError } = await import("./errors.js");
+      const testMessage = defineMessage(z.object({ id: z.string() }));
+      const testQueue = defineQueue("test-queue", { durable: true });
+      const dlxExchange = defineExchange("dlx", "direct", { durable: true });
+      const retryQueue = defineQueue("retry-queue", { durable: true });
+
+      const contract = defineContract({
+        exchanges: {
+          dlx: dlxExchange,
+        },
+        queues: {
+          testQueue,
+          retryQueue,
+        },
+        consumers: {
+          testConsumer: defineConsumer(testQueue, testMessage, {
+            errorHandling: {
+              deadLetterExchange: dlxExchange,
+              retryQueue: retryQueue,
+              exponentialBackoff: {
+                initialDelayMs: 1000,
+                multiplier: 2,
+                maxAttempts: 3,
+              },
+            },
+          }),
+        },
+      });
+
+      const mockHandler = vi.fn().mockRejectedValue(new RetryableError("Temporary failure"));
+      mockChannel.publish = vi.fn().mockResolvedValue(true);
+
+      // WHEN
+      await TypedAmqpWorker.create({
+        urls: ["amqp://localhost"],
+        contract,
+        handlers: {
+          testConsumer: mockHandler,
+        },
+      }).resultToPromise();
+
+      const mockMessage = {
+        content: Buffer.from(JSON.stringify({ id: "123" })),
+        fields: { deliveryTag: 1, routingKey: "test.key" },
+        properties: {},
+      };
+
+      await mockConsumeCallback!(mockMessage as ConsumeMessage);
+
+      // THEN
+      expect(mockHandler).toHaveBeenCalled();
+      expect(mockChannel.publish).toHaveBeenCalledWith(
+        "",
+        "retry-queue",
+        mockMessage.content,
+        expect.objectContaining({
+          expiration: "1000", // First retry: 1000ms delay
+          headers: expect.objectContaining({
+            "x-retry-count": 1,
+            "x-original-queue": "test-queue",
+          }),
+        }),
+      );
+      expect(mockChannel.ack).toHaveBeenCalledWith(mockMessage);
+    });
+
+    it("should send to DLX after max retry attempts reached", async () => {
+      // GIVEN
+      const { RetryableError } = await import("./errors.js");
+      const testMessage = defineMessage(z.object({ id: z.string() }));
+      const testQueue = defineQueue("test-queue", { durable: true });
+      const dlxExchange = defineExchange("dlx", "direct", { durable: true });
+      const retryQueue = defineQueue("retry-queue", { durable: true });
+
+      const contract = defineContract({
+        exchanges: {
+          dlx: dlxExchange,
+        },
+        queues: {
+          testQueue,
+          retryQueue,
+        },
+        consumers: {
+          testConsumer: defineConsumer(testQueue, testMessage, {
+            errorHandling: {
+              deadLetterExchange: dlxExchange,
+              retryQueue: retryQueue,
+              exponentialBackoff: {
+                initialDelayMs: 1000,
+                multiplier: 2,
+                maxAttempts: 3,
+              },
+            },
+          }),
+        },
+      });
+
+      const mockHandler = vi.fn().mockRejectedValue(new RetryableError("Temporary failure"));
+      mockChannel.publish = vi.fn().mockResolvedValue(true);
+
+      // WHEN
+      await TypedAmqpWorker.create({
+        urls: ["amqp://localhost"],
+        contract,
+        handlers: {
+          testConsumer: mockHandler,
+        },
+      }).resultToPromise();
+
+      // Simulate a message that has already been retried 3 times
+      const mockMessage = {
+        content: Buffer.from(JSON.stringify({ id: "123" })),
+        fields: { deliveryTag: 1, routingKey: "test.key" },
+        properties: {
+          headers: {
+            "x-retry-count": 3,
+          },
+        },
+      };
+
+      await mockConsumeCallback!(mockMessage as ConsumeMessage);
+
+      // THEN
+      expect(mockHandler).toHaveBeenCalled();
+      expect(mockChannel.publish).toHaveBeenCalledWith(
+        "dlx",
+        "test.key",
+        mockMessage.content,
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            "x-retry-count": 3,
+            "x-max-attempts-reached": true,
+            "x-original-queue": "test-queue",
+          }),
+        }),
+      );
+      expect(mockChannel.ack).toHaveBeenCalledWith(mockMessage);
+    });
+
+    it("should calculate exponential backoff delay correctly", async () => {
+      // GIVEN
+      const { RetryableError } = await import("./errors.js");
+      const testMessage = defineMessage(z.object({ id: z.string() }));
+      const testQueue = defineQueue("test-queue", { durable: true });
+      const dlxExchange = defineExchange("dlx", "direct", { durable: true });
+      const retryQueue = defineQueue("retry-queue", { durable: true });
+
+      const contract = defineContract({
+        exchanges: {
+          dlx: dlxExchange,
+        },
+        queues: {
+          testQueue,
+          retryQueue,
+        },
+        consumers: {
+          testConsumer: defineConsumer(testQueue, testMessage, {
+            errorHandling: {
+              deadLetterExchange: dlxExchange,
+              retryQueue: retryQueue,
+              exponentialBackoff: {
+                initialDelayMs: 1000,
+                multiplier: 2,
+                maxAttempts: 5,
+                maxDelayMs: 10000,
+              },
+            },
+          }),
+        },
+      });
+
+      const mockHandler = vi.fn().mockRejectedValue(new RetryableError("Temporary failure"));
+      mockChannel.publish = vi.fn().mockResolvedValue(true);
+
+      await TypedAmqpWorker.create({
+        urls: ["amqp://localhost"],
+        contract,
+        handlers: {
+          testConsumer: mockHandler,
+        },
+      }).resultToPromise();
+
+      // Test different retry counts
+      const testCases = [
+        { retryCount: 0, expectedDelay: 1000 },  // 1000 * 2^0 = 1000
+        { retryCount: 1, expectedDelay: 2000 },  // 1000 * 2^1 = 2000
+        { retryCount: 2, expectedDelay: 4000 },  // 1000 * 2^2 = 4000
+        { retryCount: 3, expectedDelay: 8000 },  // 1000 * 2^3 = 8000
+        { retryCount: 4, expectedDelay: 10000 }, // 1000 * 2^4 = 16000, but capped at maxDelayMs
+      ];
+
+      for (const testCase of testCases) {
+        mockChannel.publish.mockClear();
+        mockHandler.mockClear();
+
+        const mockMessage = {
+          content: Buffer.from(JSON.stringify({ id: "123" })),
+          fields: { deliveryTag: 1, routingKey: "test.key" },
+          properties: {
+            headers: testCase.retryCount > 0 ? { "x-retry-count": testCase.retryCount } : {},
+          },
+        };
+
+        await mockConsumeCallback!(mockMessage as ConsumeMessage);
+
+        expect(mockChannel.publish).toHaveBeenCalledWith(
+          "",
+          "retry-queue",
+          mockMessage.content,
+          expect.objectContaining({
+            expiration: String(testCase.expectedDelay),
+          }),
+        );
+      }
+    });
+  });
 });

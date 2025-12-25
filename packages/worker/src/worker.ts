@@ -265,7 +265,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           {
             ...msg.properties,
             headers: {
-              ...(msg.properties.headers || {}),
+              ...msg.properties.headers,
               "x-error-type": error instanceof HandlerError ? error.name : "Unknown",
               "x-error-message": error instanceof Error ? error.message : String(error),
               "x-original-queue": consumer.queue.name,
@@ -319,7 +319,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
             {
               ...msg.properties,
               headers: {
-                ...(msg.properties.headers || {}),
+                ...msg.properties.headers,
                 "x-error-type": error instanceof HandlerError ? error.name : "Unknown",
                 "x-error-message": error instanceof Error ? error.message : String(error),
                 "x-original-queue": consumer.queue.name,
@@ -361,7 +361,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
             ...msg.properties,
             expiration: String(delayMs),
             headers: {
-              ...(msg.properties.headers || {}),
+              ...msg.properties.headers,
               "x-retry-count": attemptNumber,
               "x-original-queue": consumer.queue.name,
               "x-original-routing-key": msg.fields.routingKey,
@@ -449,7 +449,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
                 {
                   ...msg.properties,
                   headers: {
-                    ...(msg.properties.headers || {}),
+                    ...msg.properties.headers,
                     "x-error-type": "ParseError",
                     "x-error-message": parseResult.error instanceof Error ? parseResult.error.message : String(parseResult.error),
                     "x-original-queue": consumer.queue.name,
