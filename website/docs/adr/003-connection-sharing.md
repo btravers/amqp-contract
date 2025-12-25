@@ -735,8 +735,8 @@ app.get('/health', async (req, res) => {
 - [RabbitMQ Connection Management](https://www.rabbitmq.com/connections.html)
 - [RabbitMQ Channels Guide](https://www.rabbitmq.com/channels.html)
 - [AMQP 0-9-1 Best Practices](https://www.rabbitmq.com/best-practices.html)
-- [ADR-002: Separate Client and Worker Packages](./002-separate-packages.md)
+- [ADR-002: Separate Client and Worker Packages](002-separate-packages.md)
 
 ## Related ADRs
 
-- [ADR-002: Separate Client and Worker Packages](./002-separate-packages.md)
+- [ADR-002: Separate Client and Worker Packages](002-separate-packages.md)

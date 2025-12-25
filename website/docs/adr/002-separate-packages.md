@@ -381,12 +381,12 @@ Each would be a separate package following the same modular principles.
 
 ## References
 
-- [ADR-001: Client and Worker Terminology](./001-client-worker-terminology.md)
-- [ADR-003: Connection Sharing Strategy](./003-connection-sharing.md)
+- [ADR-001: Client and Worker Terminology](001-client-worker-terminology.md)
+- [ADR-003: Connection Sharing Strategy](003-connection-sharing.md)
 - [Modular Package Design](https://nodejs.org/api/packages.html)
 - [Tree Shaking in Modern Bundlers](https://webpack.js.org/guides/tree-shaking/)
 
 ## Related ADRs
 
-- [ADR-001: Client and Worker Terminology](./001-client-worker-terminology.md)
-- [ADR-003: Connection Sharing Strategy](./003-connection-sharing.md)
+- [ADR-001: Client and Worker Terminology](001-client-worker-terminology.md)
+- [ADR-003: Connection Sharing Strategy](003-connection-sharing.md)

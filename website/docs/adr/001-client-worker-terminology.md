@@ -174,8 +174,8 @@ If we decide to change terminology in the future:
 - [RabbitMQ Tutorial - Publishers and Consumers](https://www.rabbitmq.com/tutorials/tutorial-one-javascript.html)
 - [AMQP 0-9-1 Model Explained](https://www.rabbitmq.com/tutorials/amqp-concepts.html)
 - [Bull Queue - Worker Terminology](https://docs.bullmq.io/guide/workers)
-- [TERMINOLOGY.md](../../TERMINOLOGY.md) - Project terminology guide
+- [TERMINOLOGY.md](../../../TERMINOLOGY.md) - Project terminology guide
 
 ## Related ADRs
 
-- [ADR-002: Separate Client and Worker Packages](./002-separate-packages.md)
+- [ADR-002: Separate Client and Worker Packages](002-separate-packages.md)
