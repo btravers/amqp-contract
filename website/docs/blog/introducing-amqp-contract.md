@@ -1,7 +1,7 @@
 ---
 title: "Building Type-Safe AMQP Messaging with amqp-contract"
 description: "Discover how amqp-contract brings end-to-end type safety, automatic validation, and AsyncAPI generation to RabbitMQ and AMQP messaging in TypeScript applications"
-date: 2024-12-25
+date: 2025-12-25
 author: Benoit TRAVERS
 tags: ["TypeScript", "RabbitMQ", "AMQP", "Type Safety", "AsyncAPI", "Microservices"]
 ---
@@ -142,7 +142,7 @@ if (clientResult.isError()) {
   throw clientResult.error; // Handle connection error
 }
 
-const client = clientResult.get();
+const client = clientResult.value;
 
 // ✅ Fully typed! TypeScript knows exactly what fields are required
 const result = await client.publish('orderCreated', {

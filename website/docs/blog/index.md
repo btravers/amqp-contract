@@ -4,4 +4,4 @@ Welcome to the amqp-contract blog! Here you'll find articles about type-safe AMQ
 
 ## Latest Articles
 
-- [Building Type-Safe AMQP Messaging with amqp-contract](./introducing-amqp-contract.md) - December 2024
+- [Building Type-Safe AMQP Messaging with amqp-contract](./introducing-amqp-contract.md) - December 2025

@@ -54,6 +54,10 @@ Type-safe, validated messaging with amqp-contract:
 
 ```typescript
 // ✅ Define your contract once
+// Define AMQP resources
+const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+const orderProcessingQueue = defineQueue('order-processing', { durable: true });
+
 const orderMessage = defineMessage(
   z.object({
     orderId: z.string(),
@@ -181,24 +185,26 @@ const clientResult = await TypedAmqpClient.create({
   urls: ['amqp://localhost'],
 });
 
-if (clientResult.isOk()) {
-  const client = clientResult.get();
-
-  const result = await client.publish('orderCreated', {
-    orderId: 'ORD-123',
-    customerId: 'CUST-456',
-    items: [
-      { productId: 'PROD-789', quantity: 2, price: 49.99 }
-    ],
-    totalAmount: 99.98,
-    status: 'pending',
-  });
-
-  result.match({
-    Ok: () => console.log('✅ Order published'),
-    Error: (error) => console.error('❌ Failed:', error),
-  });
+if (clientResult.isError()) {
+  throw clientResult.error;
 }
+
+const client = clientResult.value;
+
+const result = await client.publish('orderCreated', {
+  orderId: 'ORD-123',
+  customerId: 'CUST-456',
+  items: [
+    { productId: 'PROD-789', quantity: 2, price: 49.99 }
+  ],
+  totalAmount: 99.98,
+  status: 'pending',
+});
+
+result.match({
+  Ok: () => console.log('✅ Order published'),
+  Error: (error) => console.error('❌ Failed:', error),
+});
 
 // Worker service
 const workerResult = await TypedAmqpWorker.create({

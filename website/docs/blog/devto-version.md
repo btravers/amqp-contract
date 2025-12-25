@@ -139,7 +139,7 @@ if (clientResult.isError()) {
   throw clientResult.error;
 }
 
-const client = clientResult.get();
+const client = clientResult.value;
 
 // ✅ Fully typed! TypeScript knows exactly what fields are required
 const result = await client.publish('orderCreated', {

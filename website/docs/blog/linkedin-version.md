@@ -47,6 +47,10 @@ channel.consume('queue', (msg) => {
 
 ```typescript
 // ✅ Define contract once
+// Define AMQP resources
+const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+const orderProcessingQueue = defineQueue('order-processing', { durable: true });
+
 const orderMessage = defineMessage(
   z.object({
     orderId: z.string(),
@@ -58,6 +62,7 @@ const orderMessage = defineMessage(
 
 const contract = defineContract({
   exchanges: { orders: ordersExchange },
+  queues: { orderProcessing: orderProcessingQueue },
   publishers: {
     orderCreated: definePublisher(ordersExchange, orderMessage, {
       routingKey: 'order.created',
