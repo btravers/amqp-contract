@@ -12,6 +12,7 @@ The example shows a microservices architecture split into three main subdomains:
 4. **Shared Infrastructure** - Common dead letter exchange/queue
 
 Each subdomain has its own contract with:
+
 - Exchanges
 - Queues
 - Bindings
@@ -21,6 +22,7 @@ Each subdomain has its own contract with:
 ## Benefits
 
 ### 1. Modular Architecture
+
 Each subdomain can be developed, tested, and maintained independently:
 
 ```typescript
@@ -40,12 +42,15 @@ export const paymentContract = defineContract({
 ```
 
 ### 2. Team Ownership
+
 Different teams can own and evolve their contracts independently:
+
 - Order team maintains `orderContract`
 - Payment team maintains `paymentContract`
 - Platform team maintains `sharedInfraContract`
 
 ### 3. Reusability
+
 Shared infrastructure can be defined once and reused:
 
 ```typescript
@@ -60,6 +65,7 @@ const sharedInfraContract = defineContract({
 ```
 
 ### 4. Better Testing
+
 Test each subdomain in isolation:
 
 ```typescript
@@ -90,6 +96,7 @@ export const applicationContract = mergeContracts(
 ```
 
 The merged contract:
+
 - Contains all exchanges, queues, bindings, publishers, and consumers from all subdomains
 - Provides end-to-end type safety across all domains
 - Can be used with `TypedAmqpClient` and `TypedAmqpWorker`
@@ -116,6 +123,7 @@ const merged = mergeContracts(contract1, contract2);
 ```
 
 **Best Practice**: Use unique prefixes or namespaces to avoid naming conflicts:
+
 - `order_exchange`, `payment_exchange`, `notification_exchange`
 - Or organize by subdomain in the naming: `orders`, `payments`, `notifications`
 

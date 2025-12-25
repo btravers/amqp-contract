@@ -125,6 +125,7 @@ await client.publish('paymentReceived', paymentData);
 ```
 
 **Benefits:**
+
 - **Modular architecture** - Split large contracts into logical domains
 - **Team ownership** - Different teams can own different contract modules
 - **Reusability** - Share common infrastructure contracts across applications
