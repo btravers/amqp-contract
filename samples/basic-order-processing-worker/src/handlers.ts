@@ -1,4 +1,9 @@
-import { defineHandler, defineHandlers } from "@amqp-contract/worker";
+import {
+  NonRetryableError,
+  RetryableError,
+  defineHandler,
+  defineHandlers,
+} from "@amqp-contract/worker";
 import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
 import pino from "pino";
 
@@ -17,6 +22,7 @@ const logger = pino({
  */
 
 // Define handler for processing NEW orders (order.created)
+// Demonstrates error handling with RetryableError and NonRetryableError
 export const processOrderHandler = defineHandler(orderContract, "processOrder", async (message) => {
   logger.info(
     {
@@ -28,10 +34,36 @@ export const processOrderHandler = defineHandler(orderContract, "processOrder", 
     "[PROCESSING] New order received",
   );
 
-  // Simulate processing
-  await new Promise((resolve) => setTimeout(resolve, 500));
+  // Example: Validate business rules - throw NonRetryableError for invalid data
+  if (message.totalAmount <= 0) {
+    throw new NonRetryableError(`Invalid order total: ${message.totalAmount}. Must be positive.`);
+  }
 
-  logger.info({ orderId: message.orderId }, "Order processed successfully");
+  if (message.items.length === 0) {
+    throw new NonRetryableError("Order must contain at least one item");
+  }
+
+  // Simulate external API call that might fail temporarily
+  try {
+    // Simulate processing with a small chance of temporary failure
+    const shouldSimulateFailure = Math.random() < 0.1; // 10% chance of failure
+    if (shouldSimulateFailure) {
+      throw new Error("Temporary payment gateway timeout");
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    logger.info({ orderId: message.orderId }, "Order processed successfully");
+  } catch (error) {
+    // For temporary/transient errors, throw RetryableError
+    // The message will be retried with exponential backoff
+    if (error instanceof Error && error.message.includes("timeout")) {
+      throw new RetryableError("Payment gateway timeout, will retry", error);
+    }
+
+    // For unexpected errors, rethrow as-is
+    throw error;
+  }
 });
 
 // Define handler for ALL order notifications (order.#)

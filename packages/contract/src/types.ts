@@ -336,6 +336,93 @@ export type PublisherDefinition<TMessage extends MessageDefinition = MessageDefi
 );
 
 /**
+ * Exponential backoff configuration for message retry.
+ *
+ * Defines how delays between retry attempts increase exponentially.
+ * The delay for attempt N is calculated as: initialDelay * (multiplier ^ (N-1))
+ *
+ * @example
+ * ```typescript
+ * // Retry with exponential backoff: 1s, 2s, 4s, 8s
+ * const backoff: ExponentialBackoffConfig = {
+ *   initialDelayMs: 1000,
+ *   multiplier: 2,
+ *   maxAttempts: 4
+ * };
+ * ```
+ */
+export type ExponentialBackoffConfig = {
+  /**
+   * Initial delay in milliseconds before the first retry.
+   * @default 1000
+   */
+  initialDelayMs?: number;
+
+  /**
+   * Multiplier for exponential backoff calculation.
+   * Each retry will wait multiplier times longer than the previous retry.
+   * @default 2
+   */
+  multiplier?: number;
+
+  /**
+   * Maximum number of retry attempts before sending to dead letter queue.
+   * After this many failed attempts, the message is considered permanently failed.
+   * @default 3
+   */
+  maxAttempts?: number;
+
+  /**
+   * Maximum delay in milliseconds between retries.
+   * Prevents delay from growing indefinitely.
+   * @default 60000 (1 minute)
+   */
+  maxDelayMs?: number;
+};
+
+/**
+ * Error handling strategy for message consumption.
+ *
+ * Defines how to handle different types of errors during message processing:
+ * - Retryable errors: Sent to a delay queue for retry with exponential backoff
+ * - Non-retryable errors: Sent directly to dead letter queue
+ *
+ * @example
+ * ```typescript
+ * const errorHandler: ErrorHandlingStrategy = {
+ *   deadLetterExchange: dlxExchange,
+ *   retryQueue: retryQueue,
+ *   exponentialBackoff: {
+ *     initialDelayMs: 1000,
+ *     multiplier: 2,
+ *     maxAttempts: 5
+ *   }
+ * };
+ * ```
+ */
+export type ErrorHandlingStrategy = {
+  /**
+   * Exchange for dead-lettered messages (non-retryable errors).
+   * Messages that cannot be processed (validation errors, permanent failures)
+   * are routed to this exchange.
+   */
+  deadLetterExchange: ExchangeDefinition;
+
+  /**
+   * Optional queue for retrying messages with exponential backoff.
+   * When provided, retryable errors will be sent to this queue with a TTL
+   * that implements exponential backoff before being re-queued to the original queue.
+   */
+  retryQueue?: QueueDefinition;
+
+  /**
+   * Exponential backoff configuration for retry attempts.
+   * Only used when retryQueue is specified.
+   */
+  exponentialBackoff?: ExponentialBackoffConfig;
+};
+
+/**
  * Definition of a message consumer.
  *
  * A consumer receives and processes messages from a queue with automatic schema validation.
@@ -350,6 +437,24 @@ export type PublisherDefinition<TMessage extends MessageDefinition = MessageDefi
  *   message: orderMessage
  * };
  * ```
+ *
+ * @example
+ * ```typescript
+ * // Consumer with error handling
+ * const consumer: ConsumerDefinition = {
+ *   queue: orderProcessingQueue,
+ *   message: orderMessage,
+ *   errorHandling: {
+ *     deadLetterExchange: dlxExchange,
+ *     retryQueue: retryQueue,
+ *     exponentialBackoff: {
+ *       initialDelayMs: 1000,
+ *       multiplier: 2,
+ *       maxAttempts: 5
+ *     }
+ *   }
+ * };
+ * ```
  */
 export type ConsumerDefinition<TMessage extends MessageDefinition = MessageDefinition> = {
   /** The queue to consume messages from */
@@ -357,6 +462,13 @@ export type ConsumerDefinition<TMessage extends MessageDefinition = MessageDefin
 
   /** The message definition including the payload schema */
   message: TMessage;
+
+  /**
+   * Optional error handling strategy.
+   * When defined, enables automatic retry with exponential backoff for retryable errors
+   * and dead letter routing for non-retryable errors.
+   */
+  errorHandling?: ErrorHandlingStrategy;
 };
 
 /**

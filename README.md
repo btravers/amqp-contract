@@ -21,6 +21,7 @@ End-to-end type safety and automatic validation for AMQP messaging
 - ✅ **End-to-end type safety** — From contract to client and worker
 - ✅ **Automatic validation** — Schema validation with [Zod](https://zod.dev/), [Valibot](https://valibot.dev/), or [ArkType](https://arktype.io/)
 - ✅ **Compile-time checks** — TypeScript catches missing or incorrect implementations
+- ✅ **Error handling strategies** — Dead letter exchanges and retry with exponential backoff
 - ✅ **NestJS integration** — First-class [NestJS](https://nestjs.com/) support with automatic lifecycle management
 - ✅ **AsyncAPI generation** — Generate AsyncAPI 3.0 specs from contracts
 - ✅ **Better DX** — Autocomplete, refactoring support, inline documentation
@@ -147,6 +148,48 @@ export class AppModule {}
 ```
 
 📖 **[NestJS Documentation →](https://btravers.github.io/amqp-contract/guide/client-nestjs-usage)**
+
+## Error Handling
+
+Handle failures with dead letter exchanges and automatic retry with exponential backoff:
+
+```typescript
+import { defineConsumer, RetryableError, NonRetryableError } from '@amqp-contract/worker';
+
+// Define error handling strategy in your contract
+const consumer = defineConsumer(orderQueue, orderMessage, {
+  errorHandling: {
+    deadLetterExchange: dlxExchange,
+    retryQueue: retryQueue,
+    exponentialBackoff: {
+      initialDelayMs: 1000,  // Start with 1 second
+      multiplier: 2,          // Double each time
+      maxAttempts: 5,         // Max 5 retries
+      maxDelayMs: 60000,      // Cap at 1 minute
+    },
+  },
+});
+
+// In your handler, classify errors
+const handler = async (message) => {
+  // Non-retryable errors go straight to dead letter queue
+  if (!message.userId) {
+    throw new NonRetryableError('User ID is required');
+  }
+
+  try {
+    await processOrder(message);
+  } catch (error) {
+    // Retryable errors trigger exponential backoff
+    if (error.code === 'RATE_LIMITED') {
+      throw new RetryableError('Rate limited, will retry', error);
+    }
+    throw error; // Unknown errors are retried by default
+  }
+};
+```
+
+**Retry sequence:** 1s → 2s → 4s → 8s → 16s → Dead Letter Queue
 
 ## Documentation
 
