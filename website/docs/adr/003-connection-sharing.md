@@ -1,8 +1,9 @@
 # ADR-003: Connection Sharing Strategy
 
-**Status**: Proposed  
+**Status**: Accepted  
 **Date**: 2025-12-25  
 **Deciders**: Project Maintainers
+**Implementation Status**: Low-level API - Implemented ✅ | Unified Package - Proposed
 
 ## Context
 
@@ -730,12 +731,86 @@ app.get('/health', async (req, res) => {
 });
 ```
 
+## Implementation Status
+
+### ✅ Low-Level API (Implemented)
+
+The low-level API for connection sharing has been implemented and is available in version 0.3.6+:
+
+#### Core Changes (@amqp-contract/core)
+
+- Added `AmqpClient.fromConnection(contract, connection)` static method for creating clients from an existing connection
+- Added `AmqpClient.getConnection()` method to access the underlying connection
+- Added `ownsConnection` flag to track connection ownership
+- Modified `close()` to only close connection if owned by the client
+
+#### Client Changes (@amqp-contract/client)
+
+- Updated `CreateClientOptions` to accept optional `amqpClient` parameter as a discriminated union:
+  ```typescript
+  {
+    contract: TContract;
+    amqpClient: AmqpClient;
+    logger?: Logger;
+  } | {
+    contract: TContract;
+    urls: ConnectionUrl[];
+    connectionOptions?: AmqpConnectionManagerOptions;
+    logger?: Logger;
+  }
+  ```
+- Updated `TypedAmqpClient.create()` to handle shared `AmqpClient` instances
+
+#### Worker Changes (@amqp-contract/worker)
+
+- Updated `CreateWorkerOptions` with the same discriminated union pattern
+- Updated `TypedAmqpWorker.create()` to handle shared `AmqpClient` instances
+
+#### Usage Example
+
+```typescript
+import { AmqpClient } from '@amqp-contract/core';
+import { TypedAmqpClient } from '@amqp-contract/client';
+import { TypedAmqpWorker } from '@amqp-contract/worker';
+
+// Create shared AmqpClient
+const sharedAmqpClient = new AmqpClient(contract, {
+  urls: ['amqp://localhost'],
+});
+
+// Create client with shared connection
+const client = await TypedAmqpClient.create({
+  contract,
+  amqpClient: sharedAmqpClient,
+});
+
+// Create worker with same shared connection
+const worker = await TypedAmqpWorker.create({
+  contract,
+  amqpClient: sharedAmqpClient,
+  handlers: { processOrder: async (msg) => { ... } },
+});
+
+// Result: 1 connection, 2 channels ✅
+```
+
+#### Documentation
+
+- [Connection Sharing Guide](/guide/connection-sharing) - Complete usage guide with examples
+- Tests added in `packages/core/src/connection-sharing.spec.ts`
+- Tests added in `packages/client/src/connection-sharing.unit.spec.ts`
+
+### 🔮 Unified Package (Future)
+
+The unified package (`@amqp-contract/unified`) is proposed but not yet implemented. It will provide a high-level API that automatically manages connection sharing for hybrid services.
+
 ## References
 
 - [RabbitMQ Connection Management](https://www.rabbitmq.com/connections.html)
 - [RabbitMQ Channels Guide](https://www.rabbitmq.com/channels.html)
 - [AMQP 0-9-1 Best Practices](https://www.rabbitmq.com/best-practices.html)
 - [ADR-002: Separate Client and Worker Packages](002-separate-packages.md)
+- [Connection Sharing Guide](/guide/connection-sharing)
 
 ## Related ADRs
 
