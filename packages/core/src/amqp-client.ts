@@ -31,9 +31,26 @@ export class AmqpClient {
 
   /**
    * Create an AmqpClient that shares an existing connection
-   * @param contract - The contract definition
-   * @param connection - The existing connection to share
-   * @returns A new AmqpClient that shares the connection
+   *
+   * This method allows multiple AmqpClients to share the same underlying AMQP
+   * connection while using separate channels. This is useful for reducing resource
+   * usage when both publishing and consuming messages in the same application.
+   *
+   * @param contract - The contract definition specifying exchanges, queues, and bindings
+   * @param connection - The existing AmqpConnectionManager to share
+   * @returns A new AmqpClient that shares the connection but has its own channel
+   *
+   * @example
+   * ```typescript
+   * // Create primary client with its own connection
+   * const primaryClient = new AmqpClient(contract, { urls: ['amqp://localhost'] });
+   *
+   * // Share the connection with a secondary client
+   * const sharedConnection = primaryClient.getConnection();
+   * const secondaryClient = AmqpClient.fromConnection(contract, sharedConnection);
+   *
+   * // Both clients share one connection but have separate channels
+   * ```
    */
   static fromConnection(
     contract: ContractDefinition,
@@ -52,7 +69,21 @@ export class AmqpClient {
 
   /**
    * Get the underlying connection manager
-   * This can be used to share the connection with other AmqpClient instances
+   *
+   * This method exposes the AmqpConnectionManager instance that this client uses.
+   * The returned connection can be shared with other AmqpClient instances using
+   * the `fromConnection()` method to implement connection sharing.
+   *
+   * @returns The AmqpConnectionManager instance used by this client
+   *
+   * @example
+   * ```typescript
+   * const client = new AmqpClient(contract, { urls: ['amqp://localhost'] });
+   * const connection = client.getConnection();
+   *
+   * // Share with another client
+   * const anotherClient = AmqpClient.fromConnection(anotherContract, connection);
+   * ```
    */
   getConnection(): AmqpConnectionManager {
     return this.connection;
