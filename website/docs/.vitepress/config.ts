@@ -76,6 +76,7 @@ export default withMermaid(
         { text: "Guide", link: "/guide/getting-started" },
         { text: "API", link: "/api/" },
         { text: "Examples", link: "/examples/" },
+        { text: "Blog", link: "/blog/" },
       ],
 
       sidebar: {
@@ -138,6 +139,18 @@ export default withMermaid(
               {
                 text: "AsyncAPI Generation",
                 link: "/examples/asyncapi-generation",
+              },
+            ],
+          },
+        ],
+        "/blog/": [
+          {
+            text: "Blog",
+            items: [
+              { text: "Overview", link: "/blog/" },
+              {
+                text: "Building Type-Safe AMQP Messaging",
+                link: "/blog/introducing-amqp-contract",
               },
             ],
           },
