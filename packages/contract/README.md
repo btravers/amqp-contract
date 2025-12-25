@@ -16,89 +16,23 @@
 pnpm add @amqp-contract/contract
 ```
 
-## Usage
+## Quick Start
 
-### Basic Contract Definition
+### Recommended: Publisher-First / Consumer-First Patterns
 
-```typescript
-import { defineContract, defineExchange, defineQueue, defineQueueBinding, defineExchangeBinding, definePublisher, defineConsumer, defineMessage } from '@amqp-contract/contract';
-import { z } from 'zod';
-
-// Define exchanges and queues first so they can be referenced
-const ordersExchange = defineExchange('orders', 'topic', { durable: true });
-const analyticsExchange = defineExchange('analytics', 'topic', { durable: true });
-const orderProcessingQueue = defineQueue('order-processing', { durable: true });
-const analyticsProcessingQueue = defineQueue('analytics-processing', { durable: true });
-
-// Define message schemas with metadata
-const orderMessage = defineMessage(
-  z.object({
-    orderId: z.string(),
-    amount: z.number(),
-  }),
-  {
-    summary: 'Order created event',
-    description: 'Emitted when a new order is created',
-  }
-);
-
-// Define your contract using object references
-const contract = defineContract({
-  exchanges: {
-    orders: ordersExchange,
-    analytics: analyticsExchange,
-  },
-  queues: {
-    orderProcessing: orderProcessingQueue,
-    analyticsProcessing: analyticsProcessingQueue,
-  },
-  bindings: {
-    // Queue-to-exchange binding
-    orderBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
-      routingKey: 'order.created',
-    }),
-    // Exchange-to-exchange binding
-    analyticsBinding: defineExchangeBinding(analyticsExchange, ordersExchange, {
-      routingKey: 'order.#',
-    }),
-    // Queue receives from analytics exchange
-    analyticsQueueBinding: defineQueueBinding(analyticsProcessingQueue, analyticsExchange, {
-      routingKey: 'order.#',
-    }),
-  },
-  publishers: {
-    orderCreated: definePublisher(ordersExchange, orderMessage, {
-      routingKey: 'order.created',
-    }),
-  },
-  consumers: {
-    processOrder: defineConsumer(orderProcessingQueue, orderMessage, {
-      prefetch: 10,
-    }),
-    processAnalytics: defineConsumer(analyticsProcessingQueue, orderMessage),
-  },
-});
-```
-
-### Enforcing Contract Consistency
-
-**NEW**: Use `definePublisherFirst` or `defineConsumerFirst` to enforce consistency between publishers, consumers, and routing keys:
-
-#### Publisher-First Pattern (Event-Oriented)
-
-Use this pattern for events where publishers don't need to know about queues. Multiple consumers can be created for different queues, all using the same message schema:
+For robust contract definitions with guaranteed consistency, use `definePublisherFirst` (for events) or `defineConsumerFirst` (for commands):
 
 ```typescript
-import { definePublisherFirst, defineContract } from '@amqp-contract/contract';
+import { definePublisherFirst, defineContract, defineExchange, defineQueue, defineMessage } from '@amqp-contract/contract';
 import { z } from 'zod';
 
+// Event-oriented pattern: publisher doesn't need to know about queues
 const ordersExchange = defineExchange('orders', 'topic', { durable: true });
 const orderMessage = defineMessage(z.object({
   orderId: z.string(),
   amount: z.number(),
 }));
 
-// Define publisher-first relationship (event pattern)
 const orderCreatedEvent = definePublisherFirst(
   ordersExchange,
   orderMessage,
@@ -107,82 +41,32 @@ const orderCreatedEvent = definePublisherFirst(
 
 // Multiple queues can consume the same event
 const orderQueue = defineQueue('order-processing', { durable: true });
-const analyticsQueue = defineQueue('analytics', { durable: true });
-
-// Create consumers for each queue
-const { consumer: processConsumer, binding: processBinding } = orderCreatedEvent.createConsumer(orderQueue);
-const { consumer: analyticsConsumer, binding: analyticsBinding } = orderCreatedEvent.createConsumer(analyticsQueue);
+const { consumer, binding } = orderCreatedEvent.createConsumer(orderQueue);
 
 const contract = defineContract({
   exchanges: { orders: ordersExchange },
-  queues: { orderQueue, analyticsQueue },
-  bindings: {
-    orderBinding: processBinding,      // Same routing key as publisher
-    analyticsBinding: analyticsBinding, // Same routing key as publisher
-  },
-  publishers: {
-    orderCreated: orderCreatedEvent.publisher,
-  },
-  consumers: {
-    processOrder: processConsumer,     // Same message schema
-    trackOrder: analyticsConsumer,     // Same message schema
-  },
+  queues: { orderQueue },
+  bindings: { orderBinding: binding },
+  publishers: { orderCreated: orderCreatedEvent.publisher },
+  consumers: { processOrder: consumer },
 });
 ```
 
-#### Consumer-First Pattern (Command-Oriented)
+**Benefits:**
 
-Use when you start with a consumer and want to ensure publishers send the correct message type:
-
-```typescript
-import { defineConsumerFirst, defineContract } from '@amqp-contract/contract';
-import { z } from 'zod';
-
-const taskQueue = defineQueue('tasks', { durable: true });
-const tasksExchange = defineExchange('tasks', 'direct', { durable: true });
-const taskMessage = defineMessage(z.object({
-  taskId: z.string(),
-  action: z.string(),
-}));
-
-// Define consumer-first relationship - ensures message and routing key consistency
-const taskConsumer = defineConsumerFirst(
-  taskQueue,
-  tasksExchange,
-  taskMessage,
-  { routingKey: 'task.execute' }
-);
-
-const contract = defineContract({
-  exchanges: { tasks: tasksExchange },
-  queues: { taskQueue },
-  bindings: {
-    taskBinding: taskConsumer.binding, // Same routing key as publisher
-  },
-  publishers: {
-    executeTask: taskConsumer.createPublisher(), // Same message schema and routing key
-  },
-  consumers: {
-    processTask: taskConsumer.consumer, // Original consumer
-  },
-});
-```
-
-#### Benefits
-
-- ✅ **Message Schema Consistency**: Publishers and consumers are guaranteed to use the same message schema
-- ✅ **Routing Key Consistency**: Routing keys are automatically synchronized between publishers and bindings
-- ✅ **External Resource Support**: Can consume from exchanges defined in other contracts
-- ✅ **Type Safety**: Full TypeScript type inference throughout
-- ✅ **Single Source of Truth**: Message schema and routing key defined once, used everywhere
-
-## API
-
-For complete API documentation, see the [Contract API Reference](https://btravers.github.io/amqp-contract/api/contract).
+- ✅ Guaranteed message schema consistency between publishers and consumers
+- ✅ Automatic routing key synchronization
+- ✅ Full type safety with TypeScript inference
+- ✅ Event-oriented (publisher-first) and command-oriented (consumer-first) patterns
 
 ## Documentation
 
 📖 **[Read the full documentation →](https://btravers.github.io/amqp-contract)**
+
+- [Getting Started Guide](https://btravers.github.io/amqp-contract/guide/defining-contracts)
+- [Publisher-First Pattern](https://btravers.github.io/amqp-contract/guide/defining-contracts#publisher-first-pattern)
+- [Consumer-First Pattern](https://btravers.github.io/amqp-contract/guide/defining-contracts#consumer-first-pattern)
+- [Complete API Reference](https://btravers.github.io/amqp-contract/api/contract)
 
 ## License
 
