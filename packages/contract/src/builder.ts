@@ -678,3 +678,392 @@ export function defineContract<TContract extends ContractDefinition>(
 ): TContract {
   return definition;
 }
+
+/**
+ * Publisher-first builder result.
+ *
+ * This type represents a publisher with its binding and provides a method to create
+ * a consumer that uses the same message schema and is connected via the binding.
+ *
+ * @template TMessage - The message definition
+ * @template TPublisher - The publisher definition
+ * @template TBinding - The queue binding definition
+ */
+export type PublisherFirstResult<
+  TMessage extends MessageDefinition,
+  TPublisher extends PublisherDefinition<TMessage>,
+  TBinding extends QueueBindingDefinition,
+> = {
+  /** The publisher definition */
+  publisher: TPublisher;
+  /** The binding definition connecting the exchange to the queue */
+  binding: TBinding;
+  /**
+   * Create a consumer that receives messages from this publisher.
+   * The consumer will automatically use the same message schema.
+   *
+   * @returns A consumer definition with the same message type
+   */
+  createConsumer: () => ConsumerDefinition<TMessage>;
+};
+
+/**
+ * Define a publisher-first relationship between a publisher and consumer.
+ *
+ * This builder enforces consistency by:
+ * 1. Ensuring the publisher and consumer use the same message schema
+ * 2. Linking the routing key from the publisher to the binding
+ * 3. Creating a binding that connects the exchange to the queue
+ *
+ * Use this when you want to start with a publisher and ensure consumers
+ * receive the same message type.
+ *
+ * @param exchange - The exchange to publish to (fanout type)
+ * @param queue - The queue that will receive the messages
+ * @param message - The message definition (schema and metadata)
+ * @param options - Optional binding configuration
+ * @returns A publisher-first result with publisher, binding, and consumer factory
+ *
+ * @example
+ * ```typescript
+ * import { z } from 'zod';
+ *
+ * const logsExchange = defineExchange('logs', 'fanout', { durable: true });
+ * const logsQueue = defineQueue('logs-queue', { durable: true });
+ * const logMessage = defineMessage(
+ *   z.object({
+ *     level: z.enum(['info', 'warn', 'error']),
+ *     message: z.string(),
+ *   })
+ * );
+ *
+ * // Create publisher-first relationship
+ * const logPublisherFirst = definePublisherFirst(logsExchange, logsQueue, logMessage);
+ *
+ * // Use in contract
+ * const contract = defineContract({
+ *   exchanges: { logs: logsExchange },
+ *   queues: { logsQueue },
+ *   bindings: { logBinding: logPublisherFirst.binding },
+ *   publishers: { publishLog: logPublisherFirst.publisher },
+ *   consumers: { consumeLog: logPublisherFirst.createConsumer() },
+ * });
+ * ```
+ */
+export function definePublisherFirst<TMessage extends MessageDefinition>(
+  exchange: FanoutExchangeDefinition,
+  queue: QueueDefinition,
+  message: TMessage,
+  options?: Omit<
+    Extract<QueueBindingDefinition, { exchange: FanoutExchangeDefinition }>,
+    "type" | "queue" | "exchange" | "routingKey"
+  >,
+): PublisherFirstResult<
+  TMessage,
+  Extract<PublisherDefinition<TMessage>, { exchange: FanoutExchangeDefinition }>,
+  Extract<QueueBindingDefinition, { exchange: FanoutExchangeDefinition }>
+>;
+
+/**
+ * Define a publisher-first relationship between a publisher and consumer.
+ *
+ * This builder enforces consistency by:
+ * 1. Ensuring the publisher and consumer use the same message schema
+ * 2. Linking the routing key from the publisher to the binding
+ * 3. Creating a binding that connects the exchange to the queue
+ *
+ * Use this when you want to start with a publisher and ensure consumers
+ * receive the same message type with the same routing key.
+ *
+ * @param exchange - The exchange to publish to (direct or topic type)
+ * @param queue - The queue that will receive the messages
+ * @param message - The message definition (schema and metadata)
+ * @param options - Binding configuration (routingKey is required)
+ * @param options.routingKey - The routing key for message routing
+ * @returns A publisher-first result with publisher, binding, and consumer factory
+ *
+ * @example
+ * ```typescript
+ * import { z } from 'zod';
+ *
+ * const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+ * const orderQueue = defineQueue('order-processing', { durable: true });
+ * const orderMessage = defineMessage(
+ *   z.object({
+ *     orderId: z.string(),
+ *     amount: z.number(),
+ *   })
+ * );
+ *
+ * // Create publisher-first relationship with routing key
+ * const orderPublisherFirst = definePublisherFirst(
+ *   ordersExchange,
+ *   orderQueue,
+ *   orderMessage,
+ *   { routingKey: 'order.created' }
+ * );
+ *
+ * // Use in contract - routing key is consistent across publisher and binding
+ * const contract = defineContract({
+ *   exchanges: { orders: ordersExchange },
+ *   queues: { orderQueue },
+ *   bindings: { orderBinding: orderPublisherFirst.binding },
+ *   publishers: { orderCreated: orderPublisherFirst.publisher },
+ *   consumers: { processOrder: orderPublisherFirst.createConsumer() },
+ * });
+ * ```
+ */
+export function definePublisherFirst<TMessage extends MessageDefinition>(
+  exchange: DirectExchangeDefinition | TopicExchangeDefinition,
+  queue: QueueDefinition,
+  message: TMessage,
+  options: Omit<
+    Extract<
+      QueueBindingDefinition,
+      { exchange: DirectExchangeDefinition | TopicExchangeDefinition }
+    >,
+    "type" | "queue" | "exchange"
+  >,
+): PublisherFirstResult<
+  TMessage,
+  Extract<
+    PublisherDefinition<TMessage>,
+    { exchange: DirectExchangeDefinition | TopicExchangeDefinition }
+  >,
+  Extract<QueueBindingDefinition, { exchange: DirectExchangeDefinition | TopicExchangeDefinition }>
+>;
+
+/**
+ * Implementation of definePublisherFirst.
+ * @internal
+ */
+export function definePublisherFirst<TMessage extends MessageDefinition>(
+  exchange: ExchangeDefinition,
+  queue: QueueDefinition,
+  message: TMessage,
+  options?: {
+    routingKey?: string;
+    arguments?: Record<string, unknown>;
+  },
+): PublisherFirstResult<TMessage, PublisherDefinition<TMessage>, QueueBindingDefinition> {
+  // Create the binding based on exchange type
+  let binding: QueueBindingDefinition;
+  if (exchange.type === "fanout") {
+    binding = defineQueueBinding(queue, exchange, options);
+  } else {
+    binding = defineQueueBinding(queue, exchange, options as { routingKey: string });
+  }
+
+  // Create the publisher with the same routing key based on exchange type
+  let publisher: PublisherDefinition<TMessage>;
+  if (exchange.type === "fanout") {
+    publisher = definePublisher(exchange, message, options);
+  } else {
+    publisher = definePublisher(exchange, message, options as { routingKey: string });
+  }
+
+  // Factory function to create a consumer with the same message type
+  const createConsumer = (): ConsumerDefinition<TMessage> => {
+    return defineConsumer(queue, message);
+  };
+
+  return {
+    publisher,
+    binding,
+    createConsumer,
+  };
+}
+
+/**
+ * Consumer-first builder result.
+ *
+ * This type represents a consumer with its binding and provides a method to create
+ * a publisher that uses the same message schema and routing key.
+ *
+ * @template TMessage - The message definition
+ * @template TConsumer - The consumer definition
+ * @template TBinding - The queue binding definition
+ */
+export type ConsumerFirstResult<
+  TMessage extends MessageDefinition,
+  TConsumer extends ConsumerDefinition<TMessage>,
+  TBinding extends QueueBindingDefinition,
+> = {
+  /** The consumer definition */
+  consumer: TConsumer;
+  /** The binding definition connecting the exchange to the queue */
+  binding: TBinding;
+  /**
+   * Create a publisher that sends messages to this consumer.
+   * The publisher will automatically use the same message schema and routing key.
+   *
+   * @returns A publisher definition with the same message type and routing key
+   */
+  createPublisher: () => PublisherDefinition<TMessage>;
+};
+
+/**
+ * Define a consumer-first relationship between a consumer and publisher.
+ *
+ * This builder enforces consistency by:
+ * 1. Ensuring the consumer and publisher use the same message schema
+ * 2. Linking the routing key from the binding to the publisher
+ * 3. Creating a binding that connects the exchange to the queue
+ *
+ * Use this when you want to start with a consumer and ensure publishers
+ * send messages of the correct type.
+ *
+ * @param queue - The queue to consume from
+ * @param exchange - The exchange that routes to the queue (fanout type)
+ * @param message - The message definition (schema and metadata)
+ * @param options - Optional binding configuration
+ * @returns A consumer-first result with consumer, binding, and publisher factory
+ *
+ * @example
+ * ```typescript
+ * import { z } from 'zod';
+ *
+ * const notificationsQueue = defineQueue('notifications', { durable: true });
+ * const notificationsExchange = defineExchange('notifications', 'fanout', { durable: true });
+ * const notificationMessage = defineMessage(
+ *   z.object({
+ *     userId: z.string(),
+ *     message: z.string(),
+ *   })
+ * );
+ *
+ * // Create consumer-first relationship
+ * const notificationConsumerFirst = defineConsumerFirst(
+ *   notificationsQueue,
+ *   notificationsExchange,
+ *   notificationMessage
+ * );
+ *
+ * // Use in contract
+ * const contract = defineContract({
+ *   exchanges: { notifications: notificationsExchange },
+ *   queues: { notificationsQueue },
+ *   bindings: { notificationBinding: notificationConsumerFirst.binding },
+ *   publishers: { sendNotification: notificationConsumerFirst.createPublisher() },
+ *   consumers: { processNotification: notificationConsumerFirst.consumer },
+ * });
+ * ```
+ */
+export function defineConsumerFirst<TMessage extends MessageDefinition>(
+  queue: QueueDefinition,
+  exchange: FanoutExchangeDefinition,
+  message: TMessage,
+  options?: Omit<
+    Extract<QueueBindingDefinition, { exchange: FanoutExchangeDefinition }>,
+    "type" | "queue" | "exchange" | "routingKey"
+  >,
+): ConsumerFirstResult<
+  TMessage,
+  ConsumerDefinition<TMessage>,
+  Extract<QueueBindingDefinition, { exchange: FanoutExchangeDefinition }>
+>;
+
+/**
+ * Define a consumer-first relationship between a consumer and publisher.
+ *
+ * This builder enforces consistency by:
+ * 1. Ensuring the consumer and publisher use the same message schema
+ * 2. Linking the routing key from the binding to the publisher
+ * 3. Creating a binding that connects the exchange to the queue
+ *
+ * Use this when you want to start with a consumer and ensure publishers
+ * send messages with the correct type and routing key.
+ *
+ * @param queue - The queue to consume from
+ * @param exchange - The exchange that routes to the queue (direct or topic type)
+ * @param message - The message definition (schema and metadata)
+ * @param options - Binding configuration (routingKey is required)
+ * @param options.routingKey - The routing key for message routing
+ * @returns A consumer-first result with consumer, binding, and publisher factory
+ *
+ * @example
+ * ```typescript
+ * import { z } from 'zod';
+ *
+ * const taskQueue = defineQueue('tasks', { durable: true });
+ * const tasksExchange = defineExchange('tasks', 'direct', { durable: true });
+ * const taskMessage = defineMessage(
+ *   z.object({
+ *     taskId: z.string(),
+ *     payload: z.record(z.unknown()),
+ *   })
+ * );
+ *
+ * // Create consumer-first relationship with routing key
+ * const taskConsumerFirst = defineConsumerFirst(
+ *   taskQueue,
+ *   tasksExchange,
+ *   taskMessage,
+ *   { routingKey: 'task.execute' }
+ * );
+ *
+ * // Use in contract - routing key is consistent across consumer and publisher
+ * const contract = defineContract({
+ *   exchanges: { tasks: tasksExchange },
+ *   queues: { taskQueue },
+ *   bindings: { taskBinding: taskConsumerFirst.binding },
+ *   publishers: { executeTask: taskConsumerFirst.createPublisher() },
+ *   consumers: { processTask: taskConsumerFirst.consumer },
+ * });
+ * ```
+ */
+export function defineConsumerFirst<TMessage extends MessageDefinition>(
+  queue: QueueDefinition,
+  exchange: DirectExchangeDefinition | TopicExchangeDefinition,
+  message: TMessage,
+  options: Omit<
+    Extract<
+      QueueBindingDefinition,
+      { exchange: DirectExchangeDefinition | TopicExchangeDefinition }
+    >,
+    "type" | "queue" | "exchange"
+  >,
+): ConsumerFirstResult<
+  TMessage,
+  ConsumerDefinition<TMessage>,
+  Extract<QueueBindingDefinition, { exchange: DirectExchangeDefinition | TopicExchangeDefinition }>
+>;
+
+/**
+ * Implementation of defineConsumerFirst.
+ * @internal
+ */
+export function defineConsumerFirst<TMessage extends MessageDefinition>(
+  queue: QueueDefinition,
+  exchange: ExchangeDefinition,
+  message: TMessage,
+  options?: {
+    routingKey?: string;
+    arguments?: Record<string, unknown>;
+  },
+): ConsumerFirstResult<TMessage, ConsumerDefinition<TMessage>, QueueBindingDefinition> {
+  // Create the consumer
+  const consumer = defineConsumer(queue, message);
+
+  // Create the binding based on exchange type
+  let binding: QueueBindingDefinition;
+  if (exchange.type === "fanout") {
+    binding = defineQueueBinding(queue, exchange, options);
+  } else {
+    binding = defineQueueBinding(queue, exchange, options as { routingKey: string });
+  }
+
+  // Factory function to create a publisher with the same message type and routing key
+  const createPublisher = (): PublisherDefinition<TMessage> => {
+    if (exchange.type === "fanout") {
+      return definePublisher(exchange, message, options);
+    }
+    return definePublisher(exchange, message, options as { routingKey: string });
+  };
+
+  return {
+    consumer,
+    binding,
+    createPublisher,
+  };
+}

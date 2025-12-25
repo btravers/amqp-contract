@@ -7,7 +7,10 @@ export {
   defineMessage,
   definePublisher,
   defineQueue,
+  definePublisherFirst,
+  defineConsumerFirst,
 } from "./builder.js";
+export type { PublisherFirstResult, ConsumerFirstResult } from "./builder.js";
 export type {
   AnySchema,
   BindingDefinition,
