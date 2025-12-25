@@ -188,12 +188,12 @@ const workerResult = await TypedAmqpWorker.create({
       console.log(`Processing order: ${message.orderId}`);
       console.log(`Customer: ${message.customerId}`);
       console.log(`Total: $${message.totalAmount}`);
-      
+
       // ✅ Full autocomplete for all fields
       message.items.forEach((item) => {
         console.log(`- ${item.quantity}x Product ${item.productId}`);
       });
-      
+
       // ✅ TypeScript catches typos and wrong field names
       // console.log(message.ordreId); // ❌ TypeScript error!
     },
@@ -327,6 +327,7 @@ export class AppModule {}
 ```
 
 The NestJS integration handles:
+
 - Automatic connection lifecycle management
 - Graceful shutdown
 - Dependency injection
@@ -417,6 +418,7 @@ const userCreatedMessage = defineMessage(z.object({
 ### Compared to Other Solutions
 
 Unlike other AMQP libraries, amqp-contract:
+
 - Focuses on **type safety first** — types are derived from your contract, not the other way around
 - Uses **Standard Schema v1** — compatible with multiple validation libraries (Zod, Valibot, ArkType)
 - Generates **AsyncAPI specs** — automatic documentation
@@ -477,10 +479,11 @@ Stop fighting runtime errors. Stop manually validating messages. Stop worrying a
 ---
 
 **Links:**
+
 - [amqp-contract Documentation](https://btravers.github.io/amqp-contract)
 - [GitHub Repository](https://github.com/btravers/amqp-contract)
 - [npm Package](https://www.npmjs.com/package/@amqp-contract/contract)
 - [Getting Started Guide](https://btravers.github.io/amqp-contract/guide/getting-started)
 - [Examples](https://btravers.github.io/amqp-contract/examples/)
 
-*Have you tried amqp-contract? Share your experience in the comments below!*
+_Have you tried amqp-contract? Share your experience in the comments below!_

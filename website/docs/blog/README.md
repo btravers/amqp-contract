@@ -5,7 +5,9 @@ This directory contains blog articles about amqp-contract for various publishing
 ## Files
 
 ### 1. `introducing-amqp-contract.md`
+
 The main article published on the amqp-contract website blog. This version includes:
+
 - Full technical details
 - Code examples
 - SEO-optimized metadata
@@ -14,13 +16,16 @@ The main article published on the amqp-contract website blog. This version inclu
 **Published at:** https://btravers.github.io/amqp-contract/blog/introducing-amqp-contract
 
 ### 2. `devto-version.md`
+
 Optimized for [Dev.to](https://dev.to/) platform with:
+
 - Dev.to frontmatter (title, tags, canonical URL)
 - Community-focused tone
 - Engagement prompts
 - Platform-specific formatting
 
 **How to publish:**
+
 1. Go to https://dev.to/new
 2. Copy the entire content of `devto-version.md`
 3. Paste into the Dev.to editor
@@ -28,7 +33,9 @@ Optimized for [Dev.to](https://dev.to/) platform with:
 5. Dev.to will automatically parse the frontmatter
 
 ### 3. `medium-version.md`
+
 Formatted for [Medium](https://medium.com/) with:
+
 - Longer, more detailed format
 - Professional tone
 - Visual breaks with emojis
@@ -36,6 +43,7 @@ Formatted for [Medium](https://medium.com/) with:
 - Comprehensive examples
 
 **How to publish:**
+
 1. Go to https://medium.com/new-story
 2. Copy the content from `medium-version.md` (excluding frontmatter)
 3. Paste into Medium editor
@@ -43,7 +51,9 @@ Formatted for [Medium](https://medium.com/) with:
 5. Set canonical URL to: https://btravers.github.io/amqp-contract/blog/introducing-amqp-contract
 
 ### 4. `linkedin-version.md`
+
 Optimized for [LinkedIn](https://linkedin.com/) with:
+
 - Shorter, punchier format (ideal for LinkedIn's algorithm)
 - Professional tone
 - Quick value propositions
@@ -51,6 +61,7 @@ Optimized for [LinkedIn](https://linkedin.com/) with:
 - Appropriate hashtags
 
 **How to publish:**
+
 1. Go to LinkedIn and create a new post
 2. Copy the content from `linkedin-version.md`
 3. Paste and adjust formatting as needed
@@ -61,12 +72,14 @@ Optimized for [LinkedIn](https://linkedin.com/) with:
 ## SEO Strategy
 
 All versions include:
+
 - Links back to the main documentation site (https://btravers.github.io/amqp-contract)
 - Links to the GitHub repository (https://github.com/btravers/amqp-contract)
 - Links to npm package (https://www.npmjs.com/package/@amqp-contract/contract)
 - Canonical URLs pointing to the main article on the website
 
 This creates a network of external links that:
+
 1. Drive traffic to the documentation
 2. Improve search engine rankings
 3. Increase project visibility
@@ -95,6 +108,7 @@ If you need to update the articles:
 ## Analytics
 
 Track article performance through:
+
 - Website analytics (Google Analytics via the documentation site)
 - Dev.to analytics (views, reactions, comments)
 - Medium stats (views, reads, fans)

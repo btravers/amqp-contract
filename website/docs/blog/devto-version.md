@@ -174,7 +174,7 @@ const workerResult = await TypedAmqpWorker.create({
       console.log(`Processing order: ${message.orderId}`);
       console.log(`Customer: ${message.customerId}`);
       console.log(`Total: $${message.totalAmount}`);
-      
+
       // ✅ Full autocomplete for all fields
       message.items.forEach((item) => {
         console.log(`- ${item.quantity}x Product ${item.productId}`);
@@ -284,6 +284,7 @@ export class AppModule {}
 ### Compared to Other Solutions
 
 Unlike other AMQP libraries, amqp-contract:
+
 - Focuses on **type safety first** — types are derived from your contract
 - Uses **Standard Schema v1** — compatible with multiple validation libraries
 - Generates **AsyncAPI specs** — automatic documentation

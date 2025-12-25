@@ -25,6 +25,7 @@ amqp-contract brings contract-first development to AMQP messaging:
 ## Before & After
 
 **Traditional approach:**
+
 ```typescript
 // ❌ No types, no validation
 channel.publish(
@@ -43,6 +44,7 @@ channel.consume('queue', (msg) => {
 ```
 
 **With amqp-contract:**
+
 ```typescript
 // ✅ Define contract once
 const orderMessage = defineMessage(
@@ -192,6 +194,7 @@ npm install zod amqplib @types/amqplib
 ```
 
 Three simple steps:
+
 1. Define your contract with schemas
 2. Create a client for publishing
 3. Create a worker for consuming

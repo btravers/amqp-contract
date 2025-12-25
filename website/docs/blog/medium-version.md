@@ -1,6 +1,6 @@
 # Building Type-Safe AMQP Messaging with amqp-contract
 
-*Bringing end-to-end type safety and automatic validation to RabbitMQ and AMQP messaging in TypeScript*
+_Bringing end-to-end type safety and automatic validation to RabbitMQ and AMQP messaging in TypeScript_
 
 ![amqp-contract logo](https://raw.githubusercontent.com/btravers/amqp-contract/main/website/docs/public/logo.svg)
 
@@ -183,7 +183,7 @@ const clientResult = await TypedAmqpClient.create({
 
 if (clientResult.isOk()) {
   const client = clientResult.get();
-  
+
   const result = await client.publish('orderCreated', {
     orderId: 'ORD-123',
     customerId: 'CUST-456',
@@ -193,7 +193,7 @@ if (clientResult.isOk()) {
     totalAmount: 99.98,
     status: 'pending',
   });
-  
+
   result.match({
     Ok: () => console.log('✅ Order published'),
     Error: (error) => console.error('❌ Failed:', error),
@@ -208,7 +208,7 @@ const workerResult = await TypedAmqpWorker.create({
       console.log(`Processing order ${message.orderId}`);
       console.log(`Customer: ${message.customerId}`);
       console.log(`Total: $${message.totalAmount}`);
-      
+
       for (const item of message.items) {
         console.log(`- ${item.quantity}x ${item.productId} @ $${item.price}`);
       }
@@ -280,6 +280,7 @@ export class AppModule {}
 ```
 
 The NestJS integration provides:
+
 - Automatic lifecycle management
 - Graceful shutdown
 - Dependency injection
@@ -289,13 +290,13 @@ The NestJS integration provides:
 
 ### Compared to Raw amqplib
 
-| Feature | amqp-contract | Raw amqplib |
-|---------|---------------|-------------|
-| Type Safety | ✅ Full | ❌ None |
-| Validation | ✅ Automatic | ❌ Manual |
-| Compile-time Checks | ✅ Yes | ❌ No |
-| Refactoring Support | ✅ Full | ❌ Find/Replace |
-| Documentation | ✅ From Code | ❌ Manual |
+| Feature             | amqp-contract | Raw amqplib     |
+| ------------------- | ------------- | --------------- |
+| Type Safety         | ✅ Full       | ❌ None         |
+| Validation          | ✅ Automatic  | ❌ Manual       |
+| Compile-time Checks | ✅ Yes        | ❌ No           |
+| Refactoring Support | ✅ Full       | ❌ Find/Replace |
+| Documentation       | ✅ From Code  | ❌ Manual       |
 
 ### What Makes It Unique
 
@@ -359,6 +360,7 @@ npm install @amqp-contract/contract @amqp-contract/client @amqp-contract/worker
 ## Join the Community
 
 We'd love to hear from you:
+
 - 🌟 Star the project on [GitHub](https://github.com/btravers/amqp-contract)
 - 🐛 Report issues or request features
 - 💡 Share your use cases and feedback
@@ -372,13 +374,14 @@ Stop fighting runtime errors. Stop manually validating messages. Stop worrying a
 
 ---
 
-*Built with inspiration from [tRPC](https://trpc.io/), [oRPC](https://orpc.dev/), and [ts-rest](https://ts-rest.com/) — bringing contract-first development to AMQP messaging.*
+_Built with inspiration from [tRPC](https://trpc.io/), [oRPC](https://orpc.dev/), and [ts-rest](https://ts-rest.com/) — bringing contract-first development to AMQP messaging._
 
 **What are your thoughts on type-safe messaging? How do you handle AMQP in your projects? Let's discuss in the comments!**
 
 ---
 
 **Useful Links:**
+
 - [Documentation](https://btravers.github.io/amqp-contract)
 - [GitHub](https://github.com/btravers/amqp-contract)
 - [npm](https://www.npmjs.com/package/@amqp-contract/contract)
