@@ -699,7 +699,7 @@ describe("builder", () => {
       });
     });
 
-    it("should create a consumer-first relationship with direct exchange", () => {
+    it("should create a consumer-first relationship with direct exchange and notifications routing key", () => {
       // GIVEN
       const message = defineMessage(z.object({ notificationId: z.string() }));
       const queue = defineQueue("notifications");
