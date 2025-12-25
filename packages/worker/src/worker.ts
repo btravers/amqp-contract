@@ -1,9 +1,20 @@
 import { AmqpClient, type Logger } from "@amqp-contract/core";
 import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
-import type { ContractDefinition, InferConsumerNames } from "@amqp-contract/contract";
+import type {
+  ContractDefinition,
+  ErrorHandlingStrategy,
+  InferConsumerNames,
+} from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
-import { MessageValidationError, TechnicalError } from "./errors.js";
+import {
+  HandlerError,
+  MessageValidationError,
+  NonRetryableError,
+  RetryableError,
+  TechnicalError,
+} from "./errors.js";
 import type { WorkerInferConsumerHandlers, WorkerInferConsumerInput } from "./types.js";
+import type { ConsumeMessage } from "amqplib";
 
 /**
  * Options for creating a type-safe AMQP worker.
@@ -175,9 +186,210 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   }
 
   private waitForConnectionReady(): Future<Result<void, TechnicalError>> {
-    return Future.fromPromise(this.amqpClient.channel.waitForConnect()).mapError(
-      (error) => new TechnicalError("Failed to wait for connection ready", error),
-    );
+    return Future.fromPromise(this.amqpClient.channel.waitForConnect())
+      .mapError((error) => new TechnicalError("Failed to wait for connection ready", error))
+      .mapOk(() => undefined);
+  }
+
+  /**
+   * Calculate the retry delay for a message using exponential backoff.
+   * @param attemptNumber - The current attempt number (1-based)
+   * @param initialDelayMs - The initial delay in milliseconds
+   * @param multiplier - The exponential multiplier
+   * @param maxDelayMs - The maximum delay in milliseconds
+   * @returns The delay in milliseconds for this attempt
+   */
+  private calculateRetryDelay(
+    attemptNumber: number,
+    initialDelayMs: number,
+    multiplier: number,
+    maxDelayMs: number,
+  ): number {
+    const delay = initialDelayMs * Math.pow(multiplier, attemptNumber - 1);
+    return Math.min(delay, maxDelayMs);
+  }
+
+  /**
+   * Get the retry attempt number from message headers.
+   * @param msg - The AMQP message
+   * @returns The current attempt number (0 if not set)
+   */
+  private getRetryAttempt(msg: ConsumeMessage): number {
+    const headers = msg.properties.headers || {};
+    return (headers["x-retry-count"] as number) || 0;
+  }
+
+  /**
+   * Handle message error based on error type and error handling strategy.
+   * @param msg - The AMQP message
+   * @param error - The error that occurred
+   * @param consumerName - The name of the consumer
+   * @param consumer - The consumer definition
+   */
+  private handleMessageError(
+    msg: ConsumeMessage,
+    error: unknown,
+    consumerName: string,
+    consumer: { errorHandling?: ErrorHandlingStrategy; queue: { name: string } },
+  ): void {
+    const errorHandling = consumer.errorHandling;
+
+    // For validation errors and non-retryable errors
+    const isNonRetryable =
+      error instanceof MessageValidationError ||
+      error instanceof NonRetryableError ||
+      (error instanceof HandlerError && !error.retryable);
+
+    // If no error handling configured
+    if (!errorHandling) {
+      // Validation errors should not be requeued (they will never succeed)
+      // Other errors should be requeued (default behavior)
+      const shouldRequeue = !isNonRetryable;
+      this.amqpClient.channel.nack(msg, false, shouldRequeue);
+      return;
+    }
+
+    // For validation errors and non-retryable errors, send to dead letter queue
+    if (isNonRetryable) {
+      this.logger?.error("Non-retryable error, sending to dead letter queue", {
+        consumerName: String(consumerName),
+        error,
+      });
+
+      // Publish to dead letter exchange and ack the original message
+      this.amqpClient.channel
+        .publish(
+          errorHandling.deadLetterExchange.name,
+          msg.fields.routingKey,
+          msg.content,
+          {
+            ...msg.properties,
+            headers: {
+              ...(msg.properties.headers || {}),
+              "x-error-type": error instanceof HandlerError ? error.name : "Unknown",
+              "x-error-message": error instanceof Error ? error.message : String(error),
+              "x-original-queue": consumer.queue.name,
+              "x-failed-at": new Date().toISOString(),
+            },
+          },
+        )
+        .then(() => {
+          this.amqpClient.channel.ack(msg);
+        })
+        .catch((publishError: unknown) => {
+          this.logger?.error("Failed to publish to dead letter exchange", {
+            consumerName: String(consumerName),
+            error: publishError,
+          });
+          // Fallback: nack without requeue
+          this.amqpClient.channel.nack(msg, false, false);
+        });
+
+      return;
+    }
+
+    // For retryable errors, handle retry logic
+    if (
+      error instanceof RetryableError ||
+      (error instanceof HandlerError && error.retryable) ||
+      errorHandling.retryQueue
+    ) {
+      const backoffConfig = errorHandling.exponentialBackoff || {};
+      const initialDelayMs = backoffConfig.initialDelayMs ?? 1000;
+      const multiplier = backoffConfig.multiplier ?? 2;
+      const maxAttempts = backoffConfig.maxAttempts ?? 3;
+      const maxDelayMs = backoffConfig.maxDelayMs ?? 60000;
+
+      const attemptNumber = this.getRetryAttempt(msg) + 1;
+
+      // If max attempts reached, send to dead letter queue
+      if (attemptNumber > maxAttempts) {
+        this.logger?.error("Max retry attempts reached, sending to dead letter queue", {
+          consumerName: String(consumerName),
+          attemptNumber,
+          maxAttempts,
+          error,
+        });
+
+        this.amqpClient.channel
+          .publish(
+            errorHandling.deadLetterExchange.name,
+            msg.fields.routingKey,
+            msg.content,
+            {
+              ...msg.properties,
+              headers: {
+                ...(msg.properties.headers || {}),
+                "x-error-type": error instanceof HandlerError ? error.name : "Unknown",
+                "x-error-message": error instanceof Error ? error.message : String(error),
+                "x-original-queue": consumer.queue.name,
+                "x-retry-count": attemptNumber - 1,
+                "x-max-attempts-reached": true,
+                "x-failed-at": new Date().toISOString(),
+              },
+            },
+          )
+          .then(() => {
+            this.amqpClient.channel.ack(msg);
+          })
+          .catch((publishError: unknown) => {
+            this.logger?.error("Failed to publish to dead letter exchange", {
+              consumerName: String(consumerName),
+              error: publishError,
+            });
+            this.amqpClient.channel.nack(msg, false, false);
+          });
+
+        return;
+      }
+
+      // Calculate delay for this retry attempt
+      const delayMs = this.calculateRetryDelay(attemptNumber, initialDelayMs, multiplier, maxDelayMs);
+
+      this.logger?.warn("Retryable error, scheduling retry with exponential backoff", {
+        consumerName: String(consumerName),
+        attemptNumber,
+        maxAttempts,
+        delayMs,
+        error,
+      });
+
+      // If retry queue configured, publish to retry queue with TTL
+      if (errorHandling.retryQueue) {
+        this.amqpClient.channel
+          .publish("", errorHandling.retryQueue.name, msg.content, {
+            ...msg.properties,
+            expiration: String(delayMs),
+            headers: {
+              ...(msg.properties.headers || {}),
+              "x-retry-count": attemptNumber,
+              "x-original-queue": consumer.queue.name,
+              "x-original-routing-key": msg.fields.routingKey,
+              "x-error-type": error instanceof HandlerError ? error.name : "Unknown",
+              "x-error-message": error instanceof Error ? error.message : String(error),
+            },
+          })
+          .then(() => {
+            this.amqpClient.channel.ack(msg);
+          })
+          .catch((publishError: unknown) => {
+            this.logger?.error("Failed to publish to retry queue", {
+              consumerName: String(consumerName),
+              error: publishError,
+            });
+            // Fallback: nack with requeue (default behavior)
+            this.amqpClient.channel.nack(msg, false, true);
+          });
+      } else {
+        // No retry queue configured, use default behavior (nack with requeue)
+        this.amqpClient.channel.nack(msg, false, true);
+      }
+
+      return;
+    }
+
+    // Default: nack with requeue for unknown errors
+    this.amqpClient.channel.nack(msg, false, true);
   }
 
   /**
@@ -213,7 +425,11 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
     // Start consuming
     return Future.fromPromise(
-      this.amqpClient.channel.consume(consumer.queue.name, async (msg) => {
+      this.amqpClient.channel.consume(consumer.queue.name, async (msg: ConsumeMessage | null) => {
+        if (!msg) {
+          return;
+        }
+
         // Parse message
         const parseResult = Result.fromExecution(() => JSON.parse(msg.content.toString()));
         if (parseResult.isError()) {
@@ -223,9 +439,33 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
             error: parseResult.error,
           });
 
-          // fixme proper error handling strategy
-          // Reject message with no requeue (malformed JSON)
-          this.amqpClient.channel.nack(msg, false, false);
+          // Malformed JSON is non-retryable - send to dead letter queue or nack
+          if (consumer.errorHandling) {
+            this.amqpClient.channel
+              .publish(
+                consumer.errorHandling.deadLetterExchange.name,
+                msg.fields.routingKey,
+                msg.content,
+                {
+                  ...msg.properties,
+                  headers: {
+                    ...(msg.properties.headers || {}),
+                    "x-error-type": "ParseError",
+                    "x-error-message": parseResult.error instanceof Error ? parseResult.error.message : String(parseResult.error),
+                    "x-original-queue": consumer.queue.name,
+                    "x-failed-at": new Date().toISOString(),
+                  },
+                },
+              )
+              .then(() => {
+                this.amqpClient.channel.ack(msg);
+              })
+              .catch(() => {
+                this.amqpClient.channel.nack(msg, false, false);
+              });
+          } else {
+            this.amqpClient.channel.nack(msg, false, false);
+          }
           return;
         }
 
@@ -249,9 +489,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
               error,
             });
 
-            // fixme proper error handling strategy
-            // Reject message with no requeue (validation failed)
-            this.amqpClient.channel.nack(msg, false, false);
+            // Handle validation error using error handling strategy
+            this.handleMessageError(msg, error, String(consumerName), consumer);
           })
           .flatMapOk((validatedMessage) =>
             Future.fromPromise(handler(validatedMessage)).tapError((error) => {
@@ -261,9 +500,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
                 error,
               });
 
-              // fixme proper error handling strategy
-              // Reject message and requeue (handler failed)
-              this.amqpClient.channel.nack(msg, false, true);
+              // Handle processing error using error handling strategy
+              this.handleMessageError(msg, error, String(consumerName), consumer);
             }),
           )
           .tapOk(() => {
