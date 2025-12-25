@@ -215,8 +215,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * @returns The current attempt number (0 if not set)
    */
   private getRetryAttempt(msg: ConsumeMessage): number {
-    const headers = msg.properties.headers || {};
-    return (headers["x-retry-count"] as number) || 0;
+    const headers = msg.properties.headers ?? {};
+    return (headers["x-retry-count"] as number) ?? 0;
   }
 
   /**
@@ -258,21 +258,16 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
       // Publish to dead letter exchange and ack the original message
       this.amqpClient.channel
-        .publish(
-          errorHandling.deadLetterExchange.name,
-          msg.fields.routingKey,
-          msg.content,
-          {
-            ...msg.properties,
-            headers: {
-              ...msg.properties.headers,
-              "x-error-type": error instanceof HandlerError ? error.name : "Unknown",
-              "x-error-message": error instanceof Error ? error.message : String(error),
-              "x-original-queue": consumer.queue.name,
-              "x-failed-at": new Date().toISOString(),
-            },
+        .publish(errorHandling.deadLetterExchange.name, msg.fields.routingKey, msg.content, {
+          ...msg.properties,
+          headers: {
+            ...msg.properties.headers,
+            "x-error-type": error instanceof HandlerError ? error.name : "Unknown",
+            "x-error-message": error instanceof Error ? error.message : String(error),
+            "x-original-queue": consumer.queue.name,
+            "x-failed-at": new Date().toISOString(),
           },
-        )
+        })
         .then(() => {
           this.amqpClient.channel.ack(msg);
         })
@@ -312,23 +307,18 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         });
 
         this.amqpClient.channel
-          .publish(
-            errorHandling.deadLetterExchange.name,
-            msg.fields.routingKey,
-            msg.content,
-            {
-              ...msg.properties,
-              headers: {
-                ...msg.properties.headers,
-                "x-error-type": error instanceof HandlerError ? error.name : "Unknown",
-                "x-error-message": error instanceof Error ? error.message : String(error),
-                "x-original-queue": consumer.queue.name,
-                "x-retry-count": attemptNumber - 1,
-                "x-max-attempts-reached": true,
-                "x-failed-at": new Date().toISOString(),
-              },
+          .publish(errorHandling.deadLetterExchange.name, msg.fields.routingKey, msg.content, {
+            ...msg.properties,
+            headers: {
+              ...msg.properties.headers,
+              "x-error-type": error instanceof HandlerError ? error.name : "Unknown",
+              "x-error-message": error instanceof Error ? error.message : String(error),
+              "x-original-queue": consumer.queue.name,
+              "x-retry-count": attemptNumber - 1,
+              "x-max-attempts-reached": true,
+              "x-failed-at": new Date().toISOString(),
             },
-          )
+          })
           .then(() => {
             this.amqpClient.channel.ack(msg);
           })
@@ -344,7 +334,12 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       }
 
       // Calculate delay for this retry attempt
-      const delayMs = this.calculateRetryDelay(attemptNumber, initialDelayMs, multiplier, maxDelayMs);
+      const delayMs = this.calculateRetryDelay(
+        attemptNumber,
+        initialDelayMs,
+        multiplier,
+        maxDelayMs,
+      );
 
       this.logger?.warn("Retryable error, scheduling retry with exponential backoff", {
         consumerName: String(consumerName),
@@ -451,7 +446,10 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
                   headers: {
                     ...msg.properties.headers,
                     "x-error-type": "ParseError",
-                    "x-error-message": parseResult.error instanceof Error ? parseResult.error.message : String(parseResult.error),
+                    "x-error-message":
+                      parseResult.error instanceof Error
+                        ? parseResult.error.message
+                        : String(parseResult.error),
                     "x-original-queue": consumer.queue.name,
                     "x-failed-at": new Date().toISOString(),
                   },
