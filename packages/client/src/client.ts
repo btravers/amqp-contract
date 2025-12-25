@@ -14,6 +14,13 @@ export type CreateClientOptions<TContract extends ContractDefinition> = {
   urls: ConnectionUrl[];
   connectionOptions?: AmqpConnectionManagerOptions | undefined;
   logger?: Logger | undefined;
+  amqpClient?: never;
+} | {
+  contract: TContract;
+  amqpClient: AmqpClient;
+  logger?: Logger | undefined;
+  urls?: never;
+  connectionOptions?: never;
 };
 
 /**
@@ -32,17 +39,23 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
    * Connection management (including automatic reconnection) is handled internally
    * by amqp-connection-manager via the {@link AmqpClient}. The client establishes
    * infrastructure asynchronously in the background once the connection is ready.
+   * 
+   * You can pass an existing AmqpClient instance to share a connection with other
+   * clients or workers, following RabbitMQ best practices of sharing connections
+   * while using separate channels.
    */
-  static create<TContract extends ContractDefinition>({
-    contract,
-    urls,
-    connectionOptions,
-    logger,
-  }: CreateClientOptions<TContract>): Future<Result<TypedAmqpClient<TContract>, TechnicalError>> {
+  static create<TContract extends ContractDefinition>(
+    options: CreateClientOptions<TContract>,
+  ): Future<Result<TypedAmqpClient<TContract>, TechnicalError>> {
+    const amqpClient = options.amqpClient ?? new AmqpClient(
+      options.contract,
+      { urls: options.urls, connectionOptions: options.connectionOptions }
+    );
+    
     const client = new TypedAmqpClient(
-      contract,
-      new AmqpClient(contract, { urls, connectionOptions }),
-      logger,
+      options.contract,
+      amqpClient,
+      options.logger,
     );
 
     return client.waitForConnectionReady().mapOk(() => client);

@@ -15,6 +15,7 @@ export type AmqpClientOptions = {
 export class AmqpClient {
   private readonly connection: AmqpConnectionManager;
   public readonly channel: ChannelWrapper;
+  private readonly ownsConnection: boolean;
 
   constructor(
     private readonly contract: ContractDefinition,
@@ -25,11 +26,43 @@ export class AmqpClient {
       json: true,
       setup: (channel: Channel) => this.setup(channel),
     });
+    this.ownsConnection = true;
+  }
+
+  /**
+   * Create an AmqpClient that shares an existing connection
+   * @param contract - The contract definition
+   * @param connection - The existing connection to share
+   * @returns A new AmqpClient that shares the connection
+   */
+  static fromConnection(
+    contract: ContractDefinition,
+    connection: AmqpConnectionManager,
+  ): AmqpClient {
+    const client = Object.create(AmqpClient.prototype);
+    client.contract = contract;
+    client.connection = connection;
+    client.channel = connection.createChannel({
+      json: true,
+      setup: (channel: Channel) => client.setup(channel),
+    });
+    client.ownsConnection = false;
+    return client;
+  }
+
+  /**
+   * Get the underlying connection manager
+   * This can be used to share the connection with other AmqpClient instances
+   */
+  getConnection(): AmqpConnectionManager {
+    return this.connection;
   }
 
   async close(): Promise<void> {
     await this.channel.close();
-    await this.connection.close();
+    if (this.ownsConnection) {
+      await this.connection.close();
+    }
   }
 
   private async setup(channel: Channel): Promise<void> {
