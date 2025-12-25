@@ -680,6 +680,44 @@ export function defineContract<TContract extends ContractDefinition>(
 }
 
 /**
+ * Helper function to create a publisher based on exchange type.
+ * Handles the conditional logic for fanout vs direct/topic exchanges.
+ * @internal
+ */
+function createPublisherForExchange<TMessage extends MessageDefinition>(
+  exchange: ExchangeDefinition,
+  message: TMessage,
+  options?: {
+    routingKey?: string;
+    arguments?: Record<string, unknown>;
+  },
+): PublisherDefinition<TMessage> {
+  if (exchange.type === "fanout") {
+    return definePublisher(exchange, message, options);
+  }
+  return definePublisher(exchange, message, options as { routingKey: string });
+}
+
+/**
+ * Helper function to create a queue binding based on exchange type.
+ * Handles the conditional logic for fanout vs direct/topic exchanges.
+ * @internal
+ */
+function createQueueBindingForExchange(
+  queue: QueueDefinition,
+  exchange: ExchangeDefinition,
+  options?: {
+    routingKey?: string;
+    arguments?: Record<string, unknown>;
+  },
+): QueueBindingDefinition {
+  if (exchange.type === "fanout") {
+    return defineQueueBinding(queue, exchange, options);
+  }
+  return defineQueueBinding(queue, exchange, options as { routingKey: string });
+}
+
+/**
  * Publisher-first builder result.
  *
  * This type represents a publisher with its binding and provides a method to create
@@ -846,21 +884,9 @@ export function definePublisherFirst<TMessage extends MessageDefinition>(
     arguments?: Record<string, unknown>;
   },
 ): PublisherFirstResult<TMessage, PublisherDefinition<TMessage>, QueueBindingDefinition> {
-  // Create the binding based on exchange type
-  let binding: QueueBindingDefinition;
-  if (exchange.type === "fanout") {
-    binding = defineQueueBinding(queue, exchange, options);
-  } else {
-    binding = defineQueueBinding(queue, exchange, options as { routingKey: string });
-  }
-
-  // Create the publisher with the same routing key based on exchange type
-  let publisher: PublisherDefinition<TMessage>;
-  if (exchange.type === "fanout") {
-    publisher = definePublisher(exchange, message, options);
-  } else {
-    publisher = definePublisher(exchange, message, options as { routingKey: string });
-  }
+  // Create the binding and publisher using helper functions
+  const binding = createQueueBindingForExchange(queue, exchange, options);
+  const publisher = createPublisherForExchange(exchange, message, options);
 
   // Factory function to create a consumer with the same message type
   const createConsumer = (): ConsumerDefinition<TMessage> => {
@@ -1045,20 +1071,12 @@ export function defineConsumerFirst<TMessage extends MessageDefinition>(
   // Create the consumer
   const consumer = defineConsumer(queue, message);
 
-  // Create the binding based on exchange type
-  let binding: QueueBindingDefinition;
-  if (exchange.type === "fanout") {
-    binding = defineQueueBinding(queue, exchange, options);
-  } else {
-    binding = defineQueueBinding(queue, exchange, options as { routingKey: string });
-  }
+  // Create the binding using helper function
+  const binding = createQueueBindingForExchange(queue, exchange, options);
 
   // Factory function to create a publisher with the same message type and routing key
   const createPublisher = (): PublisherDefinition<TMessage> => {
-    if (exchange.type === "fanout") {
-      return definePublisher(exchange, message, options);
-    }
-    return definePublisher(exchange, message, options as { routingKey: string });
+    return createPublisherForExchange(exchange, message, options);
   };
 
   return {
