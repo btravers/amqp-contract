@@ -295,6 +295,178 @@ const contract = defineContract({
 });
 ```
 
+## Merging Contracts
+
+For large applications, split your AMQP topology into logical subdomains and merge them together. This enables modular architecture, team ownership, and better testing.
+
+### Basic Example
+
+```typescript
+import { mergeContracts } from '@amqp-contract/contract';
+
+// Define order subdomain
+const orderContract = defineContract({
+  exchanges: {
+    orders: defineExchange('orders', 'topic', { durable: true }),
+  },
+  queues: {
+    orderProcessing: defineQueue('order-processing', { durable: true }),
+  },
+  publishers: {
+    orderCreated: definePublisher(ordersExchange, orderMessage, {
+      routingKey: 'order.created',
+    }),
+  },
+  consumers: {
+    processOrder: defineConsumer(orderProcessingQueue, orderMessage),
+  },
+});
+
+// Define payment subdomain
+const paymentContract = defineContract({
+  exchanges: {
+    payments: defineExchange('payments', 'topic', { durable: true }),
+  },
+  queues: {
+    paymentProcessing: defineQueue('payment-processing', { durable: true }),
+  },
+  publishers: {
+    paymentReceived: definePublisher(paymentsExchange, paymentMessage, {
+      routingKey: 'payment.received',
+    }),
+  },
+  consumers: {
+    processPayment: defineConsumer(paymentProcessingQueue, paymentMessage),
+  },
+});
+
+// Merge into a single contract
+const appContract = mergeContracts(orderContract, paymentContract);
+```
+
+### Type Safety
+
+The merged contract preserves full type safety across all subdomains:
+
+```typescript
+// TypeScript knows about all publishers from both contracts
+const client = await TypedAmqpClient.create({
+  contract: appContract,
+  connection
+});
+
+// ✅ Both publishers are available with autocomplete
+await client.publish('orderCreated', orderData);
+await client.publish('paymentReceived', paymentData);
+
+// Create worker with handlers for all consumers
+const worker = await TypedAmqpWorker.create({
+  contract: appContract,
+  handlers: {
+    processOrder: async (message) => { /* ... */ },
+    processPayment: async (message) => { /* ... */ },
+  },
+  connection,
+});
+```
+
+### Benefits
+
+**Modular Architecture**
+
+- Split large contracts into logical domains (orders, payments, notifications)
+- Each subdomain has its own exchanges, queues, bindings, publishers, and consumers
+- Easier to understand and maintain
+
+**Team Ownership**
+
+- Different teams can own different contract modules
+- Order team maintains `orderContract`
+- Payment team maintains `paymentContract`
+- Platform team maintains shared infrastructure contracts
+
+**Reusability**
+
+- Define shared infrastructure once and merge into multiple applications
+- Dead letter exchanges, monitoring queues, audit logs
+
+**Better Testing**
+
+- Test each subdomain in isolation with focused unit tests
+- Or test the full merged contract in integration tests
+
+### Shared Infrastructure
+
+Define common infrastructure separately and merge it with application contracts:
+
+```typescript
+// Shared infrastructure (maintained by platform team)
+const sharedInfraContract = defineContract({
+  exchanges: {
+    deadLetter: defineExchange('dlx', 'topic', { durable: true }),
+  },
+  queues: {
+    deadLetterQueue: defineQueue('dlq', { durable: true }),
+  },
+  bindings: {
+    dlqBinding: defineQueueBinding(deadLetterQueue, deadLetterExchange, {
+      routingKey: '#',
+    }),
+  },
+});
+
+// Application contract
+const appContract = defineContract({
+  // Application-specific resources
+});
+
+// Merge infrastructure with application
+const fullContract = mergeContracts(sharedInfraContract, appContract);
+```
+
+### Conflict Handling
+
+When merging contracts with the same resource name, later contracts override earlier ones:
+
+```typescript
+const contract1 = defineContract({
+  exchanges: {
+    shared: defineExchange('my-exchange', 'topic', { durable: true }),
+  },
+});
+
+const contract2 = defineContract({
+  exchanges: {
+    shared: defineExchange('my-exchange', 'direct', { durable: false }),
+  },
+});
+
+const merged = mergeContracts(contract1, contract2);
+// merged.exchanges.shared will be the 'direct' exchange from contract2
+```
+
+**Best Practice:** Use unique prefixes or namespaces to avoid conflicts:
+
+- `orders_exchange`, `payments_exchange`
+- Or organize by subdomain: `orders`, `payments`
+
+### Multiple Contracts
+
+Merge any number of contracts:
+
+```typescript
+const contract = mergeContracts(
+  sharedInfraContract,
+  orderContract,
+  paymentContract,
+  notificationContract,
+);
+```
+
+### Complete Example
+
+See the [subdomain example](https://github.com/btravers/amqp-contract/tree/main/samples/basic-order-processing-contract/src/subdomain-example.ts) for a complete demonstration with multiple subdomains including order processing, payments, notifications, and shared infrastructure.
+
 ## Next Steps
 
 - Learn about [Client Usage](/guide/client-usage)

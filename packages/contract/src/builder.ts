@@ -6,6 +6,7 @@ import type {
   ExchangeBindingDefinition,
   ExchangeDefinition,
   FanoutExchangeDefinition,
+  MergeContracts,
   MessageDefinition,
   PublisherDefinition,
   QueueBindingDefinition,
@@ -680,10 +681,13 @@ export function defineContract<TContract extends ContractDefinition>(
 }
 
 /**
- * Merge multiple contracts into a single contract.
+ * Merge multiple contracts into a single contract with full type inference.
  *
  * This function enables splitting your AMQP topology into logical subdomains or modules,
- * then combining them into a unified contract. This is particularly useful for:
+ * then combining them into a unified contract. The merged contract preserves type safety,
+ * allowing TypeScript to infer all publisher and consumer names across subdomains.
+ *
+ * **Use Cases:**
  * - Large applications with multiple bounded contexts or subdomains
  * - Team-owned contract modules that need to be composed
  * - Shared infrastructure contracts that are reused across applications
@@ -696,7 +700,7 @@ export function defineContract<TContract extends ContractDefinition>(
  * - It's recommended to use unique prefixes or namespaces for resources to avoid conflicts
  *
  * @param contracts - Variable number of contract definitions to merge
- * @returns A new contract containing all resources from the input contracts
+ * @returns A new contract with merged types from all input contracts
  *
  * @example
  * ```typescript
@@ -704,9 +708,6 @@ export function defineContract<TContract extends ContractDefinition>(
  * const orderContract = defineContract({
  *   exchanges: {
  *     orders: defineExchange('orders', 'topic', { durable: true }),
- *   },
- *   queues: {
- *     orderProcessing: defineQueue('order-processing', { durable: true }),
  *   },
  *   publishers: {
  *     orderCreated: definePublisher(ordersExchange, orderMessage, {
@@ -719,9 +720,6 @@ export function defineContract<TContract extends ContractDefinition>(
  *   exchanges: {
  *     payments: defineExchange('payments', 'topic', { durable: true }),
  *   },
- *   queues: {
- *     paymentProcessing: defineQueue('payment-processing', { durable: true }),
- *   },
  *   publishers: {
  *     paymentReceived: definePublisher(paymentsExchange, paymentMessage, {
  *       routingKey: 'payment.received',
@@ -729,42 +727,18 @@ export function defineContract<TContract extends ContractDefinition>(
  *   },
  * });
  *
- * // Merge into a single contract
+ * // Merge into a single contract with type safety
  * const appContract = mergeContracts(orderContract, paymentContract);
  *
- * // Now you can use all publishers and consumers from both contracts
+ * // TypeScript knows about all publishers: 'orderCreated' | 'paymentReceived'
  * const client = await TypedAmqpClient.create({ contract: appContract, connection });
  * await client.publish('orderCreated', orderData);
  * await client.publish('paymentReceived', paymentData);
  * ```
- *
- * @example
- * ```typescript
- * // Shared infrastructure contract
- * const sharedInfraContract = defineContract({
- *   exchanges: {
- *     deadLetter: defineExchange('dlx', 'topic', { durable: true }),
- *   },
- *   queues: {
- *     deadLetterQueue: defineQueue('dlq', { durable: true }),
- *   },
- * });
- *
- * // Application-specific contract
- * const appContract = defineContract({
- *   exchanges: {
- *     app: defineExchange('app', 'topic', { durable: true }),
- *   },
- *   // ... rest of contract
- * });
- *
- * // Merge with shared infrastructure
- * const fullContract = mergeContracts(sharedInfraContract, appContract);
- * ```
  */
-export function mergeContracts<TContracts extends ContractDefinition[]>(
+export function mergeContracts<TContracts extends readonly [...ContractDefinition[]]>(
   ...contracts: TContracts
-): ContractDefinition {
+): MergeContracts<TContracts> {
   const merged: ContractDefinition = {
     exchanges: {},
     queues: {},
@@ -827,5 +801,5 @@ export function mergeContracts<TContracts extends ContractDefinition[]>(
     delete merged.consumers;
   }
 
-  return merged;
+  return merged as MergeContracts<TContracts>;
 }

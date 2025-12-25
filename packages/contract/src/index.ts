@@ -26,4 +26,5 @@ export type {
   QueueDefinition,
   InferPublisherNames,
   InferConsumerNames,
+  MergeContracts,
 } from "./types.js";
