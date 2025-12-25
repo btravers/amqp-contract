@@ -682,6 +682,11 @@ export function defineContract<TContract extends ContractDefinition>(
 /**
  * Helper function to create a publisher based on exchange type.
  * Handles the conditional logic for fanout vs direct/topic exchanges.
+ * 
+ * Note: The type assertion for direct/topic exchanges is safe because:
+ * - The overloaded public functions ensure routingKey is provided for direct/topic
+ * - This function is only called from contexts where type safety is already enforced
+ * 
  * @internal
  */
 function createPublisherForExchange<TMessage extends MessageDefinition>(
@@ -695,12 +700,18 @@ function createPublisherForExchange<TMessage extends MessageDefinition>(
   if (exchange.type === "fanout") {
     return definePublisher(exchange, message, options);
   }
+  // Safe assertion: routingKey is guaranteed by caller context
   return definePublisher(exchange, message, options as { routingKey: string });
 }
 
 /**
  * Helper function to create a queue binding based on exchange type.
  * Handles the conditional logic for fanout vs direct/topic exchanges.
+ * 
+ * Note: The type assertion for direct/topic exchanges is safe because:
+ * - The overloaded public functions ensure routingKey is provided for direct/topic
+ * - This function is only called from contexts where type safety is already enforced
+ * 
  * @internal
  */
 function createQueueBindingForExchange(
@@ -714,6 +725,7 @@ function createQueueBindingForExchange(
   if (exchange.type === "fanout") {
     return defineQueueBinding(queue, exchange, options);
   }
+  // Safe assertion: routingKey is guaranteed by caller context
   return defineQueueBinding(queue, exchange, options as { routingKey: string });
 }
 

@@ -659,7 +659,7 @@ describe("builder", () => {
       });
     });
 
-    it("should create a consumer-first relationship with topic exchange", () => {
+    it("should create a consumer-first relationship with direct exchange", () => {
       // GIVEN
       const message = defineMessage(
         z.object({
