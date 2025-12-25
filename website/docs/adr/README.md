@@ -36,9 +36,9 @@ We use the following format for ADRs:
 
 ## Index
 
-- [ADR-001: Client and Worker Terminology](./001-client-worker-terminology.md)
-- [ADR-002: Separate Client and Worker Packages](./002-separate-packages.md)
-- [ADR-003: Connection Sharing Strategy](./003-connection-sharing.md)
+- [ADR-001: Client and Worker Terminology](001-client-worker-terminology.md)
+- [ADR-002: Separate Client and Worker Packages](002-separate-packages.md)
+- [ADR-003: Connection Sharing Strategy](003-connection-sharing.md)
 
 ## Status Definitions
 
