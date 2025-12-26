@@ -1,10 +1,11 @@
-import { cp, mkdir, writeFile } from "node:fs/promises";
+import { access, cp, mkdir, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const rootDir = join(__dirname, "..");
 const docsDir = join(rootDir, "docs", "api");
+const packagesDir = join(rootDir, "..", "packages");
 
 type PackageInfo = {
   name: string;
@@ -28,8 +29,18 @@ async function copyDocs(): Promise<void> {
 
     // Copy docs from each package
     for (const pkg of packages) {
-      const sourcePath = join(rootDir, "node_modules", pkg.name, "docs");
+      // Try workspace package location first (for packages in development)
+      const workspaceSourcePath = join(packagesDir, pkg.folder, "docs");
+      // Fallback to node_modules (for published packages)
+      const nodeModulesSourcePath = join(rootDir, "node_modules", pkg.name, "docs");
       const targetPath = join(docsDir, pkg.folder);
+
+      let sourcePath = workspaceSourcePath;
+      try {
+        await access(workspaceSourcePath);
+      } catch {
+        sourcePath = nodeModulesSourcePath;
+      }
 
       try {
         await cp(sourcePath, targetPath, { recursive: true });
