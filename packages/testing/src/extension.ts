@@ -172,7 +172,7 @@ export const it = vitestIt.extend<{
           },
           { timeout: 5000 },
         );
-        return messages.slice(0, nbEvents);
+        return messages.splice(0, nbEvents);
       };
     }
     await use(initConsumer);
