@@ -5,9 +5,11 @@ import {
   defineMessage,
   definePublisher,
 } from "@amqp-contract/contract";
+import { MessageValidationError } from "@amqp-contract/client";
 import { AmqpClientModule } from "./client.module.js";
 import { AmqpClientService } from "./client.service.js";
 import { Module } from "@nestjs/common";
+import { Result } from "@swan-io/boxed";
 import { Test } from "@nestjs/testing";
 import { describe, expect } from "vitest";
 import { it as baseIt } from "@amqp-contract/testing/extension";
@@ -84,14 +86,13 @@ describe("AmqpClientModule Integration", () => {
       expect(result.isOk()).toBe(true);
 
       const messages = await pendingMessages();
-      expect(messages).toHaveLength(1);
-      expect(messages[0]).toEqual(
+      expect(messages).toEqual([
         expect.objectContaining({
           content: Buffer.from(
             JSON.stringify({ id: "123", message: "Hello from integration test!" }),
           ),
         }),
-      );
+      ]);
     });
 
     it("should validate messages before publishing", async ({ clientService }) => {
@@ -103,7 +104,9 @@ describe("AmqpClientModule Integration", () => {
       });
 
       // THEN - should return error
-      expect(result.isError()).toBe(true);
+      expect(result).toEqual(
+        Result.Error(new MessageValidationError("testPublisher", expect.any(Array))),
+      );
     });
   });
 
