@@ -14,37 +14,60 @@ vi.mock("amqp-connection-manager", () => {
   };
 
   let setupCallbacks: Array<(channel: Channel) => Promise<void>> = [];
+  let connectCallCount = 0;
+  const connectionsByUrl: Map<string, unknown> = new Map();
 
-  const mockConnection = {
+  const createMockConnection = () => ({
     createChannel: vi.fn((options: { setup: (channel: Channel) => Promise<void> }) => {
       setupCallbacks.push(options.setup);
       return { ...mockChannel };
     }),
     close: vi.fn().mockResolvedValue(undefined),
-  };
+  });
 
   return {
     default: {
-      connect: vi.fn(() => mockConnection),
+      connect: vi.fn((urls: unknown[]) => {
+        connectCallCount++;
+        const key = JSON.stringify(urls);
+        if (!connectionsByUrl.has(key)) {
+          connectionsByUrl.set(key, createMockConnection());
+        }
+        return connectionsByUrl.get(key);
+      }),
     },
-    __getMockConnection: () => mockConnection,
+    __getMockConnection: () => Array.from(connectionsByUrl.values())[0],
     __getSetupCallbacks: () => setupCallbacks,
     __getMockChannel: () => mockChannel,
+    __getConnectCallCount: () => connectCallCount,
     __resetCallbacks: () => {
       setupCallbacks = [];
+    },
+    __resetConnectCount: () => {
+      connectCallCount = 0;
+      connectionsByUrl.clear();
     },
   };
 });
 
-describe("AmqpClient Connection Sharing", () => {
+describe("AmqpClient Connection Sharing (Singleton)", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     const amqpModule = await import("amqp-connection-manager");
     (
       amqpModule as unknown as {
         __resetCallbacks: () => void;
+        __resetConnectCount: () => void;
       }
     ).__resetCallbacks();
+    (
+      amqpModule as unknown as {
+        __resetConnectCount: () => void;
+      }
+    ).__resetConnectCount();
+    
+    // Reset the singleton cache between tests
+    AmqpClient._resetConnectionCacheForTesting();
   });
 
   it("should create client with its own connection", () => {
@@ -66,7 +89,7 @@ describe("AmqpClient Connection Sharing", () => {
     expect(client.getConnection()).toBeDefined();
   });
 
-  it("should create client from shared connection", async () => {
+  it("should reuse connection for clients with same URLs", async () => {
     // GIVEN
     const contract = defineContract({
       exchanges: {
@@ -74,19 +97,25 @@ describe("AmqpClient Connection Sharing", () => {
       },
     });
 
-    const primaryClient = new AmqpClient(contract, {
-      urls: ["amqp://localhost"],
-    });
+    const urls = ["amqp://localhost"];
 
-    const sharedConnection = primaryClient.getConnection();
+    // WHEN - Create two clients with same URLs
+    const primaryClient = new AmqpClient(contract, { urls });
+    const secondaryClient = new AmqpClient(contract, { urls });
 
-    // WHEN
-    const secondaryClient = new AmqpClient(contract, { connection: sharedConnection });
+    const amqpModule = await import("amqp-connection-manager");
+    const connectCallCount = (
+      amqpModule as unknown as {
+        __getConnectCallCount: () => number;
+      }
+    ).__getConnectCallCount();
 
     // THEN
+    expect(primaryClient).toBeDefined();
     expect(secondaryClient).toBeDefined();
-    expect(secondaryClient.channel).toBeDefined();
-    expect(secondaryClient.getConnection()).toBe(sharedConnection);
+    expect(primaryClient.getConnection()).toBe(secondaryClient.getConnection());
+    // Connection should only be created once due to singleton
+    expect(connectCallCount).toBe(1);
   });
 
   it("should create separate channels for each client sharing a connection", async () => {
@@ -97,28 +126,20 @@ describe("AmqpClient Connection Sharing", () => {
       },
     });
 
-    const primaryClient = new AmqpClient(contract, {
-      urls: ["amqp://localhost"],
-    });
+    const urls = ["amqp://localhost"];
 
-    const sharedConnection = primaryClient.getConnection();
-    const amqpModule = await import("amqp-connection-manager");
-    const mockConnection = (
-      amqpModule as unknown as {
-        __getMockConnection: () => { createChannel: { mock: { calls: unknown[][] } } };
-      }
-    ).__getMockConnection();
-
-    // WHEN
-    const secondaryClient = new AmqpClient(contract, { connection: sharedConnection });
+    // WHEN - Create two clients with same URLs
+    const primaryClient = new AmqpClient(contract, { urls });
+    const secondaryClient = new AmqpClient(contract, { urls });
 
     // THEN
-    // Verify that createChannel was called twice (once for each client)
-    expect(mockConnection.createChannel.mock.calls.length).toBe(2);
+    // Both clients should share the same connection
+    expect(primaryClient.getConnection()).toBe(secondaryClient.getConnection());
+    // But have different channels
     expect(primaryClient.channel).not.toBe(secondaryClient.channel);
   });
 
-  it("should only close connection when primary client closes", async () => {
+  it("should not close shared connection when closing a client", async () => {
     // GIVEN
     const contract = defineContract({
       exchanges: {
@@ -126,12 +147,9 @@ describe("AmqpClient Connection Sharing", () => {
       },
     });
 
-    const primaryClient = new AmqpClient(contract, {
-      urls: ["amqp://localhost"],
-    });
-
-    const sharedConnection = primaryClient.getConnection();
-    const secondaryClient = new AmqpClient(contract, { connection: sharedConnection });
+    const urls = ["amqp://localhost"];
+    const primaryClient = new AmqpClient(contract, { urls });
+    const secondaryClient = new AmqpClient(contract, { urls });
 
     const amqpModule = await import("amqp-connection-manager");
     const mockConnection = (
@@ -140,17 +158,12 @@ describe("AmqpClient Connection Sharing", () => {
       }
     ).__getMockConnection();
 
-    // WHEN - Close secondary client first
+    // WHEN - Close both clients
     await secondaryClient.close();
-
-    // THEN - Connection should not be closed yet
-    expect(mockConnection.close.mock.calls.length).toBe(0);
-
-    // WHEN - Close primary client
     await primaryClient.close();
 
-    // THEN - Connection should now be closed
-    expect(mockConnection.close.mock.calls.length).toBe(1);
+    // THEN - Connection should not be closed (managed by singleton)
+    expect(mockConnection.close.mock.calls.length).toBe(0);
   });
 
   it("should setup infrastructure for both clients sharing connection", async () => {
@@ -167,12 +180,9 @@ describe("AmqpClient Connection Sharing", () => {
       },
     });
 
-    const primaryClient = new AmqpClient(contract1, {
-      urls: ["amqp://localhost"],
-    });
-
-    const sharedConnection = primaryClient.getConnection();
-    void new AmqpClient(contract2, { connection: sharedConnection });
+    const urls = ["amqp://localhost"];
+    void new AmqpClient(contract1, { urls });
+    void new AmqpClient(contract2, { urls });
 
     const amqpModule = await import("amqp-connection-manager");
     const setupCallbacks = (
@@ -205,5 +215,30 @@ describe("AmqpClient Connection Sharing", () => {
       autoDelete: undefined,
       arguments: undefined,
     });
+  });
+
+  it("should create separate connections for different URLs", async () => {
+    // GIVEN
+    const contract = defineContract({
+      exchanges: {
+        orders: defineExchange("orders", "topic", { durable: true }),
+      },
+    });
+
+    const amqpModule = await import("amqp-connection-manager");
+    
+    // WHEN - Create two clients with different URLs
+    const client1 = new AmqpClient(contract, { urls: ["amqp://localhost"] });
+    const client2 = new AmqpClient(contract, { urls: ["amqp://other-host"] });
+
+    const connectCallCount = (
+      amqpModule as unknown as {
+        __getConnectCallCount: () => number;
+      }
+    ).__getConnectCallCount();
+
+    // THEN - Two connections should be created
+    expect(client1.getConnection()).not.toBe(client2.getConnection());
+    expect(connectCallCount).toBe(2);
   });
 });

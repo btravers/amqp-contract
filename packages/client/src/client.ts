@@ -1,4 +1,4 @@
-import { AmqpClient, type AmqpConnectionManager, type Logger } from "@amqp-contract/core";
+import { AmqpClient, type Logger } from "@amqp-contract/core";
 import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
 import type { ContractDefinition, InferPublisherNames } from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
@@ -14,13 +14,6 @@ export type CreateClientOptions<TContract extends ContractDefinition> = {
   urls: ConnectionUrl[];
   connectionOptions?: AmqpConnectionManagerOptions | undefined;
   logger?: Logger | undefined;
-  connection?: never;
-} | {
-  contract: TContract;
-  connection: AmqpConnectionManager;
-  logger?: Logger | undefined;
-  urls?: never;
-  connectionOptions?: never;
 };
 
 /**
@@ -40,20 +33,19 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
    * by amqp-connection-manager via the {@link AmqpClient}. The client establishes
    * infrastructure asynchronously in the background once the connection is ready.
    * 
-   * You can pass a shared AmqpConnectionManager to reuse an existing connection,
-   * following RabbitMQ best practices of sharing connections while using separate channels.
+   * Connections are automatically shared across clients with the same URLs and
+   * connection options, following RabbitMQ best practices.
    */
-  static create<TContract extends ContractDefinition>(
-    options: CreateClientOptions<TContract>,
-  ): Future<Result<TypedAmqpClient<TContract>, TechnicalError>> {
-    const amqpClient = 'connection' in options && options.connection
-      ? new AmqpClient(options.contract, { connection: options.connection })
-      : new AmqpClient(options.contract, { urls: options.urls, connectionOptions: options.connectionOptions });
-
+  static create<TContract extends ContractDefinition>({
+    contract,
+    urls,
+    connectionOptions,
+    logger,
+  }: CreateClientOptions<TContract>): Future<Result<TypedAmqpClient<TContract>, TechnicalError>> {
     const client = new TypedAmqpClient(
-      options.contract,
-      amqpClient,
-      options.logger,
+      contract,
+      new AmqpClient(contract, { urls, connectionOptions }),
+      logger,
     );
 
     return client.waitForConnectionReady().mapOk(() => client);

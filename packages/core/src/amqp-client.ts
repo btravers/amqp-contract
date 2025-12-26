@@ -10,29 +10,73 @@ import type { ContractDefinition } from "@amqp-contract/contract";
 export type AmqpClientOptions = {
   urls: ConnectionUrl[];
   connectionOptions?: AmqpConnectionManagerOptions | undefined;
-  connection?: never;
-} | {
-  connection: AmqpConnectionManager;
-  urls?: never;
-  connectionOptions?: never;
 };
+
+/**
+ * Connection manager singleton for sharing connections across clients
+ */
+class ConnectionManagerSingleton {
+  private static instance: ConnectionManagerSingleton;
+  private connections: Map<string, AmqpConnectionManager> = new Map();
+
+  private constructor() {}
+
+  static getInstance(): ConnectionManagerSingleton {
+    if (!ConnectionManagerSingleton.instance) {
+      ConnectionManagerSingleton.instance = new ConnectionManagerSingleton();
+    }
+    return ConnectionManagerSingleton.instance;
+  }
+
+  /**
+   * Get or create a connection for the given URLs and options
+   */
+  getConnection(
+    urls: ConnectionUrl[],
+    connectionOptions?: AmqpConnectionManagerOptions,
+  ): AmqpConnectionManager {
+    // Create a key based on URLs and connection options
+    const key = this.createConnectionKey(urls, connectionOptions);
+    
+    if (!this.connections.has(key)) {
+      const connection = amqp.connect(urls, connectionOptions);
+      this.connections.set(key, connection);
+    }
+    
+    return this.connections.get(key)!;
+  }
+
+  private createConnectionKey(
+    urls: ConnectionUrl[],
+    connectionOptions?: AmqpConnectionManagerOptions,
+  ): string {
+    // Create a deterministic key from URLs and options
+    const urlsStr = Array.isArray(urls) ? urls.join(',') : String(urls);
+    const optsStr = connectionOptions ? JSON.stringify(connectionOptions) : '';
+    return `${urlsStr}::${optsStr}`;
+  }
+
+  /**
+   * Reset all cached connections (for testing purposes)
+   * @internal
+   */
+  _resetForTesting(): void {
+    this.connections.clear();
+  }
+}
 
 export class AmqpClient {
   private readonly connection: AmqpConnectionManager;
   public readonly channel: ChannelWrapper;
-  private readonly ownsConnection: boolean;
 
   constructor(
     private readonly contract: ContractDefinition,
     options: AmqpClientOptions,
   ) {
-    if ('connection' in options && options.connection) {
-      this.connection = options.connection;
-      this.ownsConnection = false;
-    } else {
-      this.connection = amqp.connect(options.urls, options.connectionOptions);
-      this.ownsConnection = true;
-    }
+    // Always use singleton to get/create connection
+    const singleton = ConnectionManagerSingleton.getInstance();
+    this.connection = singleton.getConnection(options.urls, options.connectionOptions);
+    
     this.channel = this.connection.createChannel({
       json: true,
       setup: (channel: Channel) => this.setup(channel),
@@ -43,20 +87,10 @@ export class AmqpClient {
    * Get the underlying connection manager
    *
    * This method exposes the AmqpConnectionManager instance that this client uses.
-   * The returned connection can be shared with other AmqpClient instances to
-   * implement connection sharing while each client maintains its own channel.
+   * The connection is automatically shared across all AmqpClient instances that
+   * use the same URLs and connection options.
    *
    * @returns The AmqpConnectionManager instance used by this client
-   *
-   * @example
-   * ```typescript
-   * const primaryClient = new AmqpClient(contract, { urls: ['amqp://localhost'] });
-   * const connection = primaryClient.getConnection();
-   *
-   * // Share the connection with another AmqpClient
-   * const secondaryClient = new AmqpClient(anotherContract, { connection });
-   * // Both clients share one connection but have separate channels
-   * ```
    */
   getConnection(): AmqpConnectionManager {
     return this.connection;
@@ -64,9 +98,16 @@ export class AmqpClient {
 
   async close(): Promise<void> {
     await this.channel.close();
-    if (this.ownsConnection) {
-      await this.connection.close();
-    }
+    // Note: We don't close the connection as it's managed by the singleton
+    // and may be shared with other clients
+  }
+
+  /**
+   * Reset connection singleton cache (for testing only)
+   * @internal
+   */
+  static _resetConnectionCacheForTesting(): void {
+    ConnectionManagerSingleton.getInstance()._resetForTesting();
   }
 
   private async setup(channel: Channel): Promise<void> {

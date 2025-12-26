@@ -40,6 +40,8 @@ vi.mock("amqp-connection-manager", () => {
 describe("AmqpClient", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Reset the singleton cache between tests
+    AmqpClient._resetConnectionCacheForTesting();
   });
 
   it("should create AmqpClient with contract and options", () => {
@@ -657,7 +659,7 @@ describe("AmqpClient", () => {
     await expect(setupCallback(mockChannel)).rejects.toThrow("Failed to setup bindings");
   });
 
-  it("should close connection properly", async () => {
+  it("should close channel but not connection (managed by singleton)", async () => {
     // GIVEN
     const contract = defineContract({
       exchanges: {
@@ -688,7 +690,9 @@ describe("AmqpClient", () => {
     await client.close();
 
     // THEN
+    // Channel should be closed
     expect(mockChannel.close).toHaveBeenCalledTimes(1);
-    expect(mockConnection.close).toHaveBeenCalledTimes(1);
+    // But connection should NOT be closed (managed by singleton)
+    expect(mockConnection.close).toHaveBeenCalledTimes(0);
   });
 });

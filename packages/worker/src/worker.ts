@@ -1,4 +1,4 @@
-import { AmqpClient, type AmqpConnectionManager, type Logger } from "@amqp-contract/core";
+import { AmqpClient, type Logger } from "@amqp-contract/core";
 import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
 import type { ContractDefinition, InferConsumerNames } from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
@@ -38,18 +38,6 @@ export type CreateWorkerOptions<TContract extends ContractDefinition> = {
   connectionOptions?: AmqpConnectionManagerOptions | undefined;
   /** Optional logger for logging message consumption and errors */
   logger?: Logger | undefined;
-  connection?: never;
-} | {
-  /** The AMQP contract definition specifying consumers and their message schemas */
-  contract: TContract;
-  /** Handlers for each consumer defined in the contract */
-  handlers: WorkerInferConsumerHandlers<TContract>;
-  /** Shared AmqpConnectionManager instance for connection reuse */
-  connection: AmqpConnectionManager;
-  /** Optional logger for logging message consumption and errors */
-  logger?: Logger | undefined;
-  urls?: never;
-  connectionOptions?: never;
 };
 
 /**
@@ -108,8 +96,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * consumers for all contract-defined handlers asynchronously in the background
    * once the underlying connection and channels are ready.
    *
-   * You can pass a shared AmqpConnectionManager to reuse an existing connection,
-   * following RabbitMQ best practices of sharing connections while using separate channels.
+   * Connections are automatically shared across clients and workers with the same
+   * URLs and connection options, following RabbitMQ best practices.
    *
    * @param options - Configuration options for the worker
    * @returns A Future that resolves to a Result containing the worker or an error
@@ -129,21 +117,21 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * }
    * ```
    */
-  static create<TContract extends ContractDefinition>(
-    options: CreateWorkerOptions<TContract>,
-  ): Future<Result<TypedAmqpWorker<TContract>, TechnicalError>> {
-    const amqpClient = 'connection' in options && options.connection
-      ? new AmqpClient(options.contract, { connection: options.connection })
-      : new AmqpClient(options.contract, {
-          urls: options.urls,
-          connectionOptions: options.connectionOptions,
-        });
-
+  static create<TContract extends ContractDefinition>({
+    contract,
+    handlers,
+    urls,
+    connectionOptions,
+    logger,
+  }: CreateWorkerOptions<TContract>): Future<Result<TypedAmqpWorker<TContract>, TechnicalError>> {
     const worker = new TypedAmqpWorker(
-      options.contract,
-      amqpClient,
-      options.handlers,
-      options.logger,
+      contract,
+      new AmqpClient(contract, {
+        urls,
+        connectionOptions,
+      }),
+      handlers,
+      logger,
     );
 
     return worker
