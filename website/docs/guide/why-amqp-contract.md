@@ -91,7 +91,7 @@ Changing a message schema means hunting through multiple files:
 Define your contract once, get types everywhere:
 
 ```typescript
-import { defineContract, defineExchange, defineQueue, definePublisher, defineConsumer, defineMessage } from '@amqp-contract/contract';
+import { defineContract, defineExchange, defineQueue, definePublisherFirst, defineMessage } from '@amqp-contract/contract';
 import { TypedAmqpClient } from '@amqp-contract/client';
 import { TypedAmqpWorker } from '@amqp-contract/worker';
 import { z } from 'zod';
@@ -109,17 +109,27 @@ const orderMessage = defineMessage(
   })
 );
 
-// 3. Create contract
+// 3. Publisher-first pattern for event-oriented messaging
+const orderCreatedEvent = definePublisherFirst(
+  ordersExchange,
+  orderMessage,
+  { routingKey: 'order.created' }
+);
+
+// 4. Create consumer from event (ensures schema consistency)
+const { consumer: processOrderConsumer, binding: orderBinding } = 
+  orderCreatedEvent.createConsumer(orderProcessingQueue);
+
+// 5. Create contract
 const contract = defineContract({
   exchanges: { orders: ordersExchange },
   queues: { orderProcessing: orderProcessingQueue },
+  bindings: { orderBinding },
   publishers: {
-    orderCreated: definePublisher(ordersExchange, orderMessage, {
-      routingKey: 'order.created',
-    }),
+    orderCreated: orderCreatedEvent.publisher,
   },
   consumers: {
-    processOrder: defineConsumer(orderProcessingQueue, orderMessage),
+    processOrder: processOrderConsumer,
   },
 });
 
@@ -192,16 +202,27 @@ await client.publish('orderCreated', {
 Your contract is the single source of truth:
 
 ```typescript
-// ✅ One contract definition used everywhere
+// ✅ One contract definition using publisher-first pattern
+const orderCreatedEvent = definePublisherFirst(
+  ordersExchange,
+  orderMessage,
+  { routingKey: 'order.created' }
+);
+
+const { consumer: processOrderConsumer, binding: orderBinding } = 
+  orderCreatedEvent.createConsumer(orderProcessingQueue);
+
 const contract = defineContract({
   // Define once, use across all publishers and consumers
+  // Publisher and consumer guaranteed to use same schema
+  exchanges: { orders: ordersExchange },
+  queues: { orderProcessing: orderProcessingQueue },
+  bindings: { orderBinding },
   publishers: {
-    orderCreated: definePublisher(ordersExchange, orderMessage, {
-      routingKey: 'order.created',
-    }),
+    orderCreated: orderCreatedEvent.publisher,
   },
   consumers: {
-    processOrder: defineConsumer(orderProcessingQueue, orderMessage),
+    processOrder: processOrderConsumer,
   },
 });
 ```
