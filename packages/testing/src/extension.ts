@@ -101,6 +101,7 @@ export const it = vitestIt.extend<{
    * @param exchange - The name of the exchange to publish to
    * @param routingKey - The routing key for message routing
    * @param content - The message payload (will be JSON serialized)
+   * @throws Error if the message cannot be published (e.g., write buffer is full)
    *
    * @example
    * ```typescript
@@ -111,7 +112,16 @@ export const it = vitestIt.extend<{
    */
   publishMessage: async ({ amqpChannel }, use) => {
     function publishMessage(exchange: string, routingKey: string, content: unknown): void {
-      amqpChannel.publish(exchange, routingKey, Buffer.from(JSON.stringify(content)));
+      const success = amqpChannel.publish(
+        exchange,
+        routingKey,
+        Buffer.from(JSON.stringify(content)),
+      );
+      if (!success) {
+        throw new Error(
+          `Failed to publish message to exchange "${exchange}" with routing key "${routingKey}"`,
+        );
+      }
     }
     await use(publishMessage);
   },
