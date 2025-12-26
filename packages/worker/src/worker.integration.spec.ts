@@ -541,7 +541,8 @@ describe("AmqpWorker Integration", () => {
     });
 
     // Wait for consumer to be set up
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    const CONSUMER_SETUP_WAIT_MS = 500;
+    await new Promise((resolve) => setTimeout(resolve, CONSUMER_SETUP_WAIT_MS));
 
     // WHEN - Delete the queue, which causes RabbitMQ to cancel the consumer
     // and send a null message to the consumer callback
@@ -612,8 +613,9 @@ describe("AmqpWorker Integration", () => {
       logger: mockLogger,
     }).resultToPromise();
 
-    // Wait for setup
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    // Wait for worker setup
+    const WORKER_SETUP_WAIT_MS = 500;
+    await new Promise((resolve) => setTimeout(resolve, WORKER_SETUP_WAIT_MS));
 
     // Verify consumer is working
     publishMessage(exchange.name, "cancel.test", { id: "test" });
