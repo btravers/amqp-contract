@@ -10,15 +10,7 @@ export default withMermaid(
     lang: "en-US",
 
     sitemap: {
-      hostname: "https://btravers.github.io",
-      transformItems: (items) => {
-        return items.map((item) => ({
-          ...item,
-          url: item.url.startsWith("/")
-            ? `/amqp-contract${item.url}`
-            : `/amqp-contract/${item.url}`,
-        }));
-      },
+      hostname: "https://btravers.github.io/amqp-contract/",
     },
 
     // Inject canonical URLs and dynamic meta tags for each page to prevent duplicate content issues
@@ -193,8 +185,18 @@ export default withMermaid(
       ["meta", { property: "og:type", content: "website" }],
       ["meta", { property: "og:site_name", content: "amqp-contract" }],
       ["meta", { property: "og:locale", content: "en_US" }],
+      [
+        "meta",
+        { property: "og:image", content: "https://btravers.github.io/amqp-contract/logo.svg" },
+      ],
+      ["meta", { property: "og:image:alt", content: "amqp-contract logo" }],
       // Twitter Card meta tags
       ["meta", { name: "twitter:card", content: "summary" }],
+      [
+        "meta",
+        { name: "twitter:image", content: "https://btravers.github.io/amqp-contract/logo.svg" },
+      ],
+      ["meta", { name: "twitter:image:alt", content: "amqp-contract logo" }],
       // Additional SEO meta tags
       ["meta", { name: "author", content: "Benoit TRAVERS" }],
       ["meta", { name: "robots", content: "index, follow" }],
