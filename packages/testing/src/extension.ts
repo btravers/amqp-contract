@@ -181,7 +181,11 @@ async function createVhost() {
   );
 
   if (vhostResponse.status !== 201) {
-    throw new Error(`Failed to create vhost '${namespace}': ${vhostResponse.status}`, {
+    const responseBody = await vhostResponse.text().catch(() => "");
+    const errorMessage = responseBody
+      ? `Failed to create vhost '${namespace}': ${vhostResponse.status} - ${responseBody}`
+      : `Failed to create vhost '${namespace}': ${vhostResponse.status}`;
+    throw new Error(errorMessage, {
       cause: vhostResponse,
     });
   }
@@ -202,7 +206,11 @@ async function deleteVhost(vhost: string) {
 
   // 204 = successfully deleted, 404 = already deleted or doesn't exist
   if (vhostResponse.status !== 204 && vhostResponse.status !== 404) {
-    throw new Error(`Failed to delete vhost '${vhost}': ${vhostResponse.status}`, {
+    const responseBody = await vhostResponse.text().catch(() => "");
+    const errorMessage = responseBody
+      ? `Failed to delete vhost '${vhost}': ${vhostResponse.status} - ${responseBody}`
+      : `Failed to delete vhost '${vhost}': ${vhostResponse.status}`;
+    throw new Error(errorMessage, {
       cause: vhostResponse,
     });
   }
