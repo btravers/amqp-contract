@@ -77,17 +77,28 @@ describe("Order Processing", () => {
 
 The extension provides:
 
+- `vhost`: A unique virtual host created for test isolation (automatically cleaned up after the test)
+- `amqpConnectionUrl`: A connection URL pre-configured with the test vhost
 - `amqpConnection`: An established connection to the RabbitMQ testcontainer
-- Automatic connection cleanup after each test
+- `amqpChannel`: A channel for AMQP operations
+- `publishMessage`: Helper function for publishing test messages
+- `initConsumer`: Helper function for setting up test consumers
+- Automatic connection and vhost cleanup after each test
 
 ## What It Does
 
-The global setup:
+**Global Setup:**
 
 1. Starts a RabbitMQ container with management plugin
 2. Waits for RabbitMQ to be healthy
 3. Provides connection details to your tests
 4. Cleans up the container after tests complete
+
+**Test Extension:**
+
+1. Creates a unique virtual host (vhost) for each test to ensure complete isolation
+2. Provides pre-configured connections and helpers for interacting with RabbitMQ
+3. Automatically cleans up the vhost and connections after each test completes
 
 ## Container Details
 
