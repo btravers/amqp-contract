@@ -103,7 +103,7 @@ await client.close();
 // The shared connection is managed automatically by the singleton
 ```
 
-**Important**: Each client and worker closes its own channel. The underlying shared connection is managed automatically by the internal singleton and will be cleaned up when all channels are closed.
+**Important**: Each client and worker closes its own channel. When all clients/workers using a shared connection are closed, the underlying connection is automatically closed and cleaned up by the internal singleton's reference counting.
 
 ### How Connection Sharing Works
 
@@ -309,10 +309,10 @@ Connection sharing is automatic when URLs and connection options match. If you s
 For test isolation, the internal connection cache can be reset:
 
 ```typescript
-import { _resetConnectionCacheForTesting } from '@amqp-contract/core';
+import { AmqpClient } from '@amqp-contract/core';
 
-afterEach(() => {
-  _resetConnectionCacheForTesting();
+afterEach(async () => {
+  await AmqpClient._resetConnectionCacheForTesting();
 });
 ```
 

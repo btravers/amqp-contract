@@ -104,7 +104,7 @@ const worker = await TypedAmqpWorker.create({
 - **Less Control**: Advanced users can't opt out of connection sharing
   - Mitigation: Use different URLs for separate connections if needed
 - **Global State**: Singleton introduces global state
-  - Mitigation: Provided `_resetConnectionCacheForTesting()` for test isolation
+  - Mitigation: Provided `await AmqpClient._resetConnectionCacheForTesting()` for test isolation
 - **Implicit Behavior**: Connection reuse happens behind the scenes
   - Mitigation: Well-documented behavior with clear examples
 
@@ -117,7 +117,7 @@ Test connection caching and reuse:
 ```typescript
 describe('ConnectionManagerSingleton', () => {
   beforeEach(() => {
-    _resetConnectionCacheForTesting();
+    await AmqpClient._resetConnectionCacheForTesting();
   });
 
   it('should reuse connection when URLs match', async () => {
@@ -161,7 +161,7 @@ Test with real RabbitMQ:
 ```typescript
 describe('Automatic Connection Sharing Integration', () => {
   beforeEach(() => {
-    _resetConnectionCacheForTesting();
+    await AmqpClient._resetConnectionCacheForTesting();
   });
 
   it('should publish and consume using shared connection', async () => {
@@ -237,7 +237,7 @@ describe('Automatic Connection Sharing Integration', () => {
 
 ### Mitigation
 
-1. **Test Isolation**: Provided `_resetConnectionCacheForTesting()` for test isolation
+1. **Test Isolation**: Provided `await AmqpClient._resetConnectionCacheForTesting()` for test isolation
 2. **Separate Connections**: Use different URLs for separate connections if needed
 3. **Clear Documentation**: Comprehensive guides explain automatic connection sharing behavior
 
@@ -260,8 +260,6 @@ Need to publish messages?
 
 ## Testing Strategy
 
-## Testing Strategy
-
 ### Unit Tests
 
 Test connection caching and reuse:
@@ -269,7 +267,7 @@ Test connection caching and reuse:
 ```typescript
 describe('ConnectionManagerSingleton', () => {
   beforeEach(() => {
-    _resetConnectionCacheForTesting();
+    await AmqpClient._resetConnectionCacheForTesting();
   });
 
   it('should reuse connection when URLs match', async () => {
@@ -313,7 +311,7 @@ Test with real RabbitMQ:
 ```typescript
 describe('Automatic Connection Sharing Integration', () => {
   beforeEach(() => {
-    _resetConnectionCacheForTesting();
+    await AmqpClient._resetConnectionCacheForTesting();
   });
 
   it('should publish and consume using shared connection', async () => {
@@ -477,7 +475,7 @@ Automatic connection sharing via singleton has been implemented and is available
 - Connection caching based on URLs and connection options - automatically reuses connections when parameters match
 - `AmqpClient` constructor always uses singleton to get/create connections transparently
 - `AmqpClient.getConnection()` exposes underlying connection (primarily for debugging/testing)
-- Added `_resetConnectionCacheForTesting()` utility for test isolation
+- Added `await AmqpClient._resetConnectionCacheForTesting()` utility for test isolation
 - Each client creates its own channel while sharing the underlying connection
 
 #### Client Changes (@amqp-contract/client)

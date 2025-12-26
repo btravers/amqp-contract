@@ -72,7 +72,7 @@ describe("TypedAmqpClient Connection Sharing (Singleton)", () => {
     // @ts-expect-error - accessing test helper
     amqpMock._test.resetConnectCount();
     // Reset the singleton cache between tests
-    AmqpClient._resetConnectionCacheForTesting();
+    await AmqpClient._resetConnectionCacheForTesting();
   });
 
   it("should automatically share connection for clients with same URLs", async () => {

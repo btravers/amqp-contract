@@ -18,6 +18,7 @@ export type AmqpClientOptions = {
 class ConnectionManagerSingleton {
   private static instance: ConnectionManagerSingleton;
   private connections: Map<string, AmqpConnectionManager> = new Map();
+  private refCounts: Map<string, number> = new Map();
 
   private constructor() {}
 
@@ -41,9 +42,37 @@ class ConnectionManagerSingleton {
     if (!this.connections.has(key)) {
       const connection = amqp.connect(urls, connectionOptions);
       this.connections.set(key, connection);
+      this.refCounts.set(key, 0);
     }
     
+    // Increment reference count
+    this.refCounts.set(key, (this.refCounts.get(key) || 0) + 1);
+    
     return this.connections.get(key)!;
+  }
+
+  /**
+   * Release a connection reference. If no more references exist, close the connection.
+   */
+  async releaseConnection(
+    urls: ConnectionUrl[],
+    connectionOptions?: AmqpConnectionManagerOptions,
+  ): Promise<void> {
+    const key = this.createConnectionKey(urls, connectionOptions);
+    const refCount = this.refCounts.get(key) || 0;
+    
+    if (refCount <= 1) {
+      // Last reference - close and remove connection
+      const connection = this.connections.get(key);
+      if (connection) {
+        await connection.close();
+        this.connections.delete(key);
+        this.refCounts.delete(key);
+      }
+    } else {
+      // Decrement reference count
+      this.refCounts.set(key, refCount - 1);
+    }
   }
 
   private createConnectionKey(
@@ -51,28 +80,51 @@ class ConnectionManagerSingleton {
     connectionOptions?: AmqpConnectionManagerOptions,
   ): string {
     // Create a deterministic key from URLs and options
-    const urlsStr = Array.isArray(urls) ? urls.join(',') : String(urls);
-    const optsStr = connectionOptions ? JSON.stringify(connectionOptions) : '';
+    // Use JSON.stringify for URLs to avoid ambiguity (e.g., ['a,b'] vs ['a', 'b'])
+    const urlsStr = JSON.stringify(urls);
+    // Sort object keys for deterministic serialization of connection options
+    const optsStr = connectionOptions ? this.serializeOptions(connectionOptions) : '';
     return `${urlsStr}::${optsStr}`;
+  }
+
+  private serializeOptions(options: AmqpConnectionManagerOptions): string {
+    // Create a deterministic string representation by sorting keys
+    const sorted = Object.keys(options)
+      .sort()
+      .reduce((acc, key) => {
+        acc[key] = options[key as keyof AmqpConnectionManagerOptions];
+        return acc;
+      }, {} as Record<string, unknown>);
+    return JSON.stringify(sorted);
   }
 
   /**
    * Reset all cached connections (for testing purposes)
    * @internal
    */
-  _resetForTesting(): void {
+  async _resetForTesting(): Promise<void> {
+    // Close all connections before clearing
+    const closePromises = Array.from(this.connections.values()).map(conn => conn.close());
+    await Promise.all(closePromises);
     this.connections.clear();
+    this.refCounts.clear();
   }
 }
 
 export class AmqpClient {
   private readonly connection: AmqpConnectionManager;
   public readonly channel: ChannelWrapper;
+  private readonly urls: ConnectionUrl[];
+  private readonly connectionOptions?: AmqpConnectionManagerOptions;
 
   constructor(
     private readonly contract: ContractDefinition,
     options: AmqpClientOptions,
   ) {
+    // Store for cleanup
+    this.urls = options.urls;
+    this.connectionOptions = options.connectionOptions;
+    
     // Always use singleton to get/create connection
     const singleton = ConnectionManagerSingleton.getInstance();
     this.connection = singleton.getConnection(options.urls, options.connectionOptions);
@@ -98,16 +150,17 @@ export class AmqpClient {
 
   async close(): Promise<void> {
     await this.channel.close();
-    // Note: We don't close the connection as it's managed by the singleton
-    // and may be shared with other clients
+    // Release connection reference - will close connection if this was the last reference
+    const singleton = ConnectionManagerSingleton.getInstance();
+    await singleton.releaseConnection(this.urls, this.connectionOptions);
   }
 
   /**
    * Reset connection singleton cache (for testing only)
    * @internal
    */
-  static _resetConnectionCacheForTesting(): void {
-    ConnectionManagerSingleton.getInstance()._resetForTesting();
+  static async _resetConnectionCacheForTesting(): Promise<void> {
+    await ConnectionManagerSingleton.getInstance()._resetForTesting();
   }
 
   private async setup(channel: Channel): Promise<void> {

@@ -67,7 +67,7 @@ describe("AmqpClient Connection Sharing (Singleton)", () => {
     ).__resetConnectCount();
     
     // Reset the singleton cache between tests
-    AmqpClient._resetConnectionCacheForTesting();
+    await AmqpClient._resetConnectionCacheForTesting();
   });
 
   it("should create client with its own connection", () => {
@@ -139,7 +139,7 @@ describe("AmqpClient Connection Sharing (Singleton)", () => {
     expect(primaryClient.channel).not.toBe(secondaryClient.channel);
   });
 
-  it("should not close shared connection when closing a client", async () => {
+  it("should close shared connection when all clients are closed", async () => {
     // GIVEN
     const contract = defineContract({
       exchanges: {
@@ -158,12 +158,17 @@ describe("AmqpClient Connection Sharing (Singleton)", () => {
       }
     ).__getMockConnection();
 
-    // WHEN - Close both clients
-    await secondaryClient.close();
+    // WHEN - Close first client
     await primaryClient.close();
-
-    // THEN - Connection should not be closed (managed by singleton)
+    
+    // THEN - Connection should not be closed yet (still has reference)
     expect(mockConnection.close.mock.calls.length).toBe(0);
+    
+    // WHEN - Close second client
+    await secondaryClient.close();
+
+    // THEN - Connection should now be closed (last reference gone)
+    expect(mockConnection.close.mock.calls.length).toBe(1);
   });
 
   it("should setup infrastructure for both clients sharing connection", async () => {
