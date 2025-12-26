@@ -60,7 +60,13 @@ Get up and running in three simple steps:
 ::: code-group
 
 ```typescript [1. Define Contract]
-import { defineContract, defineExchange, defineQueue, definePublisherFirst, defineMessage } from '@amqp-contract/contract';
+import {
+  defineContract,
+  defineExchange,
+  defineQueue,
+  definePublisherFirst,
+  defineMessage,
+} from '@amqp-contract/contract';
 import { z } from 'zod';
 
 // Define resources
