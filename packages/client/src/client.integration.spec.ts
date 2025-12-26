@@ -21,18 +21,18 @@ const it = baseIt.extend<{
   ) => Promise<TypedAmqpClient<TContract>>;
 }>({
   clientFactory: async ({ amqpConnectionUrl }, use) => {
-    let teardownHook = () => Promise.resolve();
+    const clients: TypedAmqpClient<ContractDefinition>[] = [];
     await use(async <TContract extends ContractDefinition>(contract: TContract) => {
       const client = await TypedAmqpClient.create({
         contract,
         urls: [amqpConnectionUrl],
       }).resultToPromise();
 
-      teardownHook = () => client.close().resultToPromise();
+      clients.push(client);
 
       return client;
     });
-    await teardownHook();
+    await Promise.all(clients.map((client) => client.close().resultToPromise()));
   },
 });
 
