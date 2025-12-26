@@ -16,7 +16,11 @@ export const it = vitestIt.extend<{
   // oxlint-disable-next-line no-empty-pattern
   vhost: async ({}, use) => {
     const vhost = await createVhost();
-    await use(vhost);
+    try {
+      await use(vhost);
+    } finally {
+      await deleteVhost(vhost);
+    }
   },
   amqpConnectionUrl: async ({ vhost }, use) => {
     const url = `amqp://guest:guest@${inject("__TESTCONTAINERS_RABBITMQ_IP__")}:${inject("__TESTCONTAINERS_RABBITMQ_PORT_5672__")}/${vhost}`;
@@ -89,4 +93,22 @@ async function createVhost() {
   }
 
   return namespace;
+}
+
+async function deleteVhost(vhost: string) {
+  const vhostResponse = await fetch(
+    `http://${inject("__TESTCONTAINERS_RABBITMQ_IP__")}:${inject("__TESTCONTAINERS_RABBITMQ_PORT_15672__")}/api/vhosts/${vhost}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Basic ${btoa("guest:guest")}`,
+      },
+    },
+  );
+
+  if (vhostResponse.status !== 204) {
+    throw new Error(`Failed to delete vhost: ${vhostResponse.status}`, {
+      cause: vhostResponse,
+    });
+  }
 }
