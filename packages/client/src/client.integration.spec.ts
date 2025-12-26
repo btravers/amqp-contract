@@ -9,10 +9,10 @@ import {
   defineQueueBinding,
 } from "@amqp-contract/contract";
 import { describe, expect } from "vitest";
-import { Result } from "@swan-io/boxed";
-import { it as baseIt } from "@amqp-contract/testing/extension";
 import { MessageValidationError } from "./errors.js";
+import { Result } from "@swan-io/boxed";
 import { TypedAmqpClient } from "./client.js";
+import { it as baseIt } from "@amqp-contract/testing/extension";
 import { z } from "zod";
 
 const it = baseIt.extend<{
