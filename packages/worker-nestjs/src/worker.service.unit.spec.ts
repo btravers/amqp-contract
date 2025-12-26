@@ -22,8 +22,8 @@ describe("AmqpWorkerService", () => {
     );
   });
 
-  describe("lifecycle", () => {
-    it("should initialize worker on module init", async () => {
+  describe("initialization", () => {
+    it("should pass configuration to TypedAmqpWorker.create", async () => {
       const testQueue = defineQueue("test-queue", { durable: true });
       const testMessage = defineMessage(z.object({ message: z.string() }));
 
@@ -54,34 +54,6 @@ describe("AmqpWorkerService", () => {
         },
         urls: ["amqp://localhost"],
       });
-    });
-
-    it("should close worker on module destroy", async () => {
-      const testQueue = defineQueue("test-queue", { durable: true });
-      const testMessage = defineMessage(z.object({ message: z.string() }));
-
-      const contract = defineContract({
-        queues: {
-          testQueue,
-        },
-        consumers: {
-          testConsumer: defineConsumer(testQueue, testMessage),
-        },
-      });
-
-      const handler = vi.fn();
-      const service = new AmqpWorkerService({
-        contract,
-        handlers: {
-          testConsumer: handler,
-        },
-        urls: ["amqp://localhost"],
-      });
-
-      await service.onModuleInit();
-      await service.onModuleDestroy();
-
-      expect(mockWorker.close).toHaveBeenCalled();
     });
   });
 });

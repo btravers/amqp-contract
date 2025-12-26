@@ -10,6 +10,8 @@ catalog:
   "@commitlint/cli": 20.2.0
   "@commitlint/config-conventional": 20.2.0
   "@nestjs/common": 11.1.10
+  "@nestjs/core": 11.1.10
+  "@nestjs/testing": 11.1.10
   "@orpc/arktype": 1.13.0
   "@orpc/openapi": 1.13.0
   "@orpc/valibot": 1.13.0
