@@ -38,16 +38,16 @@ class ConnectionManagerSingleton {
   ): AmqpConnectionManager {
     // Create a key based on URLs and connection options
     const key = this.createConnectionKey(urls, connectionOptions);
-    
+
     if (!this.connections.has(key)) {
       const connection = amqp.connect(urls, connectionOptions);
       this.connections.set(key, connection);
       this.refCounts.set(key, 0);
     }
-    
+
     // Increment reference count
     this.refCounts.set(key, (this.refCounts.get(key) || 0) + 1);
-    
+
     return this.connections.get(key)!;
   }
 
@@ -60,7 +60,7 @@ class ConnectionManagerSingleton {
   ): Promise<void> {
     const key = this.createConnectionKey(urls, connectionOptions);
     const refCount = this.refCounts.get(key) || 0;
-    
+
     if (refCount <= 1) {
       // Last reference - close and remove connection
       const connection = this.connections.get(key);
@@ -83,7 +83,7 @@ class ConnectionManagerSingleton {
     // Use JSON.stringify for URLs to avoid ambiguity (e.g., ['a,b'] vs ['a', 'b'])
     const urlsStr = JSON.stringify(urls);
     // Sort object keys for deterministic serialization of connection options
-    const optsStr = connectionOptions ? this.serializeOptions(connectionOptions) : '';
+    const optsStr = connectionOptions ? this.serializeOptions(connectionOptions) : "";
     return `${urlsStr}::${optsStr}`;
   }
 
@@ -91,10 +91,13 @@ class ConnectionManagerSingleton {
     // Create a deterministic string representation by sorting keys
     const sorted = Object.keys(options)
       .sort()
-      .reduce((acc, key) => {
-        acc[key] = options[key as keyof AmqpConnectionManagerOptions];
-        return acc;
-      }, {} as Record<string, unknown>);
+      .reduce(
+        (acc, key) => {
+          acc[key] = options[key as keyof AmqpConnectionManagerOptions];
+          return acc;
+        },
+        {} as Record<string, unknown>,
+      );
     return JSON.stringify(sorted);
   }
 
@@ -104,7 +107,7 @@ class ConnectionManagerSingleton {
    */
   async _resetForTesting(): Promise<void> {
     // Close all connections before clearing
-    const closePromises = Array.from(this.connections.values()).map(conn => conn.close());
+    const closePromises = Array.from(this.connections.values()).map((conn) => conn.close());
     await Promise.all(closePromises);
     this.connections.clear();
     this.refCounts.clear();
@@ -123,12 +126,14 @@ export class AmqpClient {
   ) {
     // Store for cleanup
     this.urls = options.urls;
-    this.connectionOptions = options.connectionOptions;
-    
+    if (options.connectionOptions !== undefined) {
+      this.connectionOptions = options.connectionOptions;
+    }
+
     // Always use singleton to get/create connection
     const singleton = ConnectionManagerSingleton.getInstance();
     this.connection = singleton.getConnection(options.urls, options.connectionOptions);
-    
+
     this.channel = this.connection.createChannel({
       json: true,
       setup: (channel: Channel) => this.setup(channel),

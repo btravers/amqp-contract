@@ -65,7 +65,7 @@ describe("AmqpClient Connection Sharing (Singleton)", () => {
         __resetConnectCount: () => void;
       }
     ).__resetConnectCount();
-    
+
     // Reset the singleton cache between tests
     await AmqpClient._resetConnectionCacheForTesting();
   });
@@ -160,10 +160,10 @@ describe("AmqpClient Connection Sharing (Singleton)", () => {
 
     // WHEN - Close first client
     await primaryClient.close();
-    
+
     // THEN - Connection should not be closed yet (still has reference)
     expect(mockConnection.close.mock.calls.length).toBe(0);
-    
+
     // WHEN - Close second client
     await secondaryClient.close();
 
@@ -231,7 +231,7 @@ describe("AmqpClient Connection Sharing (Singleton)", () => {
     });
 
     const amqpModule = await import("amqp-connection-manager");
-    
+
     // WHEN - Create two clients with different URLs
     const client1 = new AmqpClient(contract, { urls: ["amqp://localhost"] });
     const client2 = new AmqpClient(contract, { urls: ["amqp://other-host"] });

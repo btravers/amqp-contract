@@ -659,7 +659,7 @@ describe("AmqpClient", () => {
     await expect(setupCallback(mockChannel)).rejects.toThrow("Failed to setup bindings");
   });
 
-  it("should close channel but not connection (managed by singleton)", async () => {
+  it("should close channel and connection when last client closes (reference counting)", async () => {
     // GIVEN
     const contract = defineContract({
       exchanges: {
@@ -692,7 +692,7 @@ describe("AmqpClient", () => {
     // THEN
     // Channel should be closed
     expect(mockChannel.close).toHaveBeenCalledTimes(1);
-    // But connection should NOT be closed (managed by singleton)
-    expect(mockConnection.close).toHaveBeenCalledTimes(0);
+    // Connection should also be closed (reference count reaches 0)
+    expect(mockConnection.close).toHaveBeenCalledTimes(1);
   });
 });

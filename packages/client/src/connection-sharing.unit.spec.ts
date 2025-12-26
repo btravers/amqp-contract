@@ -67,7 +67,7 @@ const amqpMock = await import("amqp-connection-manager");
 const { mockChannel } = amqpMock._test;
 
 describe("TypedAmqpClient Connection Sharing (Singleton)", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     // @ts-expect-error - accessing test helper
     amqpMock._test.resetConnectCount();
@@ -81,7 +81,7 @@ describe("TypedAmqpClient Connection Sharing (Singleton)", () => {
       z.object({
         orderId: z.string(),
         amount: z.number(),
-      })
+      }),
     );
 
     const ordersExchange = defineExchange("orders", "topic", { durable: true });
@@ -131,7 +131,7 @@ describe("TypedAmqpClient Connection Sharing (Singleton)", () => {
         "orders",
         "order.created",
         { orderId: "ORD-123", amount: 99.99 },
-        undefined
+        undefined,
       );
     }
   });
@@ -142,7 +142,7 @@ describe("TypedAmqpClient Connection Sharing (Singleton)", () => {
       z.object({
         orderId: z.string(),
         amount: z.number(),
-      })
+      }),
     );
 
     const ordersExchange = defineExchange("orders", "topic", { durable: true });
