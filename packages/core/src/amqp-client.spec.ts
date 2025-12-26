@@ -38,10 +38,10 @@ vi.mock("amqp-connection-manager", () => {
 });
 
 describe("AmqpClient", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     // Reset the singleton cache between tests
-    AmqpClient._resetConnectionCacheForTesting();
+    await AmqpClient._resetConnectionCacheForTesting();
   });
 
   it("should create AmqpClient with contract and options", () => {
