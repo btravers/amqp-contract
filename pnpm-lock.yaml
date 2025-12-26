@@ -382,6 +382,9 @@ importers:
         specifier: 'catalog:'
         version: 0.10.9
     devDependencies:
+      '@amqp-contract/testing':
+        specifier: workspace:*
+        version: link:../testing
       '@amqp-contract/tsconfig':
         specifier: workspace:*
         version: link:../../tools/tsconfig

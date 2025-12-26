@@ -2,7 +2,6 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    globals: true,
     environment: "node",
     reporters: ["default"],
     coverage: {
@@ -10,5 +9,20 @@ export default defineConfig({
       reporter: ["text", "json", "json-summary", "html"],
       include: ["src/**"],
     },
+    projects: [
+      {
+        test: {
+          name: "unit",
+          include: ["src/**/*.unit.spec.ts"],
+        },
+      },
+      {
+        test: {
+          name: "integration",
+          globalSetup: "@amqp-contract/testing/global-setup",
+          include: ["src/**/*.integration.spec.ts"],
+        },
+      },
+    ],
   },
 });

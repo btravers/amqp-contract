@@ -19,7 +19,107 @@ pnpm build
 3. Run tests:
 
 ```bash
+# Run unit tests
 pnpm test
+
+# Run integration tests (requires Docker)
+pnpm test:integration
+```
+
+## Testing Strategy
+
+This project uses a **integration-first testing approach** that prioritizes testing against real RabbitMQ instances over mocked unit tests.
+
+### Test Types
+
+#### Integration Tests (`*.integration.spec.ts`)
+
+- Test against **real RabbitMQ** instances using testcontainers
+- Each test runs in an isolated vhost for complete test isolation
+- Located alongside source files: `src/*.integration.spec.ts`
+- Run with: `pnpm test:integration`
+- **Preferred** for testing AMQP behavior, message flow, and contract setup
+
+**Example packages with integration tests:**
+
+- `packages/core` - 16 integration tests (AmqpClient, connection sharing)
+- `packages/client` - 10 integration tests (publishing, validation, topology)
+- `packages/worker` - 9 integration tests (consuming, error handling, bindings)
+
+#### Unit Tests (`*.unit.spec.ts`)
+
+- Test pure logic without external dependencies
+- No mocking of AMQP libraries
+- Located alongside source files: `src/*.unit.spec.ts`
+- Run with: `pnpm test`
+- **Only used** for testing pure functions, utilities, and simple logic
+
+**Example packages with unit tests:**
+
+- `packages/core` - 4 unit tests (logger utility)
+
+### Why Integration Tests?
+
+✅ **More Robust**: Tests validate actual AMQP behavior, not mocked assumptions
+✅ **Catch Real Issues**: Detects problems with RabbitMQ integration that unit tests miss
+✅ **Less Brittle**: No complex mock setup that breaks with implementation changes
+✅ **Better Confidence**: Higher assurance that code works in production
+
+### Running Tests
+
+```bash
+# Run all unit tests (fast, no Docker needed)
+pnpm test
+
+# Run integration tests for a specific package (requires Docker)
+pnpm test:integration --filter @amqp-contract/core
+pnpm test:integration --filter @amqp-contract/client
+pnpm test:integration --filter @amqp-contract/worker
+
+# Run all integration tests (requires Docker)
+pnpm test:integration
+```
+
+### Writing New Tests
+
+**For new AMQP features:**
+
+1. Write integration tests using `@amqp-contract/testing/extension`
+2. Use test fixtures: `amqpConnectionUrl`, `amqpChannel`, `publishMessage`, `initConsumer`
+3. Place tests next to source: `feature.integration.spec.ts`
+
+**For pure utility functions:**
+
+1. Write unit tests without external dependencies
+2. Place tests next to source: `utility.unit.spec.ts`
+
+**Example integration test:**
+
+```typescript
+import { it } from "@amqp-contract/testing/extension";
+import { defineContract, defineExchange } from "@amqp-contract/contract";
+import { AmqpClient } from "@amqp-contract/core";
+
+describe("Feature Integration", () => {
+  it("should setup exchange", async ({ amqpConnectionUrl, amqpChannel }) => {
+    // GIVEN
+    const contract = defineContract({
+      exchanges: {
+        test: defineExchange("test", "topic", { durable: false }),
+      },
+    });
+
+    // WHEN
+    const client = new AmqpClient(contract, { urls: [amqpConnectionUrl] });
+    await client.channel.waitForConnect();
+
+    // THEN
+    await expect(amqpChannel.checkExchange("test")).resolves.toBeDefined();
+
+    // CLEANUP
+    await client.close();
+  });
+});
 ```
 
 ## Project Structure
