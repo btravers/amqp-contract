@@ -46,7 +46,7 @@ class ConnectionManagerSingleton {
     }
 
     // Increment reference count
-    this.refCounts.set(key, (this.refCounts.get(key) || 0) + 1);
+    this.refCounts.set(key, (this.refCounts.get(key) ?? 0) + 1);
 
     return this.connections.get(key)!;
   }
@@ -59,7 +59,7 @@ class ConnectionManagerSingleton {
     connectionOptions?: AmqpConnectionManagerOptions,
   ): Promise<void> {
     const key = this.createConnectionKey(urls, connectionOptions);
-    const refCount = this.refCounts.get(key) || 0;
+    const refCount = this.refCounts.get(key) ?? 0;
 
     if (refCount <= 1) {
       // Last reference - close and remove connection
