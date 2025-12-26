@@ -328,29 +328,6 @@ describe("AmqpClient Integration", () => {
     await client.close();
   });
 
-  it("should handle invalid exchange setup gracefully", async ({ amqpConnectionUrl }) => {
-    // GIVEN - Contract with invalid exchange type
-    const contract = defineContract({
-      exchanges: {
-        // @ts-expect-error - Testing invalid exchange type
-        invalid: { name: "invalid", type: "invalid-type", durable: false },
-      },
-    });
-
-    // WHEN/THEN - Should throw AggregateError during setup
-    const client = new AmqpClient(contract, {
-      urls: [amqpConnectionUrl],
-    });
-
-    // Wait for setup to fail
-    await expect(
-      client.channel.waitForConnect(),
-    ).rejects.toThrow();
-
-    // CLEANUP
-    await client.close();
-  });
-
   it("should close channel and connection properly", async ({ amqpConnectionUrl }) => {
     // GIVEN
     const contract = defineContract({

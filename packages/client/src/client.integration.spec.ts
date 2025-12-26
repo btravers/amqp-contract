@@ -1,6 +1,7 @@
 import {
   defineContract,
   defineExchange,
+  defineExchangeBinding,
   defineMessage,
   definePublisher,
   defineQueue,
