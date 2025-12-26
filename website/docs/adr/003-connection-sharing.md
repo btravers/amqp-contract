@@ -160,7 +160,7 @@ Test with real RabbitMQ:
 
 ```typescript
 describe('Automatic Connection Sharing Integration', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     await AmqpClient._resetConnectionCacheForTesting();
   });
 
@@ -310,7 +310,7 @@ Test with real RabbitMQ:
 
 ```typescript
 describe('Automatic Connection Sharing Integration', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     await AmqpClient._resetConnectionCacheForTesting();
   });
 

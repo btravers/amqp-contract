@@ -88,17 +88,29 @@ class ConnectionManagerSingleton {
   }
 
   private serializeOptions(options: AmqpConnectionManagerOptions): string {
-    // Create a deterministic string representation by sorting keys
-    const sorted = Object.keys(options)
-      .sort()
-      .reduce(
-        (acc, key) => {
-          acc[key] = options[key as keyof AmqpConnectionManagerOptions];
-          return acc;
-        },
-        {} as Record<string, unknown>,
-      );
+    // Create a deterministic string representation by deeply sorting all object keys
+    const sorted = this.deepSort(options);
     return JSON.stringify(sorted);
+  }
+
+  private deepSort(value: unknown): unknown {
+    if (Array.isArray(value)) {
+      return value.map((item) => this.deepSort(item));
+    }
+
+    if (value !== null && typeof value === "object") {
+      const obj = value as Record<string, unknown>;
+      const sortedKeys = Object.keys(obj).sort();
+      const result: Record<string, unknown> = {};
+
+      for (const key of sortedKeys) {
+        result[key] = this.deepSort(obj[key]);
+      }
+
+      return result;
+    }
+
+    return value;
   }
 
   /**
