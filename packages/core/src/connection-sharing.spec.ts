@@ -81,7 +81,7 @@ describe("AmqpClient Connection Sharing", () => {
     const sharedConnection = primaryClient.getConnection();
 
     // WHEN
-    const secondaryClient = AmqpClient.fromConnection(contract, sharedConnection);
+    const secondaryClient = new AmqpClient(contract, { connection: sharedConnection });
 
     // THEN
     expect(secondaryClient).toBeDefined();
@@ -110,7 +110,7 @@ describe("AmqpClient Connection Sharing", () => {
     ).__getMockConnection();
 
     // WHEN
-    const secondaryClient = AmqpClient.fromConnection(contract, sharedConnection);
+    const secondaryClient = new AmqpClient(contract, { connection: sharedConnection });
 
     // THEN
     // Verify that createChannel was called twice (once for each client)
@@ -131,7 +131,7 @@ describe("AmqpClient Connection Sharing", () => {
     });
 
     const sharedConnection = primaryClient.getConnection();
-    const secondaryClient = AmqpClient.fromConnection(contract, sharedConnection);
+    const secondaryClient = new AmqpClient(contract, { connection: sharedConnection });
 
     const amqpModule = await import("amqp-connection-manager");
     const mockConnection = (
@@ -172,7 +172,7 @@ describe("AmqpClient Connection Sharing", () => {
     });
 
     const sharedConnection = primaryClient.getConnection();
-    void AmqpClient.fromConnection(contract2, sharedConnection);
+    void new AmqpClient(contract2, { connection: sharedConnection });
 
     const amqpModule = await import("amqp-connection-manager");
     const setupCallbacks = (

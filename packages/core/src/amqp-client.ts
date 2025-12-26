@@ -10,6 +10,11 @@ import type { ContractDefinition } from "@amqp-contract/contract";
 export type AmqpClientOptions = {
   urls: ConnectionUrl[];
   connectionOptions?: AmqpConnectionManagerOptions | undefined;
+  connection?: never;
+} | {
+  connection: AmqpConnectionManager;
+  urls?: never;
+  connectionOptions?: never;
 };
 
 export class AmqpClient {
@@ -19,70 +24,38 @@ export class AmqpClient {
 
   constructor(
     private readonly contract: ContractDefinition,
-    private readonly options: AmqpClientOptions,
+    options: AmqpClientOptions,
   ) {
-    this.connection = amqp.connect(this.options.urls, this.options.connectionOptions);
+    if ('connection' in options && options.connection) {
+      this.connection = options.connection;
+      this.ownsConnection = false;
+    } else {
+      this.connection = amqp.connect(options.urls, options.connectionOptions);
+      this.ownsConnection = true;
+    }
     this.channel = this.connection.createChannel({
       json: true,
       setup: (channel: Channel) => this.setup(channel),
     });
-    this.ownsConnection = true;
-  }
-
-  /**
-   * Create an AmqpClient that shares an existing connection
-   *
-   * This method allows multiple AmqpClients to share the same underlying AMQP
-   * connection while using separate channels. This is useful for reducing resource
-   * usage when both publishing and consuming messages in the same application.
-   *
-   * @param contract - The contract definition specifying exchanges, queues, and bindings
-   * @param connection - The existing AmqpConnectionManager to share
-   * @returns A new AmqpClient that shares the connection but has its own channel
-   *
-   * @example
-   * ```typescript
-   * // Create primary client with its own connection
-   * const primaryClient = new AmqpClient(contract, { urls: ['amqp://localhost'] });
-   *
-   * // Share the connection with a secondary client
-   * const sharedConnection = primaryClient.getConnection();
-   * const secondaryClient = AmqpClient.fromConnection(contract, sharedConnection);
-   *
-   * // Both clients share one connection but have separate channels
-   * ```
-   */
-  static fromConnection(
-    contract: ContractDefinition,
-    connection: AmqpConnectionManager,
-  ): AmqpClient {
-    const client = Object.create(AmqpClient.prototype);
-    client.contract = contract;
-    client.connection = connection;
-    client.channel = connection.createChannel({
-      json: true,
-      setup: (channel: Channel) => client.setup(channel),
-    });
-    client.ownsConnection = false;
-    return client;
   }
 
   /**
    * Get the underlying connection manager
    *
    * This method exposes the AmqpConnectionManager instance that this client uses.
-   * The returned connection can be shared with other AmqpClient instances using
-   * the `fromConnection()` method to implement connection sharing.
+   * The returned connection can be shared with other AmqpClient instances to
+   * implement connection sharing while each client maintains its own channel.
    *
    * @returns The AmqpConnectionManager instance used by this client
    *
    * @example
    * ```typescript
-   * const client = new AmqpClient(contract, { urls: ['amqp://localhost'] });
-   * const connection = client.getConnection();
+   * const primaryClient = new AmqpClient(contract, { urls: ['amqp://localhost'] });
+   * const connection = primaryClient.getConnection();
    *
-   * // Share with another client
-   * const anotherClient = AmqpClient.fromConnection(anotherContract, connection);
+   * // Share the connection with another AmqpClient
+   * const secondaryClient = new AmqpClient(anotherContract, { connection });
+   * // Both clients share one connection but have separate channels
    * ```
    */
   getConnection(): AmqpConnectionManager {

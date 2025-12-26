@@ -1,4 +1,4 @@
-import { AmqpClient, type Logger } from "@amqp-contract/core";
+import { AmqpClient, type AmqpConnectionManager, type Logger } from "@amqp-contract/core";
 import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
 import type { ContractDefinition, InferPublisherNames } from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
@@ -9,21 +9,19 @@ import type { Options } from "amqplib";
 /**
  * Options for creating a client
  */
-export type CreateClientOptions<TContract extends ContractDefinition> =
-  | {
-      contract: TContract;
-      urls: ConnectionUrl[];
-      connectionOptions?: AmqpConnectionManagerOptions | undefined;
-      logger?: Logger | undefined;
-      amqpClient?: never;
-    }
-  | {
-      contract: TContract;
-      amqpClient: AmqpClient;
-      logger?: Logger | undefined;
-      urls?: never;
-      connectionOptions?: never;
-    };
+export type CreateClientOptions<TContract extends ContractDefinition> = {
+  contract: TContract;
+  urls: ConnectionUrl[];
+  connectionOptions?: AmqpConnectionManagerOptions | undefined;
+  logger?: Logger | undefined;
+  connection?: never;
+} | {
+  contract: TContract;
+  connection: AmqpConnectionManager;
+  logger?: Logger | undefined;
+  urls?: never;
+  connectionOptions?: never;
+};
 
 /**
  * Type-safe AMQP client for publishing messages
@@ -41,22 +39,22 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
    * Connection management (including automatic reconnection) is handled internally
    * by amqp-connection-manager via the {@link AmqpClient}. The client establishes
    * infrastructure asynchronously in the background once the connection is ready.
-   *
-   * You can pass an existing AmqpClient instance to share a connection with other
-   * clients or workers, following RabbitMQ best practices of sharing connections
-   * while using separate channels.
+   * 
+   * You can pass a shared AmqpConnectionManager to reuse an existing connection,
+   * following RabbitMQ best practices of sharing connections while using separate channels.
    */
   static create<TContract extends ContractDefinition>(
     options: CreateClientOptions<TContract>,
   ): Future<Result<TypedAmqpClient<TContract>, TechnicalError>> {
-    const amqpClient =
-      options.amqpClient ??
-      new AmqpClient(options.contract, {
-        urls: options.urls,
-        connectionOptions: options.connectionOptions,
-      });
+    const amqpClient = 'connection' in options && options.connection
+      ? new AmqpClient(options.contract, { connection: options.connection })
+      : new AmqpClient(options.contract, { urls: options.urls, connectionOptions: options.connectionOptions });
 
-    const client = new TypedAmqpClient(options.contract, amqpClient, options.logger);
+    const client = new TypedAmqpClient(
+      options.contract,
+      amqpClient,
+      options.logger,
+    );
 
     return client.waitForConnectionReady().mapOk(() => client);
   }

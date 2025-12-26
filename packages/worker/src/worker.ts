@@ -1,4 +1,4 @@
-import { AmqpClient, type Logger } from "@amqp-contract/core";
+import { AmqpClient, type AmqpConnectionManager, type Logger } from "@amqp-contract/core";
 import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
 import type { ContractDefinition, InferConsumerNames } from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
@@ -27,32 +27,30 @@ import type { WorkerInferConsumerHandlers, WorkerInferConsumerInput } from "./ty
  * };
  * ```
  */
-export type CreateWorkerOptions<TContract extends ContractDefinition> =
-  | {
-      /** The AMQP contract definition specifying consumers and their message schemas */
-      contract: TContract;
-      /** Handlers for each consumer defined in the contract */
-      handlers: WorkerInferConsumerHandlers<TContract>;
-      /** AMQP broker URL(s). Multiple URLs provide failover support */
-      urls: ConnectionUrl[];
-      /** Optional connection configuration (heartbeat, reconnect settings, etc.) */
-      connectionOptions?: AmqpConnectionManagerOptions | undefined;
-      /** Optional logger for logging message consumption and errors */
-      logger?: Logger | undefined;
-      amqpClient?: never;
-    }
-  | {
-      /** The AMQP contract definition specifying consumers and their message schemas */
-      contract: TContract;
-      /** Handlers for each consumer defined in the contract */
-      handlers: WorkerInferConsumerHandlers<TContract>;
-      /** Shared AmqpClient instance for connection reuse */
-      amqpClient: AmqpClient;
-      /** Optional logger for logging message consumption and errors */
-      logger?: Logger | undefined;
-      urls?: never;
-      connectionOptions?: never;
-    };
+export type CreateWorkerOptions<TContract extends ContractDefinition> = {
+  /** The AMQP contract definition specifying consumers and their message schemas */
+  contract: TContract;
+  /** Handlers for each consumer defined in the contract */
+  handlers: WorkerInferConsumerHandlers<TContract>;
+  /** AMQP broker URL(s). Multiple URLs provide failover support */
+  urls: ConnectionUrl[];
+  /** Optional connection configuration (heartbeat, reconnect settings, etc.) */
+  connectionOptions?: AmqpConnectionManagerOptions | undefined;
+  /** Optional logger for logging message consumption and errors */
+  logger?: Logger | undefined;
+  connection?: never;
+} | {
+  /** The AMQP contract definition specifying consumers and their message schemas */
+  contract: TContract;
+  /** Handlers for each consumer defined in the contract */
+  handlers: WorkerInferConsumerHandlers<TContract>;
+  /** Shared AmqpConnectionManager instance for connection reuse */
+  connection: AmqpConnectionManager;
+  /** Optional logger for logging message consumption and errors */
+  logger?: Logger | undefined;
+  urls?: never;
+  connectionOptions?: never;
+};
 
 /**
  * Type-safe AMQP worker for consuming messages from RabbitMQ.
@@ -110,9 +108,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * consumers for all contract-defined handlers asynchronously in the background
    * once the underlying connection and channels are ready.
    *
-   * You can pass an existing AmqpClient instance to share a connection with other
-   * clients or workers, following RabbitMQ best practices of sharing connections
-   * while using separate channels.
+   * You can pass a shared AmqpConnectionManager to reuse an existing connection,
+   * following RabbitMQ best practices of sharing connections while using separate channels.
    *
    * @param options - Configuration options for the worker
    * @returns A Future that resolves to a Result containing the worker or an error
@@ -135,12 +132,12 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   static create<TContract extends ContractDefinition>(
     options: CreateWorkerOptions<TContract>,
   ): Future<Result<TypedAmqpWorker<TContract>, TechnicalError>> {
-    const amqpClient =
-      options.amqpClient ??
-      new AmqpClient(options.contract, {
-        urls: options.urls,
-        connectionOptions: options.connectionOptions,
-      });
+    const amqpClient = 'connection' in options && options.connection
+      ? new AmqpClient(options.contract, { connection: options.connection })
+      : new AmqpClient(options.contract, {
+          urls: options.urls,
+          connectionOptions: options.connectionOptions,
+        });
 
     const worker = new TypedAmqpWorker(
       options.contract,

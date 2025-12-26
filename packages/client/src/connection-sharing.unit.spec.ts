@@ -63,7 +63,7 @@ describe("TypedAmqpClient Connection Sharing", () => {
     vi.clearAllMocks();
   });
 
-  it("should allow creating client with shared AmqpClient", async () => {
+  it("should allow creating client with shared connection", async () => {
     // GIVEN
     const orderMessage = defineMessage(
       z.object({
@@ -83,15 +83,16 @@ describe("TypedAmqpClient Connection Sharing", () => {
       },
     });
 
-    // Create a shared AmqpClient
-    const sharedAmqpClient = new AmqpClient(contract, {
+    // Create a primary AmqpClient to get the connection
+    const primaryAmqpClient = new AmqpClient(contract, {
       urls: ["amqp://localhost"],
     });
+    const sharedConnection = primaryAmqpClient.getConnection();
 
-    // WHEN - Create client with shared AmqpClient
+    // WHEN - Create client with shared connection
     const clientResult = await TypedAmqpClient.create({
       contract,
-      amqpClient: sharedAmqpClient,
+      connection: sharedConnection,
     });
 
     // THEN
@@ -135,20 +136,21 @@ describe("TypedAmqpClient Connection Sharing", () => {
       },
     });
 
-    // Create a shared AmqpClient
-    const sharedAmqpClient = new AmqpClient(contract, {
+    // Create a primary AmqpClient to get the connection
+    const primaryAmqpClient = new AmqpClient(contract, {
       urls: ["amqp://localhost"],
     });
+    const sharedConnection = primaryAmqpClient.getConnection();
 
     // WHEN - Create two clients with shared connection
     const client1Result = await TypedAmqpClient.create({
       contract,
-      amqpClient: sharedAmqpClient,
+      connection: sharedConnection,
     });
 
     const client2Result = await TypedAmqpClient.create({
       contract,
-      amqpClient: sharedAmqpClient,
+      connection: sharedConnection,
     });
 
     // THEN
