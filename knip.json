@@ -35,6 +35,7 @@
         "@amqp-contract/client",
         "@amqp-contract/client-nestjs",
         "@amqp-contract/contract",
+        "@amqp-contract/testing",
         "@amqp-contract/worker",
         "@amqp-contract/worker-nestjs"
       ]
