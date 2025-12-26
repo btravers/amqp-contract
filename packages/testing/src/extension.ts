@@ -139,9 +139,13 @@ export const it = vitestIt.extend<{
    *   publishMessage('my-exchange', 'routing.key', { data: 'test' });
    *   // With defaults (1 message, 5000ms timeout)
    *   const messages = await waitForMessages();
-   *   // With custom options
-   *   const messages2 = await waitForMessages({ nbEvents: 2, timeout: 10000 });
    *   expect(messages).toHaveLength(1);
+   *
+   *   // With custom options
+   *   publishMessage('my-exchange', 'routing.key', { data: 'test2' });
+   *   publishMessage('my-exchange', 'routing.key', { data: 'test3' });
+   *   const messages2 = await waitForMessages({ nbEvents: 2, timeout: 10000 });
+   *   expect(messages2).toHaveLength(2);
    * });
    * ```
    */
