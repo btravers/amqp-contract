@@ -121,9 +121,7 @@ export default withMermaid(
           },
           {
             text: "Testing",
-            items: [
-              { text: "@amqp-contract/testing", link: "/api/testing/" },
-            ],
+            items: [{ text: "@amqp-contract/testing", link: "/api/testing/" }],
           },
         ],
         "/examples/": [

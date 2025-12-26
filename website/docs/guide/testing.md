@@ -18,9 +18,10 @@ pnpm add -D @amqp-contract/testing
 ```
 
 ::: info Prerequisites
+
 - Docker must be installed and running on your system
 - Vitest 4.0 or higher
-:::
+  :::
 
 ## Configuration
 
@@ -71,10 +72,10 @@ import { describe, expect } from "vitest";
 import { it } from "@amqp-contract/testing/extension";
 
 describe("Message Processing", () => {
-  it("should publish and consume messages", async ({ 
-    amqpChannel, 
+  it("should publish and consume messages", async ({
+    amqpChannel,
     publishMessage,
-    initConsumer 
+    initConsumer
   }) => {
     // Declare exchange
     await amqpChannel.assertExchange("test-exchange", "topic", { durable: false });
@@ -91,7 +92,7 @@ describe("Message Processing", () => {
     // Wait for and verify message
     const messages = await waitForMessages();
     expect(messages).toHaveLength(1);
-    
+
     const content = JSON.parse(messages[0].content.toString());
     expect(content).toEqual({
       orderId: "123",
@@ -113,9 +114,9 @@ import { createWorker } from "@amqp-contract/worker";
 import { contract } from "./contract.js";
 
 describe("Order Processing Contract", () => {
-  it("should process orders through the contract", async ({ 
+  it("should process orders through the contract", async ({
     amqpConnection,
-    amqpConnectionUrl 
+    amqpConnectionUrl
   }) => {
     // Create client
     const client = await createClient(contract, {
@@ -144,7 +145,7 @@ describe("Order Processing Contract", () => {
 
     // Wait for message to be processed
     await new Promise(resolve => setTimeout(resolve, 100));
-    
+
     expect(receivedOrders).toHaveLength(1);
     expect(receivedOrders[0]).toMatchObject({
       orderId: "123",
@@ -164,6 +165,7 @@ describe("Order Processing Contract", () => {
 The Vitest extension provides the following fixtures:
 
 ### `vhost`
+
 - **Type**: `string`
 - **Description**: A unique virtual host (vhost) created for each test
 - **Lifecycle**: Automatically created before test and deleted after
@@ -175,6 +177,7 @@ it("example", async ({ vhost }) => {
 ```
 
 ### `amqpConnectionUrl`
+
 - **Type**: `string`
 - **Description**: Pre-configured AMQP connection URL with the test vhost
 - **Format**: `amqp://guest:guest@host:port/vhost`
@@ -187,6 +190,7 @@ it("example", async ({ amqpConnectionUrl }) => {
 ```
 
 ### `amqpConnection`
+
 - **Type**: `ChannelModel` (from amqplib)
 - **Description**: Active AMQP connection to RabbitMQ
 - **Lifecycle**: Automatically closed after test
@@ -199,6 +203,7 @@ it("example", async ({ amqpConnection }) => {
 ```
 
 ### `amqpChannel`
+
 - **Type**: `Channel` (from amqplib)
 - **Description**: AMQP channel for operations
 - **Lifecycle**: Automatically closed after test
@@ -211,6 +216,7 @@ it("example", async ({ amqpChannel }) => {
 ```
 
 ### `publishMessage`
+
 - **Type**: `(exchange: string, routingKey: string, content: unknown) => void`
 - **Description**: Helper function to publish messages
 - **Note**: Content is automatically JSON serialized
@@ -222,6 +228,7 @@ it("example", async ({ publishMessage }) => {
 ```
 
 ### `initConsumer`
+
 - **Type**: `(exchange: string, routingKey: string) => Promise<(options?: { nbEvents?: number; timeout?: number }) => Promise<ConsumeMessage[]>>`
 - **Description**: Initialize a message consumer on a temporary queue
 - **Returns**: Function to wait for and collect messages
@@ -230,11 +237,11 @@ it("example", async ({ publishMessage }) => {
 it("example", async ({ initConsumer, publishMessage }) => {
   // Initialize consumer
   const waitForMessages = await initConsumer("my-exchange", "routing.key");
-  
+
   // Publish messages
   publishMessage("my-exchange", "routing.key", { data: "test1" });
   publishMessage("my-exchange", "routing.key", { data: "test2" });
-  
+
   // Wait for 2 messages with 10 second timeout
   const messages = await waitForMessages({ nbEvents: 2, timeout: 10000 });
   expect(messages).toHaveLength(2);
@@ -278,10 +285,10 @@ const amqpPort = inject("__TESTCONTAINERS_RABBITMQ_PORT_5672__");
 Test scenarios with multiple consumers:
 
 ```typescript
-it("should route messages to multiple consumers", async ({ 
+it("should route messages to multiple consumers", async ({
   amqpChannel,
   publishMessage,
-  initConsumer 
+  initConsumer
 }) => {
   await amqpChannel.assertExchange("orders", "topic", { durable: false });
 
@@ -310,20 +317,20 @@ it("should route messages to multiple consumers", async ({
 Adjust timeout for slow operations:
 
 ```typescript
-it("should handle slow message processing", async ({ 
+it("should handle slow message processing", async ({
   initConsumer,
-  publishMessage 
+  publishMessage
 }) => {
   const waitForMessages = await initConsumer("exchange", "key");
-  
+
   publishMessage("exchange", "key", { task: "slow-operation" });
-  
+
   // Wait up to 30 seconds
-  const messages = await waitForMessages({ 
-    nbEvents: 1, 
-    timeout: 30000 
+  const messages = await waitForMessages({
+    nbEvents: 1,
+    timeout: 30000
   });
-  
+
   expect(messages).toHaveLength(1);
 });
 ```
@@ -378,6 +385,7 @@ it("should handle message failures", async ({ amqpChannel }) => {
 **Problem**: Docker container fails to start
 
 **Solutions**:
+
 - Ensure Docker is running
 - Check Docker has enough resources (memory, disk space)
 - Verify no port conflicts (5672, 15672)
@@ -388,6 +396,7 @@ it("should handle message failures", async ({ amqpChannel }) => {
 **Problem**: Tests timeout waiting for messages
 
 **Solutions**:
+
 - Increase timeout: `waitForMessages({ timeout: 10000 })`
 - Verify exchanges and queues are properly declared
 - Check routing keys match between publisher and consumer
@@ -398,6 +407,7 @@ it("should handle message failures", async ({ amqpChannel }) => {
 **Problem**: TypeScript errors about test context
 
 **Solutions**:
+
 - Add type reference: `/// <reference types="@amqp-contract/testing/types/vitest" />`
 - Or update `tsconfig.json` with the types
 - Ensure `vitest` peer dependency is satisfied
