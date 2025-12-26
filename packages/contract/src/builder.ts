@@ -6,6 +6,7 @@ import type {
   ExchangeBindingDefinition,
   ExchangeDefinition,
   FanoutExchangeDefinition,
+  MergeContracts,
   MessageDefinition,
   PublisherDefinition,
   QueueBindingDefinition,
@@ -1107,4 +1108,144 @@ export function defineConsumerFirst<TMessage extends MessageDefinition>(
     binding,
     createPublisher,
   };
+}
+
+/**
+ * Merge multiple contracts into a single contract with full type inference.
+ *
+ * This function enables splitting your AMQP topology into logical subdomains or modules,
+ * then combining them into a unified contract. The merged contract preserves type safety,
+ * allowing TypeScript to infer all publisher and consumer names across subdomains.
+ *
+ * **Use Cases:**
+ * - Large applications with multiple bounded contexts or subdomains
+ * - Team-owned contract modules that need to be composed
+ * - Shared infrastructure contracts that are reused across applications
+ * - Testing scenarios where you want to test subsets of your topology
+ *
+ * **Conflict Handling:**
+ * When merging contracts, resources with the same name are handled as follows:
+ * - Later contracts override earlier ones for the same resource name
+ * - No validation is performed to ensure resource definitions are compatible
+ * - It's recommended to use unique prefixes or namespaces for resources to avoid conflicts
+ *
+ * @param contracts - Variable number of contract definitions to merge
+ * @returns A new contract with merged types from all input contracts
+ *
+ * @example
+ * ```typescript
+ * // Define subdomain contracts
+ * const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+ * const orderMessage = defineMessage(
+ *   z.object({
+ *     orderId: z.string(),
+ *     amount: z.number(),
+ *   })
+ * );
+ *
+ * const orderContract = defineContract({
+ *   exchanges: {
+ *     orders: ordersExchange,
+ *   },
+ *   publishers: {
+ *     orderCreated: definePublisher(ordersExchange, orderMessage, {
+ *       routingKey: 'order.created',
+ *     }),
+ *   },
+ * });
+ *
+ * const paymentsExchange = defineExchange('payments', 'topic', { durable: true });
+ * const paymentMessage = defineMessage(
+ *   z.object({
+ *     paymentId: z.string(),
+ *     amount: z.number(),
+ *   })
+ * );
+ *
+ * const paymentContract = defineContract({
+ *   exchanges: {
+ *     payments: paymentsExchange,
+ *   },
+ *   publishers: {
+ *     paymentReceived: definePublisher(paymentsExchange, paymentMessage, {
+ *       routingKey: 'payment.received',
+ *     }),
+ *   },
+ * });
+ *
+ * // Merge into a single contract with type safety
+ * const appContract = mergeContracts(orderContract, paymentContract);
+ *
+ * // TypeScript knows about all publishers: 'orderCreated' | 'paymentReceived'
+ * const client = await TypedAmqpClient.create({ contract: appContract, connection });
+ * await client.publish('orderCreated', orderData);
+ * await client.publish('paymentReceived', paymentData);
+ * ```
+ */
+export function mergeContracts<TContracts extends readonly [...ContractDefinition[]]>(
+  ...contracts: TContracts
+): MergeContracts<TContracts> {
+  const merged: ContractDefinition = {
+    exchanges: {},
+    queues: {},
+    bindings: {},
+    publishers: {},
+    consumers: {},
+  };
+
+  for (const contract of contracts) {
+    if (contract.exchanges) {
+      merged.exchanges = {
+        ...merged.exchanges,
+        ...contract.exchanges,
+      };
+    }
+
+    if (contract.queues) {
+      merged.queues = {
+        ...merged.queues,
+        ...contract.queues,
+      };
+    }
+
+    if (contract.bindings) {
+      merged.bindings = {
+        ...merged.bindings,
+        ...contract.bindings,
+      };
+    }
+
+    if (contract.publishers) {
+      merged.publishers = {
+        ...merged.publishers,
+        ...contract.publishers,
+      };
+    }
+
+    if (contract.consumers) {
+      merged.consumers = {
+        ...merged.consumers,
+        ...contract.consumers,
+      };
+    }
+  }
+
+  // Remove empty objects if no resources were added
+  if (Object.keys(merged.exchanges ?? {}).length === 0) {
+    delete merged.exchanges;
+  }
+  if (Object.keys(merged.queues ?? {}).length === 0) {
+    delete merged.queues;
+  }
+  if (Object.keys(merged.bindings ?? {}).length === 0) {
+    delete merged.bindings;
+  }
+  if (Object.keys(merged.publishers ?? {}).length === 0) {
+    delete merged.publishers;
+  }
+  if (Object.keys(merged.consumers ?? {}).length === 0) {
+    delete merged.consumers;
+  }
+
+  return merged as MergeContracts<TContracts>;
 }

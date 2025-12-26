@@ -9,6 +9,7 @@ import {
   definePublisherFirst,
   defineQueue,
   defineQueueBinding,
+  mergeContracts,
 } from "./builder.js";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -899,6 +900,367 @@ describe("builder", () => {
         publishers: { publishToExternal: { exchange: externalExchange } },
         bindings: { externalBinding: { exchange: externalExchange } },
         consumers: { consumeFromLocal: { queue: localQueue } },
+      });
+    });
+  });
+
+  describe("mergeContracts", () => {
+    it("should merge two contracts with different resources", () => {
+      // GIVEN
+      const orderMessage = defineMessage(
+        z.object({
+          orderId: z.string(),
+          amount: z.number(),
+        }),
+      );
+      const paymentMessage = defineMessage(
+        z.object({
+          paymentId: z.string(),
+          amount: z.number(),
+        }),
+      );
+
+      const ordersExchange = defineExchange("orders", "topic", { durable: true });
+      const paymentsExchange = defineExchange("payments", "topic", { durable: true });
+
+      const orderQueue = defineQueue("order-processing", { durable: true });
+      const paymentQueue = defineQueue("payment-processing", { durable: true });
+
+      const orderContract = defineContract({
+        exchanges: {
+          orders: ordersExchange,
+        },
+        queues: {
+          orderProcessing: orderQueue,
+        },
+        bindings: {
+          orderBinding: defineQueueBinding(orderQueue, ordersExchange, {
+            routingKey: "order.created",
+          }),
+        },
+        publishers: {
+          orderCreated: definePublisher(ordersExchange, orderMessage, {
+            routingKey: "order.created",
+          }),
+        },
+        consumers: {
+          processOrder: defineConsumer(orderQueue, orderMessage),
+        },
+      });
+
+      const paymentContract = defineContract({
+        exchanges: {
+          payments: paymentsExchange,
+        },
+        queues: {
+          paymentProcessing: paymentQueue,
+        },
+        bindings: {
+          paymentBinding: defineQueueBinding(paymentQueue, paymentsExchange, {
+            routingKey: "payment.received",
+          }),
+        },
+        publishers: {
+          paymentReceived: definePublisher(paymentsExchange, paymentMessage, {
+            routingKey: "payment.received",
+          }),
+        },
+        consumers: {
+          processPayment: defineConsumer(paymentQueue, paymentMessage),
+        },
+      });
+
+      // WHEN
+      const merged = mergeContracts(orderContract, paymentContract);
+
+      // THEN
+      expect(merged).toMatchObject({
+        exchanges: {
+          orders: ordersExchange,
+          payments: paymentsExchange,
+        },
+        queues: {
+          orderProcessing: orderQueue,
+          paymentProcessing: paymentQueue,
+        },
+        bindings: {
+          orderBinding: {
+            type: "queue",
+            queue: orderQueue,
+            exchange: ordersExchange,
+            routingKey: "order.created",
+          },
+          paymentBinding: {
+            type: "queue",
+            queue: paymentQueue,
+            exchange: paymentsExchange,
+            routingKey: "payment.received",
+          },
+        },
+        publishers: {
+          orderCreated: {
+            exchange: ordersExchange,
+            message: orderMessage,
+            routingKey: "order.created",
+          },
+          paymentReceived: {
+            exchange: paymentsExchange,
+            message: paymentMessage,
+            routingKey: "payment.received",
+          },
+        },
+        consumers: {
+          processOrder: {
+            queue: orderQueue,
+            message: orderMessage,
+          },
+          processPayment: {
+            queue: paymentQueue,
+            message: paymentMessage,
+          },
+        },
+      });
+    });
+
+    it("should merge multiple contracts", () => {
+      // GIVEN
+      const exchange1 = defineExchange("exchange-1", "topic", { durable: true });
+      const exchange2 = defineExchange("exchange-2", "topic", { durable: true });
+      const exchange3 = defineExchange("exchange-3", "topic", { durable: true });
+
+      const contract1 = defineContract({
+        exchanges: { ex1: exchange1 },
+      });
+
+      const contract2 = defineContract({
+        exchanges: { ex2: exchange2 },
+      });
+
+      const contract3 = defineContract({
+        exchanges: { ex3: exchange3 },
+      });
+
+      // WHEN
+      const merged = mergeContracts(contract1, contract2, contract3);
+
+      // THEN
+      expect(merged).toMatchObject({
+        exchanges: {
+          ex1: exchange1,
+          ex2: exchange2,
+          ex3: exchange3,
+        },
+      });
+    });
+
+    it("should handle empty contracts", () => {
+      // GIVEN
+      const emptyContract1 = defineContract({});
+      const emptyContract2 = defineContract({});
+
+      const exchange = defineExchange("test", "topic", { durable: true });
+      const fullContract = defineContract({
+        exchanges: { test: exchange },
+      });
+
+      // WHEN
+      const merged = mergeContracts(emptyContract1, fullContract, emptyContract2);
+
+      // THEN
+      expect(merged).toMatchObject({
+        exchanges: {
+          test: exchange,
+        },
+      });
+    });
+
+    it("should override resources with same name (later contracts win)", () => {
+      // GIVEN
+      const exchange1 = defineExchange("shared-exchange", "topic", { durable: true });
+      const exchange2 = defineExchange("shared-exchange", "direct", { durable: false });
+
+      const contract1 = defineContract({
+        exchanges: { shared: exchange1 },
+      });
+
+      const contract2 = defineContract({
+        exchanges: { shared: exchange2 },
+      });
+
+      // WHEN
+      const merged = mergeContracts(contract1, contract2);
+
+      // THEN
+      expect(merged.exchanges?.["shared"]).toEqual({
+        name: "shared-exchange",
+        type: "direct",
+        durable: false,
+      });
+    });
+
+    it("should merge contracts with partial resource definitions", () => {
+      // GIVEN
+      const message = defineMessage(z.object({ id: z.string() }));
+      const exchange = defineExchange("test-exchange", "topic", { durable: true });
+      const queue = defineQueue("test-queue", { durable: true });
+
+      const contractWithExchanges = defineContract({
+        exchanges: { test: exchange },
+      });
+
+      const contractWithQueues = defineContract({
+        queues: { test: queue },
+      });
+
+      const contractWithPublishers = defineContract({
+        publishers: {
+          testPublisher: definePublisher(exchange, message, {
+            routingKey: "test.key",
+          }),
+        },
+      });
+
+      // WHEN
+      const merged = mergeContracts(
+        contractWithExchanges,
+        contractWithQueues,
+        contractWithPublishers,
+      );
+
+      // THEN
+      expect(merged).toMatchObject({
+        exchanges: { test: exchange },
+        queues: { test: queue },
+        publishers: {
+          testPublisher: {
+            exchange,
+            message,
+            routingKey: "test.key",
+          },
+        },
+      });
+    });
+
+    it("should return empty contract when merging only empty contracts", () => {
+      // GIVEN
+      const empty1 = defineContract({});
+      const empty2 = defineContract({});
+      const empty3 = defineContract({});
+
+      // WHEN
+      const merged = mergeContracts(empty1, empty2, empty3);
+
+      // THEN
+      expect(merged).toEqual({});
+    });
+
+    it("should handle single contract merge", () => {
+      // GIVEN
+      const exchange = defineExchange("test", "topic", { durable: true });
+      const contract = defineContract({
+        exchanges: { test: exchange },
+      });
+
+      // WHEN
+      const merged = mergeContracts(contract);
+
+      // THEN
+      expect(merged).toMatchObject({
+        exchanges: { test: exchange },
+      });
+    });
+
+    it("should merge contracts with all resource types", () => {
+      // GIVEN
+      const message = defineMessage(z.object({ id: z.string() }));
+      const exchange = defineExchange("test-exchange", "topic", { durable: true });
+      const queue = defineQueue("test-queue", { durable: true });
+
+      const contract1 = defineContract({
+        exchanges: { ex1: exchange },
+        queues: { q1: queue },
+      });
+
+      const contract2 = defineContract({
+        bindings: {
+          b1: defineQueueBinding(queue, exchange, {
+            routingKey: "test.key",
+          }),
+        },
+        publishers: {
+          p1: definePublisher(exchange, message, {
+            routingKey: "test.key",
+          }),
+        },
+      });
+
+      const contract3 = defineContract({
+        consumers: {
+          c1: defineConsumer(queue, message),
+        },
+      });
+
+      // WHEN
+      const merged = mergeContracts(contract1, contract2, contract3);
+
+      // THEN
+      expect(merged).toMatchObject({
+        exchanges: { ex1: exchange },
+        queues: { q1: queue },
+        bindings: {
+          b1: {
+            type: "queue",
+            queue,
+            exchange,
+            routingKey: "test.key",
+          },
+        },
+        publishers: {
+          p1: {
+            exchange,
+            message,
+            routingKey: "test.key",
+          },
+        },
+        consumers: {
+          c1: {
+            queue,
+            message,
+          },
+        },
+      });
+    });
+
+    it("should preserve order when merging overlapping publishers", () => {
+      // GIVEN
+      const message1 = defineMessage(z.object({ id: z.string() }));
+      const message2 = defineMessage(z.object({ value: z.number() }));
+      const exchange = defineExchange("test", "topic", { durable: true });
+
+      const contract1 = defineContract({
+        publishers: {
+          pub1: definePublisher(exchange, message1, { routingKey: "first" }),
+          shared: definePublisher(exchange, message1, { routingKey: "v1" }),
+        },
+      });
+
+      const contract2 = defineContract({
+        publishers: {
+          pub2: definePublisher(exchange, message2, { routingKey: "second" }),
+          shared: definePublisher(exchange, message2, { routingKey: "v2" }),
+        },
+      });
+
+      // WHEN
+      const merged = mergeContracts(contract1, contract2);
+
+      // THEN
+      expect(merged.publishers).toBeDefined();
+      expect(Object.keys(merged.publishers ?? {})).toEqual(["pub1", "shared", "pub2"]);
+      expect(merged.publishers?.["shared"]).toEqual({
+        exchange,
+        message: message2,
+        routingKey: "v2",
       });
     });
   });
