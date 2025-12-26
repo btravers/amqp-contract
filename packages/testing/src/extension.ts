@@ -77,7 +77,7 @@ async function createVhost() {
   const namespace = randomUUID();
 
   const vhostResponse = await fetch(
-    `http://${inject("__TESTCONTAINERS_RABBITMQ_IP__")}:${inject("__TESTCONTAINERS_RABBITMQ_PORT_15672__")}/api/vhosts/${namespace}`,
+    `http://${inject("__TESTCONTAINERS_RABBITMQ_IP__")}:${inject("__TESTCONTAINERS_RABBITMQ_PORT_15672__")}/api/vhosts/${encodeURIComponent(namespace)}`,
     {
       method: "PUT",
       headers: {
@@ -87,7 +87,7 @@ async function createVhost() {
   );
 
   if (vhostResponse.status !== 201) {
-    throw new Error(`Failed to create vhost: ${vhostResponse.status}`, {
+    throw new Error(`Failed to create vhost '${namespace}': ${vhostResponse.status}`, {
       cause: vhostResponse,
     });
   }
@@ -108,7 +108,7 @@ async function deleteVhost(vhost: string) {
 
   // 204 = successfully deleted, 404 = already deleted or doesn't exist
   if (vhostResponse.status !== 204 && vhostResponse.status !== 404) {
-    throw new Error(`Failed to delete vhost: ${vhostResponse.status}`, {
+    throw new Error(`Failed to delete vhost '${vhost}': ${vhostResponse.status}`, {
       cause: vhostResponse,
     });
   }
