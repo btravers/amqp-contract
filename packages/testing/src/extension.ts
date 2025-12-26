@@ -13,20 +13,76 @@ export const it = vitestIt.extend<{
     routingKey: string,
   ) => Promise<(nbEvents?: number) => Promise<amqpLib.ConsumeMessage[]>>;
 }>({
+  /**
+   * Test fixture that provides an isolated RabbitMQ virtual host (vhost) for the test.
+   *
+   * Creates a new vhost with a random UUID name for test isolation. The vhost is automatically
+   * created before the test runs using the RabbitMQ Management API.
+   *
+   * @example
+   * ```typescript
+   * it('should use isolated vhost', async ({ vhost }) => {
+   *   console.log(`Test running in vhost: ${vhost}`);
+   * });
+   * ```
+   */
   // oxlint-disable-next-line no-empty-pattern
   vhost: async ({}, use) => {
     const vhost = await createVhost();
     await use(vhost);
   },
+  /**
+   * Test fixture that provides the AMQP connection URL for the test container.
+   *
+   * Constructs a connection URL using the test container's IP and port, along with
+   * the isolated vhost. The URL follows the format: `amqp://guest:guest@host:port/vhost`.
+   *
+   * @example
+   * ```typescript
+   * it('should connect with URL', async ({ amqpConnectionUrl }) => {
+   *   console.log(`Connecting to: ${amqpConnectionUrl}`);
+   * });
+   * ```
+   */
   amqpConnectionUrl: async ({ vhost }, use) => {
     const url = `amqp://guest:guest@${inject("__TESTCONTAINERS_RABBITMQ_IP__")}:${inject("__TESTCONTAINERS_RABBITMQ_PORT_5672__")}/${vhost}`;
     await use(url);
   },
+  /**
+   * Test fixture that provides an active AMQP connection to RabbitMQ.
+   *
+   * Establishes a connection using the provided connection URL and automatically closes
+   * it after the test completes. This fixture is useful for tests that need direct
+   * access to the connection object (e.g., to create multiple channels).
+   *
+   * @example
+   * ```typescript
+   * it('should use connection', async ({ amqpConnection }) => {
+   *   const channel = await amqpConnection.createChannel();
+   *   // ... use channel
+   * });
+   * ```
+   */
   amqpConnection: async ({ amqpConnectionUrl }, use) => {
     const connection = await amqpLib.connect(amqpConnectionUrl);
     await use(connection);
     await connection.close();
   },
+  /**
+   * Test fixture that provides an AMQP channel for interacting with RabbitMQ.
+   *
+   * Creates a channel from the active connection and automatically closes it after
+   * the test completes. The channel is used for declaring exchanges, queues, bindings,
+   * and publishing/consuming messages.
+   *
+   * @example
+   * ```typescript
+   * it('should use channel', async ({ amqpChannel }) => {
+   *   await amqpChannel.assertExchange('test-exchange', 'topic');
+   *   await amqpChannel.assertQueue('test-queue');
+   * });
+   * ```
+   */
   amqpChannel: async ({ amqpConnection }, use) => {
     const channel = await amqpConnection.createChannel();
     await use(channel);
