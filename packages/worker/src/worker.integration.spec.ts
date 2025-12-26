@@ -61,14 +61,10 @@ describe("AmqpWorker Integration", () => {
     }).resultToPromise();
 
     // WHEN
-    publishMessage(
-      contract.bindings.testBinding.exchange.name,
-      contract.bindings.testBinding.routingKey,
-      {
-        id: "123",
-        message: "Hello from integration test!",
-      },
-    );
+    publishMessage(exchange.name, "test.message", {
+      id: "123",
+      message: "Hello from integration test!",
+    });
 
     // THEN
     await vi.waitFor(() => {
@@ -133,21 +129,9 @@ describe("AmqpWorker Integration", () => {
     }).resultToPromise();
 
     // WHEN
-    publishMessage(
-      contract.bindings.testBinding.exchange.name,
-      contract.bindings.testBinding.routingKey,
-      { id: "1", count: 1 },
-    );
-    publishMessage(
-      contract.bindings.testBinding.exchange.name,
-      contract.bindings.testBinding.routingKey,
-      { id: "2", count: 2 },
-    );
-    publishMessage(
-      contract.bindings.testBinding.exchange.name,
-      contract.bindings.testBinding.routingKey,
-      { id: "3", count: 3 },
-    );
+    publishMessage(exchange.name, "multi.test", { id: "1", count: 1 });
+    publishMessage(exchange.name, "multi.test", { id: "2", count: 2 });
+    publishMessage(exchange.name, "multi.test", { id: "3", count: 3 });
 
     // THEN - Wait for all messages to be consumed
     await vi.waitFor(() => {
@@ -225,16 +209,8 @@ describe("AmqpWorker Integration", () => {
     }).resultToPromise();
 
     // WHEN
-    publishMessage(
-      contract.bindings.binding1.exchange.name,
-      contract.bindings.binding1.routingKey,
-      { id: "msg1" },
-    );
-    publishMessage(
-      contract.bindings.binding2.exchange.name,
-      contract.bindings.binding2.routingKey,
-      { id: "msg2" },
-    );
+    publishMessage(exchange.name, "all.one", { id: "msg1" });
+    publishMessage(exchange.name, "all.two", { id: "msg2" });
 
     // THEN
     await vi.waitFor(() => {
