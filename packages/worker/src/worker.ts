@@ -217,6 +217,15 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     // Start consuming
     return Future.fromPromise(
       this.amqpClient.channel.consume(consumer.queue.name, async (msg) => {
+        // Handle null messages (consumer cancellation)
+        if (msg === null) {
+          this.logger?.warn("Consumer cancelled by server", {
+            consumerName: String(consumerName),
+            queueName: consumer.queue.name,
+          });
+          return;
+        }
+
         // Parse message
         const parseResult = Result.fromExecution(() => JSON.parse(msg.content.toString()));
         if (parseResult.isError()) {

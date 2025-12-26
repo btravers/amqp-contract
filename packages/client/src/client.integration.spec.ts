@@ -1,4 +1,5 @@
 import {
+  ContractDefinition,
   defineContract,
   defineExchange,
   defineExchangeBinding,
@@ -8,15 +9,37 @@ import {
   defineQueueBinding,
 } from "@amqp-contract/contract";
 import { describe, expect } from "vitest";
+import { MessageValidationError } from "./errors.js";
 import { Result } from "@swan-io/boxed";
 import { TypedAmqpClient } from "./client.js";
-import { it } from "@amqp-contract/testing/extension";
+import { it as baseIt } from "@amqp-contract/testing/extension";
 import { z } from "zod";
+
+const it = baseIt.extend<{
+  clientFactory: <TContract extends ContractDefinition>(
+    contract: TContract,
+  ) => Promise<TypedAmqpClient<TContract>>;
+}>({
+  clientFactory: async ({ amqpConnectionUrl }, use) => {
+    const clients: TypedAmqpClient<ContractDefinition>[] = [];
+    await use(async <TContract extends ContractDefinition>(contract: TContract) => {
+      const client = await TypedAmqpClient.create({
+        contract,
+        urls: [amqpConnectionUrl],
+      }).resultToPromise();
+
+      clients.push(client);
+
+      return client;
+    });
+    await Promise.all(clients.map((client) => client.close().resultToPromise()));
+  },
+});
 
 describe("AmqpClient Integration", () => {
   describe("end-to-end publishing", () => {
     it("should publish messages to a real RabbitMQ instance", async ({
-      amqpConnectionUrl,
+      clientFactory,
       initConsumer,
     }) => {
       // GIVEN
@@ -41,10 +64,7 @@ describe("AmqpClient Integration", () => {
         },
       });
 
-      const client = await TypedAmqpClient.create({
-        contract,
-        urls: [amqpConnectionUrl],
-      }).resultToPromise();
+      const client = await clientFactory(contract);
 
       const pendingMessages = await initConsumer(
         contract.publishers.testPublisher.exchange.name,
@@ -65,12 +85,9 @@ describe("AmqpClient Integration", () => {
           content: Buffer.from(JSON.stringify({ id: "123", message: "Hello, RabbitMQ!" })),
         }),
       ]);
-
-      // CLEANUP
-      await client.close();
     });
 
-    it("should validate messages before publishing", async ({ amqpConnectionUrl }) => {
+    it("should validate messages before publishing", async ({ clientFactory }) => {
       // GIVEN
       const TestMessage = z.object({
         id: z.string(),
@@ -90,10 +107,7 @@ describe("AmqpClient Integration", () => {
         },
       });
 
-      const client = await TypedAmqpClient.create({
-        contract,
-        urls: [amqpConnectionUrl],
-      }).resultToPromise();
+      const client = await clientFactory(contract);
 
       // WHEN
       const result = await client.publish("testPublisher", {
@@ -106,12 +120,9 @@ describe("AmqpClient Integration", () => {
         tag: "Error",
         error: { name: "MessageValidationError" },
       });
-
-      // CLEANUP
-      await client.close();
     });
 
-    it("should publish with options", async ({ amqpConnectionUrl, initConsumer }) => {
+    it("should publish with options", async ({ clientFactory, initConsumer }) => {
       // GIVEN
       const TestMessage = z.object({
         content: z.string(),
@@ -130,10 +141,7 @@ describe("AmqpClient Integration", () => {
         },
       });
 
-      const client = await TypedAmqpClient.create({
-        contract,
-        urls: [amqpConnectionUrl],
-      }).resultToPromise();
+      const client = await clientFactory(contract);
 
       const pendingMessages = await initConsumer(
         contract.publishers.testPublisher.exchange.name,
@@ -158,14 +166,11 @@ describe("AmqpClient Integration", () => {
           }),
         }),
       ]);
-
-      // CLEANUP
-      await client.close();
     });
   });
 
   describe("topology setup", () => {
-    it("should setup exchanges, queues, and bindings", async ({ amqpConnectionUrl }) => {
+    it("should setup exchanges, queues, and bindings", async ({ clientFactory }) => {
       // GIVEN
       const TestMessage = z.object({ id: z.string() });
 
@@ -192,22 +197,13 @@ describe("AmqpClient Integration", () => {
       });
 
       // WHEN
-      const client = await TypedAmqpClient.create({
-        contract,
-        urls: [amqpConnectionUrl],
-      }).resultToPromise();
+      const client = await clientFactory(contract);
 
       // THEN
       expect(client).toBeDefined();
-
-      // CLEANUP
-      await client.close();
     });
 
-    it("should handle exchange-to-exchange bindings", async ({
-      amqpConnectionUrl,
-      initConsumer,
-    }) => {
+    it("should handle exchange-to-exchange bindings", async ({ clientFactory, initConsumer }) => {
       // GIVEN
       const sourceExchange = defineExchange("integration-source", "topic", { durable: false });
       const destExchange = defineExchange("integration-dest", "topic", { durable: false });
@@ -233,10 +229,7 @@ describe("AmqpClient Integration", () => {
         },
       });
 
-      const client = await TypedAmqpClient.create({
-        contract,
-        urls: [amqpConnectionUrl],
-      }).resultToPromise();
+      const client = await clientFactory(contract);
 
       // Setup consumer on destination exchange
       const pendingMessages = await initConsumer("integration-dest", "test.important");
@@ -250,12 +243,9 @@ describe("AmqpClient Integration", () => {
           content: Buffer.from(JSON.stringify({ msg: "routed" })),
         }),
       ]);
-
-      // CLEANUP
-      await client.close();
     });
 
-    it("should handle fanout exchange topology", async ({ amqpConnectionUrl, initConsumer }) => {
+    it("should handle fanout exchange topology", async ({ clientFactory, initConsumer }) => {
       // GIVEN
       const fanoutExchange = defineExchange("integration-fanout", "fanout", { durable: false });
       const queue = defineQueue("integration-fanout-queue", { durable: false });
@@ -279,10 +269,7 @@ describe("AmqpClient Integration", () => {
         },
       });
 
-      const client = await TypedAmqpClient.create({
-        contract,
-        urls: [amqpConnectionUrl],
-      }).resultToPromise();
+      const client = await clientFactory(contract);
 
       const pendingMessages = await initConsumer("integration-fanout", "");
 
@@ -295,14 +282,11 @@ describe("AmqpClient Integration", () => {
           content: Buffer.from(JSON.stringify({ data: "broadcast message" })),
         }),
       ]);
-
-      // CLEANUP
-      await client.close();
     });
   });
 
   describe("connection management", () => {
-    it("should close cleanly", async ({ amqpConnectionUrl }) => {
+    it("should close cleanly", async ({ clientFactory }) => {
       // GIVEN
       const exchange = defineExchange("integration-close-test", "topic", { durable: false });
 
@@ -317,10 +301,7 @@ describe("AmqpClient Integration", () => {
         },
       });
 
-      const client = await TypedAmqpClient.create({
-        contract,
-        urls: [amqpConnectionUrl],
-      }).resultToPromise();
+      const client = await clientFactory(contract);
 
       // WHEN
       const closeResult = await client.close();
@@ -329,7 +310,7 @@ describe("AmqpClient Integration", () => {
       expect(closeResult.isOk()).toBe(true);
     });
 
-    it("should handle multiple close calls gracefully", async ({ amqpConnectionUrl }) => {
+    it("should handle multiple close calls gracefully", async ({ clientFactory }) => {
       // GIVEN
       const exchange = defineExchange("integration-multi-close", "topic", { durable: false });
 
@@ -339,10 +320,7 @@ describe("AmqpClient Integration", () => {
         },
       });
 
-      const client = await TypedAmqpClient.create({
-        contract,
-        urls: [amqpConnectionUrl],
-      }).resultToPromise();
+      const client = await clientFactory(contract);
 
       // WHEN
       await client.close();
@@ -352,7 +330,7 @@ describe("AmqpClient Integration", () => {
       expect(secondCloseResult.isOk()).toBe(true);
     });
 
-    it("should publish after connection", async ({ amqpConnectionUrl, initConsumer }) => {
+    it("should publish after connection", async ({ clientFactory, initConsumer }) => {
       // GIVEN
       const exchange = defineExchange("integration-post-connect", "topic", { durable: false });
 
@@ -367,10 +345,7 @@ describe("AmqpClient Integration", () => {
         },
       });
 
-      const client = await TypedAmqpClient.create({
-        contract,
-        urls: [amqpConnectionUrl],
-      }).resultToPromise();
+      const client = await clientFactory(contract);
 
       const pendingMessages = await initConsumer("integration-post-connect", "test.value");
 
@@ -384,14 +359,11 @@ describe("AmqpClient Integration", () => {
           content: Buffer.from(JSON.stringify({ value: 42 })),
         }),
       ]);
-
-      // CLEANUP
-      await client.close();
     });
   });
 
   describe("error handling", () => {
-    it("should validate message schema and return error", async ({ amqpConnectionUrl }) => {
+    it("should validate message schema and return error", async ({ clientFactory }) => {
       // GIVEN
       const TestMessage = z.object({
         id: z.string(),
@@ -411,10 +383,7 @@ describe("AmqpClient Integration", () => {
         },
       });
 
-      const client = await TypedAmqpClient.create({
-        contract,
-        urls: [amqpConnectionUrl],
-      }).resultToPromise();
+      const client = await clientFactory(contract);
 
       // WHEN - Invalid data (count must be positive)
       const result = await client.publish("testPublisher", {
@@ -424,13 +393,9 @@ describe("AmqpClient Integration", () => {
       });
 
       // THEN
-      expect(result.isError()).toBe(true);
-      if (result.isError()) {
-        expect(result.error.name).toBe("MessageValidationError");
-      }
-
-      // CLEANUP
-      await client.close();
+      expect(result).toEqual(
+        Result.Error(new MessageValidationError("testPublisher", expect.any(Array))),
+      );
     });
   });
 });
