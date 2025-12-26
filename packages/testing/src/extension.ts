@@ -1,3 +1,14 @@
+/**
+ * Vitest extension module for AMQP testing utilities
+ *
+ * This module provides a Vitest test extension that adds AMQP-specific fixtures
+ * to your tests. Each test gets an isolated virtual host (vhost) with pre-configured
+ * connections, channels, and helper functions for publishing and consuming messages.
+ *
+ * @module extension
+ * @packageDocumentation
+ */
+
 import amqpLib, { type Channel, type ChannelModel } from "amqplib";
 import { inject, vi, it as vitestIt } from "vitest";
 import { randomUUID } from "node:crypto";

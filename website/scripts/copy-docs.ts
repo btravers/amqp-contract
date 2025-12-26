@@ -18,6 +18,7 @@ const packages: PackageInfo[] = [
   { name: "@amqp-contract/asyncapi", folder: "asyncapi" },
   { name: "@amqp-contract/client-nestjs", folder: "client-nestjs" },
   { name: "@amqp-contract/worker-nestjs", folder: "worker-nestjs" },
+  { name: "@amqp-contract/testing", folder: "testing" },
 ];
 
 async function copyDocs(): Promise<void> {
@@ -55,6 +56,10 @@ Welcome to the amqp-contract API documentation. This documentation is auto-gener
 
 - [@amqp-contract/client-nestjs](./client-nestjs/) - NestJS client module
 - [@amqp-contract/worker-nestjs](./worker-nestjs/) - NestJS worker module
+
+## Testing
+
+- [@amqp-contract/testing](./testing/) - Testing utilities with testcontainers
 `;
 
     await writeFile(join(docsDir, "index.md"), indexContent);

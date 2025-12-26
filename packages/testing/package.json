@@ -19,6 +19,7 @@
   ],
   "scripts": {
     "build": "tsdown src/global-setup.ts src/extension.ts --format esm --dts --clean",
+    "build:docs": "typedoc",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -27,8 +28,11 @@
   },
   "devDependencies": {
     "@amqp-contract/tsconfig": "workspace:*",
+    "@amqp-contract/typedoc": "workspace:*",
     "@types/amqplib": "catalog:",
     "tsdown": "catalog:",
+    "typedoc": "catalog:",
+    "typedoc-plugin-markdown": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   },

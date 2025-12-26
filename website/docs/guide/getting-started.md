@@ -38,6 +38,16 @@ yarn add -D @types/amqplib
 
 ### Optional Packages
 
+#### Testing
+
+For integration testing with RabbitMQ testcontainers:
+
+```bash
+pnpm add -D @amqp-contract/testing
+```
+
+See the [Testing Guide](/guide/testing) for more details.
+
 #### AsyncAPI Generation
 
 For generating AsyncAPI 3.0 specifications:

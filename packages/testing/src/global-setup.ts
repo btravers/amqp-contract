@@ -1,3 +1,14 @@
+/**
+ * Global setup module for starting RabbitMQ test containers
+ *
+ * This module provides a Vitest globalSetup function that automatically starts
+ * a RabbitMQ container with the management plugin before tests run, and stops
+ * it after all tests complete.
+ *
+ * @module global-setup
+ * @packageDocumentation
+ */
+
 import { GenericContainer, Wait } from "testcontainers";
 import type { TestProject } from "vitest/node";
 
@@ -12,7 +23,26 @@ declare module "vitest" {
 
 /**
  * Setup function for Vitest globalSetup
- * Starts a RabbitMQ container before all tests
+ *
+ * Starts a RabbitMQ container before all tests and provides connection details
+ * to tests via Vitest's provide API. The container is automatically stopped
+ * and cleaned up after all tests complete.
+ *
+ * This function should be configured in your `vitest.config.ts`:
+ *
+ * @example
+ * ```typescript
+ * import { defineConfig } from "vitest/config";
+ *
+ * export default defineConfig({
+ *   test: {
+ *     globalSetup: ["@amqp-contract/testing/global-setup"],
+ *   },
+ * });
+ * ```
+ *
+ * @param provide - Function to provide context values to tests
+ * @returns Cleanup function that stops the RabbitMQ container
  */
 export default async function setup({ provide }: TestProject) {
   console.log("🐳 Starting RabbitMQ test environment...");
