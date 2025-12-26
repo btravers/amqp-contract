@@ -29,7 +29,11 @@ export const it = vitestIt.extend<{
   // oxlint-disable-next-line no-empty-pattern
   vhost: async ({}, use) => {
     const vhost = await createVhost();
-    await use(vhost);
+    try {
+      await use(vhost);
+    } finally {
+      await deleteVhost(vhost);
+    }
   },
   /**
    * Test fixture that provides the AMQP connection URL for the test container.
@@ -167,7 +171,7 @@ async function createVhost() {
   const namespace = randomUUID();
 
   const vhostResponse = await fetch(
-    `http://${inject("__TESTCONTAINERS_RABBITMQ_IP__")}:${inject("__TESTCONTAINERS_RABBITMQ_PORT_15672__")}/api/vhosts/${namespace}`,
+    `http://${inject("__TESTCONTAINERS_RABBITMQ_IP__")}:${inject("__TESTCONTAINERS_RABBITMQ_PORT_15672__")}/api/vhosts/${encodeURIComponent(namespace)}`,
     {
       method: "PUT",
       headers: {
@@ -177,10 +181,29 @@ async function createVhost() {
   );
 
   if (vhostResponse.status !== 201) {
-    throw new Error(`Failed to create vhost: ${vhostResponse.status}`, {
+    throw new Error(`Failed to create vhost '${namespace}': ${vhostResponse.status}`, {
       cause: vhostResponse,
     });
   }
 
   return namespace;
+}
+
+async function deleteVhost(vhost: string) {
+  const vhostResponse = await fetch(
+    `http://${inject("__TESTCONTAINERS_RABBITMQ_IP__")}:${inject("__TESTCONTAINERS_RABBITMQ_PORT_15672__")}/api/vhosts/${encodeURIComponent(vhost)}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Basic ${btoa("guest:guest")}`,
+      },
+    },
+  );
+
+  // 204 = successfully deleted, 404 = already deleted or doesn't exist
+  if (vhostResponse.status !== 204 && vhostResponse.status !== 404) {
+    throw new Error(`Failed to delete vhost '${vhost}': ${vhostResponse.status}`, {
+      cause: vhostResponse,
+    });
+  }
 }
