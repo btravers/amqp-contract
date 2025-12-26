@@ -7,14 +7,16 @@ import {
   defineQueue,
   defineQueueBinding,
 } from "@amqp-contract/contract";
-import { describe, expect } from "vitest";
-import { TypedAmqpClient } from "@amqp-contract/client";
+import { describe, expect, vi } from "vitest";
 import { TypedAmqpWorker } from "./worker.js";
 import { it } from "@amqp-contract/testing/extension";
 import { z } from "zod";
 
 describe("AmqpWorker Integration", () => {
-  it("should consume messages from a real RabbitMQ instance", async ({ amqpConnectionUrl }) => {
+  it("should consume messages from a real RabbitMQ instance", async ({
+    amqpConnectionUrl,
+    publishMessage,
+  }) => {
     // GIVEN
     const TestMessage = z.object({
       id: z.string(),
@@ -58,37 +60,31 @@ describe("AmqpWorker Integration", () => {
       urls: [amqpConnectionUrl],
     }).resultToPromise();
 
-    // WHEN - Publish a message using the client
-    const clientResult = await TypedAmqpClient.create({
-      contract,
-      urls: [amqpConnectionUrl],
-    });
-
-    if (clientResult.isError()) {
-      throw clientResult.error;
-    }
-    const client = clientResult.value;
-    const publishResult = await client.publish("testPublisher", {
+    // WHEN
+    publishMessage(exchange.name, "test.message", {
       id: "123",
       message: "Hello from integration test!",
     });
 
-    expect(publishResult.isOk()).toBe(true);
-
-    // THEN - Wait for message to be consumed
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    expect(messages).toHaveLength(1);
-    expect(messages[0]).toEqual({
-      id: "123",
-      message: "Hello from integration test!",
+    // THEN
+    await vi.waitFor(() => {
+      if (messages.length < 1) {
+        throw new Error("Message not yet consumed");
+      }
     });
+
+    expect(messages).toEqual([
+      {
+        id: "123",
+        message: "Hello from integration test!",
+      },
+    ]);
 
     // CLEANUP
     await worker.close();
-    await client.close();
   });
 
-  it("should handle multiple messages", async ({ amqpConnectionUrl }) => {
+  it("should handle multiple messages", async ({ amqpConnectionUrl, publishMessage }) => {
     // GIVEN
     const TestMessage = z.object({
       id: z.string(),
@@ -132,28 +128,18 @@ describe("AmqpWorker Integration", () => {
       urls: [amqpConnectionUrl],
     }).resultToPromise();
 
-    // WHEN - Publish multiple messages
-    const clientResult = await TypedAmqpClient.create({
-      contract,
-      urls: [amqpConnectionUrl],
-    });
-
-    if (clientResult.isError()) {
-      throw clientResult.error;
-    }
-    const client = clientResult.value;
-
-    const result1 = await client.publish("testPublisher", { id: "1", count: 1 });
-    const result2 = await client.publish("testPublisher", { id: "2", count: 2 });
-    const result3 = await client.publish("testPublisher", { id: "3", count: 3 });
-
-    expect(result1.isOk()).toBe(true);
-    expect(result2.isOk()).toBe(true);
-    expect(result3.isOk()).toBe(true);
+    // WHEN
+    publishMessage(exchange.name, "multi.test", { id: "1", count: 1 });
+    publishMessage(exchange.name, "multi.test", { id: "2", count: 2 });
+    publishMessage(exchange.name, "multi.test", { id: "3", count: 3 });
 
     // THEN - Wait for all messages to be consumed
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    expect(messages).toHaveLength(3);
+    await vi.waitFor(() => {
+      if (messages.length < 3) {
+        throw new Error("Message not yet consumed");
+      }
+    });
+
     expect(messages).toEqual([
       { id: "1", count: 1 },
       { id: "2", count: 2 },
@@ -162,10 +148,12 @@ describe("AmqpWorker Integration", () => {
 
     // CLEANUP
     await worker.close();
-    await client.close();
   });
 
-  it("should consume all consumers with consumeAll", async ({ amqpConnectionUrl }) => {
+  it("should consume all consumers with consumeAll", async ({
+    amqpConnectionUrl,
+    publishMessage,
+  }) => {
     // GIVEN
     const TestMessage = z.object({ id: z.string() });
 
@@ -220,30 +208,21 @@ describe("AmqpWorker Integration", () => {
       urls: [amqpConnectionUrl],
     }).resultToPromise();
 
-    // WHEN - Publish messages to both queues
-    const clientResult = await TypedAmqpClient.create({
-      contract,
-      urls: [amqpConnectionUrl],
+    // WHEN
+    publishMessage(exchange.name, "all.one", { id: "msg1" });
+    publishMessage(exchange.name, "all.two", { id: "msg2" });
+
+    // THEN
+    await vi.waitFor(() => {
+      if (messages1.length + messages2.length < 2) {
+        throw new Error("Message not yet consumed");
+      }
     });
 
-    if (clientResult.isError()) {
-      throw clientResult.error;
-    }
-    const client = clientResult.value;
-
-    const result1 = await client.publish("pub1", { id: "msg1" });
-    const result2 = await client.publish("pub2", { id: "msg2" });
-
-    expect(result1.isOk()).toBe(true);
-    expect(result2.isOk()).toBe(true);
-
-    // THEN - Wait for messages to be consumed
-    await new Promise((resolve) => setTimeout(resolve, 500));
     expect(messages1).toEqual([{ id: "msg1" }]);
     expect(messages2).toEqual([{ id: "msg2" }]);
 
     // CLEANUP
     await worker.close();
-    await client.close();
   });
 });

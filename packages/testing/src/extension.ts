@@ -1,11 +1,251 @@
-import { inject, it as vitestIt } from "vitest";
+import amqpLib, { type Channel, type ChannelModel } from "amqplib";
+import { inject, vi, it as vitestIt } from "vitest";
+import { randomUUID } from "node:crypto";
 
 export const it = vitestIt.extend<{
+  vhost: string;
   amqpConnectionUrl: string;
+  amqpConnection: ChannelModel;
+  amqpChannel: Channel;
+  publishMessage: (exchange: string, routingKey: string, content: unknown) => void;
+  initConsumer: (
+    exchange: string,
+    routingKey: string,
+  ) => Promise<
+    (options?: { nbEvents?: number; timeout?: number }) => Promise<amqpLib.ConsumeMessage[]>
+  >;
 }>({
+  /**
+   * Test fixture that provides an isolated RabbitMQ virtual host (vhost) for the test.
+   *
+   * Creates a new vhost with a random UUID name for test isolation. The vhost is automatically
+   * created before the test runs using the RabbitMQ Management API.
+   *
+   * @example
+   * ```typescript
+   * it('should use isolated vhost', async ({ vhost }) => {
+   *   console.log(`Test running in vhost: ${vhost}`);
+   * });
+   * ```
+   */
   // oxlint-disable-next-line no-empty-pattern
-  amqpConnectionUrl: async ({}, use) => {
-    const url = `amqp://guest:guest@${inject("__TESTCONTAINERS_RABBITMQ_IP__")}:${inject("__TESTCONTAINERS_RABBITMQ_PORT_5672__")}`;
+  vhost: async ({}, use) => {
+    const vhost = await createVhost();
+    try {
+      await use(vhost);
+    } finally {
+      await deleteVhost(vhost);
+    }
+  },
+  /**
+   * Test fixture that provides the AMQP connection URL for the test container.
+   *
+   * Constructs a connection URL using the test container's IP and port, along with
+   * the isolated vhost. The URL follows the format: `amqp://guest:guest@host:port/vhost`.
+   *
+   * @example
+   * ```typescript
+   * it('should connect with URL', async ({ amqpConnectionUrl }) => {
+   *   console.log(`Connecting to: ${amqpConnectionUrl}`);
+   * });
+   * ```
+   */
+  amqpConnectionUrl: async ({ vhost }, use) => {
+    const url = `amqp://guest:guest@${inject("__TESTCONTAINERS_RABBITMQ_IP__")}:${inject("__TESTCONTAINERS_RABBITMQ_PORT_5672__")}/${vhost}`;
     await use(url);
   },
+  /**
+   * Test fixture that provides an active AMQP connection to RabbitMQ.
+   *
+   * Establishes a connection using the provided connection URL and automatically closes
+   * it after the test completes. This fixture is useful for tests that need direct
+   * access to the connection object (e.g., to create multiple channels).
+   *
+   * @example
+   * ```typescript
+   * it('should use connection', async ({ amqpConnection }) => {
+   *   const channel = await amqpConnection.createChannel();
+   *   // ... use channel
+   * });
+   * ```
+   */
+  amqpConnection: async ({ amqpConnectionUrl }, use) => {
+    const connection = await amqpLib.connect(amqpConnectionUrl);
+    await use(connection);
+    await connection.close();
+  },
+  /**
+   * Test fixture that provides an AMQP channel for interacting with RabbitMQ.
+   *
+   * Creates a channel from the active connection and automatically closes it after
+   * the test completes. The channel is used for declaring exchanges, queues, bindings,
+   * and publishing/consuming messages.
+   *
+   * @example
+   * ```typescript
+   * it('should use channel', async ({ amqpChannel }) => {
+   *   await amqpChannel.assertExchange('test-exchange', 'topic');
+   *   await amqpChannel.assertQueue('test-queue');
+   * });
+   * ```
+   */
+  amqpChannel: async ({ amqpConnection }, use) => {
+    const channel = await amqpConnection.createChannel();
+    await use(channel);
+    await channel.close();
+  },
+  /**
+   * Test fixture for publishing messages to an AMQP exchange.
+   *
+   * Provides a helper function to publish messages directly to an exchange during tests.
+   * The message content is automatically serialized to JSON and converted to a Buffer.
+   *
+   * @param exchange - The name of the exchange to publish to
+   * @param routingKey - The routing key for message routing
+   * @param content - The message payload (will be JSON serialized)
+   * @throws Error if the message cannot be published (e.g., write buffer is full)
+   *
+   * @example
+   * ```typescript
+   * it('should publish message', async ({ publishMessage }) => {
+   *   publishMessage('my-exchange', 'routing.key', { data: 'test' });
+   * });
+   * ```
+   */
+  publishMessage: async ({ amqpChannel }, use) => {
+    function publishMessage(exchange: string, routingKey: string, content: unknown): void {
+      const success = amqpChannel.publish(
+        exchange,
+        routingKey,
+        Buffer.from(JSON.stringify(content)),
+      );
+      if (!success) {
+        throw new Error(
+          `Failed to publish message to exchange "${exchange}" with routing key "${routingKey}"`,
+        );
+      }
+    }
+    await use(publishMessage);
+  },
+  /**
+   * Test fixture for initializing a message consumer on an AMQP queue.
+   *
+   * Creates a temporary queue, binds it to the specified exchange with the given routing key,
+   * and returns a function to collect messages from that queue. The queue is automatically
+   * created with a random UUID name to avoid conflicts between tests.
+   *
+   * The returned function uses `vi.waitFor()` with a configurable timeout to wait for messages.
+   * If the expected number of messages is not received within the timeout period, the Promise
+   * will reject with a timeout error, preventing tests from hanging indefinitely.
+   *
+   * @param exchange - The name of the exchange to bind the queue to
+   * @param routingKey - The routing key pattern for message filtering
+   * @returns A function that accepts optional configuration ({ nbEvents?, timeout? }) and returns a Promise that resolves to an array of ConsumeMessage objects
+   *
+   * @example
+   * ```typescript
+   * it('should consume messages', async ({ initConsumer, publishMessage }) => {
+   *   const waitForMessages = await initConsumer('my-exchange', 'routing.key');
+   *   publishMessage('my-exchange', 'routing.key', { data: 'test' });
+   *   // With defaults (1 message, 5000ms timeout)
+   *   const messages = await waitForMessages();
+   *   expect(messages).toHaveLength(1);
+   *
+   *   // With custom options
+   *   publishMessage('my-exchange', 'routing.key', { data: 'test2' });
+   *   publishMessage('my-exchange', 'routing.key', { data: 'test3' });
+   *   const messages2 = await waitForMessages({ nbEvents: 2, timeout: 10000 });
+   *   expect(messages2).toHaveLength(2);
+   * });
+   * ```
+   */
+  initConsumer: async ({ amqpChannel }, use) => {
+    async function initConsumer(
+      exchange: string,
+      routingKey: string,
+    ): Promise<
+      (options?: { nbEvents?: number; timeout?: number }) => Promise<amqpLib.ConsumeMessage[]>
+    > {
+      const queue = randomUUID();
+
+      await amqpChannel.assertQueue(queue);
+      await amqpChannel.bindQueue(queue, exchange, routingKey);
+
+      const messages: amqpLib.ConsumeMessage[] = [];
+      await amqpChannel.consume(
+        queue,
+        (msg) => {
+          if (msg) {
+            messages.push(msg);
+          }
+        },
+        { noAck: true },
+      );
+
+      return async (options = {}) => {
+        const { nbEvents = 1, timeout = 5000 } = options;
+        await vi.waitFor(
+          () => {
+            if (messages.length < nbEvents) {
+              throw new Error(
+                `Expected ${nbEvents} message(s) but only received ${messages.length}`,
+              );
+            }
+          },
+          { timeout },
+        );
+        return messages.splice(0, nbEvents);
+      };
+    }
+    await use(initConsumer);
+  },
 });
+
+async function createVhost() {
+  const namespace = randomUUID();
+
+  const vhostResponse = await fetch(
+    `http://${inject("__TESTCONTAINERS_RABBITMQ_IP__")}:${inject("__TESTCONTAINERS_RABBITMQ_PORT_15672__")}/api/vhosts/${encodeURIComponent(namespace)}`,
+    {
+      method: "PUT",
+      headers: {
+        Authorization: `Basic ${btoa("guest:guest")}`,
+      },
+    },
+  );
+
+  if (vhostResponse.status !== 201) {
+    const responseBody = await vhostResponse.text().catch(() => "");
+    const errorMessage = responseBody
+      ? `Failed to create vhost '${namespace}': ${vhostResponse.status} - ${responseBody}`
+      : `Failed to create vhost '${namespace}': ${vhostResponse.status}`;
+    throw new Error(errorMessage, {
+      cause: vhostResponse,
+    });
+  }
+
+  return namespace;
+}
+
+async function deleteVhost(vhost: string) {
+  const vhostResponse = await fetch(
+    `http://${inject("__TESTCONTAINERS_RABBITMQ_IP__")}:${inject("__TESTCONTAINERS_RABBITMQ_PORT_15672__")}/api/vhosts/${encodeURIComponent(vhost)}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Basic ${btoa("guest:guest")}`,
+      },
+    },
+  );
+
+  // 204 = successfully deleted, 404 = already deleted or doesn't exist
+  if (vhostResponse.status !== 204 && vhostResponse.status !== 404) {
+    const responseBody = await vhostResponse.text().catch(() => "");
+    const errorMessage = responseBody
+      ? `Failed to delete vhost '${vhost}': ${vhostResponse.status} - ${responseBody}`
+      : `Failed to delete vhost '${vhost}': ${vhostResponse.status}`;
+    throw new Error(errorMessage, {
+      cause: vhostResponse,
+    });
+  }
+}

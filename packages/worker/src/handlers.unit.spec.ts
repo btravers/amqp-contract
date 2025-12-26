@@ -107,9 +107,7 @@ describe("handlers", () => {
 
     it("should work with async handlers", async () => {
       // GIVEN
-      const asyncHandler = async (_message: { orderId: string; amount: number }) => {
-        await new Promise((resolve) => setTimeout(resolve, 10));
-      };
+      const asyncHandler = async (_message: { orderId: string; amount: number }) => {};
 
       const handler = defineHandler(testContract, "processOrder", asyncHandler);
 
@@ -222,16 +220,12 @@ describe("handlers", () => {
 
     it("should work with async handlers", async () => {
       // GIVEN
-      const asyncOrderHandler = async (_message: { orderId: string; amount: number }) => {
-        await new Promise((resolve) => setTimeout(resolve, 10));
-      };
+      const asyncOrderHandler = async (_message: { orderId: string; amount: number }) => {};
 
       const asyncPaymentHandler = async (_message: {
         paymentId: string;
         status: "pending" | "completed" | "failed";
-      }) => {
-        await new Promise((resolve) => setTimeout(resolve, 10));
-      };
+      }) => {};
 
       const handlers = defineHandlers(testContract, {
         processOrder: asyncOrderHandler,

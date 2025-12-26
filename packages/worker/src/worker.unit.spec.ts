@@ -190,9 +190,6 @@ describe("connect", () => {
       urls: ["amqp://localhost"],
     }).resultToPromise();
 
-    // Wait for async setup
-    await new Promise((resolve) => setTimeout(resolve, 10));
-
     // THEN
     expect(mockSetupChannel.assertExchange).toHaveBeenCalledWith("test-exchange", "topic", {
       durable: true,
@@ -221,9 +218,6 @@ describe("connect", () => {
       handlers: {},
       urls: ["amqp://localhost"],
     }).resultToPromise();
-
-    // Wait for async setup
-    await new Promise((resolve) => setTimeout(resolve, 10));
 
     // THEN
     expect(mockSetupChannel.assertQueue).toHaveBeenCalledWith("test-queue", {
@@ -261,9 +255,6 @@ describe("connect", () => {
       urls: ["amqp://localhost"],
     }).resultToPromise();
 
-    // Wait for async setup
-    await new Promise((resolve) => setTimeout(resolve, 10));
-
     // THEN
     expect(mockSetupChannel.bindQueue).toHaveBeenCalledWith(
       "test-queue",
@@ -297,9 +288,6 @@ describe("connect", () => {
       handlers: {},
       urls: ["amqp://localhost"],
     }).resultToPromise();
-
-    // Wait for async setup
-    await new Promise((resolve) => setTimeout(resolve, 10));
 
     // THEN
     expect(mockSetupChannel.bindExchange).toHaveBeenCalledWith(

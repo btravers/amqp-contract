@@ -142,9 +142,6 @@ describe("TypedAmqpClient", () => {
         amount: 100,
       });
 
-      // Wait for async operations
-      await new Promise((resolve) => setTimeout(resolve, 10));
-
       // THEN
       expect(mockChannel.publish).toHaveBeenCalledWith(
         "orders",
