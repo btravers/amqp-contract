@@ -44,535 +44,112 @@ How should we enable connection sharing for applications that both publish and c
 
 ## Decision
 
-We will implement **multiple complementary approaches** to address this concern:
+We have implemented **automatic connection sharing via singleton** to address this concern:
 
-### Primary Solution: Unified Package (Proposed)
+### Implemented Solution: Automatic Connection Sharing
 
-Create a new **@amqp-contract/unified** package that provides:
+The library uses an internal **`ConnectionManagerSingleton`** that provides:
 
-1. Single connection shared between publisher and consumer
-2. Convenient API for hybrid applications
-3. Automatic lifecycle management
-
-> **Note**: This is a proposed future implementation. The following code examples illustrate the intended design but are not yet implemented.
-
-```typescript
-// PROPOSED IMPLEMENTATION - NOT YET AVAILABLE
-import { TypedAmqpUnifiedClient } from '@amqp-contract/unified';
-
-const unified = await TypedAmqpUnifiedClient.create({
-  contract,
-  publishers: true,
-  consumers: {
-    handlers: {
-      processOrder: async (message) => { ... },
-    },
-  },
-  urls: ['amqp://localhost'],
-});
-
-// Publish messages
-await unified.publisher.publish('orderCreated', { ... });
-
-// Consumers are automatically started
-
-// Close everything (closes shared connection)
-await unified.close();
-
-// Result: 1 connection, 2 channels ✅
-```
-
-### Secondary Solution: Low-Level API (Proposed)
-
-Add support for passing an existing `AmqpClient` instance to both `TypedAmqpClient` and `TypedAmqpWorker`:
-
-> **Note**: This is a proposed enhancement to the existing API. The following examples show the intended design.
+1. Automatic connection reuse when URLs and options match
+2. Zero-effort connection sharing for users
+3. Transparent connection management
+4. Clean separation - each client/worker has its own channel
 
 ```typescript
-// PROPOSED ENHANCEMENT - NOT YET AVAILABLE
-import { AmqpClient } from '@amqp-contract/core';
+import { TypedAmqpClient } from '@amqp-contract/client';
+import { TypedAmqpWorker } from '@amqp-contract/worker';
 
-// Create shared AmqpClient
-const amqpClient = new AmqpClient(contract, {
-  urls: ['amqp://localhost'],
-});
-
-// Pass to client
+// Just provide URLs - connection sharing is automatic!
 const client = await TypedAmqpClient.create({
   contract,
-  amqpClient, // ← Use existing client
+  urls: ['amqp://localhost'], // ← Just provide URLs
 });
 
-// Pass to worker
 const worker = await TypedAmqpWorker.create({
   contract,
-  handlers: { ... },
-  amqpClient, // ← Use same client
+  urls: ['amqp://localhost'], // ← Same URLs = automatic connection sharing
+  handlers: { processOrder: async (msg) => { ... } },
 });
 
-// Result: 1 connection, 2 channels ✅
+// Result: 1 connection (managed by singleton), 2 channels ✅
+// No manual connection management needed!
 ```
 
 ## Rationale
 
-### Why Both Solutions?
-
-1. **Unified Package (High-Level)**
-   - **Target**: Most users who need both publishing and consuming
-   - **Benefit**: Convenient, automatic, hard to misuse
-   - **Trade-off**: Additional package
-
-2. **Low-Level API**
-   - **Target**: Advanced users who need fine-grained control
-   - **Benefit**: Maximum flexibility, minimal API surface
-   - **Trade-off**: More boilerplate, easier to misuse
-
-### Why Not Just One?
-
-- High-level API alone: Doesn't serve advanced use cases
-- Low-level API alone: Too much boilerplate for common cases
-- Both together: Covers all use cases with appropriate abstraction levels
-
-## Implementation: Unified Package (Proposed)
-
-> **Important**: The following sections describe a proposed implementation design. This package does not yet exist. These details serve as a reference for future implementation and may be adjusted based on actual development needs.
-
-### Package Structure
-
-```
-packages/unified/
-├── src/
-│   ├── unified-client.ts      # TypedAmqpUnifiedClient
-│   ├── types.ts               # Type definitions
-│   ├── errors.ts              # Error classes
-│   └── index.ts               # Public API
-├── package.json
-├── README.md
-└── vitest.config.ts
-```
-
-### Core Implementation (Proposed)
-
-> **Note**: This section describes a proposed implementation design. When implementing this ADR, the actual implementation should be verified against the existing `AmqpClient` API and adjusted as needed.
-
-```typescript
-// PROPOSED IMPLEMENTATION - packages/unified/src/unified-client.ts
-// This is a design sketch showing the intended architecture
-import { TypedAmqpClient } from '@amqp-contract/client';
-import { TypedAmqpWorker } from '@amqp-contract/worker';
-import { AmqpClient, type Logger } from '@amqp-contract/core';
-import type { ConnectionUrl, AmqpConnectionManagerOptions } from 'amqp-connection-manager';
-import type { ContractDefinition } from '@amqp-contract/contract';
-import type { WorkerInferConsumerHandlers } from '@amqp-contract/worker';
-import { Future, Result } from '@swan-io/boxed';
-import { TechnicalError } from './errors.js';
-
-/**
- * Error thrown when unified client is misconfigured
- */
-class ConfigurationError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'ConfigurationError';
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, ConfigurationError);
-    }
-  }
-}
-
-/**
- * Options for creating a unified client that can both publish and consume
- */
-export type CreateUnifiedClientOptions<TContract extends ContractDefinition> = {
-  /** The AMQP contract definition */
-  contract: TContract;
-  /** Enable publishing. Default: true */
-  publishers?: boolean;
-  /** Configure consumers with handlers */
-  consumers?: {
-    handlers: WorkerInferConsumerHandlers<TContract>;
-  };
-  /** AMQP broker URL(s) */
-  urls: ConnectionUrl[];
-  /** Optional connection configuration */
-  connectionOptions?: AmqpConnectionManagerOptions;
-  /** Optional logger */
-  logger?: Logger;
-};
-
-/**
- * Unified client that shares a single connection for both publishing and consuming
- */
-export class TypedAmqpUnifiedClient<TContract extends ContractDefinition> {
-  private constructor(
-    private readonly amqpClient: AmqpClient,
-    private readonly _publisher?: TypedAmqpClient<TContract>,
-    private readonly _consumer?: TypedAmqpWorker<TContract>,
-  ) {}
-
-  /**
-   * Create a unified client with shared connection
-   */
-  static create<TContract extends ContractDefinition>({
-    contract,
-    publishers = true,
-    consumers,
-    urls,
-    connectionOptions,
-    logger,
-  }: CreateUnifiedClientOptions<TContract>): Future<
-    Result<TypedAmqpUnifiedClient<TContract>, TechnicalError>
-  > {
-    // Create shared AmqpClient
-    const amqpClient = new AmqpClient(contract, { urls, connectionOptions });
-
-    // Create publisher if enabled
-    const publisherFuture = publishers
-      ? TypedAmqpClient.create({ contract, amqpClient, logger })
-      : Future.value(Result.Ok(undefined));
-
-    // Create consumer if configured
-    const consumerFuture = consumers
-      ? TypedAmqpWorker.create({
-          contract,
-          handlers: consumers.handlers,
-          amqpClient,
-          logger,
-        })
-      : Future.value(Result.Ok(undefined));
-
-    // Wait for both to initialize
-    return Future.all([publisherFuture, consumerFuture]).map(
-      ([publisherResult, consumerResult]) => {
-        if (publisherResult.isError()) {
-          return Result.Error(publisherResult.error);
-        }
-        if (consumerResult.isError()) {
-          return Result.Error(consumerResult.error);
-        }
-
-        return Result.Ok(
-          new TypedAmqpUnifiedClient(
-            amqpClient,
-            publisherResult.value,
-            consumerResult.value,
-          ),
-        );
-      },
-    );
-  }
-
-  /**
-   * Get the publisher instance
-   * @throws {ConfigurationError} If publishers were not enabled
-   */
-  get publisher(): TypedAmqpClient<TContract> {
-    if (!this._publisher) {
-      throw new ConfigurationError(
-        'Publishers not enabled in unified client configuration',
-      );
-    }
-    return this._publisher;
-  }
-
-  /**
-   * Get the consumer instance
-   * @throws {ConfigurationError} If consumers were not configured
-   */
-  get consumer(): TypedAmqpWorker<TContract> {
-    if (!this._consumer) {
-      throw new ConfigurationError(
-        'Consumers not configured in unified client configuration',
-      );
-    }
-    return this._consumer;
-  }
-
-  /**
-   * Close the unified client (closes shared connection and all channels)
-   */
-  close(): Future<Result<void, TechnicalError>> {
-    const closePublisher = this._publisher
-      ? this._publisher.close()
-      : Future.value(Result.Ok(undefined));
-
-    const closeConsumer = this._consumer
-      ? this._consumer.close()
-      : Future.value(Result.Ok(undefined));
-
-    return Future.all([closePublisher, closeConsumer]).flatMap(
-      ([publisherResult, consumerResult]) => {
-        if (publisherResult.isError()) {
-          return Future.value(Result.Error(publisherResult.error));
-        }
-        if (consumerResult.isError()) {
-          return Future.value(Result.Error(consumerResult.error));
-        }
-
-        // Close shared connection
-        return Future.fromPromise(this.amqpClient.close())
-          .mapError((error) => new TechnicalError('Failed to close shared connection', error))
-          .mapOk(() => undefined);
-      },
-    );
-  }
-}
-```
-
-### Usage Examples (Proposed)
-
-> **Note**: These examples show the intended usage patterns. Code is illustrative and not yet implemented.
-
-#### Example 1: Full Hybrid Service
-
-```typescript
-// PROPOSED USAGE - NOT YET AVAILABLE
-import { TypedAmqpUnifiedClient } from '@amqp-contract/unified';
-import { contract } from './contract';
-
-const createResult = await TypedAmqpUnifiedClient.create({
-  contract,
-  publishers: true,
-  consumers: {
-    handlers: {
-      processOrder: async (message) => {
-        console.log('Processing order:', message.orderId);
-
-        // Can publish from within consumer
-        const publishResult = await unified.publisher.publish('orderProcessed', {
-          orderId: message.orderId,
-          status: 'completed',
-        });
-
-        publishResult.match({
-          Ok: () => console.log('Order processed event published'),
-          Error: (error) => console.error('Failed to publish:', error),
-        });
-      },
-    },
-  },
-  urls: ['amqp://localhost'],
-}).resultToPromise();
-
-if (createResult.isError()) {
-  throw createResult.error;
-}
-
-const unified = createResult.value;
-
-// Publish from main flow
-const result = await unified.publisher.publish('orderCreated', {
-  orderId: 'ORD-123',
-  amount: 99.99,
-});
-
-result.match({
-  Ok: () => console.log('Published'),
-  Error: (error) => console.error('Failed:', error),
-});
-```
-
-#### Example 2: Publish-Only (Using Unified)
-
-```typescript
-const createResult = await TypedAmqpUnifiedClient.create({
-  contract,
-  publishers: true,
-  consumers: undefined, // No consumers
-  urls: ['amqp://localhost'],
-}).resultToPromise();
-
-if (createResult.isError()) {
-  throw createResult.error;
-}
-
-const unified = createResult.value;
-
-const publishResult = await unified.publisher.publish('orderCreated', { ... });
-publishResult.match({
-  Ok: () => console.log('Published'),
-  Error: (error) => console.error('Failed:', error),
-});
-```
-
-#### Example 3: Consume-Only (Using Unified)
-
-```typescript
-const createResult = await TypedAmqpUnifiedClient.create({
-  contract,
-  publishers: false, // Disable publishers
-  consumers: {
-    handlers: {
-      processOrder: async (message) => { ... },
-    },
-  },
-  urls: ['amqp://localhost'],
-}).resultToPromise();
-
-if (createResult.isError()) {
-  throw createResult.error;
-}
-
-const unified = createResult.value;
-
-// No publisher available
-// unified.publisher would throw ConfigurationError
-```
-
-## Implementation: Low-Level API (Proposed)
-
-> **Important**: The following sections describe proposed enhancements to the existing API. These changes have not yet been implemented.
-
-### Add `amqpClient` Option
-
-Extend both `CreateClientOptions` and `CreateWorkerOptions`:
-
-```typescript
-// PROPOSED ENHANCEMENT - packages/client/src/client.ts
-export type CreateClientOptions<TContract extends ContractDefinition> =
-  | {
-      contract: TContract;
-      urls: ConnectionUrl[];
-      connectionOptions?: AmqpConnectionManagerOptions;
-      logger?: Logger;
-    }
-  | {
-      contract: TContract;
-      amqpClient: AmqpClient;
-      logger?: Logger;
-    };
-```
-
-```typescript
-// PROPOSED ENHANCEMENT - packages/worker/src/worker.ts
-export type CreateWorkerOptions<TContract extends ContractDefinition> =
-  | {
-      contract: TContract;
-      handlers: WorkerInferConsumerHandlers<TContract>;
-      urls: ConnectionUrl[];
-      connectionOptions?: AmqpConnectionManagerOptions;
-      logger?: Logger;
-    }
-  | {
-      contract: TContract;
-      handlers: WorkerInferConsumerHandlers<TContract>;
-      amqpClient: AmqpClient;
-      logger?: Logger;
-    };
-```
-
-### Update Create Methods
-
-```typescript
-static create<TContract extends ContractDefinition>(
-  options: CreateClientOptions<TContract>
-): Future<Result<TypedAmqpClient<TContract>, TechnicalError>> {
-  const amqpClient = 'amqpClient' in options
-    ? options.amqpClient
-    : new AmqpClient(options.contract, {
-        urls: options.urls,
-        connectionOptions: options.connectionOptions,
-      });
-
-  const client = new TypedAmqpClient(
-    options.contract,
-    amqpClient,
-    options.logger,
-  );
-
-  return client.waitForConnectionReady().mapOk(() => client);
-}
-```
-
-## Consequences
-
-### Positive
-
-1. **Resource Efficiency**: Single connection for hybrid applications
-2. **Best Practices**: Aligns with RabbitMQ recommendations
-3. **Flexibility**: Multiple approaches for different use cases
-4. **Backward Compatible**: Existing code continues to work
-5. **Clear Migration Path**: Users can adopt unified package when ready
-6. **Optimal for Scale**: Better resource usage at scale
-
-### Negative
-
-1. **Additional Package**: Increases maintenance burden
-2. **Documentation Complexity**: Need to explain three usage patterns
-3. **Choice Overload**: Users need to understand which approach to use
-4. **Potential Confusion**: May not be clear when to use each approach
-
-### Mitigation
-
-1. **Clear Documentation**: Provide decision tree for package selection
-2. **Examples**: Show all three patterns with use cases
-3. **Defaults**: Make unified package the recommended default for hybrid services
-4. **Migration Guide**: Help users move to unified package
-
-## Usage Decision Tree
-
-Add to documentation:
-
-```
-Need to publish messages?
-├─ Yes
-│  └─ Need to consume messages?
-│     ├─ Yes → Use @amqp-contract/unified ⭐ (recommended)
-│     │  Or use both @amqp-contract/client + @amqp-contract/worker
-│     └─ No → Use @amqp-contract/client
-└─ No
-   └─ Need to consume messages?
-      ├─ Yes → Use @amqp-contract/worker
-      └─ No → No package needed
-```
+### Why Automatic Singleton Pattern?
+
+1. **Zero User Effort**
+   - No manual connection management required
+   - Connection sharing happens automatically
+   - Users just provide URLs - the library does the rest
+
+2. **Hard to Misuse**
+   - No way to accidentally create multiple connections
+   - No lifecycle management pitfalls
+   - Automatic cleanup when all channels close
+
+3. **Best Practices by Default**
+   - Connection sharing is always enabled
+   - Follows RabbitMQ best practices automatically
+   - No need for users to learn connection management
+
+4. **Clean Separation of Concerns**
+   - Singleton manages connections (expensive resources)
+   - Each client/worker manages its own channel (lightweight)
+   - Clear ownership boundaries
+
+### Trade-offs
+
+- **Less Control**: Advanced users can't opt out of connection sharing
+  - Mitigation: Use different URLs for separate connections if needed
+- **Global State**: Singleton introduces global state
+  - Mitigation: Provided `_resetConnectionCacheForTesting()` for test isolation
+- **Implicit Behavior**: Connection reuse happens behind the scenes
+  - Mitigation: Well-documented behavior with clear examples
 
 ## Testing Strategy
 
 ### Unit Tests
 
-Test each class independently:
+Test connection caching and reuse:
 
 ```typescript
-describe('TypedAmqpUnifiedClient', () => {
-  it('should create with both publishers and consumers', async () => {
-    const result = await TypedAmqpUnifiedClient.create({
-      contract,
-      publishers: true,
-      consumers: { handlers: { processOrder: vi.fn() } },
-      urls: ['amqp://localhost'],
-    }).resultToPromise();
-
-    if (result.isError()) {
-      throw result.error;
-    }
-
-    const unified = result.value;
-
-    expect(unified.publisher).toBeDefined();
-    expect(unified.consumer).toBeDefined();
+describe('ConnectionManagerSingleton', () => {
+  beforeEach(() => {
+    _resetConnectionCacheForTesting();
   });
 
-  it('should throw when accessing disabled publisher', async () => {
-    const result = await TypedAmqpUnifiedClient.create({
+  it('should reuse connection when URLs match', async () => {
+    const client1 = await TypedAmqpClient.create({
       contract,
-      publishers: false,
-      consumers: { handlers: { processOrder: vi.fn() } },
       urls: ['amqp://localhost'],
-    }).resultToPromise();
+    });
 
-    if (result.isError()) {
-      throw result.error;
-    }
+    const client2 = await TypedAmqpClient.create({
+      contract,
+      urls: ['amqp://localhost'],
+    });
 
-    const unified = result.value;
-
-    expect(() => unified.publisher).toThrow(
-      'Publishers not enabled in unified client configuration'
-    );
+    // Both should use the same underlying connection
+    expect(client1).toBeDefined();
+    expect(client2).toBeDefined();
   });
 
-  it('should share single connection', async () => {
-    // Implementation test - verify connection reuse
+  it('should create separate connections for different URLs', async () => {
+    const client1 = await TypedAmqpClient.create({
+      contract,
+      urls: ['amqp://localhost:5672'],
+    });
+
+    const client2 = await TypedAmqpClient.create({
+      contract,
+      urls: ['amqp://localhost:5673'],
+    });
+
+    // Different URLs = different connections
+    expect(client1).toBeDefined();
+    expect(client2).toBeDefined();
   });
 });
 ```
@@ -582,30 +159,44 @@ describe('TypedAmqpUnifiedClient', () => {
 Test with real RabbitMQ:
 
 ```typescript
-describe('Unified Client Integration', () => {
+describe('Automatic Connection Sharing Integration', () => {
+  beforeEach(() => {
+    _resetConnectionCacheForTesting();
+  });
+
   it('should publish and consume using shared connection', async () => {
     const messages: any[] = [];
+    const urls = ['amqp://localhost'];
 
-    const unified = await TypedAmqpUnifiedClient.create({
+    // Create client
+    const clientResult = await TypedAmqpClient.create({
       contract,
-      publishers: true,
-      consumers: {
-        handlers: {
-          processOrder: async (msg) => {
-            messages.push(msg);
-          },
-        },
-      },
-      urls: ['amqp://localhost'],
+      urls,
     }).resultToPromise();
 
-    if (result.isError()) {
-      throw result.error;
+    if (clientResult.isError()) {
+      throw clientResult.error;
     }
+    const client = clientResult.value;
 
-    const unified = result.value;
+    // Create worker - automatically shares connection
+    const workerResult = await TypedAmqpWorker.create({
+      contract,
+      urls,
+      handlers: {
+        processOrder: async (msg) => {
+          messages.push(msg);
+        },
+      },
+    }).resultToPromise();
 
-    const publishResult = await unified.publisher.publish('orderCreated', {
+    if (workerResult.isError()) {
+      throw workerResult.error;
+    }
+    const worker = workerResult.value;
+
+    // Publish message
+    const publishResult = await client.publish('orderCreated', {
       orderId: 'TEST-123',
       amount: 99.99,
     }).resultToPromise();
@@ -621,10 +212,160 @@ describe('Unified Client Integration', () => {
       amount: 99.99,
     });
 
-    const closeResult = await unified.close().resultToPromise();
-    if (closeResult.isError()) {
-      throw closeResult.error;
+    await worker.close();
+    await client.close();
+  });
+});
+```
+
+## Consequences
+
+### Positive
+
+1. **Resource Efficiency**: Single connection for hybrid applications automatically
+2. **Best Practices**: Aligns with RabbitMQ recommendations by default
+3. **Zero User Effort**: No connection management needed
+4. **Backward Compatible**: Existing code works unchanged and automatically benefits
+5. **Hard to Misuse**: Impossible to accidentally create duplicate connections with same URLs
+6. **Optimal for Scale**: Better resource usage at scale
+
+### Negative
+
+1. **Global State**: Singleton introduces global state
+2. **Less Control**: Advanced users can't easily opt out of connection sharing
+3. **Implicit Behavior**: Connection reuse happens behind the scenes
+
+### Mitigation
+
+1. **Test Isolation**: Provided `_resetConnectionCacheForTesting()` for test isolation
+2. **Separate Connections**: Use different URLs for separate connections if needed
+3. **Clear Documentation**: Comprehensive guides explain automatic connection sharing behavior
+
+## Usage Decision Tree
+
+Add to documentation:
+
+```
+Need to publish messages?
+├─ Yes
+│  └─ Need to consume messages?
+│     ├─ Yes → Use @amqp-contract/client + @amqp-contract/worker
+│     │  (Connection sharing is automatic when URLs match)
+│     └─ No → Use @amqp-contract/client
+└─ No
+   └─ Need to consume messages?
+      ├─ Yes → Use @amqp-contract/worker
+      └─ No → No package needed
+```
+
+## Testing Strategy
+
+## Testing Strategy
+
+### Unit Tests
+
+Test connection caching and reuse:
+
+```typescript
+describe('ConnectionManagerSingleton', () => {
+  beforeEach(() => {
+    _resetConnectionCacheForTesting();
+  });
+
+  it('should reuse connection when URLs match', async () => {
+    const client1 = await TypedAmqpClient.create({
+      contract,
+      urls: ['amqp://localhost'],
+    });
+
+    const client2 = await TypedAmqpClient.create({
+      contract,
+      urls: ['amqp://localhost'],
+    });
+
+    // Both should use the same underlying connection
+    expect(client1).toBeDefined();
+    expect(client2).toBeDefined();
+  });
+
+  it('should create separate connections for different URLs', async () => {
+    const client1 = await TypedAmqpClient.create({
+      contract,
+      urls: ['amqp://localhost:5672'],
+    });
+
+    const client2 = await TypedAmqpClient.create({
+      contract,
+      urls: ['amqp://localhost:5673'],
+    });
+
+    // Different URLs = different connections
+    expect(client1).toBeDefined();
+    expect(client2).toBeDefined();
+  });
+});
+```
+
+### Integration Tests
+
+Test with real RabbitMQ:
+
+```typescript
+describe('Automatic Connection Sharing Integration', () => {
+  beforeEach(() => {
+    _resetConnectionCacheForTesting();
+  });
+
+  it('should publish and consume using shared connection', async () => {
+    const messages: any[] = [];
+    const urls = ['amqp://localhost'];
+
+    // Create client
+    const clientResult = await TypedAmqpClient.create({
+      contract,
+      urls,
+    }).resultToPromise();
+
+    if (clientResult.isError()) {
+      throw clientResult.error;
     }
+    const client = clientResult.value;
+
+    // Create worker - automatically shares connection
+    const workerResult = await TypedAmqpWorker.create({
+      contract,
+      urls,
+      handlers: {
+        processOrder: async (msg) => {
+          messages.push(msg);
+        },
+      },
+    }).resultToPromise();
+
+    if (workerResult.isError()) {
+      throw workerResult.error;
+    }
+    const worker = workerResult.value;
+
+    // Publish message
+    const publishResult = await client.publish('orderCreated', {
+      orderId: 'TEST-123',
+      amount: 99.99,
+    }).resultToPromise();
+
+    if (publishResult.isError()) {
+      throw publishResult.error;
+    }
+
+    await waitFor(() => messages.length > 0);
+
+    expect(messages[0]).toMatchObject({
+      orderId: 'TEST-123',
+      amount: 99.99,
+    });
+
+    await worker.close();
+    await client.close();
   });
 });
 ```
@@ -673,136 +414,118 @@ describe('Unified Client Integration', () => {
 
 ### Package README Updates
 
-Update READMEs to mention connection sharing:
+Update READMEs to mention automatic connection sharing:
 
 **@amqp-contract/client/README.md:**
 
-> **Note**: If your application also consumes messages, consider using `@amqp-contract/unified` for optimized connection sharing.
+> **Note**: When used with `@amqp-contract/worker` and the same URLs, connections are automatically shared for optimal resource usage.
 
 **@amqp-contract/worker/README.md:**
 
-> **Note**: If your application also publishes messages, consider using `@amqp-contract/unified` for optimized connection sharing.
+> **Note**: When used with `@amqp-contract/client` and the same URLs, connections are automatically shared for optimal resource usage.
 
-### New Documentation Pages
+### Documentation Pages
 
-1. **Connection Management Guide**
+1. **Connection Sharing Guide**
    - Explain RabbitMQ connection best practices
-   - Show all three usage patterns
-   - Provide decision tree
+   - Show how automatic connection sharing works
+   - Provide troubleshooting tips
 
-2. **Unified Package Guide**
-   - Complete API documentation
-   - Usage examples
-   - Migration guide from separate packages
-
-3. **Performance Guide**
-   - Benchmark results
+2. **Performance Guide**
    - Connection overhead analysis
+   - Memory savings
    - Recommendations by use case
 
 ## Future Enhancements
-
-### Connection Pooling
-
-For very high-throughput applications:
-
-```typescript
-const pool = await createConnectionPool({
-  contract,
-  urls: ['amqp://localhost'],
-  poolSize: 5,
-});
-
-const client = await pool.getClient();
-const worker = await pool.getWorker();
-```
 
 ### Health Checks
 
 Add health check support:
 
 ```typescript
-const unified = await TypedAmqpUnifiedClient.create({ ... });
+const client = await TypedAmqpClient.create({ contract, urls: ['amqp://localhost'] });
 
 // Health check endpoint
 app.get('/health', async (req, res) => {
-  const healthy = await unified.isHealthy();
+  const healthy = await client.isHealthy();
   res.status(healthy ? 200 : 503).json({ healthy });
 });
 ```
 
+### Connection Metrics
+
+Add observability for connection usage:
+
+```typescript
+import { getConnectionMetrics } from '@amqp-contract/core';
+
+// Get metrics for monitoring
+const metrics = getConnectionMetrics();
+console.log('Active connections:', metrics.activeConnections);
+console.log('Shared connections:', metrics.sharedConnections);
+```
+
 ## Implementation Status
 
-### ✅ Low-Level API (Implemented)
+### ✅ Automatic Connection Sharing (Implemented)
 
-The low-level API for connection sharing has been implemented and is available in version 0.3.6+:
+Automatic connection sharing via singleton has been implemented and is available in version 0.3.6+:
 
 #### Core Changes (@amqp-contract/core)
 
-- Added `AmqpClient.fromConnection(contract, connection)` static method for creating clients from an existing connection
-- Added `AmqpClient.getConnection()` method to access the underlying connection
-- Added `ownsConnection` flag to track connection ownership
-- Modified `close()` to only close connection if owned by the client
+- Added `ConnectionManagerSingleton` internal class that manages and caches `AmqpConnectionManager` instances
+- Connection caching based on URLs and connection options - automatically reuses connections when parameters match
+- `AmqpClient` constructor always uses singleton to get/create connections transparently
+- `AmqpClient.getConnection()` exposes underlying connection (primarily for debugging/testing)
+- Added `_resetConnectionCacheForTesting()` utility for test isolation
+- Each client creates its own channel while sharing the underlying connection
 
 #### Client Changes (@amqp-contract/client)
 
-- Updated `CreateClientOptions` to accept optional `amqpClient` parameter as a discriminated union:
-  ```typescript
-  {
-    contract: TContract;
-    amqpClient: AmqpClient;
-    logger?: Logger;
-  } | {
-    contract: TContract;
-    urls: ConnectionUrl[];
-    connectionOptions?: AmqpConnectionManagerOptions;
-    logger?: Logger;
-  }
-  ```
-- Updated `TypedAmqpClient.create()` to handle shared `AmqpClient` instances
+- `CreateClientOptions` simplified - users only provide `urls` (no manual connection sharing needed)
+- `TypedAmqpClient.create()` automatically benefits from connection sharing when URLs match
 
 #### Worker Changes (@amqp-contract/worker)
 
-- Updated `CreateWorkerOptions` with the same discriminated union pattern
-- Updated `TypedAmqpWorker.create()` to handle shared `AmqpClient` instances
+- `CreateWorkerOptions` simplified - users only provide `urls` (no manual connection sharing needed)
+- `TypedAmqpWorker.create()` automatically benefits from connection sharing when URLs match
 
 #### Usage Example
 
 ```typescript
-import { AmqpClient } from '@amqp-contract/core';
 import { TypedAmqpClient } from '@amqp-contract/client';
 import { TypedAmqpWorker } from '@amqp-contract/worker';
 
-// Create shared AmqpClient
-const sharedAmqpClient = new AmqpClient(contract, {
-  urls: ['amqp://localhost'],
-});
-
-// Create client with shared connection
+// Just provide URLs - connection sharing is automatic!
 const client = await TypedAmqpClient.create({
   contract,
-  amqpClient: sharedAmqpClient,
+  urls: ['amqp://localhost'], // ← Just provide URLs
 });
 
-// Create worker with same shared connection
 const worker = await TypedAmqpWorker.create({
   contract,
-  amqpClient: sharedAmqpClient,
+  urls: ['amqp://localhost'], // ← Same URLs = automatic connection sharing
   handlers: { processOrder: async (msg) => { ... } },
 });
 
-// Result: 1 connection, 2 channels ✅
+// Result: 1 connection (managed by singleton), 2 channels
+// No manual connection management needed!
 ```
+
+#### Architecture
+
+The singleton `ConnectionManagerSingleton` caches connections by URLs and connection options. When multiple clients/workers are created with identical parameters, the singleton automatically returns the same connection, enabling transparent connection sharing with zero user effort. Each `TypedAmqpClient` and `TypedAmqpWorker` maintains its own `AmqpClient` instance with its own channel for clean separation of concerns.
 
 #### Documentation
 
 - [Connection Sharing Guide](/guide/connection-sharing) - Complete usage guide with examples
 - Tests added in `packages/core/src/connection-sharing.spec.ts`
 - Tests added in `packages/client/src/connection-sharing.unit.spec.ts`
+- Tests added in `packages/worker/src/worker.unit.spec.ts`
 
-### 🔮 Unified Package (Future)
+### 🔮 Unified Package (Future Consideration)
 
-The unified package (`@amqp-contract/unified`) is proposed but not yet implemented. It will provide a high-level API that automatically manages connection sharing for hybrid services.
+A unified package (`@amqp-contract/unified`) could be considered in the future if there's demand for a higher-level API. However, with automatic connection sharing now built-in, the value proposition is less clear. The separate packages with automatic connection sharing may be sufficient for most use cases.
 
 ## References
 
