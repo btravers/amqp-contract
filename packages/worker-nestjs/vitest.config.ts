@@ -15,6 +15,13 @@ export default defineConfig({
           include: ["src/**/*.unit.spec.ts"],
         },
       },
+      {
+        test: {
+          name: "integration",
+          globalSetup: "@amqp-contract/testing/global-setup",
+          include: ["src/**/*.integration.spec.ts"],
+        },
+      },
     ],
   },
 });

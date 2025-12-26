@@ -47,6 +47,7 @@
     "build:docs": "typedoc",
     "dev": "tsdown src/index.ts --format cjs,esm --dts --watch",
     "test": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
     "test:watch": "vitest --project unit",
     "typecheck": "tsc --noEmit"
   },
@@ -55,9 +56,12 @@
     "@amqp-contract/worker": "workspace:*"
   },
   "devDependencies": {
+    "@amqp-contract/testing": "workspace:*",
     "@amqp-contract/tsconfig": "workspace:*",
     "@amqp-contract/typedoc": "workspace:*",
     "@nestjs/common": "catalog:",
+    "@nestjs/core": "catalog:",
+    "@nestjs/testing": "catalog:",
     "@swan-io/boxed": "catalog:",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
