@@ -38,8 +38,10 @@ vi.mock("amqp-connection-manager", () => {
 });
 
 describe("AmqpClient", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    // Reset the singleton cache between tests
+    await AmqpClient._resetConnectionCacheForTesting();
   });
 
   it("should create AmqpClient with contract and options", () => {
@@ -657,7 +659,7 @@ describe("AmqpClient", () => {
     await expect(setupCallback(mockChannel)).rejects.toThrow("Failed to setup bindings");
   });
 
-  it("should close connection properly", async () => {
+  it("should close channel and connection when last client closes (reference counting)", async () => {
     // GIVEN
     const contract = defineContract({
       exchanges: {
@@ -688,7 +690,9 @@ describe("AmqpClient", () => {
     await client.close();
 
     // THEN
+    // Channel should be closed
     expect(mockChannel.close).toHaveBeenCalledTimes(1);
+    // Connection should also be closed (reference count reaches 0)
     expect(mockConnection.close).toHaveBeenCalledTimes(1);
   });
 });

@@ -507,7 +507,7 @@ describe("consumeAll", () => {
 });
 
 describe("close", () => {
-  it("should stop consuming and close channel and connection", async () => {
+  it("should stop consuming and close channel (but not connection)", async () => {
     // GIVEN
     const TestMessage = defineMessage(z.object({ id: z.string() }));
 
@@ -533,7 +533,8 @@ describe("close", () => {
 
     // THEN
     expect(result.isOk()).toBe(true);
-    expect(mockConnection.close).toHaveBeenCalled();
+    // Connection is managed by singleton, so it should NOT be closed
+    expect(mockConnection.close).not.toHaveBeenCalled();
   });
 });
 

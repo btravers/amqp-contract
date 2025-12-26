@@ -32,6 +32,9 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
    * Connection management (including automatic reconnection) is handled internally
    * by amqp-connection-manager via the {@link AmqpClient}. The client establishes
    * infrastructure asynchronously in the background once the connection is ready.
+   *
+   * Connections are automatically shared across clients with the same URLs and
+   * connection options, following RabbitMQ best practices.
    */
   static create<TContract extends ContractDefinition>({
     contract,

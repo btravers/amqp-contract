@@ -96,6 +96,9 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * consumers for all contract-defined handlers asynchronously in the background
    * once the underlying connection and channels are ready.
    *
+   * Connections are automatically shared across clients and workers with the same
+   * URLs and connection options, following RabbitMQ best practices.
+   *
    * @param options - Configuration options for the worker
    * @returns A Future that resolves to a Result containing the worker or an error
    *
