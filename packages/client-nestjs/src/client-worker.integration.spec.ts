@@ -99,6 +99,7 @@ describe("Client and Worker Integration", () => {
       // AND - worker should consume the message
       await vi.waitFor(
         () => {
+          expect(handler).toHaveBeenCalledTimes(1);
           expect(handler).toHaveBeenCalledWith({
             orderId: "order-123",
             customerId: "customer-456",
@@ -256,6 +257,7 @@ describe("Client and Worker Integration", () => {
       // THEN - message should flow correctly
       await vi.waitFor(
         () => {
+          expect(handler).toHaveBeenCalledTimes(1);
           expect(handler).toHaveBeenCalledWith({
             orderId: "order-shared",
             customerId: "customer-shared",

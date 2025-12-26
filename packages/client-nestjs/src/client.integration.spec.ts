@@ -13,49 +13,6 @@ import { describe, expect } from "vitest";
 import { it as baseIt } from "@amqp-contract/testing/extension";
 import { z } from "zod";
 
-const it = baseIt.extend<{
-  clientService: AmqpClientService<typeof testContract>;
-}>({
-  clientService: async ({ amqpConnectionUrl }, use) => {
-    const testExchange = defineExchange("test-exchange", "topic", { durable: false });
-    const testMessage = defineMessage(
-      z.object({
-        id: z.string(),
-        message: z.string(),
-      }),
-    );
-
-    const testContract = defineContract({
-      exchanges: {
-        test: testExchange,
-      },
-      publishers: {
-        testPublisher: definePublisher(testExchange, testMessage, {
-          routingKey: "test.key",
-        }),
-      },
-    });
-
-    // Create NestJS testing module
-    const moduleRef = await Test.createTestingModule({
-      imports: [
-        AmqpClientModule.forRoot({
-          contract: testContract,
-          urls: [amqpConnectionUrl],
-        }),
-      ],
-    }).compile();
-
-    await moduleRef.init();
-
-    const service = moduleRef.get(AmqpClientService<typeof testContract>);
-
-    await use(service);
-
-    await moduleRef.close();
-  },
-});
-
 // Define contract at module level for type inference
 const testExchange = defineExchange("test-exchange", "topic", { durable: false });
 const testMessage = defineMessage(
@@ -73,6 +30,30 @@ const testContract = defineContract({
     testPublisher: definePublisher(testExchange, testMessage, {
       routingKey: "test.key",
     }),
+  },
+});
+
+const it = baseIt.extend<{
+  clientService: AmqpClientService<typeof testContract>;
+}>({
+  clientService: async ({ amqpConnectionUrl }, use) => {
+    // Create NestJS testing module
+    const moduleRef = await Test.createTestingModule({
+      imports: [
+        AmqpClientModule.forRoot({
+          contract: testContract,
+          urls: [amqpConnectionUrl],
+        }),
+      ],
+    }).compile();
+
+    await moduleRef.init();
+
+    const service = moduleRef.get(AmqpClientService<typeof testContract>);
+
+    await use(service);
+
+    await moduleRef.close();
   },
 });
 
