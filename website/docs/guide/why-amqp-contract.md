@@ -91,7 +91,7 @@ Changing a message schema means hunting through multiple files:
 Define your contract once, get types everywhere:
 
 ```typescript
-import { defineContract, defineExchange, definePublisher, defineConsumer, defineMessage } from '@amqp-contract/contract';
+import { defineContract, defineExchange, defineQueue, definePublisher, defineConsumer, defineMessage } from '@amqp-contract/contract';
 import { TypedAmqpClient } from '@amqp-contract/client';
 import { TypedAmqpWorker } from '@amqp-contract/worker';
 import { z } from 'zod';
