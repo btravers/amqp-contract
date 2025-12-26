@@ -1,5 +1,13 @@
 # @amqp-contract/contract
 
+## 0.4.0
+
+### Minor Changes
+
+- Release version 0.4.0
+
+  This release includes stability improvements and prepares the packages for wider adoption.
+
 ## 0.3.5
 
 ## 0.3.4
