@@ -98,6 +98,7 @@ pnpm test:integration
 ```typescript
 import { it } from "@amqp-contract/testing/extension";
 import { defineContract, defineExchange } from "@amqp-contract/contract";
+import { AmqpClient } from "@amqp-contract/core";
 
 describe("Feature Integration", () => {
   it("should setup exchange", async ({ amqpConnectionUrl, amqpChannel }) => {
