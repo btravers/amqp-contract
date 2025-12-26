@@ -1,6 +1,6 @@
 # Testing
 
-The `@amqp-contract/testing` package provides testing utilities for AMQP contracts using testcontainers. It automatically manages RabbitMQ containers for your integration tests, ensuring each test runs in an isolated environment.
+The `@amqp-contract/testing` package provides testing utilities for Node.js projects that use RabbitMQ with Vitest. It automatically manages RabbitMQ containers for your integration tests using testcontainers, ensuring each test runs in an isolated environment.
 
 ## Features
 
@@ -268,6 +268,8 @@ The following variables are provided to tests via Vitest's context:
 - `__TESTCONTAINERS_RABBITMQ_IP__`: Container host IP address
 - `__TESTCONTAINERS_RABBITMQ_PORT_5672__`: Mapped AMQP port
 - `__TESTCONTAINERS_RABBITMQ_PORT_15672__`: Mapped management console port
+- `__TESTCONTAINERS_RABBITMQ_USERNAME__`: RabbitMQ username (default: "guest")
+- `__TESTCONTAINERS_RABBITMQ_PASSWORD__`: RabbitMQ password (default: "guest")
 
 These are automatically used by the fixtures, but you can access them directly if needed:
 
@@ -318,9 +320,12 @@ Adjust timeout for slow operations:
 
 ```typescript
 it("should handle slow message processing", async ({
+  amqpChannel,
   initConsumer,
   publishMessage
 }) => {
+  await amqpChannel.assertExchange("exchange", "topic", { durable: false });
+
   const waitForMessages = await initConsumer("exchange", "key");
 
   publishMessage("exchange", "key", { task: "slow-operation" });

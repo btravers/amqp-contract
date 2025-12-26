@@ -18,6 +18,8 @@ declare module "vitest" {
     __TESTCONTAINERS_RABBITMQ_IP__: string;
     __TESTCONTAINERS_RABBITMQ_PORT_5672__: number;
     __TESTCONTAINERS_RABBITMQ_PORT_15672__: number;
+    __TESTCONTAINERS_RABBITMQ_USERNAME__: string;
+    __TESTCONTAINERS_RABBITMQ_PASSWORD__: string;
   }
 }
 
@@ -69,11 +71,15 @@ export default async function setup({ provide }: TestProject) {
   const __TESTCONTAINERS_RABBITMQ_IP__ = rabbitmqContainer.getHost();
   const __TESTCONTAINERS_RABBITMQ_PORT_5672__ = rabbitmqContainer.getMappedPort(5672);
   const __TESTCONTAINERS_RABBITMQ_PORT_15672__ = rabbitmqContainer.getMappedPort(15672);
+  const __TESTCONTAINERS_RABBITMQ_USERNAME__ = "guest";
+  const __TESTCONTAINERS_RABBITMQ_PASSWORD__ = "guest";
 
   // Provide context values with type assertions to work around TypeScript limitations
   provide("__TESTCONTAINERS_RABBITMQ_IP__", __TESTCONTAINERS_RABBITMQ_IP__);
   provide("__TESTCONTAINERS_RABBITMQ_PORT_5672__", __TESTCONTAINERS_RABBITMQ_PORT_5672__);
   provide("__TESTCONTAINERS_RABBITMQ_PORT_15672__", __TESTCONTAINERS_RABBITMQ_PORT_15672__);
+  provide("__TESTCONTAINERS_RABBITMQ_USERNAME__", __TESTCONTAINERS_RABBITMQ_USERNAME__);
+  provide("__TESTCONTAINERS_RABBITMQ_PASSWORD__", __TESTCONTAINERS_RABBITMQ_PASSWORD__);
 
   console.log(
     `🚀 RabbitMQ test environment is ready at ${__TESTCONTAINERS_RABBITMQ_IP__}:${__TESTCONTAINERS_RABBITMQ_PORT_5672__}`,
