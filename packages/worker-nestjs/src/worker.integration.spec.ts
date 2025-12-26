@@ -8,6 +8,7 @@ import {
   defineQueueBinding,
 } from "@amqp-contract/contract";
 import { AmqpWorkerModule } from "./worker.module.js";
+import { Module } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import { describe, expect, vi } from "vitest";
 import { it as baseIt } from "@amqp-contract/testing/extension";
@@ -63,13 +64,13 @@ describe("AmqpWorkerModule Integration", () => {
         ],
       }).compile();
 
-      const app = moduleRef.createNestApplication();
-      await app.init();
+      // Use module directly instead of creating app
+      await moduleRef.init();
 
       // THEN - module should be initialized
-      expect(app).toBeDefined();
+      expect(moduleRef).toBeDefined();
 
-      await app.close();
+      await moduleRef.close();
     });
 
     it("should consume messages from a real RabbitMQ instance", async ({
@@ -91,8 +92,8 @@ describe("AmqpWorkerModule Integration", () => {
         ],
       }).compile();
 
-      const app = moduleRef.createNestApplication();
-      await app.init();
+      // Use module directly instead of creating app
+      await moduleRef.init();
 
       // Wait for worker to be ready
       await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -114,7 +115,7 @@ describe("AmqpWorkerModule Integration", () => {
         { timeout: 5000 },
       );
 
-      await app.close();
+      await moduleRef.close();
     });
 
     it("should validate messages before consuming", async ({
@@ -136,8 +137,8 @@ describe("AmqpWorkerModule Integration", () => {
         ],
       }).compile();
 
-      const app = moduleRef.createNestApplication();
-      await app.init();
+      // Use module directly instead of creating app
+      await moduleRef.init();
 
       // Wait for worker to be ready
       await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -152,7 +153,7 @@ describe("AmqpWorkerModule Integration", () => {
       await new Promise((resolve) => setTimeout(resolve, 2000));
       expect(handler).not.toHaveBeenCalled();
 
-      await app.close();
+      await moduleRef.close();
     });
   });
 
@@ -176,13 +177,13 @@ describe("AmqpWorkerModule Integration", () => {
         ],
       }).compile();
 
-      const app = moduleRef.createNestApplication();
-      await app.init();
+      // Use module directly instead of creating app
+      await moduleRef.init();
 
       // THEN - module should be initialized
-      expect(app).toBeDefined();
+      expect(moduleRef).toBeDefined();
 
-      await app.close();
+      await moduleRef.close();
     });
 
     it("should support forRootAsync with dependency injection", async ({ amqpConnectionUrl }) => {
@@ -193,11 +194,20 @@ describe("AmqpWorkerModule Integration", () => {
         }
       }
 
+      // Create a Config module that exports ConfigService
+      @Module({
+        providers: [ConfigService],
+        exports: [ConfigService],
+      })
+      class ConfigModule {}
+
       const handler = vi.fn();
 
       const moduleRef = await Test.createTestingModule({
         imports: [
+          ConfigModule,
           AmqpWorkerModule.forRootAsync({
+            imports: [ConfigModule],
             useFactory: (configService: ConfigService) => ({
               contract: testContract,
               handlers: {
@@ -208,16 +218,15 @@ describe("AmqpWorkerModule Integration", () => {
             inject: [ConfigService],
           }),
         ],
-        providers: [ConfigService],
       }).compile();
 
-      const app = moduleRef.createNestApplication();
-      await app.init();
+      // Use module directly instead of creating app
+      await moduleRef.init();
 
       // THEN - module should be initialized
-      expect(app).toBeDefined();
+      expect(moduleRef).toBeDefined();
 
-      await app.close();
+      await moduleRef.close();
     });
   });
 });

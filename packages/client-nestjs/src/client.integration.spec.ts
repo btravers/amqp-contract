@@ -7,6 +7,7 @@ import {
 } from "@amqp-contract/contract";
 import { AmqpClientModule } from "./client.module.js";
 import { AmqpClientService } from "./client.service.js";
+import { Module } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import { describe, expect } from "vitest";
 import { it as baseIt } from "@amqp-contract/testing/extension";
@@ -45,14 +46,13 @@ const it = baseIt.extend<{
       ],
     }).compile();
 
-    const app = moduleRef.createNestApplication();
-    await app.init();
+    await moduleRef.init();
 
-    const service = app.get(AmqpClientService<typeof testContract>);
+    const service = moduleRef.get(AmqpClientService<typeof testContract>);
 
     await use(service);
 
-    await app.close();
+    await moduleRef.close();
   },
 });
 
@@ -140,15 +140,15 @@ describe("AmqpClientModule Integration", () => {
         ],
       }).compile();
 
-      const app = moduleRef.createNestApplication();
-      await app.init();
+      // Use module directly instead of creating app
+      await moduleRef.init();
 
-      const service = app.get(AmqpClientService<typeof testContract>);
+      const service = moduleRef.get(AmqpClientService<typeof testContract>);
 
       // THEN - service should be functional
       expect(service).toBeDefined();
 
-      await app.close();
+      await moduleRef.close();
     });
 
     it("should support forRootAsync with dependency injection", async ({ amqpConnectionUrl }) => {
@@ -159,9 +159,18 @@ describe("AmqpClientModule Integration", () => {
         }
       }
 
+      // Create a Config module that exports ConfigService
+      @Module({
+        providers: [ConfigService],
+        exports: [ConfigService],
+      })
+      class ConfigModule {}
+
       const moduleRef = await Test.createTestingModule({
         imports: [
+          ConfigModule,
           AmqpClientModule.forRootAsync({
+            imports: [ConfigModule],
             useFactory: (configService: ConfigService) => ({
               contract: testContract,
               urls: configService.getAmqpUrls(),
@@ -169,18 +178,17 @@ describe("AmqpClientModule Integration", () => {
             inject: [ConfigService],
           }),
         ],
-        providers: [ConfigService],
       }).compile();
 
-      const app = moduleRef.createNestApplication();
-      await app.init();
+      // Use module directly instead of creating app
+      await moduleRef.init();
 
-      const service = app.get(AmqpClientService<typeof testContract>);
+      const service = moduleRef.get(AmqpClientService<typeof testContract>);
 
       // THEN - service should be functional
       expect(service).toBeDefined();
 
-      await app.close();
+      await moduleRef.close();
     });
   });
 });

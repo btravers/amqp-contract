@@ -78,10 +78,10 @@ describe("Client and Worker Integration", () => {
         ],
       }).compile();
 
-      const app = moduleRef.createNestApplication();
-      await app.init();
+      // Use module directly instead of creating app
+      await moduleRef.init();
 
-      const clientService = app.get(AmqpClientService<typeof testContract>);
+      const clientService = moduleRef.get(AmqpClientService<typeof testContract>);
 
       // Wait for worker to be ready
       await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -108,7 +108,7 @@ describe("Client and Worker Integration", () => {
         { timeout: 5000 },
       );
 
-      await app.close();
+      await moduleRef.close();
     });
 
     it("should handle multiple messages in sequence", async ({ amqpConnectionUrl }) => {
@@ -133,10 +133,10 @@ describe("Client and Worker Integration", () => {
         ],
       }).compile();
 
-      const app = moduleRef.createNestApplication();
-      await app.init();
+      // Use module directly instead of creating app
+      await moduleRef.init();
 
-      const clientService = app.get(AmqpClientService<typeof testContract>);
+      const clientService = moduleRef.get(AmqpClientService<typeof testContract>);
 
       // Wait for worker to be ready
       await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -163,7 +163,7 @@ describe("Client and Worker Integration", () => {
         { timeout: 5000 },
       );
 
-      await app.close();
+      await moduleRef.close();
     });
 
     it("should handle message validation failures gracefully", async ({ amqpConnectionUrl }) => {
@@ -188,10 +188,10 @@ describe("Client and Worker Integration", () => {
         ],
       }).compile();
 
-      const app = moduleRef.createNestApplication();
-      await app.init();
+      // Use module directly instead of creating app
+      await moduleRef.init();
 
-      const clientService = app.get(AmqpClientService<typeof testContract>);
+      const clientService = moduleRef.get(AmqpClientService<typeof testContract>);
 
       // Wait for worker to be ready
       await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -211,7 +211,7 @@ describe("Client and Worker Integration", () => {
       await new Promise((resolve) => setTimeout(resolve, 2000));
       expect(handler).not.toHaveBeenCalled();
 
-      await app.close();
+      await moduleRef.close();
     });
   });
 
@@ -238,10 +238,10 @@ describe("Client and Worker Integration", () => {
         ],
       }).compile();
 
-      const app = moduleRef.createNestApplication();
-      await app.init();
+      // Use module directly instead of creating app
+      await moduleRef.init();
 
-      const clientService = app.get(AmqpClientService<typeof testContract>);
+      const clientService = moduleRef.get(AmqpClientService<typeof testContract>);
 
       // Wait for worker to be ready
       await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -265,7 +265,7 @@ describe("Client and Worker Integration", () => {
         { timeout: 5000 },
       );
 
-      await app.close();
+      await moduleRef.close();
     });
   });
 });
