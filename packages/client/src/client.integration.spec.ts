@@ -255,10 +255,7 @@ describe("AmqpClient Integration", () => {
       await client.close();
     });
 
-    it("should handle fanout exchange topology", async ({
-      amqpConnectionUrl,
-      initConsumer,
-    }) => {
+    it("should handle fanout exchange topology", async ({ amqpConnectionUrl, initConsumer }) => {
       // GIVEN
       const fanoutExchange = defineExchange("integration-fanout", "fanout", { durable: false });
       const queue = defineQueue("integration-fanout-queue", { durable: false });
@@ -314,13 +311,9 @@ describe("AmqpClient Integration", () => {
           test: exchange,
         },
         publishers: {
-          testPublisher: definePublisher(
-            exchange,
-            defineMessage(z.object({ id: z.string() })),
-            {
-              routingKey: "test.key",
-            },
-          ),
+          testPublisher: definePublisher(exchange, defineMessage(z.object({ id: z.string() })), {
+            routingKey: "test.key",
+          }),
         },
       });
 
@@ -368,13 +361,9 @@ describe("AmqpClient Integration", () => {
           test: exchange,
         },
         publishers: {
-          testPublisher: definePublisher(
-            exchange,
-            defineMessage(z.object({ value: z.number() })),
-            {
-              routingKey: "test.value",
-            },
-          ),
+          testPublisher: definePublisher(exchange, defineMessage(z.object({ value: z.number() })), {
+            routingKey: "test.value",
+          }),
         },
       });
 

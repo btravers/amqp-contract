@@ -33,12 +33,8 @@ describe("AmqpClient Integration", () => {
     await client.channel.waitForConnect();
 
     // THEN - Verify exchanges exist by checking them
-    await expect(
-      amqpChannel.checkExchange("orders"),
-    ).resolves.toBeDefined();
-    await expect(
-      amqpChannel.checkExchange("notifications"),
-    ).resolves.toBeDefined();
+    await expect(amqpChannel.checkExchange("orders")).resolves.toBeDefined();
+    await expect(amqpChannel.checkExchange("notifications")).resolves.toBeDefined();
 
     // CLEANUP
     await client.close();
@@ -61,12 +57,8 @@ describe("AmqpClient Integration", () => {
     await client.channel.waitForConnect();
 
     // THEN - Verify queues exist by checking them
-    await expect(
-      amqpChannel.checkQueue("order-processing"),
-    ).resolves.toBeDefined();
-    await expect(
-      amqpChannel.checkQueue("notifications"),
-    ).resolves.toBeDefined();
+    await expect(amqpChannel.checkQueue("order-processing")).resolves.toBeDefined();
+    await expect(amqpChannel.checkQueue("notifications")).resolves.toBeDefined();
 
     // CLEANUP
     await client.close();
@@ -301,9 +293,7 @@ describe("AmqpClient Integration", () => {
     await client.channel.waitForConnect();
 
     // THEN - Exchange should exist (arguments would have been passed to RabbitMQ)
-    await expect(
-      amqpChannel.checkExchange("orders"),
-    ).resolves.toBeDefined();
+    await expect(amqpChannel.checkExchange("orders")).resolves.toBeDefined();
 
     // CLEANUP
     await client.close();
@@ -328,9 +318,7 @@ describe("AmqpClient Integration", () => {
     await client.channel.waitForConnect();
 
     // THEN - Queue should exist with custom arguments
-    await expect(
-      amqpChannel.checkQueue("orders"),
-    ).resolves.toBeDefined();
+    await expect(amqpChannel.checkQueue("orders")).resolves.toBeDefined();
 
     // CLEANUP
     await client.close();
