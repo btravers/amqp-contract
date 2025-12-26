@@ -13,3 +13,7 @@ Welcome to the amqp-contract API documentation. This documentation is auto-gener
 
 - [@amqp-contract/client-nestjs](./client-nestjs/) - NestJS client module
 - [@amqp-contract/worker-nestjs](./worker-nestjs/) - NestJS worker module
+
+## Testing
+
+- [@amqp-contract/testing](./testing/) - Testing utilities with testcontainers

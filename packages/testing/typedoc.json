@@ -1,0 +1,5 @@
+{
+  "extends": "@amqp-contract/typedoc/base.json",
+  "entryPoints": ["src/global-setup.ts", "src/extension.ts"],
+  "out": "docs"
+}

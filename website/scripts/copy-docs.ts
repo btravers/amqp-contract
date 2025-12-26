@@ -1,10 +1,11 @@
-import { cp, mkdir, writeFile } from "node:fs/promises";
+import { access, cp, mkdir, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const rootDir = join(__dirname, "..");
 const docsDir = join(rootDir, "docs", "api");
+const packagesDir = join(rootDir, "..", "packages");
 
 type PackageInfo = {
   name: string;
@@ -18,6 +19,7 @@ const packages: PackageInfo[] = [
   { name: "@amqp-contract/asyncapi", folder: "asyncapi" },
   { name: "@amqp-contract/client-nestjs", folder: "client-nestjs" },
   { name: "@amqp-contract/worker-nestjs", folder: "worker-nestjs" },
+  { name: "@amqp-contract/testing", folder: "testing" },
 ];
 
 async function copyDocs(): Promise<void> {
@@ -27,8 +29,18 @@ async function copyDocs(): Promise<void> {
 
     // Copy docs from each package
     for (const pkg of packages) {
-      const sourcePath = join(rootDir, "node_modules", pkg.name, "docs");
+      // Try workspace package location first (for packages in development)
+      const workspaceSourcePath = join(packagesDir, pkg.folder, "docs");
+      // Fallback to node_modules (for published packages)
+      const nodeModulesSourcePath = join(rootDir, "node_modules", pkg.name, "docs");
       const targetPath = join(docsDir, pkg.folder);
+
+      let sourcePath = workspaceSourcePath;
+      try {
+        await access(workspaceSourcePath);
+      } catch {
+        sourcePath = nodeModulesSourcePath;
+      }
 
       try {
         await cp(sourcePath, targetPath, { recursive: true });
@@ -55,6 +67,10 @@ Welcome to the amqp-contract API documentation. This documentation is auto-gener
 
 - [@amqp-contract/client-nestjs](./client-nestjs/) - NestJS client module
 - [@amqp-contract/worker-nestjs](./worker-nestjs/) - NestJS worker module
+
+## Testing
+
+- [@amqp-contract/testing](./testing/) - Testing utilities with testcontainers
 `;
 
     await writeFile(join(docsDir, "index.md"), indexContent);

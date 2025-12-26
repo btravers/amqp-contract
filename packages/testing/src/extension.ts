@@ -1,3 +1,14 @@
+/**
+ * Vitest extension module for AMQP testing utilities
+ *
+ * This module provides a Vitest test extension that adds AMQP-specific fixtures
+ * to your tests. Each test gets an isolated virtual host (vhost) with pre-configured
+ * connections, channels, and helper functions for publishing and consuming messages.
+ *
+ * @module extension
+ * @packageDocumentation
+ */
+
 import amqpLib, { type Channel, type ChannelModel } from "amqplib";
 import { inject, vi, it as vitestIt } from "vitest";
 import { randomUUID } from "node:crypto";
@@ -204,12 +215,15 @@ export const it = vitestIt.extend<{
 async function createVhost() {
   const namespace = randomUUID();
 
+  const username = inject("__TESTCONTAINERS_RABBITMQ_USERNAME__");
+  const password = inject("__TESTCONTAINERS_RABBITMQ_PASSWORD__");
+
   const vhostResponse = await fetch(
     `http://${inject("__TESTCONTAINERS_RABBITMQ_IP__")}:${inject("__TESTCONTAINERS_RABBITMQ_PORT_15672__")}/api/vhosts/${encodeURIComponent(namespace)}`,
     {
       method: "PUT",
       headers: {
-        Authorization: `Basic ${btoa("guest:guest")}`,
+        Authorization: `Basic ${btoa(`${username}:${password}`)}`,
       },
     },
   );
@@ -228,12 +242,15 @@ async function createVhost() {
 }
 
 async function deleteVhost(vhost: string) {
+  const username = inject("__TESTCONTAINERS_RABBITMQ_USERNAME__");
+  const password = inject("__TESTCONTAINERS_RABBITMQ_PASSWORD__");
+
   const vhostResponse = await fetch(
     `http://${inject("__TESTCONTAINERS_RABBITMQ_IP__")}:${inject("__TESTCONTAINERS_RABBITMQ_PORT_15672__")}/api/vhosts/${encodeURIComponent(vhost)}`,
     {
       method: "DELETE",
       headers: {
-        Authorization: `Basic ${btoa("guest:guest")}`,
+        Authorization: `Basic ${btoa(`${username}:${password}`)}`,
       },
     },
   );

@@ -86,6 +86,7 @@ export default withMermaid(
               { text: "Defining Contracts", link: "/guide/defining-contracts" },
               { text: "Client Usage", link: "/guide/client-usage" },
               { text: "Worker Usage", link: "/guide/worker-usage" },
+              { text: "Testing", link: "/guide/testing" },
             ],
           },
           {
@@ -117,6 +118,10 @@ export default withMermaid(
               { text: "@amqp-contract/client-nestjs", link: "/api/client-nestjs/" },
               { text: "@amqp-contract/worker-nestjs", link: "/api/worker-nestjs/" },
             ],
+          },
+          {
+            text: "Testing",
+            items: [{ text: "@amqp-contract/testing", link: "/api/testing/" }],
           },
         ],
         "/examples/": [
