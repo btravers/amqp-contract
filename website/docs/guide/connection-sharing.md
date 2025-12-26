@@ -287,7 +287,7 @@ const worker = await TypedAmqpWorker.create({
 
 3. **Testing Requires Cache Reset**
    - The singleton caches connections across tests
-   - Use `AmqpClient._resetConnectionCacheForTesting()` in test cleanup
+   - In test cleanup, call `await AmqpClient._resetConnectionCacheForTesting()`
    - See "Cleanup in tests" section below
 
 4. **Connection Lifecycle Tied to Usage**
