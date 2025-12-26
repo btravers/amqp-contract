@@ -56,7 +56,7 @@ describe("Client and Worker Integration", () => {
   describe("end-to-end message flow", () => {
     it("should publish from client and consume in worker", async ({ amqpConnectionUrl }) => {
       // GIVEN - handler mock to track consumed messages
-      const handler = vi.fn().mockResolvedValue(undefined);
+      const handler = vi.fn().mockResolvedValue();
 
       // Import worker module dynamically to avoid circular dependency issues
       const { AmqpWorkerModule } = await import("../../worker-nestjs/src/worker.module.js");
@@ -113,7 +113,7 @@ describe("Client and Worker Integration", () => {
 
     it("should handle multiple messages in sequence", async ({ amqpConnectionUrl }) => {
       // GIVEN - handler mock
-      const handler = vi.fn().mockResolvedValue(undefined);
+      const handler = vi.fn().mockResolvedValue();
 
       const { AmqpWorkerModule } = await import("../../worker-nestjs/src/worker.module.js");
 
@@ -168,7 +168,7 @@ describe("Client and Worker Integration", () => {
 
     it("should handle message validation failures gracefully", async ({ amqpConnectionUrl }) => {
       // GIVEN - handler mock
-      const handler = vi.fn().mockResolvedValue(undefined);
+      const handler = vi.fn().mockResolvedValue();
 
       const { AmqpWorkerModule } = await import("../../worker-nestjs/src/worker.module.js");
 
@@ -218,7 +218,7 @@ describe("Client and Worker Integration", () => {
   describe("connection sharing", () => {
     it("should work with shared connection URL", async ({ amqpConnectionUrl }) => {
       // GIVEN - both client and worker configured with same URL
-      const handler = vi.fn().mockResolvedValue(undefined);
+      const handler = vi.fn().mockResolvedValue();
 
       const { AmqpWorkerModule } = await import("../../worker-nestjs/src/worker.module.js");
 
