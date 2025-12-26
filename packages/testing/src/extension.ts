@@ -1,5 +1,5 @@
 import amqpLib, { type Channel, type ChannelModel } from "amqplib";
-import { inject, it as vitestIt } from "vitest";
+import { inject, vi, it as vitestIt } from "vitest";
 import { randomUUID } from "node:crypto";
 
 export const it = vitestIt.extend<{
@@ -122,6 +122,10 @@ export const it = vitestIt.extend<{
    * and returns a function to collect messages from that queue. The queue is automatically
    * created with a random UUID name to avoid conflicts between tests.
    *
+   * The returned function uses `vi.waitFor()` with a 5-second timeout to wait for messages.
+   * If the expected number of messages is not received within the timeout period, the Promise
+   * will reject with a timeout error, preventing tests from hanging indefinitely.
+   *
    * @param exchange - The name of the exchange to bind the queue to
    * @param routingKey - The routing key pattern for message filtering
    * @returns A function that accepts an optional number of events (default 1) and returns a Promise that resolves to an array of ConsumeMessage objects
@@ -146,22 +150,30 @@ export const it = vitestIt.extend<{
       await amqpChannel.assertQueue(queue);
       await amqpChannel.bindQueue(queue, exchange, routingKey);
 
-      return (nbEvents = 1) =>
-        new Promise((resolve) => {
-          const messages: amqpLib.ConsumeMessage[] = [];
-          amqpChannel.consume(
-            queue,
-            (msg) => {
-              if (msg) {
-                messages.push(msg);
-                if (messages.length >= nbEvents) {
-                  resolve(messages);
-                }
-              }
-            },
-            { noAck: true },
-          );
-        });
+      const messages: amqpLib.ConsumeMessage[] = [];
+      await amqpChannel.consume(
+        queue,
+        (msg) => {
+          if (msg) {
+            messages.push(msg);
+          }
+        },
+        { noAck: true },
+      );
+
+      return async (nbEvents = 1) => {
+        await vi.waitFor(
+          () => {
+            if (messages.length < nbEvents) {
+              throw new Error(
+                `Expected ${nbEvents} message(s) but only received ${messages.length}`,
+              );
+            }
+          },
+          { timeout: 5000 },
+        );
+        return messages.slice(0, nbEvents);
+      };
     }
     await use(initConsumer);
   },
