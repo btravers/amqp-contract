@@ -1,4 +1,5 @@
 import {
+  ContractDefinition,
   defineConsumer,
   defineContract,
   defineExchange,
@@ -10,12 +11,39 @@ import {
 } from "@amqp-contract/contract";
 import { describe, expect, vi } from "vitest";
 import { TypedAmqpWorker } from "./worker.js";
-import { it } from "@amqp-contract/testing/extension";
+import type { WorkerInferConsumerHandlers } from "./types.js";
+import { it as baseIt } from "@amqp-contract/testing/extension";
 import { z } from "zod";
+
+const it = baseIt.extend<{
+  workerFactory: <TContract extends ContractDefinition>(
+    contract: TContract,
+    handlers: WorkerInferConsumerHandlers<TContract>,
+  ) => Promise<TypedAmqpWorker<TContract>>;
+}>({
+  workerFactory: async ({ amqpConnectionUrl }, use) => {
+    let teardownHook = () => Promise.resolve();
+    await use(
+      async <TContract extends ContractDefinition>(
+        contract: TContract,
+        handlers: WorkerInferConsumerHandlers<TContract>,
+      ) => {
+        const worker = await TypedAmqpWorker.create({
+          contract,
+          handlers,
+          urls: [amqpConnectionUrl],
+        }).resultToPromise();
+        teardownHook = () => worker.close().resultToPromise();
+        return worker;
+      },
+    );
+    await teardownHook();
+  },
+});
 
 describe("AmqpWorker Integration", () => {
   it("should consume messages from a real RabbitMQ instance", async ({
-    amqpConnectionUrl,
+    workerFactory,
     publishMessage,
   }) => {
     // GIVEN
@@ -50,16 +78,12 @@ describe("AmqpWorker Integration", () => {
     });
 
     const messages: Array<{ id: string; message: string }> = [];
-    const worker = await TypedAmqpWorker.create({
-      contract,
-      handlers: {
-        testConsumer: (msg) => {
-          messages.push(msg);
-          return Promise.resolve();
-        },
+    await workerFactory(contract, {
+      testConsumer: (msg) => {
+        messages.push(msg);
+        return Promise.resolve();
       },
-      urls: [amqpConnectionUrl],
-    }).resultToPromise();
+    });
 
     // WHEN
     publishMessage(exchange.name, "test.message", {
@@ -80,12 +104,9 @@ describe("AmqpWorker Integration", () => {
         message: "Hello from integration test!",
       },
     ]);
-
-    // CLEANUP
-    await worker.close();
   });
 
-  it("should handle multiple messages", async ({ amqpConnectionUrl, publishMessage }) => {
+  it("should handle multiple messages", async ({ workerFactory, publishMessage }) => {
     // GIVEN
     const TestMessage = z.object({
       id: z.string(),
@@ -118,16 +139,12 @@ describe("AmqpWorker Integration", () => {
     });
 
     const messages: Array<{ id: string; count: number }> = [];
-    const worker = await TypedAmqpWorker.create({
-      contract,
-      handlers: {
-        testConsumer: (msg) => {
-          messages.push(msg);
-          return Promise.resolve();
-        },
+    await workerFactory(contract, {
+      testConsumer: (msg) => {
+        messages.push(msg);
+        return Promise.resolve();
       },
-      urls: [amqpConnectionUrl],
-    }).resultToPromise();
+    });
 
     // WHEN
     publishMessage(exchange.name, "multi.test", { id: "1", count: 1 });
@@ -146,15 +163,9 @@ describe("AmqpWorker Integration", () => {
       { id: "2", count: 2 },
       { id: "3", count: 3 },
     ]);
-
-    // CLEANUP
-    await worker.close();
   });
 
-  it("should consume all consumers with consumeAll", async ({
-    amqpConnectionUrl,
-    publishMessage,
-  }) => {
+  it("should consume all consumers with consumeAll", async ({ workerFactory, publishMessage }) => {
     // GIVEN
     const TestMessage = z.object({ id: z.string() });
 
@@ -194,20 +205,17 @@ describe("AmqpWorker Integration", () => {
 
     const messages1: Array<{ id: string }> = [];
     const messages2: Array<{ id: string }> = [];
-    const worker = await TypedAmqpWorker.create({
-      contract,
-      handlers: {
-        consumer1: (msg) => {
-          messages1.push(msg);
-          return Promise.resolve();
-        },
-        consumer2: (msg) => {
-          messages2.push(msg);
-          return Promise.resolve();
-        },
+
+    await workerFactory(contract, {
+      consumer1: (msg) => {
+        messages1.push(msg);
+        return Promise.resolve();
       },
-      urls: [amqpConnectionUrl],
-    }).resultToPromise();
+      consumer2: (msg) => {
+        messages2.push(msg);
+        return Promise.resolve();
+      },
+    });
 
     // WHEN
     publishMessage(exchange.name, "all.one", { id: "msg1" });
@@ -222,13 +230,10 @@ describe("AmqpWorker Integration", () => {
 
     expect(messages1).toEqual([{ id: "msg1" }]);
     expect(messages2).toEqual([{ id: "msg2" }]);
-
-    // CLEANUP
-    await worker.close();
   });
 
   it("should handle validation errors and nack messages", async ({
-    amqpConnectionUrl,
+    workerFactory,
     publishMessage,
   }) => {
     // GIVEN
@@ -263,16 +268,12 @@ describe("AmqpWorker Integration", () => {
     });
 
     const messages: Array<{ id: string; count: number }> = [];
-    const worker = await TypedAmqpWorker.create({
-      contract,
-      handlers: {
-        testConsumer: (msg) => {
-          messages.push(msg);
-          return Promise.resolve();
-        },
+    await workerFactory(contract, {
+      testConsumer: (msg) => {
+        messages.push(msg);
+        return Promise.resolve();
       },
-      urls: [amqpConnectionUrl],
-    }).resultToPromise();
+    });
 
     // WHEN - Publish invalid message
     publishMessage(exchange.name, "validation.message", {
@@ -284,13 +285,10 @@ describe("AmqpWorker Integration", () => {
     // Wait a moment to ensure message would have been processed if valid
     await new Promise((resolve) => setTimeout(resolve, 500));
     expect(messages).toHaveLength(0);
-
-    // CLEANUP
-    await worker.close();
   });
 
   it("should handle handler errors and requeue messages", async ({
-    amqpConnectionUrl,
+    workerFactory,
     publishMessage,
   }) => {
     // GIVEN
@@ -318,19 +316,15 @@ describe("AmqpWorker Integration", () => {
 
     let attemptCount = 0;
     const messages: Array<{ id: string; shouldFail: boolean }> = [];
-    const worker = await TypedAmqpWorker.create({
-      contract,
-      handlers: {
-        testConsumer: async (msg) => {
-          attemptCount++;
-          if (msg.shouldFail && attemptCount === 1) {
-            throw new Error("Handler error on first attempt");
-          }
-          messages.push(msg);
-        },
+    await workerFactory(contract, {
+      testConsumer: async (msg) => {
+        attemptCount++;
+        if (msg.shouldFail && attemptCount === 1) {
+          throw new Error("Handler error on first attempt");
+        }
+        messages.push(msg);
       },
-      urls: [amqpConnectionUrl],
-    }).resultToPromise();
+    });
 
     // WHEN - Publish message that will fail first time
     publishMessage(exchange.name, "error.test", { id: "retry-test", shouldFail: true });
@@ -344,15 +338,9 @@ describe("AmqpWorker Integration", () => {
 
     expect(messages).toEqual([{ id: "retry-test", shouldFail: true }]);
     expect(attemptCount).toBeGreaterThanOrEqual(2); // At least 2 attempts
-
-    // CLEANUP
-    await worker.close();
   });
 
-  it("should handle exchange-to-exchange bindings", async ({
-    amqpConnectionUrl,
-    publishMessage,
-  }) => {
+  it("should handle exchange-to-exchange bindings", async ({ workerFactory, publishMessage }) => {
     // GIVEN
     const TestMessage = z.object({ msg: z.string() });
 
@@ -382,16 +370,12 @@ describe("AmqpWorker Integration", () => {
     });
 
     const messages: Array<{ msg: string }> = [];
-    const worker = await TypedAmqpWorker.create({
-      contract,
-      handlers: {
-        destConsumer: (msg) => {
-          messages.push(msg);
-          return Promise.resolve();
-        },
+    await workerFactory(contract, {
+      destConsumer: (msg) => {
+        messages.push(msg);
+        return Promise.resolve();
       },
-      urls: [amqpConnectionUrl],
-    }).resultToPromise();
+    });
 
     // WHEN - Publish to source exchange
     publishMessage(sourceExchange.name, "test.important", { msg: "routed through exchange" });
@@ -404,50 +388,9 @@ describe("AmqpWorker Integration", () => {
     });
 
     expect(messages).toEqual([{ msg: "routed through exchange" }]);
-
-    // CLEANUP
-    await worker.close();
   });
 
-  it("should handle null messages gracefully", async ({ amqpConnectionUrl }) => {
-    // GIVEN
-    const TestMessage = z.object({ id: z.string() });
-
-    const queue = defineQueue("worker-null-queue", { durable: false });
-
-    const contract = defineContract({
-      queues: {
-        testQueue: queue,
-      },
-      consumers: {
-        testConsumer: defineConsumer(queue, defineMessage(TestMessage)),
-      },
-    });
-
-    const messages: Array<{ id: string }> = [];
-    const worker = await TypedAmqpWorker.create({
-      contract,
-      handlers: {
-        testConsumer: (msg) => {
-          messages.push(msg);
-          return Promise.resolve();
-        },
-      },
-      urls: [amqpConnectionUrl],
-    }).resultToPromise();
-
-    // WHEN - Cancel consumer (simulates null message)
-    // Note: In real scenarios, null messages are sent by RabbitMQ when consumer is cancelled
-    // For this test, we just verify worker is set up correctly
-
-    // THEN - Worker should be running
-    expect(worker).toBeDefined();
-
-    // CLEANUP
-    await worker.close();
-  });
-
-  it("should close cleanly and stop consuming", async ({ amqpConnectionUrl, publishMessage }) => {
+  it("should close cleanly and stop consuming", async ({ workerFactory, publishMessage }) => {
     // GIVEN
     const TestMessage = z.object({ id: z.string() });
 
@@ -472,16 +415,12 @@ describe("AmqpWorker Integration", () => {
     });
 
     const messages: Array<{ id: string }> = [];
-    const worker = await TypedAmqpWorker.create({
-      contract,
-      handlers: {
-        testConsumer: (msg) => {
-          messages.push(msg);
-          return Promise.resolve();
-        },
+    const worker = await workerFactory(contract, {
+      testConsumer: (msg) => {
+        messages.push(msg);
+        return Promise.resolve();
       },
-      urls: [amqpConnectionUrl],
-    }).resultToPromise();
+    });
 
     // Consume first message
     publishMessage(exchange.name, "close.test", { id: "before-close" });
@@ -508,7 +447,7 @@ describe("AmqpWorker Integration", () => {
   });
 
   it("should handle multiple consumers with different message types", async ({
-    amqpConnectionUrl,
+    workerFactory,
     publishMessage,
   }) => {
     // GIVEN
@@ -544,20 +483,16 @@ describe("AmqpWorker Integration", () => {
     const orders: Array<{ orderId: string; amount: number }> = [];
     const notifications: Array<{ userId: string; message: string }> = [];
 
-    const worker = await TypedAmqpWorker.create({
-      contract,
-      handlers: {
-        orderConsumer: (msg) => {
-          orders.push(msg);
-          return Promise.resolve();
-        },
-        notificationConsumer: (msg) => {
-          notifications.push(msg);
-          return Promise.resolve();
-        },
+    await workerFactory(contract, {
+      orderConsumer: (msg) => {
+        orders.push(msg);
+        return Promise.resolve();
       },
-      urls: [amqpConnectionUrl],
-    }).resultToPromise();
+      notificationConsumer: (msg) => {
+        notifications.push(msg);
+        return Promise.resolve();
+      },
+    });
 
     // WHEN
     publishMessage(exchange.name, "order.created", { orderId: "123", amount: 99.99 });
@@ -575,8 +510,5 @@ describe("AmqpWorker Integration", () => {
 
     expect(orders).toEqual([{ orderId: "123", amount: 99.99 }]);
     expect(notifications).toEqual([{ userId: "user1", message: "Order created" }]);
-
-    // CLEANUP
-    await worker.close();
   });
 });
