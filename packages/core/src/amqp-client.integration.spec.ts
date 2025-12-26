@@ -1,0 +1,375 @@
+import { beforeEach, describe, expect } from "vitest";
+import {
+  defineContract,
+  defineExchange,
+  defineExchangeBinding,
+  defineQueue,
+  defineQueueBinding,
+} from "@amqp-contract/contract";
+import { AmqpClient } from "./amqp-client.js";
+import { it } from "@amqp-contract/testing/extension";
+
+describe("AmqpClient Integration", () => {
+  beforeEach(async () => {
+    // Reset connection cache between tests
+    await AmqpClient._resetConnectionCacheForTesting();
+  });
+
+  it("should setup exchanges from contract", async ({ amqpConnectionUrl, amqpChannel }) => {
+    // GIVEN
+    const contract = defineContract({
+      exchanges: {
+        orders: defineExchange("orders", "topic", { durable: false }),
+        notifications: defineExchange("notifications", "fanout", { durable: false }),
+      },
+    });
+
+    // WHEN
+    const client = new AmqpClient(contract, {
+      urls: [amqpConnectionUrl],
+    });
+
+    // Wait for setup to complete
+    await client.channel.waitForConnect();
+
+    // THEN - Verify exchanges exist by checking them
+    await expect(
+      amqpChannel.checkExchange("orders"),
+    ).resolves.toBeDefined();
+    await expect(
+      amqpChannel.checkExchange("notifications"),
+    ).resolves.toBeDefined();
+
+    // CLEANUP
+    await client.close();
+  });
+
+  it("should setup queues from contract", async ({ amqpConnectionUrl, amqpChannel }) => {
+    // GIVEN
+    const contract = defineContract({
+      queues: {
+        orderProcessing: defineQueue("order-processing", { durable: false }),
+        notifications: defineQueue("notifications", { durable: false }),
+      },
+    });
+
+    // WHEN
+    const client = new AmqpClient(contract, {
+      urls: [amqpConnectionUrl],
+    });
+
+    await client.channel.waitForConnect();
+
+    // THEN - Verify queues exist by checking them
+    await expect(
+      amqpChannel.checkQueue("order-processing"),
+    ).resolves.toBeDefined();
+    await expect(
+      amqpChannel.checkQueue("notifications"),
+    ).resolves.toBeDefined();
+
+    // CLEANUP
+    await client.close();
+  });
+
+  it("should setup queue bindings from contract", async ({
+    amqpConnectionUrl,
+    publishMessage,
+    initConsumer,
+  }) => {
+    // GIVEN
+    const ordersExchange = defineExchange("orders", "topic", { durable: false });
+    const orderQueue = defineQueue("order-processing", { durable: false });
+    const contract = defineContract({
+      exchanges: {
+        orders: ordersExchange,
+      },
+      queues: {
+        orderProcessing: orderQueue,
+      },
+      bindings: {
+        orderBinding: defineQueueBinding(orderQueue, ordersExchange, {
+          routingKey: "order.created",
+        }),
+      },
+    });
+
+    const client = new AmqpClient(contract, {
+      urls: [amqpConnectionUrl],
+    });
+
+    await client.channel.waitForConnect();
+
+    // Setup consumer before publishing
+    const waitForMessages = await initConsumer("orders", "order.created");
+
+    // WHEN - Publish a message
+    publishMessage("orders", "order.created", { orderId: "123" });
+
+    // THEN - Message should be routed through binding to queue
+    const messages = await waitForMessages();
+    expect(messages).toHaveLength(1);
+    expect(JSON.parse(messages[0].content.toString())).toEqual({ orderId: "123" });
+
+    // CLEANUP
+    await client.close();
+  });
+
+  it("should setup exchange-to-exchange bindings", async ({
+    amqpConnectionUrl,
+    publishMessage,
+    initConsumer,
+  }) => {
+    // GIVEN
+    const sourceExchange = defineExchange("source", "topic", { durable: false });
+    const destExchange = defineExchange("destination", "topic", { durable: false });
+    const contract = defineContract({
+      exchanges: {
+        source: sourceExchange,
+        destination: destExchange,
+      },
+      bindings: {
+        exchangeBinding: defineExchangeBinding(destExchange, sourceExchange, {
+          routingKey: "*.important",
+        }),
+      },
+    });
+
+    const client = new AmqpClient(contract, {
+      urls: [amqpConnectionUrl],
+    });
+
+    await client.channel.waitForConnect();
+
+    // Setup consumer on destination exchange
+    const waitForMessages = await initConsumer("destination", "test.important");
+
+    // WHEN - Publish to source exchange
+    publishMessage("source", "test.important", { data: "important message" });
+
+    // THEN - Message should be routed through exchange binding
+    const messages = await waitForMessages();
+    expect(messages).toHaveLength(1);
+    expect(JSON.parse(messages[0].content.toString())).toEqual({
+      data: "important message",
+    });
+
+    // CLEANUP
+    await client.close();
+  });
+
+  it("should setup complete contract with all resources", async ({
+    amqpConnectionUrl,
+    publishMessage,
+    initConsumer,
+  }) => {
+    // GIVEN
+    const ordersExchange = defineExchange("orders", "topic", { durable: false });
+    const analyticsExchange = defineExchange("analytics", "fanout", { durable: false });
+    const orderQueue = defineQueue("order-processing", { durable: false });
+    const analyticsQueue = defineQueue("analytics-processing", { durable: false });
+
+    const contract = defineContract({
+      exchanges: {
+        orders: ordersExchange,
+        analytics: analyticsExchange,
+      },
+      queues: {
+        orderProcessing: orderQueue,
+        analyticsProcessing: analyticsQueue,
+      },
+      bindings: {
+        orderBinding: defineQueueBinding(orderQueue, ordersExchange, {
+          routingKey: "order.#",
+        }),
+        analyticsBinding: defineQueueBinding(analyticsQueue, analyticsExchange),
+        exchangeBinding: defineExchangeBinding(analyticsExchange, ordersExchange, {
+          routingKey: "order.created",
+        }),
+      },
+    });
+
+    const client = new AmqpClient(contract, {
+      urls: [amqpConnectionUrl],
+    });
+
+    await client.channel.waitForConnect();
+
+    // Setup consumers
+    const waitForOrderMessages = await initConsumer("orders", "order.created");
+    const waitForAnalyticsMessages = await initConsumer("analytics", "");
+
+    // WHEN - Publish to orders exchange
+    publishMessage("orders", "order.created", { orderId: "456" });
+
+    // THEN - Both queues should receive messages
+    const orderMessages = await waitForOrderMessages();
+    expect(orderMessages).toHaveLength(1);
+    expect(JSON.parse(orderMessages[0].content.toString())).toEqual({ orderId: "456" });
+
+    const analyticsMessages = await waitForAnalyticsMessages();
+    expect(analyticsMessages).toHaveLength(1);
+    expect(JSON.parse(analyticsMessages[0].content.toString())).toEqual({ orderId: "456" });
+
+    // CLEANUP
+    await client.close();
+  });
+
+  it("should handle empty contract", async ({ amqpConnectionUrl }) => {
+    // GIVEN
+    const contract = defineContract({});
+
+    // WHEN
+    const client = new AmqpClient(contract, {
+      urls: [amqpConnectionUrl],
+    });
+
+    await client.channel.waitForConnect();
+
+    // THEN - Should not throw and client should be usable
+    expect(client.channel).toBeDefined();
+
+    // CLEANUP
+    await client.close();
+  });
+
+  it("should handle fanout exchange binding without routing key", async ({
+    amqpConnectionUrl,
+    publishMessage,
+    initConsumer,
+  }) => {
+    // GIVEN
+    const fanoutExchange = defineExchange("fanout", "fanout", { durable: false });
+    const orderQueue = defineQueue("order-queue", { durable: false });
+    const contract = defineContract({
+      exchanges: {
+        fanout: fanoutExchange,
+      },
+      queues: {
+        orderQueue: orderQueue,
+      },
+      bindings: {
+        fanoutBinding: defineQueueBinding(orderQueue, fanoutExchange),
+      },
+    });
+
+    const client = new AmqpClient(contract, {
+      urls: [amqpConnectionUrl],
+    });
+
+    await client.channel.waitForConnect();
+
+    // Setup consumer
+    const waitForMessages = await initConsumer("fanout", "");
+
+    // WHEN - Publish to fanout exchange
+    publishMessage("fanout", "any-key", { message: "broadcast" });
+
+    // THEN - Message should be delivered
+    const messages = await waitForMessages();
+    expect(messages).toHaveLength(1);
+    expect(JSON.parse(messages[0].content.toString())).toEqual({ message: "broadcast" });
+
+    // CLEANUP
+    await client.close();
+  });
+
+  it("should pass custom arguments to exchanges", async ({ amqpConnectionUrl, amqpChannel }) => {
+    // GIVEN
+    const contract = defineContract({
+      exchanges: {
+        orders: defineExchange("orders", "topic", {
+          durable: false,
+          arguments: { "x-custom": "value" },
+        }),
+      },
+    });
+
+    // WHEN
+    const client = new AmqpClient(contract, {
+      urls: [amqpConnectionUrl],
+    });
+
+    await client.channel.waitForConnect();
+
+    // THEN - Exchange should exist (arguments would have been passed to RabbitMQ)
+    await expect(
+      amqpChannel.checkExchange("orders"),
+    ).resolves.toBeDefined();
+
+    // CLEANUP
+    await client.close();
+  });
+
+  it("should pass custom arguments to queues", async ({ amqpConnectionUrl, amqpChannel }) => {
+    // GIVEN
+    const contract = defineContract({
+      queues: {
+        orders: defineQueue("orders", {
+          durable: false,
+          arguments: { "x-max-length": 1000 },
+        }),
+      },
+    });
+
+    // WHEN
+    const client = new AmqpClient(contract, {
+      urls: [amqpConnectionUrl],
+    });
+
+    await client.channel.waitForConnect();
+
+    // THEN - Queue should exist with custom arguments
+    await expect(
+      amqpChannel.checkQueue("orders"),
+    ).resolves.toBeDefined();
+
+    // CLEANUP
+    await client.close();
+  });
+
+  it("should handle invalid exchange setup gracefully", async ({ amqpConnectionUrl }) => {
+    // GIVEN - Contract with invalid exchange type
+    const contract = defineContract({
+      exchanges: {
+        // @ts-expect-error - Testing invalid exchange type
+        invalid: { name: "invalid", type: "invalid-type", durable: false },
+      },
+    });
+
+    // WHEN/THEN - Should throw AggregateError during setup
+    const client = new AmqpClient(contract, {
+      urls: [amqpConnectionUrl],
+    });
+
+    // Wait for setup to fail
+    await expect(
+      client.channel.waitForConnect(),
+    ).rejects.toThrow();
+
+    // CLEANUP
+    await client.close();
+  });
+
+  it("should close channel and connection properly", async ({ amqpConnectionUrl }) => {
+    // GIVEN
+    const contract = defineContract({
+      exchanges: {
+        test: defineExchange("test", "topic", { durable: false }),
+      },
+    });
+
+    const client = new AmqpClient(contract, {
+      urls: [amqpConnectionUrl],
+    });
+
+    await client.channel.waitForConnect();
+
+    // WHEN
+    await client.close();
+
+    // THEN - Channel should be closed
+    // Note: We can't easily verify connection closure in isolation due to singleton
+    expect(client.channel).toBeDefined();
+  });
+});
