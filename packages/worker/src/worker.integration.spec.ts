@@ -22,7 +22,7 @@ const it = baseIt.extend<{
   ) => Promise<TypedAmqpWorker<TContract>>;
 }>({
   workerFactory: async ({ amqpConnectionUrl }, use) => {
-    let teardownHook = () => Promise.resolve();
+    const workers: TypedAmqpWorker<ContractDefinition>[] = [];
     await use(
       async <TContract extends ContractDefinition>(
         contract: TContract,
@@ -33,11 +33,11 @@ const it = baseIt.extend<{
           handlers,
           urls: [amqpConnectionUrl],
         }).resultToPromise();
-        teardownHook = () => worker.close().resultToPromise();
+        workers.push(worker);
         return worker;
       },
     );
-    await teardownHook();
+    await Promise.all(workers.map((worker) => worker.close().resultToPromise()));
   },
 });
 
