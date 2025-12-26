@@ -11,8 +11,7 @@ export const it = vitestIt.extend<{
   initConsumer: (
     exchange: string,
     routingKey: string,
-    nbEvents?: number,
-  ) => Promise<amqpLib.ConsumeMessage[]>;
+  ) => Promise<(nbEvents?: number) => Promise<amqpLib.ConsumeMessage[]>>;
 }>({
   // oxlint-disable-next-line no-empty-pattern
   vhost: async ({}, use) => {
@@ -43,28 +42,28 @@ export const it = vitestIt.extend<{
     async function initConsumer(
       exchange: string,
       routingKey: string,
-      nbEvents = 1,
-    ): Promise<amqpLib.ConsumeMessage[]> {
+    ): Promise<(nbEvents?: number) => Promise<amqpLib.ConsumeMessage[]>> {
       const queue = randomUUID();
 
       await amqpChannel.assertQueue(queue);
       await amqpChannel.bindQueue(queue, exchange, routingKey);
 
-      return new Promise((resolve) => {
-        const messages: amqpLib.ConsumeMessage[] = [];
-        amqpChannel.consume(
-          queue,
-          (msg) => {
-            if (msg) {
-              messages.push(msg);
-              if (messages.length >= nbEvents) {
-                resolve(messages);
+      return (nbEvents = 1) =>
+        new Promise((resolve) => {
+          const messages: amqpLib.ConsumeMessage[] = [];
+          amqpChannel.consume(
+            queue,
+            (msg) => {
+              if (msg) {
+                messages.push(msg);
+                if (messages.length >= nbEvents) {
+                  resolve(messages);
+                }
               }
-            }
-          },
-          { noAck: true },
-        );
-      });
+            },
+            { noAck: true },
+          );
+        });
     }
     await use(initConsumer);
   },

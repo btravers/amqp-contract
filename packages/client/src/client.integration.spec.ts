@@ -14,7 +14,10 @@ import { z } from "zod";
 
 describe("AmqpClient Integration", () => {
   describe("end-to-end publishing", () => {
-    it("should publish messages to a real RabbitMQ instance", async ({ amqpConnectionUrl }) => {
+    it("should publish messages to a real RabbitMQ instance", async ({
+      amqpConnectionUrl,
+      initConsumer,
+    }) => {
       // GIVEN
       const exchange = defineExchange("test-exchange", "topic", { durable: false });
       const contract = defineContract({
@@ -37,15 +40,15 @@ describe("AmqpClient Integration", () => {
         },
       });
 
-      const clientResult = await TypedAmqpClient.create({
+      const client = await TypedAmqpClient.create({
         contract,
         urls: [amqpConnectionUrl],
-      });
+      }).resultToPromise();
 
-      if (clientResult.isError()) {
-        throw clientResult.error;
-      }
-      const client = clientResult.value;
+      const pendingMessages = await initConsumer(
+        contract.publishers.testPublisher.exchange.name,
+        contract.publishers.testPublisher.routingKey,
+      );
 
       // WHEN
       const result = await client.publish("testPublisher", {
@@ -55,6 +58,12 @@ describe("AmqpClient Integration", () => {
 
       // THEN
       expect(result).toEqual(Result.Ok(true));
+
+      await expect(pendingMessages()).resolves.toEqual([
+        expect.objectContaining({
+          content: Buffer.from(JSON.stringify({ id: "123", message: "Hello, RabbitMQ!" })),
+        }),
+      ]);
 
       // CLEANUP
       await client.close();
@@ -80,15 +89,10 @@ describe("AmqpClient Integration", () => {
         },
       });
 
-      const clientResult = await TypedAmqpClient.create({
+      const client = await TypedAmqpClient.create({
         contract,
         urls: [amqpConnectionUrl],
-      });
-
-      if (clientResult.isError()) {
-        throw clientResult.error;
-      }
-      const client = clientResult.value;
+      }).resultToPromise();
 
       // WHEN
       const result = await client.publish("testPublisher", {
@@ -106,7 +110,7 @@ describe("AmqpClient Integration", () => {
       await client.close();
     });
 
-    it("should publish with options", async ({ amqpConnectionUrl }) => {
+    it("should publish with options", async ({ amqpConnectionUrl, initConsumer }) => {
       // GIVEN
       const TestMessage = z.object({
         content: z.string(),
@@ -125,25 +129,34 @@ describe("AmqpClient Integration", () => {
         },
       });
 
-      const clientResult = await TypedAmqpClient.create({
+      const client = await TypedAmqpClient.create({
         contract,
         urls: [amqpConnectionUrl],
-      });
+      }).resultToPromise();
 
-      if (clientResult.isError()) {
-        throw clientResult.error;
-      }
-      const client = clientResult.value;
+      const pendingMessages = await initConsumer(
+        contract.publishers.testPublisher.exchange.name,
+        contract.publishers.testPublisher.routingKey,
+      );
 
       // WHEN
       const result = await client.publish(
         "testPublisher",
         { content: "test message" },
-        { persistent: true },
+        { headers: { test: "value" } },
       );
 
       // THEN
       expect(result).toEqual(Result.Ok(true));
+
+      await expect(pendingMessages()).resolves.toEqual([
+        expect.objectContaining({
+          content: Buffer.from(JSON.stringify({ content: "test message" })),
+          properties: expect.objectContaining({
+            headers: { test: "value" },
+          }),
+        }),
+      ]);
 
       // CLEANUP
       await client.close();
@@ -178,16 +191,12 @@ describe("AmqpClient Integration", () => {
       });
 
       // WHEN
-      const clientResult = await TypedAmqpClient.create({
+      const client = await TypedAmqpClient.create({
         contract,
         urls: [amqpConnectionUrl],
-      });
+      }).resultToPromise();
 
-      // THEN - No errors should be thrown during topology setup
-      if (clientResult.isError()) {
-        throw clientResult.error;
-      }
-      const client = clientResult.value;
+      // THEN
       expect(client).toBeDefined();
 
       // CLEANUP
