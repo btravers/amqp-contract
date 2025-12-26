@@ -116,7 +116,7 @@ Test connection caching and reuse:
 
 ```typescript
 describe('ConnectionManagerSingleton', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     await AmqpClient._resetConnectionCacheForTesting();
   });
 
