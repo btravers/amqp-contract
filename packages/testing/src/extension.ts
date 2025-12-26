@@ -11,7 +11,9 @@ export const it = vitestIt.extend<{
   initConsumer: (
     exchange: string,
     routingKey: string,
-  ) => Promise<(nbEvents?: number) => Promise<amqpLib.ConsumeMessage[]>>;
+  ) => Promise<
+    (options?: { nbEvents?: number; timeout?: number }) => Promise<amqpLib.ConsumeMessage[]>
+  >;
 }>({
   /**
    * Test fixture that provides an isolated RabbitMQ virtual host (vhost) for the test.
@@ -122,20 +124,23 @@ export const it = vitestIt.extend<{
    * and returns a function to collect messages from that queue. The queue is automatically
    * created with a random UUID name to avoid conflicts between tests.
    *
-   * The returned function uses `vi.waitFor()` with a 5-second timeout to wait for messages.
+   * The returned function uses `vi.waitFor()` with a configurable timeout to wait for messages.
    * If the expected number of messages is not received within the timeout period, the Promise
    * will reject with a timeout error, preventing tests from hanging indefinitely.
    *
    * @param exchange - The name of the exchange to bind the queue to
    * @param routingKey - The routing key pattern for message filtering
-   * @returns A function that accepts an optional number of events (default 1) and returns a Promise that resolves to an array of ConsumeMessage objects
+   * @returns A function that accepts optional configuration ({ nbEvents?, timeout? }) and returns a Promise that resolves to an array of ConsumeMessage objects
    *
    * @example
    * ```typescript
    * it('should consume messages', async ({ initConsumer, publishMessage }) => {
    *   const waitForMessages = await initConsumer('my-exchange', 'routing.key');
    *   publishMessage('my-exchange', 'routing.key', { data: 'test' });
-   *   const messages = await waitForMessages(1);
+   *   // With defaults (1 message, 5000ms timeout)
+   *   const messages = await waitForMessages();
+   *   // With custom options
+   *   const messages2 = await waitForMessages({ nbEvents: 2, timeout: 10000 });
    *   expect(messages).toHaveLength(1);
    * });
    * ```
@@ -144,7 +149,9 @@ export const it = vitestIt.extend<{
     async function initConsumer(
       exchange: string,
       routingKey: string,
-    ): Promise<(nbEvents?: number) => Promise<amqpLib.ConsumeMessage[]>> {
+    ): Promise<
+      (options?: { nbEvents?: number; timeout?: number }) => Promise<amqpLib.ConsumeMessage[]>
+    > {
       const queue = randomUUID();
 
       await amqpChannel.assertQueue(queue);
@@ -161,7 +168,8 @@ export const it = vitestIt.extend<{
         { noAck: true },
       );
 
-      return async (nbEvents = 1) => {
+      return async (options = {}) => {
+        const { nbEvents = 1, timeout = 5000 } = options;
         await vi.waitFor(
           () => {
             if (messages.length < nbEvents) {
@@ -170,7 +178,7 @@ export const it = vitestIt.extend<{
               );
             }
           },
-          { timeout: 5000 },
+          { timeout },
         );
         return messages.splice(0, nbEvents);
       };
