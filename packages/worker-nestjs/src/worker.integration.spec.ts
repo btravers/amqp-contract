@@ -48,8 +48,8 @@ const it = baseIt;
 describe("AmqpWorkerModule Integration", () => {
   describe("module lifecycle", () => {
     it("should initialize and connect to RabbitMQ", async ({ amqpConnectionUrl }) => {
-      // GIVEN - handler mock
-      const handler = vi.fn();
+      // GIVEN - handler mock that returns a Promise
+      const handler = vi.fn().mockResolvedValue(undefined);
 
       // WHEN - create module
       const moduleRef = await Test.createTestingModule({
@@ -77,8 +77,8 @@ describe("AmqpWorkerModule Integration", () => {
       amqpConnectionUrl,
       publishMessage,
     }) => {
-      // GIVEN - handler mock
-      const handler = vi.fn();
+      // GIVEN - handler mock that returns a Promise
+      const handler = vi.fn().mockResolvedValue(undefined);
 
       const moduleRef = await Test.createTestingModule({
         imports: [
@@ -122,8 +122,8 @@ describe("AmqpWorkerModule Integration", () => {
       amqpConnectionUrl,
       publishMessage,
     }) => {
-      // GIVEN - handler mock
-      const handler = vi.fn();
+      // GIVEN - handler mock that returns a Promise
+      const handler = vi.fn().mockResolvedValue(undefined);
 
       const moduleRef = await Test.createTestingModule({
         imports: [
@@ -159,8 +159,8 @@ describe("AmqpWorkerModule Integration", () => {
 
   describe("async module configuration", () => {
     it("should support forRootAsync with useFactory", async ({ amqpConnectionUrl }) => {
-      // GIVEN - handler mock
-      const handler = vi.fn();
+      // GIVEN - handler mock that returns a Promise
+      const handler = vi.fn().mockResolvedValue(undefined);
 
       // WHEN - module with async configuration
       const moduleRef = await Test.createTestingModule({
@@ -201,7 +201,7 @@ describe("AmqpWorkerModule Integration", () => {
       })
       class ConfigModule {}
 
-      const handler = vi.fn();
+      const handler = vi.fn().mockResolvedValue(undefined);
 
       const moduleRef = await Test.createTestingModule({
         imports: [
