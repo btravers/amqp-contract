@@ -2,6 +2,7 @@ import {
   defineConsumer,
   defineContract,
   defineExchange,
+  defineExchangeBinding,
   defineMessage,
   definePublisher,
   defineQueue,
@@ -560,7 +561,10 @@ describe("AmqpWorker Integration", () => {
 
     // WHEN
     publishMessage(exchange.name, "order.created", { orderId: "123", amount: 99.99 });
-    publishMessage(exchange.name, "notification.email", { userId: "user1", message: "Order created" });
+    publishMessage(exchange.name, "notification.email", {
+      userId: "user1",
+      message: "Order created",
+    });
 
     // THEN
     await vi.waitFor(() => {
