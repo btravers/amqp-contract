@@ -1,17 +1,16 @@
-/* eslint-disable sort-imports -- Integration test imports order */
 import {
   defineContract,
   defineExchange,
   defineMessage,
   definePublisher,
 } from "@amqp-contract/contract";
-import { MessageValidationError } from "@amqp-contract/client";
+import { describe, expect } from "vitest";
 import { AmqpClientModule } from "./client.module.js";
 import { AmqpClientService } from "./client.service.js";
+import { MessageValidationError } from "@amqp-contract/client";
 import { Module } from "@nestjs/common";
 import { Result } from "@swan-io/boxed";
 import { Test } from "@nestjs/testing";
-import { describe, expect } from "vitest";
 import { it as baseIt } from "@amqp-contract/testing/extension";
 import { z } from "zod";
 

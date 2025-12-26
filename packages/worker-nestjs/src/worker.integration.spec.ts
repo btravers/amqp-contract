@@ -1,4 +1,3 @@
-/* eslint-disable sort-imports -- Integration test imports order */
 import {
   defineConsumer,
   defineContract,
@@ -7,10 +6,10 @@ import {
   defineQueue,
   defineQueueBinding,
 } from "@amqp-contract/contract";
+import { describe, expect, vi } from "vitest";
 import { AmqpWorkerModule } from "./worker.module.js";
 import { Module } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
-import { describe, expect, vi } from "vitest";
 import { it as baseIt } from "@amqp-contract/testing/extension";
 import { z } from "zod";
 
@@ -43,11 +42,9 @@ const testContract = defineContract({
   },
 });
 
-const it = baseIt;
-
 describe("AmqpWorkerModule Integration", () => {
   describe("module lifecycle", () => {
-    it("should initialize and connect to RabbitMQ", async ({ amqpConnectionUrl }) => {
+    baseIt("should initialize and connect to RabbitMQ", async ({ amqpConnectionUrl }) => {
       // GIVEN - handler mock that returns a Promise
       const handler = vi.fn().mockResolvedValue(undefined);
 
@@ -73,7 +70,7 @@ describe("AmqpWorkerModule Integration", () => {
       await moduleRef.close();
     });
 
-    it("should consume messages from a real RabbitMQ instance", async ({
+    baseIt("should consume messages from a real RabbitMQ instance", async ({
       amqpConnectionUrl,
       publishMessage,
     }) => {
@@ -118,7 +115,7 @@ describe("AmqpWorkerModule Integration", () => {
       await moduleRef.close();
     });
 
-    it("should validate messages before consuming", async ({
+    baseIt("should validate messages before consuming", async ({
       amqpConnectionUrl,
       publishMessage,
     }) => {
@@ -158,7 +155,7 @@ describe("AmqpWorkerModule Integration", () => {
   });
 
   describe("async module configuration", () => {
-    it("should support forRootAsync with useFactory", async ({ amqpConnectionUrl }) => {
+    baseIt("should support forRootAsync with useFactory", async ({ amqpConnectionUrl }) => {
       // GIVEN - handler mock that returns a Promise
       const handler = vi.fn().mockResolvedValue(undefined);
 
@@ -186,7 +183,7 @@ describe("AmqpWorkerModule Integration", () => {
       await moduleRef.close();
     });
 
-    it("should support forRootAsync with dependency injection", async ({ amqpConnectionUrl }) => {
+    baseIt("should support forRootAsync with dependency injection", async ({ amqpConnectionUrl }) => {
       // GIVEN - mock config service and handler
       class ConfigService {
         getAmqpUrls(): string[] {
