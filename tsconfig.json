@@ -1,0 +1,7 @@
+{
+  "extends": "./tools/tsconfig/base.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": ["*.config.ts", "*.ts"]
+}
