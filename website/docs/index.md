@@ -13,11 +13,11 @@ hero:
       text: Get Started
       link: /guide/getting-started
     - theme: alt
+      text: Why amqp-contract?
+      link: /guide/why-amqp-contract
+    - theme: alt
       text: View on GitHub
       link: https://github.com/btravers/amqp-contract
-    - theme: alt
-      text: Examples
-      link: /examples/
 
 features:
   - icon: 🔒
@@ -52,112 +52,6 @@ features:
     title: Framework Agnostic
     details: Use with any framework or none at all. Core packages work anywhere TypeScript runs.
 ---
-
-## The Problem
-
-Working with [RabbitMQ](https://www.rabbitmq.com/)/AMQP messaging is powerful, but comes with challenges:
-
-```typescript
-// ❌ No type safety
-channel.publish('orders', 'order.created', Buffer.from(JSON.stringify({
-  orderId: 'ORD-123'  // What fields? What types?
-})));
-
-channel.consume('order-processing', (msg) => {
-  const data = JSON.parse(msg.content.toString());  // unknown type
-  console.log(data.orderId);  // No autocomplete, no validation
-});
-
-// ❌ Manual validation everywhere
-// ❌ Runtime errors from wrong data
-// ❌ Scattered message definitions
-```
-
-## The Solution
-
-**amqp-contract** transforms your AMQP messaging with a contract-first approach:
-
-```typescript
-import { defineContract, defineExchange, defineQueue, definePublisher, defineConsumer, defineMessage, defineQueueBinding } from '@amqp-contract/contract';
-import { TypedAmqpClient } from '@amqp-contract/client';
-import { TypedAmqpWorker } from '@amqp-contract/worker';
-import { z } from 'zod';
-
-// 1. Define resources
-const ordersExchange = defineExchange('orders', 'topic', { durable: true });
-const orderProcessingQueue = defineQueue('order-processing', { durable: true });
-
-// 2. Define message
-const orderMessage = defineMessage(
-  z.object({
-    orderId: z.string(),
-    customerId: z.string(),
-    amount: z.number(),
-  })
-);
-
-// 3. Compose contract
-const contract = defineContract({
-  exchanges: { orders: ordersExchange },
-  queues: { orderProcessing: orderProcessingQueue },
-  bindings: {
-    orderBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
-      routingKey: 'order.created',
-    }),
-  },
-  publishers: {
-    orderCreated: definePublisher(ordersExchange, orderMessage, {
-      routingKey: 'order.created',
-    }),
-  },
-  consumers: {
-    processOrder: defineConsumer(orderProcessingQueue, orderMessage),
-  },
-});
-
-// 4. Type-safe client with explicit error handling
-const clientResult = await TypedAmqpClient.create({
-  contract,
-  urls: ['amqp://localhost']
-});
-
-if (clientResult.isError()) {
-  throw clientResult.error; // Handle connection error
-}
-
-const client = clientResult.get();
-
-const result = await client.publish('orderCreated', {
-  orderId: 'ORD-123',      // ✅ TypeScript knows!
-  customerId: 'CUST-456',
-  amount: 99.99,
-});
-
-result.match({
-  Ok: () => console.log('Published'),
-  Error: (error) => console.error('Failed:', error),
-});
-
-// 5. Type-safe worker
-const workerResult = await TypedAmqpWorker.create({
-  contract,
-  handlers: {
-    processOrder: async (message) => {
-      console.log(message.orderId);  // ✅ Fully typed!
-    },
-  },
-  urls: ['amqp://localhost'],
-});
-
-workerResult.match({
-  Ok: (worker) => console.log('Worker ready'),
-  Error: (error) => {
-    throw error;
-  },
-});
-
-const worker = workerResult.value;
-```
 
 ## Quick Start
 

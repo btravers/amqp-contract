@@ -64,8 +64,7 @@ export default withMermaid(
       logo: "/logo.svg",
 
       nav: [
-        { text: "Home", link: "/" },
-        { text: "Guide", link: "/guide/getting-started" },
+        { text: "Guides", link: "/guide/getting-started" },
         { text: "API", link: "/api/" },
         { text: "Examples", link: "/examples/" },
         { text: "Blog", link: "/blog/" },
@@ -76,6 +75,7 @@ export default withMermaid(
           {
             text: "Getting Started",
             items: [
+              { text: "Why amqp-contract?", link: "/guide/why-amqp-contract" },
               { text: "Getting Started", link: "/guide/getting-started" },
               { text: "Core Concepts", link: "/guide/core-concepts" },
             ],
