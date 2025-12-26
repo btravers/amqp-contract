@@ -75,7 +75,7 @@ describe("AmqpWorker Integration", () => {
       if (messages.length < 1) {
         throw new Error("Message not yet consumed");
       }
-    })
+    });
 
     expect(messages).toEqual([
       {
@@ -154,7 +154,7 @@ describe("AmqpWorker Integration", () => {
       if (messages.length < 3) {
         throw new Error("Message not yet consumed");
       }
-    })
+    });
 
     expect(messages).toEqual([
       { id: "1", count: 1 },
@@ -241,7 +241,7 @@ describe("AmqpWorker Integration", () => {
       if (messages1.length + messages2.length < 2) {
         throw new Error("Message not yet consumed");
       }
-    })
+    });
 
     expect(messages1).toEqual([{ id: "msg1" }]);
     expect(messages2).toEqual([{ id: "msg2" }]);
