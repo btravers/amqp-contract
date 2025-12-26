@@ -183,6 +183,118 @@ const analyticsClient = await TypedAmqpClient.create({
 // Result: 2 separate connections (one per cluster)
 ```
 
+## Best Practices and Limitations
+
+### Connection Configuration Best Practices
+
+When using automatic connection sharing, follow these best practices to avoid configuration conflicts:
+
+#### 1. **Use Consistent Connection Options**
+
+For maximum sharing benefits, use the same `connectionOptions` across all clients and workers, or omit them to use defaults:
+
+```typescript
+// ✅ Best: Use consistent options (or omit for defaults)
+const connectionOptions = { heartbeatIntervalInSeconds: 30 };
+
+const client = await TypedAmqpClient.create({
+  contract,
+  urls: ['amqp://localhost'],
+  connectionOptions, // ← Same options
+});
+
+const worker = await TypedAmqpWorker.create({
+  contract,
+  urls: ['amqp://localhost'],
+  connectionOptions, // ← Same options = connection shared
+  handlers: { /* ... */ },
+});
+
+// ✅ Also good: Omit options to use defaults
+const client = await TypedAmqpClient.create({
+  contract,
+  urls: ['amqp://localhost'], // ← No options
+});
+
+const worker = await TypedAmqpWorker.create({
+  contract,
+  urls: ['amqp://localhost'], // ← No options = connection shared
+  handlers: { /* ... */ },
+});
+```
+
+#### 2. **Extract Shared Configuration**
+
+For applications with multiple clients/workers, define shared configuration once:
+
+```typescript
+// ✅ Recommended: Centralize connection configuration
+const AMQP_CONFIG = {
+  urls: ['amqp://localhost'],
+  connectionOptions: {
+    heartbeatIntervalInSeconds: 30,
+    reconnectTimeInSeconds: 5,
+  },
+} as const;
+
+// All components use the same configuration
+const client = await TypedAmqpClient.create({
+  contract: orderContract,
+  ...AMQP_CONFIG,
+});
+
+const worker = await TypedAmqpWorker.create({
+  contract: orderContract,
+  ...AMQP_CONFIG,
+  handlers: { /* ... */ },
+});
+```
+
+#### 3. **Understand Configuration Conflicts**
+
+Different `connectionOptions` create separate connections:
+
+```typescript
+// ⚠️ Warning: Different options = separate connections (may be intentional)
+const client = await TypedAmqpClient.create({
+  contract,
+  urls: ['amqp://localhost'],
+  connectionOptions: { heartbeatIntervalInSeconds: 30 }, // ← Options A
+});
+
+const worker = await TypedAmqpWorker.create({
+  contract,
+  urls: ['amqp://localhost'],
+  connectionOptions: { heartbeatIntervalInSeconds: 60 }, // ← Options B (different)
+  handlers: { /* ... */ },
+});
+
+// Result: 2 separate connections (different configurations)
+// This may be intentional if you need different heartbeat settings
+```
+
+### Limitations
+
+1. **Connection Options Must Match for Sharing**
+   - Connections are cached by both URLs and connection options
+   - Different options = separate connections
+   - Use consistent options or omit them for automatic sharing
+
+2. **No Cross-Process Sharing**
+   - Connection sharing only works within a single Node.js process
+   - Each process creates its own connections
+   - For multi-process deployments, each process will have its own connection pool
+
+3. **Testing Requires Cache Reset**
+   - The singleton caches connections across tests
+   - Use `AmqpClient._resetConnectionCacheForTesting()` in test cleanup
+   - See "Cleanup in tests" section below
+
+4. **Connection Lifecycle Tied to Usage**
+   - Connections remain open as long as any client/worker is using them
+   - Connections close automatically when all references are released
+   - No manual connection lifecycle management available
+
 ## When to Use Connection Sharing
 
 ### ✅ Use Connection Sharing When:
