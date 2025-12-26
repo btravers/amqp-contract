@@ -64,7 +64,7 @@ export const it = vitestIt.extend<{
    *
    * @param exchange - The name of the exchange to bind the queue to
    * @param routingKey - The routing key pattern for message filtering
-   * @returns A function that waits for and collects the specified number of messages
+   * @returns A function that accepts an optional number of events (default 1) and returns a Promise that resolves to an array of ConsumeMessage objects
    *
    * @example
    * ```typescript
