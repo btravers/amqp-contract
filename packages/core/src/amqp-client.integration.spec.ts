@@ -107,9 +107,11 @@ describe("AmqpClient Integration", () => {
     publishMessage("orders", "order.created", { orderId: "123" });
 
     // THEN - Message should be routed through binding to queue
-    const messages = await waitForMessages();
-    expect(messages).toHaveLength(1);
-    expect(JSON.parse(messages[0].content.toString())).toEqual({ orderId: "123" });
+    await expect(waitForMessages()).resolves.toEqual([
+      expect.objectContaining({
+        content: Buffer.from(JSON.stringify({ orderId: "123" })),
+      }),
+    ]);
 
     // CLEANUP
     await client.close();
@@ -148,11 +150,11 @@ describe("AmqpClient Integration", () => {
     publishMessage("source", "test.important", { data: "important message" });
 
     // THEN - Message should be routed through exchange binding
-    const messages = await waitForMessages();
-    expect(messages).toHaveLength(1);
-    expect(JSON.parse(messages[0].content.toString())).toEqual({
-      data: "important message",
-    });
+    await expect(waitForMessages()).resolves.toEqual([
+      expect.objectContaining({
+        content: Buffer.from(JSON.stringify({ data: "important message" })),
+      }),
+    ]);
 
     // CLEANUP
     await client.close();
@@ -203,13 +205,17 @@ describe("AmqpClient Integration", () => {
     publishMessage("orders", "order.created", { orderId: "456" });
 
     // THEN - Both queues should receive messages
-    const orderMessages = await waitForOrderMessages();
-    expect(orderMessages).toHaveLength(1);
-    expect(JSON.parse(orderMessages[0].content.toString())).toEqual({ orderId: "456" });
+    await expect(waitForOrderMessages()).resolves.toEqual([
+      expect.objectContaining({
+        content: Buffer.from(JSON.stringify({ orderId: "456" })),
+      }),
+    ]);
 
-    const analyticsMessages = await waitForAnalyticsMessages();
-    expect(analyticsMessages).toHaveLength(1);
-    expect(JSON.parse(analyticsMessages[0].content.toString())).toEqual({ orderId: "456" });
+    await expect(waitForAnalyticsMessages()).resolves.toEqual([
+      expect.objectContaining({
+        content: Buffer.from(JSON.stringify({ orderId: "456" })),
+      }),
+    ]);
 
     // CLEANUP
     await client.close();
@@ -266,9 +272,11 @@ describe("AmqpClient Integration", () => {
     publishMessage("fanout", "any-key", { message: "broadcast" });
 
     // THEN - Message should be delivered
-    const messages = await waitForMessages();
-    expect(messages).toHaveLength(1);
-    expect(JSON.parse(messages[0].content.toString())).toEqual({ message: "broadcast" });
+    await expect(waitForMessages()).resolves.toEqual([
+      expect.objectContaining({
+        content: Buffer.from(JSON.stringify({ message: "broadcast" })),
+      }),
+    ]);
 
     // CLEANUP
     await client.close();

@@ -245,9 +245,11 @@ describe("AmqpClient Integration", () => {
       await client.publish("sendMessage", { msg: "routed" });
 
       // THEN
-      const messages = await pendingMessages();
-      expect(messages).toHaveLength(1);
-      expect(JSON.parse(messages[0].content.toString())).toEqual({ msg: "routed" });
+      await expect(pendingMessages()).resolves.toEqual([
+        expect.objectContaining({
+          content: Buffer.from(JSON.stringify({ msg: "routed" })),
+        }),
+      ]);
 
       // CLEANUP
       await client.close();
@@ -291,9 +293,11 @@ describe("AmqpClient Integration", () => {
       await client.publish("broadcast", { data: "broadcast message" });
 
       // THEN
-      const messages = await pendingMessages();
-      expect(messages).toHaveLength(1);
-      expect(JSON.parse(messages[0].content.toString())).toEqual({ data: "broadcast message" });
+      await expect(pendingMessages()).resolves.toEqual([
+        expect.objectContaining({
+          content: Buffer.from(JSON.stringify({ data: "broadcast message" })),
+        }),
+      ]);
 
       // CLEANUP
       await client.close();
@@ -386,9 +390,11 @@ describe("AmqpClient Integration", () => {
 
       // THEN
       expect(result.isOk()).toBe(true);
-      const messages = await pendingMessages();
-      expect(messages).toHaveLength(1);
-      expect(JSON.parse(messages[0].content.toString())).toEqual({ value: 42 });
+      await expect(pendingMessages()).resolves.toEqual([
+        expect.objectContaining({
+          content: Buffer.from(JSON.stringify({ value: 42 })),
+        }),
+      ]);
 
       // CLEANUP
       await client.close();
