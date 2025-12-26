@@ -97,7 +97,7 @@ async function createVhost() {
 
 async function deleteVhost(vhost: string) {
   const vhostResponse = await fetch(
-    `http://${inject("__TESTCONTAINERS_RABBITMQ_IP__")}:${inject("__TESTCONTAINERS_RABBITMQ_PORT_15672__")}/api/vhosts/${vhost}`,
+    `http://${inject("__TESTCONTAINERS_RABBITMQ_IP__")}:${inject("__TESTCONTAINERS_RABBITMQ_PORT_15672__")}/api/vhosts/${encodeURIComponent(vhost)}`,
     {
       method: "DELETE",
       headers: {
@@ -106,7 +106,8 @@ async function deleteVhost(vhost: string) {
     },
   );
 
-  if (vhostResponse.status !== 204) {
+  // 204 = successfully deleted, 404 = already deleted or doesn't exist
+  if (vhostResponse.status !== 204 && vhostResponse.status !== 404) {
     throw new Error(`Failed to delete vhost: ${vhostResponse.status}`, {
       cause: vhostResponse,
     });
