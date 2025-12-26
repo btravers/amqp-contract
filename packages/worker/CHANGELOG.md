@@ -1,5 +1,19 @@
 # @amqp-contract/worker
 
+## 0.4.0
+
+### Minor Changes
+
+- Release version 0.4.0
+
+  This release includes stability improvements and prepares the packages for wider adoption.
+
+### Patch Changes
+
+- Updated dependencies
+  - @amqp-contract/contract@0.4.0
+  - @amqp-contract/core@0.4.0
+
 ## 0.3.5
 
 ### Patch Changes
