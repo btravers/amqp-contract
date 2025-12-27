@@ -4,6 +4,7 @@ import { AmqpWorkerModule } from "@amqp-contract/worker-nestjs";
 import { amqpConfig } from "./config/amqp.config.js";
 import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
 import {
+  HandlersModule,
   HandleUrgentOrderHandler,
   NotifyOrderHandler,
   ProcessAnalyticsHandler,
@@ -15,7 +16,7 @@ import {
   imports: [
     ConfigModule.forFeature(amqpConfig),
     AmqpWorkerModule.forRootAsync({
-      imports: [ConfigModule.forFeature(amqpConfig)],
+      imports: [ConfigModule.forFeature(amqpConfig), HandlersModule],
       inject: [
         ProcessOrderHandler,
         NotifyOrderHandler,
@@ -41,17 +42,10 @@ import {
           processAnalytics: processAnalytics.handler,
         },
         urls: [config.url],
-        logger: new Logger("AmqpWorker"),
       }),
     }),
   ],
-  providers: [
-    ProcessOrderHandler,
-    NotifyOrderHandler,
-    ShipOrderHandler,
-    HandleUrgentOrderHandler,
-    ProcessAnalyticsHandler,
-    Logger,
-  ],
 })
 export class AppModule {}
+
+
