@@ -15,7 +15,9 @@ export type CreateOrderInput = {
 export class CreateOrderUseCase {
   private readonly logger = new Logger(CreateOrderUseCase.name);
 
-  constructor(@Inject(AmqpClientService) private readonly amqpClient: AmqpClientService<typeof orderContract>) {}
+  constructor(
+    @Inject(AmqpClientService) private readonly amqpClient: AmqpClientService<typeof orderContract>,
+  ) {}
 
   execute(order: CreateOrderInput): Future<Result<void, TechnicalError | MessageValidationError>> {
     this.logger.log(`Publishing order ${order.orderId}`);

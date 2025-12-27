@@ -8,7 +8,9 @@ import type { orderContract } from "@amqp-contract-samples/basic-order-processin
 export class UpdateOrderStatusUseCase {
   private readonly logger = new Logger(UpdateOrderStatusUseCase.name);
 
-  constructor(@Inject(AmqpClientService) private readonly amqpClient: AmqpClientService<typeof orderContract>) {}
+  constructor(
+    @Inject(AmqpClientService) private readonly amqpClient: AmqpClientService<typeof orderContract>,
+  ) {}
 
   execute(
     orderId: string,
