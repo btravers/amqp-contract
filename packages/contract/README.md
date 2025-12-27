@@ -43,21 +43,30 @@ const orderCreatedEvent = definePublisherFirst(
 const orderQueue = defineQueue('order-processing', { durable: true });
 const { consumer, binding } = orderCreatedEvent.createConsumer(orderQueue);
 
+// For topic exchanges, consumers can override with their own pattern
+const analyticsQueue = defineQueue('analytics', { durable: true });
+const { consumer: analyticsConsumer, binding: analyticsBinding } = 
+  orderCreatedEvent.createConsumer(analyticsQueue, 'order.*');  // Subscribe to all order events
+
 const contract = defineContract({
   exchanges: { orders: ordersExchange },
-  queues: { orderQueue },
-  bindings: { orderBinding: binding },
+  queues: { orderQueue, analyticsQueue },
+  bindings: { orderBinding: binding, analyticsBinding },
   publishers: { orderCreated: orderCreatedEvent.publisher },
-  consumers: { processOrder: consumer },
+  consumers: { 
+    processOrder: consumer,
+    trackOrders: analyticsConsumer,
+  },
 });
 ```
 
 **Benefits:**
 
 - ✅ Guaranteed message schema consistency between publishers and consumers
-- ✅ Automatic routing key synchronization
+- ✅ Routing key validation and type safety
 - ✅ Full type safety with TypeScript inference
 - ✅ Event-oriented (publisher-first) and command-oriented (consumer-first) patterns
+- ✅ Flexible routing key patterns for topic exchanges
 
 ## Documentation
 
