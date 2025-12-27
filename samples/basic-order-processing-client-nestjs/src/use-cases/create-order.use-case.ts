@@ -1,15 +1,15 @@
+import { Future, Result } from "@swan-io/boxed";
 import { Inject, Injectable, Logger } from "@nestjs/common";
+import type { MessageValidationError, TechnicalError } from "@amqp-contract/client";
 import { AmqpClientService } from "@amqp-contract/client-nestjs";
 import type { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
-import type { Future, Result } from "@swan-io/boxed";
-import type { MessageValidationError, TechnicalError } from "@amqp-contract/client";
 
-export interface CreateOrderInput {
+export type CreateOrderInput = {
   orderId: string;
   customerId: string;
   items: Array<{ productId: string; quantity: number; price: number }>;
   totalAmount: number;
-}
+};
 
 @Injectable()
 export class CreateOrderUseCase {

@@ -1,11 +1,11 @@
-import { Logger } from "@nestjs/common";
-import { bootstrap } from "./bootstrap.js";
 import {
   CreateOrderUseCase,
   ShipOrderUseCase,
-  UrgentUpdateUseCase,
   UpdateOrderStatusUseCase,
+  UrgentUpdateUseCase,
 } from "./use-cases/index.js";
+import { Logger } from "@nestjs/common";
+import { bootstrap } from "./bootstrap.js";
 
 /**
  * Demo scenario - publishes sample orders to demonstrate the AMQP client
@@ -29,7 +29,7 @@ async function runDemo(): Promise<void> {
     logger.log("=".repeat(60));
 
     // Helper to await Future<Result> and handle errors
-    const executeUseCase = async <T>(
+    const executeUseCase = async (
       future: ReturnType<
         | typeof createOrderUseCase.execute
         | typeof updateOrderStatusUseCase.execute

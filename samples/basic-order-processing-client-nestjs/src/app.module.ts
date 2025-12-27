@@ -1,12 +1,12 @@
 import { type ConfigType, Module } from "@nestjs/common";
-import { AmqpClientModule } from "@amqp-contract/client-nestjs";
-import { ConfigModule } from "@nestjs/config";
 import {
   CreateOrderUseCase,
   ShipOrderUseCase,
-  UrgentUpdateUseCase,
   UpdateOrderStatusUseCase,
+  UrgentUpdateUseCase,
 } from "./use-cases/index.js";
+import { AmqpClientModule } from "@amqp-contract/client-nestjs";
+import { ConfigModule } from "@nestjs/config";
 import { amqpConfig } from "./config/amqp.config.js";
 import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
 

@@ -1,22 +1,22 @@
-import type { INestApplicationContext } from "@nestjs/common";
-import { describe, expect } from "vitest";
-import { bootstrap } from "./bootstrap.js";
-import { it } from "@amqp-contract/testing/extension";
 import {
   CreateOrderUseCase,
   ShipOrderUseCase,
-  UrgentUpdateUseCase,
   UpdateOrderStatusUseCase,
+  UrgentUpdateUseCase,
 } from "./use-cases/index.js";
+import { describe, expect } from "vitest";
+import type { INestApplicationContext } from "@nestjs/common";
+import { it as amqpIt } from "@amqp-contract/testing/extension";
+import { bootstrap } from "./bootstrap.js";
 
-const testIt = it.extend<{
+const testIt = amqpIt.extend<{
   app: INestApplicationContext;
   createOrderUseCase: CreateOrderUseCase;
   updateOrderStatusUseCase: UpdateOrderStatusUseCase;
   shipOrderUseCase: ShipOrderUseCase;
   urgentUpdateUseCase: UrgentUpdateUseCase;
 }>({
-  app: async ({}, use) => {
+  app: async (_context, use) => {
     const app = await bootstrap();
     await use(app);
     await app.close();
