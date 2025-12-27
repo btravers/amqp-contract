@@ -1,14 +1,16 @@
 import { describe, expect } from "vitest";
-import { TypedAmqpClient } from "@amqp-contract/client";
 import { TypedAmqpWorker } from "@amqp-contract/worker";
 import { it } from "@amqp-contract/testing/extension";
 import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
 
 describe("Basic Order Processing Worker Integration", () => {
-  it("should process new orders from order.created queue", async ({ amqpConnectionUrl }) => {
+  it("should process new orders from order.created queue", async ({
+    amqpConnectionUrl,
+    publishMessage,
+  }) => {
     // GIVEN
     const processedOrders: Array<unknown> = [];
-    const workerResult = await TypedAmqpWorker.create({
+    const worker = await TypedAmqpWorker.create({
       contract: orderContract,
       handlers: {
         processOrder: (msg) => {
@@ -21,22 +23,7 @@ describe("Basic Order Processing Worker Integration", () => {
         processAnalytics: () => Promise.resolve(),
       },
       urls: [amqpConnectionUrl],
-    });
-
-    if (workerResult.isError()) {
-      throw workerResult.error;
-    }
-    const worker = workerResult.value;
-
-    const clientResult = await TypedAmqpClient.create({
-      contract: orderContract,
-      urls: [amqpConnectionUrl],
-    });
-
-    if (clientResult.isError()) {
-      throw clientResult.error;
-    }
-    const client = clientResult.value;
+    }).resultToPromise();
 
     const newOrder = {
       orderId: "TEST-001",
@@ -47,23 +34,27 @@ describe("Basic Order Processing Worker Integration", () => {
     };
 
     // WHEN
-    const result = await client.publish("orderCreated", newOrder);
-    expect(result.isOk()).toBe(true);
+    publishMessage(
+      orderContract.publishers.orderCreated.exchange.name,
+      orderContract.publishers.orderCreated.routingKey,
+      newOrder,
+    );
 
     // THEN
     await new Promise((resolve) => setTimeout(resolve, 500));
-    expect(processedOrders).toHaveLength(1);
-    expect(processedOrders[0]).toEqual(newOrder);
+    expect(processedOrders).toEqual([newOrder]);
 
     // CLEANUP
     await worker.close().resultToPromise();
-    await client.close().resultToPromise();
   });
 
-  it("should receive notifications for all order events", async ({ amqpConnectionUrl }) => {
+  it("should receive notifications for all order events", async ({
+    amqpConnectionUrl,
+    publishMessage,
+  }) => {
     // GIVEN
     const notifications: Array<unknown> = [];
-    const workerResult = await TypedAmqpWorker.create({
+    const worker = await TypedAmqpWorker.create({
       contract: orderContract,
       handlers: {
         processOrder: () => Promise.resolve(),
@@ -76,22 +67,7 @@ describe("Basic Order Processing Worker Integration", () => {
         processAnalytics: () => Promise.resolve(),
       },
       urls: [amqpConnectionUrl],
-    });
-
-    if (workerResult.isError()) {
-      throw workerResult.error;
-    }
-    const worker = workerResult.value;
-
-    const clientResult = await TypedAmqpClient.create({
-      contract: orderContract,
-      urls: [amqpConnectionUrl],
-    });
-
-    if (clientResult.isError()) {
-      throw clientResult.error;
-    }
-    const client = clientResult.value;
+    }).resultToPromise();
 
     // WHEN
     const newOrder = {
@@ -108,10 +84,16 @@ describe("Basic Order Processing Worker Integration", () => {
       updatedAt: new Date().toISOString(),
     };
 
-    const result1 = await client.publish("orderCreated", newOrder);
-    const result2 = await client.publish("orderUpdated", orderUpdate);
-    expect(result1.isOk()).toBe(true);
-    expect(result2.isOk()).toBe(true);
+    publishMessage(
+      orderContract.publishers.orderCreated.exchange.name,
+      orderContract.publishers.orderCreated.routingKey,
+      newOrder,
+    );
+    publishMessage(
+      orderContract.publishers.orderUpdated.exchange.name,
+      orderContract.publishers.orderUpdated.routingKey,
+      orderUpdate,
+    );
 
     // THEN
     await new Promise((resolve) => setTimeout(resolve, 500));
@@ -119,14 +101,16 @@ describe("Basic Order Processing Worker Integration", () => {
 
     // CLEANUP
     await worker.close().resultToPromise();
-    await client.close().resultToPromise();
   });
 
-  it("should start all consumers with consumeAll", async ({ amqpConnectionUrl }) => {
+  it("should start all consumers with consumeAll", async ({
+    amqpConnectionUrl,
+    publishMessage,
+  }) => {
     // GIVEN
     const processedOrders: Array<unknown> = [];
     const notifications: Array<unknown> = [];
-    const workerResult = await TypedAmqpWorker.create({
+    const worker = await TypedAmqpWorker.create({
       contract: orderContract,
       handlers: {
         processOrder: (msg) => {
@@ -142,22 +126,7 @@ describe("Basic Order Processing Worker Integration", () => {
         processAnalytics: () => Promise.resolve(),
       },
       urls: [amqpConnectionUrl],
-    });
-
-    if (workerResult.isError()) {
-      throw workerResult.error;
-    }
-    const worker = workerResult.value;
-
-    const clientResult = await TypedAmqpClient.create({
-      contract: orderContract,
-      urls: [amqpConnectionUrl],
-    });
-
-    if (clientResult.isError()) {
-      throw clientResult.error;
-    }
-    const client = clientResult.value;
+    }).resultToPromise();
 
     const newOrder = {
       orderId: "TEST-003",
@@ -168,8 +137,11 @@ describe("Basic Order Processing Worker Integration", () => {
     };
 
     // WHEN
-    const result = await client.publish("orderCreated", newOrder);
-    expect(result.isOk()).toBe(true);
+    publishMessage(
+      orderContract.publishers.orderCreated.exchange.name,
+      orderContract.publishers.orderCreated.routingKey,
+      newOrder,
+    );
 
     // THEN
     await new Promise((resolve) => setTimeout(resolve, 800));
@@ -178,6 +150,5 @@ describe("Basic Order Processing Worker Integration", () => {
 
     // CLEANUP
     await worker.close().resultToPromise();
-    await client.close().resultToPromise();
   });
 });

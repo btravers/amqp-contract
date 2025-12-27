@@ -948,7 +948,12 @@ export type ConsumerFirstResult<
    *
    * @returns A publisher definition with the same message type and routing key
    */
-  createPublisher: () => PublisherDefinition<TMessage>;
+  createPublisher: () => TBinding["exchange"] extends FanoutExchangeDefinition
+    ? Extract<PublisherDefinition<TMessage>, { exchange: FanoutExchangeDefinition }>
+    : Extract<
+        PublisherDefinition<TMessage>,
+        { exchange: DirectExchangeDefinition | TopicExchangeDefinition }
+      >;
 };
 
 /**
@@ -1098,7 +1103,7 @@ export function defineConsumerFirst<TMessage extends MessageDefinition>(
   const binding = callDefineQueueBinding(queue, exchange, options);
 
   // Factory function to create a publisher with the same message type and routing key
-  const createPublisher = (): PublisherDefinition<TMessage> => {
+  const createPublisher = () => {
     return callDefinePublisher(exchange, message, options);
   };
 
@@ -1106,5 +1111,5 @@ export function defineConsumerFirst<TMessage extends MessageDefinition>(
     consumer,
     binding,
     createPublisher,
-  };
+  } as ConsumerFirstResult<TMessage, ConsumerDefinition<TMessage>, QueueBindingDefinition>;
 }

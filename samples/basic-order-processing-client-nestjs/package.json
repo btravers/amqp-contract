@@ -1,7 +1,7 @@
 {
-  "name": "@amqp-contract-samples/basic-order-processing-worker",
+  "name": "@amqp-contract-samples/basic-order-processing-client-nestjs",
   "private": true,
-  "description": "Worker application for order processing sample",
+  "description": "NestJS client application for order processing sample",
   "type": "module",
   "scripts": {
     "dev": "tsx src/index.ts",
@@ -10,14 +10,19 @@
   },
   "dependencies": {
     "@amqp-contract-samples/basic-order-processing-contract": "workspace:*",
-    "@amqp-contract/worker": "workspace:*",
-    "pino": "catalog:",
+    "@amqp-contract/client-nestjs": "workspace:*",
+    "@nestjs/common": "catalog:",
+    "@nestjs/config": "catalog:",
+    "@nestjs/core": "catalog:",
     "pino-pretty": "catalog:",
+    "reflect-metadata": "catalog:",
+    "rxjs": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@amqp-contract/testing": "workspace:*",
     "@amqp-contract/tsconfig": "workspace:*",
+    "@swan-io/boxed": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:",
