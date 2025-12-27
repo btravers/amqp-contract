@@ -3,37 +3,55 @@ import { Logger, Module } from "@nestjs/common";
 import { AmqpWorkerModule } from "@amqp-contract/worker-nestjs";
 import { amqpConfig } from "./config/amqp.config.js";
 import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
+import {
+  HandleUrgentOrderHandler,
+  NotifyOrderHandler,
+  ProcessAnalyticsHandler,
+  ProcessOrderHandler,
+  ShipOrderHandler,
+} from "./handlers";
 
 @Module({
   imports: [
     ConfigModule.forFeature(amqpConfig),
     AmqpWorkerModule.forRootAsync({
       imports: [ConfigModule.forFeature(amqpConfig)],
-      inject: [amqpConfig.KEY],
-      useFactory: (config: ConfigType<typeof amqpConfig>) => ({
+      inject: [
+        ProcessOrderHandler,
+        NotifyOrderHandler,
+        ShipOrderHandler,
+        HandleUrgentOrderHandler,
+        ProcessAnalyticsHandler,
+        amqpConfig.KEY,
+      ],
+      useFactory: (
+        processOrder: ProcessOrderHandler,
+        notifyOrder: NotifyOrderHandler,
+        shipOrder: ShipOrderHandler,
+        handleUrgentOrder: HandleUrgentOrderHandler,
+        processAnalytics: ProcessAnalyticsHandler,
+        config: ConfigType<typeof amqpConfig>,
+      ) => ({
         contract: orderContract,
         handlers: {
-          processOrder: async (message) => {
-            console.log(`[PROCESSING] New order received: ${message.orderId}`);
-          },
-          notifyOrder: async (message) => {
-            console.log(`[NOTIFICATION] Order event: ${message.orderId}`);
-          },
-          shipOrder: async (message) => {
-            console.log(`[SHIPPING] Order shipped: ${message.orderId}`);
-          },
-          handleUrgentOrder: async (message) => {
-            console.log(`[URGENT] Urgent order: ${message.orderId}`);
-          },
-          processAnalytics: async (message) => {
-            console.log(`[ANALYTICS] Processing analytics for: ${message.orderId}`);
-          },
+          processOrder: processOrder.handler,
+          notifyOrder: notifyOrder.handler,
+          shipOrder: shipOrder.handler,
+          handleUrgentOrder: handleUrgentOrder.handler,
+          processAnalytics: processAnalytics.handler,
         },
         urls: [config.url],
         logger: new Logger("AmqpWorker"),
       }),
     }),
   ],
-  providers: [Logger],
+  providers: [
+    ProcessOrderHandler,
+    NotifyOrderHandler,
+    ShipOrderHandler,
+    HandleUrgentOrderHandler,
+    ProcessAnalyticsHandler,
+    Logger,
+  ],
 })
 export class AppModule {}
