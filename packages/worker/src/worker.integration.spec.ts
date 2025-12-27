@@ -519,12 +519,12 @@ describe("AmqpWorker Integration", () => {
     const exchange = defineExchange("worker-cancel-exchange", "topic", { durable: false });
     const queue = defineQueue("worker-cancel-queue", { durable: false });
 
-    // Setup exchange and queue manually
-    const setupChannel = await amqpConnection.createChannel();
-    await setupChannel.assertExchange(exchange.name, exchange.type, { durable: false });
-    await setupChannel.assertQueue(queue.name, { durable: false });
-    await setupChannel.bindQueue(queue.name, exchange.name, "cancel.#");
-    await setupChannel.close();
+    // Setup exchange and queue manually using a temporary channel
+    const adminChannel = await amqpConnection.createChannel();
+    await adminChannel.assertExchange(exchange.name, exchange.type, { durable: false });
+    await adminChannel.assertQueue(queue.name, { durable: false });
+    await adminChannel.bindQueue(queue.name, exchange.name, "cancel.#");
+    await adminChannel.close();
 
     // Track if null message was received
     let nullMessageReceived = false;
@@ -544,11 +544,11 @@ describe("AmqpWorker Integration", () => {
     const CONSUMER_SETUP_WAIT_MS = 500;
     await new Promise((resolve) => setTimeout(resolve, CONSUMER_SETUP_WAIT_MS));
 
-    // WHEN - Delete the queue, which causes RabbitMQ to cancel the consumer
-    // and send a null message to the consumer callback
-    const adminChannel = await amqpConnection.createChannel();
-    await adminChannel.deleteQueue(queue.name);
-    await adminChannel.close();
+    // WHEN - Delete the queue using a separate channel, which causes RabbitMQ
+    // to cancel the consumer and send a null message to the consumer callback
+    const deleteChannel = await amqpConnection.createChannel();
+    await deleteChannel.deleteQueue(queue.name);
+    await deleteChannel.close();
 
     // THEN - Wait for the null message to be received
     await vi.waitFor(
