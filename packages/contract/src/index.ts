@@ -10,7 +10,12 @@ export {
   definePublisherFirst,
   defineConsumerFirst,
 } from "./builder.js";
-export type { PublisherFirstResult, ConsumerFirstResult } from "./builder.js";
+export type { 
+  PublisherFirstResult, 
+  PublisherFirstResultWithRoutingKey,
+  ConsumerFirstResult,
+  ConsumerFirstResultWithRoutingKey,
+} from "./builder.js";
 export type {
   AnySchema,
   BindingDefinition,
