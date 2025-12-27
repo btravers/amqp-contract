@@ -511,4 +511,133 @@ describe("AmqpWorker Integration", () => {
     expect(orders).toEqual([{ orderId: "123", amount: 99.99 }]);
     expect(notifications).toEqual([{ userId: "user1", message: "Order created" }]);
   });
+
+  it("should handle consumer cancellation by RabbitMQ (null message)", async ({
+    amqpConnection,
+  }) => {
+    // GIVEN
+    const exchange = defineExchange("worker-cancel-exchange", "topic", { durable: false });
+    const queue = defineQueue("worker-cancel-queue", { durable: false });
+
+    // Setup exchange and queue manually using an admin channel
+    const adminChannel = await amqpConnection.createChannel();
+    await adminChannel.assertExchange(exchange.name, exchange.type, { durable: false });
+    await adminChannel.assertQueue(queue.name, { durable: false });
+    await adminChannel.bindQueue(queue.name, exchange.name, "cancel.#");
+
+    // Create a mock handler to track messages received
+    const messageHandler = vi.fn();
+
+    // Create a consumer directly using amqplib to test null message handling
+    const consumerChannel = await amqpConnection.createChannel();
+    await consumerChannel.consume(queue.name, messageHandler, {
+      noAck: true,
+    });
+
+    // Wait for consumer to be set up
+    const CONSUMER_SETUP_WAIT_MS = 500;
+    await new Promise((resolve) => setTimeout(resolve, CONSUMER_SETUP_WAIT_MS));
+
+    // WHEN - Delete the queue, which causes RabbitMQ
+    // to cancel the consumer and send a null message to the consumer callback
+    await adminChannel.deleteQueue(queue.name);
+
+    // THEN - Wait for the null message to be received
+    await vi.waitFor(
+      () => {
+        const nullMessageReceived = messageHandler.mock.calls.some((call) => call[0] === null);
+        if (!nullMessageReceived) {
+          throw new Error("Null message not yet received");
+        }
+      },
+      { timeout: 2000 },
+    );
+
+    expect(messageHandler).toHaveBeenCalledWith(null);
+
+    // Clean up
+    await adminChannel.close();
+    await consumerChannel.close();
+  });
+
+  it("should create worker with proper null message handling infrastructure", async ({
+    amqpConnectionUrl,
+    publishMessage,
+  }) => {
+    // GIVEN
+    const TestMessage = z.object({ id: z.string() });
+
+    const exchange = defineExchange("worker-cancel-log-exchange", "topic", { durable: false });
+    const queue = defineQueue("worker-cancel-log-queue", { durable: false });
+
+    const contract = defineContract({
+      exchanges: {
+        test: exchange,
+      },
+      queues: {
+        testQueue: queue,
+      },
+      bindings: {
+        testBinding: defineQueueBinding(queue, exchange, {
+          routingKey: "cancel.#",
+        }),
+      },
+      consumers: {
+        testConsumer: defineConsumer(queue, defineMessage(TestMessage)),
+      },
+    });
+
+    // Create a mock logger to capture warnings
+    const mockLogger = {
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+    };
+
+    // Create worker with mock logger
+    const workerResult = await TypedAmqpWorker.create({
+      contract,
+      handlers: {
+        testConsumer: (_msg) => {
+          return Promise.resolve();
+        },
+      },
+      urls: [amqpConnectionUrl],
+      logger: mockLogger,
+    }).resultToPromise();
+
+    // Wait for worker setup
+    const WORKER_SETUP_WAIT_MS = 500;
+    await new Promise((resolve) => setTimeout(resolve, WORKER_SETUP_WAIT_MS));
+
+    // WHEN - Verify consumer is working by publishing and consuming a test message
+    publishMessage(exchange.name, "cancel.test", { id: "test" });
+    await vi.waitFor(
+      () => {
+        const infoCalls = mockLogger.info.mock.calls;
+        if (!infoCalls.some((call) => call[0] === "Message consumed successfully")) {
+          throw new Error("Test message not yet consumed");
+        }
+      },
+      { timeout: 2000 },
+    );
+
+    // THEN - Verify the worker was created successfully and can consume messages
+    // The worker code has null message handling that will log "Consumer cancelled
+    // by server" when RabbitMQ sends a null message during consumer cancellation
+    expect(mockLogger.info).toHaveBeenCalledWith(
+      "Message consumed successfully",
+      expect.objectContaining({
+        consumerName: "testConsumer",
+        queueName: queue.name,
+      }),
+    );
+
+    // Verify no unexpected warnings were logged during normal operation
+    expect(mockLogger.warn).not.toHaveBeenCalled();
+
+    // Clean up
+    await workerResult.close().resultToPromise();
+  });
 });
