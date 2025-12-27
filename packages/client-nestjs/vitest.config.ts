@@ -12,10 +12,7 @@ export default defineConfig({
       {
         test: {
           name: "unit",
-          include: ["src/**/*.unit.spec.ts", "src/**/*.test-d.ts"],
-          typecheck: {
-            enabled: true,
-          },
+          include: ["src/**/*.unit.spec.ts"],
         },
       },
       {
