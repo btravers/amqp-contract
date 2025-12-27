@@ -7,7 +7,9 @@ import { orderContract } from "@amqp-contract-samples/basic-order-processing-con
 export class ProcessAnalyticsHandler {
   private readonly logger = new Logger(ProcessAnalyticsHandler.name);
 
-  async handle(message: WorkerInferConsumerInput<typeof orderContract, "processAnalytics">): Promise<void> {
+  async handle(
+    message: WorkerInferConsumerInput<typeof orderContract, "processAnalytics">,
+  ): Promise<void> {
     // Check if it's a new order or a status update
     if ("items" in message) {
       // It's a full order

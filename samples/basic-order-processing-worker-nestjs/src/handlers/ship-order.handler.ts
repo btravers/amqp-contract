@@ -7,7 +7,9 @@ import { orderContract } from "@amqp-contract-samples/basic-order-processing-con
 export class ShipOrderHandler {
   private readonly logger = new Logger(ShipOrderHandler.name);
 
-  async handle(message: WorkerInferConsumerInput<typeof orderContract, "shipOrder">): Promise<void> {
+  async handle(
+    message: WorkerInferConsumerInput<typeof orderContract, "shipOrder">,
+  ): Promise<void> {
     this.logger.log(
       `[SHIPPING] Shipment notification received: ${message.orderId} -> ${message.status}`,
     );
