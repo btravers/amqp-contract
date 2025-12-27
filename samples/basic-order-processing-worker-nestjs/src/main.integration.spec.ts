@@ -1,3 +1,6 @@
+import { TypedAmqpClient } from "@amqp-contract/client";
+import { it } from "@amqp-contract/testing/extension";
+import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
 import { describe, expect, vi } from "vitest";
 import {
   HandleUrgentOrderHandler,
@@ -6,9 +9,6 @@ import {
   ProcessOrderHandler,
   ShipOrderHandler,
 } from "./handlers/index.js";
-import { TypedAmqpClient } from "@amqp-contract/client";
-import { it } from "@amqp-contract/testing/extension";
-import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
 import { bootstrap } from "./bootstrap.js";
 
 describe("NestJS Worker Integration", () => {
