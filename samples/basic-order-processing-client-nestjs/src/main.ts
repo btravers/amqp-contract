@@ -1,22 +1,24 @@
 import { Logger } from "@nestjs/common";
-import { NestFactory } from "@nestjs/core";
-import { AppModule } from "./app.module.js";
 import { OrderService } from "./order.service.js";
+import { bootstrap } from "./bootstrap.js";
 
-async function bootstrap() {
-  const logger = new Logger("Bootstrap");
+/**
+ * Demo scenario - publishes sample orders to demonstrate the AMQP client
+ * This is separate from the application bootstrap to maintain clean architecture
+ */
+async function runDemo() {
+  const logger = new Logger("Demo");
 
-  const app = await NestFactory.createApplicationContext(AppModule, {
-    logger: ["log", "error", "warn", "debug", "verbose"],
-  });
-
-  const orderService = app.get(OrderService);
-
-  logger.log("=".repeat(60));
-  logger.log("NestJS Client ready - Publishing orders");
-  logger.log("=".repeat(60));
+  // Bootstrap the application
+  const app = await bootstrap();
 
   try {
+    const orderService = app.get(OrderService);
+
+    logger.log("=".repeat(60));
+    logger.log("NestJS Client ready - Publishing orders");
+    logger.log("=".repeat(60));
+
     // 1. Publish a new order (routing key: order.created)
     logger.log("1️⃣ Publishing NEW ORDER (order.created)");
     await orderService.createOrder({
@@ -76,7 +78,7 @@ async function bootstrap() {
   }
 }
 
-bootstrap().catch((error) => {
-  console.error("Bootstrap error:", error);
+runDemo().catch((error) => {
+  console.error("Demo error:", error);
   process.exit(1);
 });

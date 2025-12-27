@@ -1,13 +1,15 @@
-import { AppModule } from "./app.module.js";
 import { Logger } from "@nestjs/common";
-import { NestFactory } from "@nestjs/core";
+import { bootstrap } from "./bootstrap.js";
 
-async function bootstrap() {
-  const logger = new Logger("Bootstrap");
+/**
+ * Demo scenario - starts the worker and waits for messages
+ * This is separate from the application bootstrap to maintain clean architecture
+ */
+async function runDemo() {
+  const logger = new Logger("Demo");
 
-  const app = await NestFactory.createApplicationContext(AppModule, {
-    logger: ["log", "error", "warn", "debug", "verbose"],
-  });
+  // Bootstrap the application
+  const app = await bootstrap();
 
   logger.log("=".repeat(60));
   logger.log("NestJS Worker ready, waiting for messages...");
@@ -37,7 +39,7 @@ async function bootstrap() {
   });
 }
 
-bootstrap().catch((error) => {
-  console.error("Bootstrap error:", error);
+runDemo().catch((error) => {
+  console.error("Demo error:", error);
   process.exit(1);
 });

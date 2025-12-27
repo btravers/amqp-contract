@@ -1,5 +1,4 @@
-import { Logger, Module } from "@nestjs/common";
-import { ConfigModule as NestConfigModule } from "@nestjs/config";
+import { type ConfigType, Logger, Module } from "@nestjs/common";
 import {
   HandleUrgentOrderHandler,
   NotifyOrderHandler,
@@ -8,21 +7,16 @@ import {
   ShipOrderHandler,
 } from "./handlers/index.js";
 import { AmqpWorkerModule } from "@amqp-contract/worker-nestjs";
-import { z } from "zod";
+import { ConfigModule } from "@nestjs/config";
+import { amqpConfig } from "./config/amqp.config.js";
 import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
-
-const envSchema = z.object({
-  AMQP_URL: z.string().url().default("amqp://localhost:5672"),
-});
 
 @Module({
   imports: [
-    NestConfigModule.forFeature(() => {
-      const config = envSchema.parse(process.env);
-      return config;
-    }),
+    ConfigModule.forFeature(amqpConfig),
     AmqpWorkerModule.forRootAsync({
       inject: [
+        amqpConfig.KEY,
         ProcessOrderHandler,
         NotifyOrderHandler,
         ShipOrderHandler,
@@ -30,6 +24,7 @@ const envSchema = z.object({
         ProcessAnalyticsHandler,
       ],
       useFactory: (
+        config: ConfigType<typeof amqpConfig>,
         processOrder: ProcessOrderHandler,
         notifyOrder: NotifyOrderHandler,
         shipOrder: ShipOrderHandler,
@@ -44,7 +39,7 @@ const envSchema = z.object({
           handleUrgentOrder: handleUrgentOrder.handler,
           processAnalytics: processAnalytics.handler,
         },
-        urls: [process.env["AMQP_URL"] || "amqp://localhost:5672"],
+        urls: [config.url],
       }),
     }),
   ],
