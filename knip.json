@@ -5,20 +5,8 @@
     "config": ["**/vitest.config.ts"]
   },
   "workspaces": {
-    "packages/*": {
+    "*": {
       "entry": ["src/index.ts"],
-      "project": ["src/**/*.ts"]
-    },
-    "packages/testing": {
-      "entry": ["src/global-setup.ts"],
-      "project": ["src/**/*.ts"]
-    },
-    "samples/*": {
-      "entry": ["src/index.ts"],
-      "project": ["src/**/*.ts"]
-    },
-    "samples/basic-order-processing-worker": {
-      "entry": ["src/index.ts", "src/index-with-external-handlers.ts", "src/handlers.ts"],
       "project": ["src/**/*.ts"]
     },
     "tools/*": {
@@ -27,8 +15,7 @@
     "website": {
       "entry": [
         "docs/.vitepress/config.ts",
-        "docs/.vitepress/theme/index.ts",
-        "scripts/copy-docs.ts"
+        "docs/.vitepress/theme/index.ts"
       ],
       "ignoreDependencies": [
         "@amqp-contract/asyncapi",

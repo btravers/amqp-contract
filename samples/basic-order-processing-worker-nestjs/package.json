@@ -4,7 +4,7 @@
   "description": "NestJS worker application for order processing sample",
   "type": "module",
   "scripts": {
-    "dev": "tsx src/main.ts",
+    "dev": "tsx src/index.ts",
     "test:integration": "vitest run",
     "typecheck": "tsc --noEmit"
   },
@@ -15,7 +15,6 @@
     "@nestjs/common": "catalog:",
     "@nestjs/config": "catalog:",
     "@nestjs/core": "catalog:",
-    "pino": "catalog:",
     "pino-pretty": "catalog:",
     "reflect-metadata": "catalog:",
     "rxjs": "catalog:",
@@ -25,8 +24,6 @@
     "@amqp-contract/client": "workspace:*",
     "@amqp-contract/testing": "workspace:*",
     "@amqp-contract/tsconfig": "workspace:*",
-    "@nestjs/testing": "catalog:",
-    "@vitest/coverage-v8": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
