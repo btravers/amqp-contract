@@ -47,18 +47,18 @@ const client = new AmqpClient(contract, {
   channelOptions: {
     // Override JSON serialization (default: true)
     json: false,
-    
+
     // Set a custom channel name for debugging
     name: 'my-custom-channel',
-    
+
     // Enable confirm channel for publisher confirms
     confirm: true,
-    
+
     // Add custom setup logic after contract topology is established
     setup: async (channel: Channel) => {
       // Configure prefetch for better load distribution
       await channel.prefetch(10);
-      
+
       // Add additional AMQP resources not in the contract
       await channel.assertQueue('custom-queue', { durable: true });
     },
@@ -82,6 +82,7 @@ const client = new AmqpClient(contract, {
 ```
 
 **When to disable JSON:**
+
 - You need to send binary data or use a custom serialization format
 - You're integrating with systems that don't use JSON
 - You want full control over message encoding
@@ -102,6 +103,7 @@ const client = new AmqpClient(contract, {
 ```
 
 **Benefits:**
+
 - Identify channels in RabbitMQ management console
 - Easier troubleshooting in production
 - Clear correlation between code and runtime behavior
@@ -120,6 +122,7 @@ const client = new AmqpClient(contract, {
 ```
 
 **Publisher confirms guarantee:**
+
 - Messages have been accepted by the broker
 - Messages have been routed to at least one queue (if mandatory)
 - Persistent messages have been written to disk (if durable)
@@ -137,12 +140,12 @@ const client = new AmqpClient(contract, {
     setup: async (channel: Channel) => {
       // Configure Quality of Service (QoS)
       await channel.prefetch(10); // Process max 10 messages concurrently
-      
+
       // Create additional resources not in contract
       await channel.assertQueue('dead-letter-queue', {
         durable: true,
       });
-      
+
       // Configure channel-level settings
       await channel.assertExchange('retry-exchange', 'topic', {
         durable: true,
@@ -173,6 +176,7 @@ const client = new AmqpClient(contract, {
 ```
 
 **Prefetch best practices:**
+
 - **Low prefetch (1-10)**: Fair distribution across multiple workers
 - **Medium prefetch (10-50)**: Balance between throughput and fairness
 - **High prefetch (50+)**: Maximum throughput for single worker
@@ -188,12 +192,12 @@ const client = new AmqpClient(contract, {
     setup: async (channel: Channel) => {
       // Create dead letter exchange
       await channel.assertExchange('dlx', 'topic', { durable: true });
-      
+
       // Create dead letter queue
       await channel.assertQueue('dead-letters', {
         durable: true,
       });
-      
+
       // Bind dead letter queue to exchange
       await channel.bindQueue('dead-letters', 'dlx', '#');
     },
@@ -324,10 +328,10 @@ describe('Channel Configuration', () => {
         },
       },
     });
-    
+
     await client.channel.waitForConnect();
     expect(client.channel).toBeDefined();
-    
+
     await client.close();
   });
 });
@@ -364,7 +368,7 @@ channelOptions: {
     // ✅ Idempotent: Can be called multiple times
     await channel.prefetch(10);
     await channel.assertQueue('queue', { durable: true }); // idempotent
-    
+
     // ❌ Avoid: Non-idempotent operations
     // await incrementCounter(); // Called on every reconnect!
   },
@@ -416,6 +420,7 @@ const client = new AmqpClient(contract, {
 **Symptom:** Custom setup logic doesn't execute.
 
 **Solutions:**
+
 1. Ensure channel is connected: `await client.channel.waitForConnect()`
 2. Check for errors in setup function (they may cause silent failures)
 3. Verify setup function signature is correct
@@ -425,6 +430,7 @@ const client = new AmqpClient(contract, {
 **Symptom:** Queues or exchanges created in setup don't appear.
 
 **Solutions:**
+
 1. Ensure setup function is async and properly awaits operations
 2. Check RabbitMQ permissions for creating resources
 3. Verify resource names don't conflict with contract definitions
@@ -434,6 +440,7 @@ const client = new AmqpClient(contract, {
 **Symptom:** Messages not distributed as expected.
 
 **Solutions:**
+
 1. Prefetch only affects consumers, not publishers
 2. Use `@amqp-contract/worker` for consuming with prefetch support
 3. Ensure prefetch is set before consuming starts
