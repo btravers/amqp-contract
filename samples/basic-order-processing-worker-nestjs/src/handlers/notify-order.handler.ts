@@ -1,4 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
+import type { WorkerInferConsumerInput } from "@amqp-contract/worker";
 import { defineHandler } from "@amqp-contract/worker";
 import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
 
@@ -6,7 +7,7 @@ import { orderContract } from "@amqp-contract-samples/basic-order-processing-con
 export class NotifyOrderHandler {
   private readonly logger = new Logger(NotifyOrderHandler.name);
 
-  handler = defineHandler(orderContract, "notifyOrder", async (message) => {
+  async handle(message: WorkerInferConsumerInput<typeof orderContract, "notifyOrder">): Promise<void> {
     // Check if it's a new order or a status update
     if ("items" in message) {
       // It's a full order
@@ -20,5 +21,7 @@ export class NotifyOrderHandler {
       );
     }
     this.logger.debug("Notification sent");
-  });
+  }
+
+  handler = defineHandler(orderContract, "notifyOrder", (message) => this.handle(message));
 }
