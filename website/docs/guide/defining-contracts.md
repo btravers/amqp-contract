@@ -424,7 +424,17 @@ For large applications, split your AMQP topology into logical subdomains and mer
 ### Basic Example
 
 ```typescript
-import { mergeContracts } from '@amqp-contract/contract';
+import {
+  mergeContracts,
+  defineExchange,
+  defineQueue,
+  defineMessage,
+  definePublisher,
+  defineConsumer,
+  defineContract,
+  defineQueueBinding,
+} from '@amqp-contract/contract';
+import { z } from 'zod';
 
 // Define order subdomain
 const ordersExchange = defineExchange('orders', 'topic', { durable: true });
@@ -442,6 +452,11 @@ const orderContract = defineContract({
   },
   queues: {
     orderProcessing: orderProcessingQueue,
+  },
+  bindings: {
+    orderBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
+      routingKey: 'order.created',
+    }),
   },
   publishers: {
     orderCreated: definePublisher(ordersExchange, orderMessage, {
@@ -469,6 +484,11 @@ const paymentContract = defineContract({
   },
   queues: {
     paymentProcessing: paymentProcessingQueue,
+  },
+  bindings: {
+    paymentBinding: defineQueueBinding(paymentProcessingQueue, paymentsExchange, {
+      routingKey: 'payment.received',
+    }),
   },
   publishers: {
     paymentReceived: definePublisher(paymentsExchange, paymentMessage, {
@@ -608,7 +628,7 @@ const contract = mergeContracts(
 
 ### Complete Example
 
-See the [subdomain example](https://github.com/btravers/amqp-contract/tree/main/samples/basic-order-processing-contract/src/subdomain-example.ts) for a complete demonstration with multiple subdomains including order processing, payments, notifications, and shared infrastructure.
+See the [subdomain example](https://github.com/btravers/amqp-contract/tree/main/samples/basic-order-processing-contract/src/index.ts) for a complete demonstration with multiple subdomains including order processing, payments, notifications, and shared infrastructure.
 
 ## When to Use Each Approach
 

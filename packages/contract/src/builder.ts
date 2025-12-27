@@ -1231,19 +1231,19 @@ export function mergeContracts<TContracts extends readonly [...ContractDefinitio
   }
 
   // Remove empty objects if no resources were added
-  if (Object.keys(merged.exchanges ?? {}).length === 0) {
+  if (Object.keys(merged.exchanges).length === 0) {
     delete merged.exchanges;
   }
-  if (Object.keys(merged.queues ?? {}).length === 0) {
+  if (Object.keys(merged.queues).length === 0) {
     delete merged.queues;
   }
-  if (Object.keys(merged.bindings ?? {}).length === 0) {
+  if (Object.keys(merged.bindings).length === 0) {
     delete merged.bindings;
   }
-  if (Object.keys(merged.publishers ?? {}).length === 0) {
+  if (Object.keys(merged.publishers).length === 0) {
     delete merged.publishers;
   }
-  if (Object.keys(merged.consumers ?? {}).length === 0) {
+  if (Object.keys(merged.consumers).length === 0) {
     delete merged.consumers;
   }
 
