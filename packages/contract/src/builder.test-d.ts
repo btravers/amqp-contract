@@ -9,12 +9,12 @@ import {
   mergeContracts,
 } from "./builder.js";
 import { describe, expectTypeOf, it } from "vitest";
-import type { ContractDefinition } from "./types.js";
+import type { MergeContracts } from "./types.js";
 import { z } from "zod";
 
 describe("mergeContracts - Type Tests", () => {
   describe("Type safety and inference", () => {
-    it("should accept multiple contracts and return a valid contract", () => {
+    it("should merge two contracts with publishers", () => {
       // GIVEN
       const orderExchange = defineExchange("orders", "topic", { durable: true });
       const paymentExchange = defineExchange("payments", "topic", { durable: true });
@@ -43,11 +43,12 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(orderContract, paymentContract);
 
-      // THEN - Result should be assignable to ContractDefinition
-      expectTypeOf(merged).toMatchTypeOf<ContractDefinition>();
+      // THEN - Verify merged type matches expected structure
+      type Expected = MergeContracts<[typeof orderContract, typeof paymentContract]>;
+      expectTypeOf(merged).toMatchTypeOf<Expected>();
     });
 
-    it("should accept consumer-based contracts", () => {
+    it("should merge two contracts with consumers", () => {
       // GIVEN
       const orderQueue = defineQueue("orders", { durable: true });
       const paymentQueue = defineQueue("payments", { durable: true });
@@ -72,8 +73,9 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(orderContract, paymentContract);
 
-      // THEN - Result should be assignable to ContractDefinition
-      expectTypeOf(merged).toMatchTypeOf<ContractDefinition>();
+      // THEN - Verify merged type matches expected structure
+      type Expected = MergeContracts<[typeof orderContract, typeof paymentContract]>;
+      expectTypeOf(merged).toMatchTypeOf<Expected>();
     });
 
     it("should merge all resource types", () => {
@@ -116,11 +118,12 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(contract1, contract2);
 
-      // THEN - Result should be assignable to ContractDefinition
-      expectTypeOf(merged).toMatchTypeOf<ContractDefinition>();
+      // THEN - Verify merged type matches expected structure with all resources
+      type Expected = MergeContracts<[typeof contract1, typeof contract2]>;
+      expectTypeOf(merged).toMatchTypeOf<Expected>();
     });
 
-    it("should handle merging three or more contracts", () => {
+    it("should merge three or more contracts", () => {
       // GIVEN
       const ex1 = defineExchange("ex1", "topic", { durable: true });
       const ex2 = defineExchange("ex2", "topic", { durable: true });
@@ -143,8 +146,9 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(contract1, contract2, contract3);
 
-      // THEN - Result should be assignable to ContractDefinition
-      expectTypeOf(merged).toMatchTypeOf<ContractDefinition>();
+      // THEN - Verify merged type matches expected structure with all three contracts
+      type Expected = MergeContracts<[typeof contract1, typeof contract2, typeof contract3]>;
+      expectTypeOf(merged).toMatchTypeOf<Expected>();
     });
 
     it("should handle empty contracts in merge", () => {
@@ -160,27 +164,32 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(emptyContract, fullContract);
 
-      // THEN - Result should be assignable to ContractDefinition
-      expectTypeOf(merged).toMatchTypeOf<ContractDefinition>();
+      // THEN - Verify merged type matches expected structure
+      type Expected = MergeContracts<[typeof emptyContract, typeof fullContract]>;
+      expectTypeOf(merged).toMatchTypeOf<Expected>();
     });
 
-    it("should preserve contract definition type", () => {
+    it("should preserve exact types when merging", () => {
       // GIVEN
+      const ex1 = defineExchange("ex1", "topic", { durable: true });
+      const ex2 = defineExchange("ex2", "topic", { durable: true });
+
       const contract1 = defineContract({
-        exchanges: { ex1: defineExchange("ex1", "topic", { durable: true }) },
+        exchanges: { ex1 },
       });
       const contract2 = defineContract({
-        exchanges: { ex2: defineExchange("ex2", "topic", { durable: true }) },
+        exchanges: { ex2 },
       });
 
       // WHEN
       const merged = mergeContracts(contract1, contract2);
 
-      // THEN - Result should be assignable to ContractDefinition
-      expectTypeOf(merged).toMatchTypeOf<ContractDefinition>();
+      // THEN - Verify merged type matches expected structure
+      type Expected = MergeContracts<[typeof contract1, typeof contract2]>;
+      expectTypeOf(merged).toMatchTypeOf<Expected>();
     });
 
-    it("should handle partial contract definitions", () => {
+    it("should merge partial contracts with exact types", () => {
       // GIVEN
       const exchange = defineExchange("ex", "topic", { durable: true });
       const queue = defineQueue("q", { durable: true });
@@ -195,17 +204,16 @@ describe("mergeContracts - Type Tests", () => {
       });
 
       // WHEN
-      const merged = mergeContracts(
-        contractWithExchange,
-        contractWithQueue,
-        contractWithPublisher,
-      );
+      const merged = mergeContracts(contractWithExchange, contractWithQueue, contractWithPublisher);
 
-      // THEN - Result should be assignable to ContractDefinition
-      expectTypeOf(merged).toMatchTypeOf<ContractDefinition>();
+      // THEN - Verify merged type matches expected structure
+      type Expected = MergeContracts<
+        [typeof contractWithExchange, typeof contractWithQueue, typeof contractWithPublisher]
+      >;
+      expectTypeOf(merged).toMatchTypeOf<Expected>();
     });
 
-    it("should handle contracts with different message types", () => {
+    it("should merge publishers with different message types", () => {
       // GIVEN
       const exchange = defineExchange("ex", "topic", { durable: true });
       const orderMessage = defineMessage(
@@ -240,11 +248,12 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(orderContract, paymentContract);
 
-      // THEN - Result should be assignable to ContractDefinition
-      expectTypeOf(merged).toMatchTypeOf<ContractDefinition>();
+      // THEN - Verify merged type matches expected structure
+      type Expected = MergeContracts<[typeof orderContract, typeof paymentContract]>;
+      expectTypeOf(merged).toMatchTypeOf<Expected>();
     });
 
-    it("should handle contracts with only exchanges", () => {
+    it("should merge contracts with only exchanges", () => {
       // GIVEN
       const ex1 = defineExchange("ex1", "topic", { durable: true });
       const ex2 = defineExchange("ex2", "direct", { durable: false });
@@ -255,11 +264,12 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(contract1, contract2);
 
-      // THEN - Result should be assignable to ContractDefinition
-      expectTypeOf(merged).toMatchTypeOf<ContractDefinition>();
+      // THEN - Verify merged type matches expected structure
+      type Expected = MergeContracts<[typeof contract1, typeof contract2]>;
+      expectTypeOf(merged).toMatchTypeOf<Expected>();
     });
 
-    it("should handle single contract merge", () => {
+    it("should preserve exact types for single contract", () => {
       // GIVEN
       const exchange = defineExchange("test", "topic", { durable: true });
       const message = defineMessage(z.object({ id: z.string() }));
@@ -271,8 +281,9 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(contract);
 
-      // THEN - Result should be assignable to ContractDefinition
-      expectTypeOf(merged).toMatchTypeOf<ContractDefinition>();
+      // THEN - Verify merged type matches expected structure
+      type Expected = MergeContracts<[typeof contract]>;
+      expectTypeOf(merged).toMatchTypeOf<Expected>();
     });
   });
 });
