@@ -58,7 +58,10 @@ describe("AmqpClient Channel Configuration", () => {
     await client.close();
   });
 
-  it("should call custom setup function after topology setup", async ({ amqpConnectionUrl, amqpChannel }) => {
+  it("should call custom setup function after topology setup", async ({
+    amqpConnectionUrl,
+    amqpChannel,
+  }) => {
     // GIVEN
     const contract = defineContract({
       exchanges: {
@@ -66,7 +69,7 @@ describe("AmqpClient Channel Configuration", () => {
       },
     });
 
-    const customSetupMock = vi.fn<[Channel], Promise<void>>(async (channel: Channel) => {
+    const customSetupMock = vi.fn(async (channel: Channel) => {
       // Create an additional queue in the custom setup
       await channel.assertQueue("custom-queue", { durable: false });
     });
@@ -93,7 +96,10 @@ describe("AmqpClient Channel Configuration", () => {
     await client.close();
   });
 
-  it("should support callback-based custom setup function", async ({ amqpConnectionUrl, amqpChannel }) => {
+  it("should support callback-based custom setup function", async ({
+    amqpConnectionUrl,
+    amqpChannel,
+  }) => {
     // GIVEN
     const contract = defineContract({
       exchanges: {
@@ -101,14 +107,13 @@ describe("AmqpClient Channel Configuration", () => {
       },
     });
 
-    const callbackSetupMock = vi.fn<[Channel, (error?: Error) => void], void>(
-      (channel: Channel, callback: (error?: Error) => void) => {
-        // Simulate async operation with callback
-        channel.assertQueue("callback-queue", { durable: false })
-          .then(() => callback())
-          .catch((err) => callback(err));
-      }
-    );
+    const callbackSetupMock = vi.fn((channel: Channel, callback: (error?: Error) => void) => {
+      // Simulate async operation with callback
+      channel
+        .assertQueue("callback-queue", { durable: false })
+        .then(() => callback())
+        .catch((err) => callback(err));
+    });
 
     // WHEN
     const client = new AmqpClient(contract, {
