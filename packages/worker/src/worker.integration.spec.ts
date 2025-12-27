@@ -526,13 +526,8 @@ describe("AmqpWorker Integration", () => {
     await adminChannel.bindQueue(queue.name, exchange.name, "cancel.#");
     await adminChannel.close();
 
-    // Track if null message was received
-    let nullMessageReceived = false;
-    const messageHandler = vi.fn((msg) => {
-      if (msg === null) {
-        nullMessageReceived = true;
-      }
-    });
+    // Create a mock handler to track messages received
+    const messageHandler = vi.fn();
 
     // Create a consumer directly using amqplib to test null message handling
     const consumerChannel = await amqpConnection.createChannel();
@@ -553,6 +548,7 @@ describe("AmqpWorker Integration", () => {
     // THEN - Wait for the null message to be received
     await vi.waitFor(
       () => {
+        const nullMessageReceived = messageHandler.mock.calls.some((call) => call[0] === null);
         if (!nullMessageReceived) {
           throw new Error("Null message not yet received");
         }
@@ -560,7 +556,6 @@ describe("AmqpWorker Integration", () => {
       { timeout: 2000 },
     );
 
-    expect(nullMessageReceived).toBe(true);
     expect(messageHandler).toHaveBeenCalledWith(null);
 
     // Clean up
