@@ -17,6 +17,7 @@ import { orderContract } from "@amqp-contract-samples/basic-order-processing-con
     AmqpWorkerModule.forRootAsync({
       inject: [
         amqpConfig.KEY,
+        Logger,
         ProcessOrderHandler,
         NotifyOrderHandler,
         ShipOrderHandler,
@@ -25,6 +26,7 @@ import { orderContract } from "@amqp-contract-samples/basic-order-processing-con
       ],
       useFactory: (
         config: ConfigType<typeof amqpConfig>,
+        logger: Logger,
         processOrder: ProcessOrderHandler,
         notifyOrder: NotifyOrderHandler,
         shipOrder: ShipOrderHandler,
@@ -40,6 +42,7 @@ import { orderContract } from "@amqp-contract-samples/basic-order-processing-con
           processAnalytics: processAnalytics.handler,
         },
         urls: [config.url],
+        logger,
       }),
     }),
   ],
