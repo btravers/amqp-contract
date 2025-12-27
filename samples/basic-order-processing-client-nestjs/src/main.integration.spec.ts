@@ -52,10 +52,7 @@ describe("NestJS Client Integration", () => {
     const result = await createOrderUseCase.execute(newOrder).resultToPromise();
 
     // THEN
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      expect(result.get()).toEqual({ success: true });
-    }
+    expect(result).toMatchObject({ _tag: "Ok", value: { success: true } });
   });
 
   testIt("should publish order status updates", async ({ updateOrderStatusUseCase }) => {
@@ -65,10 +62,7 @@ describe("NestJS Client Integration", () => {
       .resultToPromise();
 
     // THEN
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      expect(result.get()).toEqual({ success: true });
-    }
+    expect(result).toMatchObject({ _tag: "Ok", value: { success: true } });
   });
 
   testIt("should publish shipment notifications", async ({ shipOrderUseCase }) => {
@@ -76,10 +70,7 @@ describe("NestJS Client Integration", () => {
     const result = await shipOrderUseCase.execute("TEST-001").resultToPromise();
 
     // THEN
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      expect(result.get()).toEqual({ success: true });
-    }
+    expect(result).toMatchObject({ _tag: "Ok", value: { success: true } });
   });
 
   testIt("should publish urgent updates", async ({ urgentUpdateUseCase }) => {
@@ -87,9 +78,6 @@ describe("NestJS Client Integration", () => {
     const result = await urgentUpdateUseCase.execute("TEST-002", "cancelled").resultToPromise();
 
     // THEN
-    expect(result.isOk()).toBe(true);
-    if (result.isOk()) {
-      expect(result.get()).toEqual({ success: true });
-    }
+    expect(result).toMatchObject({ _tag: "Ok", value: { success: true } });
   });
 });
