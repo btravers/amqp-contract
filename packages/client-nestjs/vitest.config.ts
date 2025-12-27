@@ -22,6 +22,15 @@ export default defineConfig({
           include: ["src/**/*.integration.spec.ts"],
         },
       },
+      {
+        test: {
+          name: "typecheck",
+          include: ["src/**/*.test-d.ts"],
+          typecheck: {
+            enabled: true,
+          },
+        },
+      },
     ],
   },
 });

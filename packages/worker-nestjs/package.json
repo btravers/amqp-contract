@@ -48,6 +48,7 @@
     "dev": "tsdown src/index.ts --format cjs,esm --dts --watch",
     "test": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
+    "test:type": "vitest run --project typecheck",
     "test:watch": "vitest --project unit",
     "typecheck": "tsc --noEmit"
   },
