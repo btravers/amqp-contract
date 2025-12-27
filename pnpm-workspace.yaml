@@ -12,10 +12,10 @@ catalog:
   "@nestjs/common": 11.1.10
   "@nestjs/core": 11.1.10
   "@nestjs/testing": 11.1.10
-  "@orpc/arktype": 1.13.0
-  "@orpc/openapi": 1.13.0
-  "@orpc/valibot": 1.13.0
-  "@orpc/zod": 1.13.0
+  "@orpc/arktype": 1.13.1
+  "@orpc/openapi": 1.13.1
+  "@orpc/valibot": 1.13.1
+  "@orpc/zod": 1.13.1
   "@standard-schema/spec": 1.1.0
   "@swan-io/boxed": 3.2.1
   "@types/amqplib": 0.10.8
@@ -24,8 +24,8 @@ catalog:
   amqp-connection-manager: 5.0.0
   amqplib: 0.10.9
   arktype: 2.1.29
-  knip: 5.77.1
-  lefthook: 2.0.12
+  knip: 5.77.4
+  lefthook: 2.0.13
   mermaid: 11.12.2
   oxfmt: 0.20.0
   oxlint: 1.35.0
@@ -35,7 +35,7 @@ catalog:
   rxjs: 7.8.2
   sort-package-json: 3.6.0
   testcontainers: 11.10.0
-  tsdown: 0.18.2
+  tsdown: 0.18.3
   tsx: 4.21.0
   turbo: 2.7.2
   typedoc: 0.28.15
