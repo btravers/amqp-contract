@@ -6,6 +6,9 @@ export default defineConfig({
     environment: "node",
     reporters: ["default"],
     include: ["src/**/*.{test,spec,test-d}.ts"],
+    typecheck: {
+      enabled: true,
+    },
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "json-summary", "html"],
