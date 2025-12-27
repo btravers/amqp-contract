@@ -15,6 +15,9 @@ export type {
   PublisherFirstResultWithRoutingKey,
   ConsumerFirstResult,
   ConsumerFirstResultWithRoutingKey,
+  RoutingKey,
+  BindingPattern,
+  MatchingRoutingKey,
 } from "./builder.js";
 export type {
   AnySchema,

@@ -752,11 +752,134 @@ export type PublisherFirstResult<
 };
 
 // fixme: implement ExtractConsumerRoutingKeyFromPublisherRoutingKey for topic exchanges
+// ============================================================================
+// Routing Key and Binding Pattern Validation Types
+// ============================================================================
+
+/**
+ * Valid characters for routing keys and binding patterns
+ * @internal
+ */
+type ValidChar = 
+  | 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g' | 'h' | 'i' | 'j' | 'k' | 'l' | 'm'
+  | 'n' | 'o' | 'p' | 'q' | 'r' | 's' | 't' | 'u' | 'v' | 'w' | 'x' | 'y' | 'z'
+  | 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J' | 'K' | 'L' | 'M'
+  | 'N' | 'O' | 'P' | 'Q' | 'R' | 'S' | 'T' | 'U' | 'V' | 'W' | 'X' | 'Y' | 'Z'
+  | '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
+  | '-' | '_';
+
+/**
+ * Check if a segment (part between dots) contains only valid characters
+ * @internal
+ */
+type IsValidSegment<S extends string> = 
+  S extends `${infer First}${infer Rest}`
+    ? First extends ValidChar
+      ? Rest extends ''
+        ? true
+        : IsValidSegment<Rest>
+      : false
+    : S extends ''
+      ? false
+      : never;
+
+/**
+ * Validate a routing key format
+ * @internal
+ */
+type ValidateRoutingKey<S extends string> = 
+  S extends `${infer Segment}.${infer Rest}`
+    ? IsValidSegment<Segment> extends true
+      ? ValidateRoutingKey<Rest>
+      : false
+    : IsValidSegment<S>;
+
+/**
+ * Type-safe routing key that validates character set and format
+ * @internal
+ */
+export type RoutingKey<S extends string> = 
+  ValidateRoutingKey<S> extends true ? S : never;
+
+/**
+ * Check if a binding pattern part is valid (* or # wildcards, or valid segment)
+ * @internal
+ */
+type IsValidBindingPart<S extends string> =
+  S extends '*' | '#'
+    ? true
+    : IsValidSegment<S>;
+
+/**
+ * Validate a binding pattern format
+ * @internal
+ */
+type ValidateBindingPattern<S extends string> = 
+  S extends `${infer Part}.${infer Rest}`
+    ? IsValidBindingPart<Part> extends true
+      ? ValidateBindingPattern<Rest>
+      : false
+    : IsValidBindingPart<S>;
+
+/**
+ * Type-safe binding pattern that validates wildcards and format
+ * @internal
+ */
+export type BindingPattern<S extends string> = 
+  ValidateBindingPattern<S> extends true ? S : never;
+
+/**
+ * Check if a routing key matches a binding pattern
+ * Implements AMQP topic exchange pattern matching:
+ * - * matches exactly one word
+ * - # matches zero or more words
+ * @internal
+ */
+type MatchesPattern<
+  Key extends string,
+  Pattern extends string
+> = Pattern extends `${infer PatternPart}.${infer PatternRest}`
+  ? PatternPart extends '#'
+    ? true  // # matches everything remaining
+    : Key extends `${infer KeyPart}.${infer KeyRest}`
+      ? PatternPart extends '*'
+        ? MatchesPattern<KeyRest, PatternRest>  // * matches one segment
+        : PatternPart extends KeyPart
+          ? MatchesPattern<KeyRest, PatternRest>  // Exact match
+          : false
+      : false
+  : Pattern extends '#'
+    ? true  // # matches everything (including empty)
+    : Pattern extends '*'
+      ? Key extends `${string}.${string}`
+        ? false  // * matches exactly 1 segment, not multiple
+        : true
+      : Pattern extends Key
+        ? true  // Exact match
+        : false;
+
+/**
+ * Validate that a routing key matches a binding pattern
+ * Returns the routing key if valid, never otherwise
+ * @internal
+ */
+export type MatchingRoutingKey<
+  Pattern extends string,
+  Key extends string
+> = RoutingKey<Key> extends never
+  ? never  // Invalid routing key
+  : BindingPattern<Pattern> extends never
+    ? never  // Invalid pattern
+    : MatchesPattern<Key, Pattern> extends true
+      ? Key
+      : never;
+
 /**
  * Extract the routing key type that consumers can use based on a publisher's routing key.
  * For topic exchanges:
- * - If publisher has a concrete key (no wildcards), consumers can use patterns that would match it
- * - Patterns are validated at the type level to ensure compliance with AMQP routing
+ * - If publisher has a concrete key (no wildcards), consumers can use any valid binding pattern
+ * - If publisher has a pattern, consumers must use the exact same pattern
+ * - Validates routing key and pattern format at compile time
  * @internal
  */
 type ExtractConsumerRoutingKeyFromPublisherRoutingKey<TRoutingKey extends string> =
@@ -1093,8 +1216,9 @@ export type ConsumerFirstResult<
 /**
  * Extract the routing key type that publishers can use based on a consumer's routing key pattern.
  * For topic exchanges:
- * - If consumer has a pattern with wildcards, publishers can use any concrete key (string)
+ * - If consumer has a pattern with wildcards, publishers can use any valid concrete key (string)
  * - If consumer has a concrete key (no wildcards), publishers must use the exact same key
+ * - Validates routing key and pattern format at compile time
  * @internal
  */
 type ExtractPublisherRoutingKeyFromConsumerRoutingKey<TRoutingKey extends string> =
