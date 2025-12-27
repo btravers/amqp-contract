@@ -859,10 +859,10 @@ describe("builder", () => {
 
       // WHEN - Consumer bound with pattern, publisher uses concrete key
       const result = defineConsumerFirst(queue, exchange, message, {
-        routingKey: "order.*",  // Pattern in binding
+        routingKey: "order.*", // Pattern in binding
       });
-      const publisherCreated = result.createPublisher("order.created");  // Concrete key
-      const publisherUpdated = result.createPublisher("order.updated");  // Concrete key
+      const publisherCreated = result.createPublisher("order.created"); // Concrete key
+      const publisherUpdated = result.createPublisher("order.updated"); // Concrete key
 
       // THEN
       expect(result.binding).toMatchObject({
@@ -982,20 +982,20 @@ describe("builder", () => {
 
       // WHEN - Publisher with concrete key, consumers with patterns
       const result = definePublisherFirst(exchange, message, {
-        routingKey: "order.created",  // Concrete key
+        routingKey: "order.created", // Concrete key
       });
-      const { consumer: consumer1, binding: binding1 } = result.createConsumer(queue1);  // Default
-      const { consumer: consumer2, binding: binding2 } = result.createConsumer(queue2, "order.*");  // Pattern
+      const { consumer: consumer1, binding: binding1 } = result.createConsumer(queue1); // Default
+      const { consumer: consumer2, binding: binding2 } = result.createConsumer(queue2, "order.*"); // Pattern
 
       // THEN
       expect(result.publisher).toMatchObject({
         routingKey: "order.created",
       });
       expect(binding1).toMatchObject({
-        routingKey: "order.created",  // Uses publisher's key
+        routingKey: "order.created", // Uses publisher's key
       });
       expect(binding2).toMatchObject({
-        routingKey: "order.*",  // Uses specified pattern
+        routingKey: "order.*", // Uses specified pattern
       });
       expect(consumer1.queue).toBe(queue1);
       expect(consumer2.queue).toBe(queue2);
@@ -1035,9 +1035,16 @@ describe("builder", () => {
         routingKey: "order.created",
       });
 
-      const { consumer: consumer1, binding: binding1 } = orderCreatedEvent.createConsumer(orderQueue);
-      const { consumer: consumer2, binding: binding2 } = orderCreatedEvent.createConsumer(allOrdersQueue, "order.*");
-      const { consumer: consumer3, binding: binding3 } = orderCreatedEvent.createConsumer(urgentOrdersQueue, "order.#");
+      const { consumer: consumer1, binding: binding1 } =
+        orderCreatedEvent.createConsumer(orderQueue);
+      const { consumer: consumer2, binding: binding2 } = orderCreatedEvent.createConsumer(
+        allOrdersQueue,
+        "order.*",
+      );
+      const { consumer: consumer3, binding: binding3 } = orderCreatedEvent.createConsumer(
+        urgentOrdersQueue,
+        "order.#",
+      );
 
       const contract = defineContract({
         exchanges: {
@@ -1072,13 +1079,13 @@ describe("builder", () => {
         },
         bindings: {
           orderBinding1: {
-            routingKey: "order.created",  // Default
+            routingKey: "order.created", // Default
           },
           orderBinding2: {
-            routingKey: "order.*",  // Custom pattern
+            routingKey: "order.*", // Custom pattern
           },
           orderBinding3: {
-            routingKey: "order.#",  // Custom pattern
+            routingKey: "order.#", // Custom pattern
           },
         },
       });

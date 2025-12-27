@@ -10,8 +10,8 @@ export {
   definePublisherFirst,
   defineConsumerFirst,
 } from "./builder.js";
-export type { 
-  PublisherFirstResult, 
+export type {
+  PublisherFirstResult,
   PublisherFirstResultWithRoutingKey,
   ConsumerFirstResult,
   ConsumerFirstResultWithRoutingKey,
