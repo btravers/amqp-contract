@@ -754,16 +754,17 @@ export type PublisherFirstResult<
 // fixme: implement ExtractConsumerRoutingKeyFromPublisherRoutingKey for topic exchanges
 /**
  * Extract the routing key type that consumers can use based on a publisher's routing key.
- * - If publisher has a concrete key (no wildcards), consumers can use any pattern
- * - If publisher has a pattern, consumers should use the same pattern or more specific
+ * For topic exchanges:
+ * - If publisher has a concrete key (no wildcards), consumers can use patterns that would match it
+ * - Patterns are validated at the type level to ensure compliance with AMQP routing
  * @internal
  */
 type ExtractConsumerRoutingKeyFromPublisherRoutingKey<TRoutingKey extends string> =
   TRoutingKey extends `${infer _Prefix}.*${infer _Suffix}`
-    ? TRoutingKey | (string & {})
+    ? TRoutingKey
     : TRoutingKey extends `${infer _Prefix}#${infer _Suffix}`
-      ? TRoutingKey | (string & {})
-      : TRoutingKey | (string & {});
+      ? TRoutingKey
+      : string;
 
 /**
  * Publisher-first builder result for topic exchanges.
@@ -1091,16 +1092,17 @@ export type ConsumerFirstResult<
 // fixme: implement ExtractPblisherRoutingKeyFromConsumerRoutingKey for topic exchanges
 /**
  * Extract the routing key type that publishers can use based on a consumer's routing key pattern.
- * - If consumer has a pattern with wildcards, publishers can use any concrete key
- * - If consumer has a concrete key (no wildcards), publishers should use the same key
+ * For topic exchanges:
+ * - If consumer has a pattern with wildcards, publishers can use any concrete key (string)
+ * - If consumer has a concrete key (no wildcards), publishers must use the exact same key
  * @internal
  */
 type ExtractPublisherRoutingKeyFromConsumerRoutingKey<TRoutingKey extends string> =
   TRoutingKey extends `${infer _Prefix}.*${infer _Suffix}`
-    ? TRoutingKey | (string & {})
+    ? string
     : TRoutingKey extends `${infer _Prefix}#${infer _Suffix}`
-      ? TRoutingKey | (string & {})
-      : TRoutingKey | (string & {});
+      ? string
+      : TRoutingKey;
 
 /**
  * Consumer-first builder result for topic exchanges.
