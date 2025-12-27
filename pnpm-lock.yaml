@@ -646,6 +646,61 @@ importers:
         specifier: 'catalog:'
         version: 4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
 
+  samples/basic-order-processing-client-nestjs:
+    dependencies:
+      '@amqp-contract-samples/basic-order-processing-contract':
+        specifier: workspace:*
+        version: link:../basic-order-processing-contract
+      '@amqp-contract/client-nestjs':
+        specifier: workspace:*
+        version: link:../../packages/client-nestjs
+      '@nestjs/common':
+        specifier: 'catalog:'
+        version: 11.1.10(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/core':
+        specifier: 'catalog:'
+        version: 11.1.10(@nestjs/common@11.1.10(reflect-metadata@0.2.2)(rxjs@7.8.2))(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      pino:
+        specifier: 'catalog:'
+        version: 10.1.0
+      pino-pretty:
+        specifier: 'catalog:'
+        version: 13.1.3
+      reflect-metadata:
+        specifier: 'catalog:'
+        version: 0.2.2
+      rxjs:
+        specifier: 'catalog:'
+        version: 7.8.2
+      zod:
+        specifier: 'catalog:'
+        version: 4.2.1
+    devDependencies:
+      '@amqp-contract/testing':
+        specifier: workspace:*
+        version: link:../../packages/testing
+      '@amqp-contract/tsconfig':
+        specifier: workspace:*
+        version: link:../../tools/tsconfig
+      '@nestjs/testing':
+        specifier: 'catalog:'
+        version: 11.1.10(@nestjs/common@11.1.10(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.10(@nestjs/common@11.1.10(reflect-metadata@0.2.2)(rxjs@7.8.2))(reflect-metadata@0.2.2)(rxjs@7.8.2))
+      '@swan-io/boxed':
+        specifier: 'catalog:'
+        version: 3.2.1(typescript@5.9.3)
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 4.0.16(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+      tsx:
+        specifier: 'catalog:'
+        version: 4.21.0
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
+
   samples/basic-order-processing-contract:
     dependencies:
       '@amqp-contract/contract':
@@ -692,6 +747,64 @@ importers:
       '@amqp-contract/tsconfig':
         specifier: workspace:*
         version: link:../../tools/tsconfig
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 4.0.16(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+      tsx:
+        specifier: 'catalog:'
+        version: 4.21.0
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
+
+  samples/basic-order-processing-worker-nestjs:
+    dependencies:
+      '@amqp-contract-samples/basic-order-processing-contract':
+        specifier: workspace:*
+        version: link:../basic-order-processing-contract
+      '@amqp-contract/worker':
+        specifier: workspace:*
+        version: link:../../packages/worker
+      '@amqp-contract/worker-nestjs':
+        specifier: workspace:*
+        version: link:../../packages/worker-nestjs
+      '@nestjs/common':
+        specifier: 'catalog:'
+        version: 11.1.10(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/core':
+        specifier: 'catalog:'
+        version: 11.1.10(@nestjs/common@11.1.10(reflect-metadata@0.2.2)(rxjs@7.8.2))(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      pino:
+        specifier: 'catalog:'
+        version: 10.1.0
+      pino-pretty:
+        specifier: 'catalog:'
+        version: 13.1.3
+      reflect-metadata:
+        specifier: 'catalog:'
+        version: 0.2.2
+      rxjs:
+        specifier: 'catalog:'
+        version: 7.8.2
+      zod:
+        specifier: 'catalog:'
+        version: 4.2.1
+    devDependencies:
+      '@amqp-contract/client':
+        specifier: workspace:*
+        version: link:../../packages/client
+      '@amqp-contract/testing':
+        specifier: workspace:*
+        version: link:../../packages/testing
+      '@amqp-contract/tsconfig':
+        specifier: workspace:*
+        version: link:../../tools/tsconfig
+      '@nestjs/testing':
+        specifier: 'catalog:'
+        version: 11.1.10(@nestjs/common@11.1.10(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.10(@nestjs/common@11.1.10(reflect-metadata@0.2.2)(rxjs@7.8.2))(reflect-metadata@0.2.2)(rxjs@7.8.2))
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 4.0.16(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))

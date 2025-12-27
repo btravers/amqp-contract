@@ -21,6 +21,7 @@ This sample demonstrates two approaches to organizing worker handlers:
 ### Inline Handlers (src/index.ts - Main Example)
 
 Handlers are defined directly in the worker creation. This approach is suitable for:
+
 - Simple applications with few handlers
 - Quick prototypes
 - When handlers don't need to be reused
@@ -43,6 +44,7 @@ const workerResult = await TypedAmqpWorker.create({
 ### External Handlers (src/handlers.ts - Better Organization)
 
 Handlers are defined in separate files using `defineHandler` or `defineHandlers`. This approach is recommended for:
+
 - Production applications
 - Better code organization and testability
 - Reusable handlers across multiple workers
