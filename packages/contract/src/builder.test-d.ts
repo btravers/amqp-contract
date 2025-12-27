@@ -9,7 +9,11 @@ import {
   mergeContracts,
 } from "./builder.js";
 import { describe, expectTypeOf, it } from "vitest";
-import type { ContractDefinition } from "./types.js";
+import type {
+  ConsumerDefinition,
+  PublisherDefinition,
+  QueueBindingDefinition,
+} from "./types.js";
 import { z } from "zod";
 
 describe("mergeContracts - Type Tests", () => {
@@ -43,17 +47,19 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(orderContract, paymentContract);
 
-      // THEN - Verify merged contract is a valid ContractDefinition
-      expectTypeOf(merged).toMatchObjectType<{
-        exchanges: {
-          orders: typeof orderExchange;
-          payments: typeof paymentExchange;
-        };
-        publishers: {
-          orderCreated: ReturnType<typeof definePublisher>;
-          paymentReceived: ReturnType<typeof definePublisher>;
-        };
-      }>();
+      // THEN - Verify merged contract has expected structure
+      expectTypeOf(merged.exchanges!.orders).toEqualTypeOf(orderExchange);
+      expectTypeOf(merged.exchanges!).toHaveProperty("payments");
+      expectTypeOf(merged.exchanges!.payments as typeof paymentExchange).toEqualTypeOf(
+        paymentExchange,
+      );
+      expectTypeOf(merged.publishers!.orderCreated).toMatchTypeOf<
+        PublisherDefinition<typeof orderMessage>
+      >();
+      expectTypeOf(merged.publishers!).toHaveProperty("paymentReceived");
+      expectTypeOf(
+        merged.publishers!.paymentReceived as PublisherDefinition<typeof paymentMessage>,
+      ).toMatchTypeOf<PublisherDefinition<typeof paymentMessage>>();
     });
 
     it("should return a valid ContractDefinition when merging two contracts with consumers", () => {
@@ -81,17 +87,15 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(orderContract, paymentContract);
 
-      // THEN - Verify merged contract is a valid ContractDefinition
-      expectTypeOf(merged).toMatchObjectType<{
-        queues: {
-          orders: typeof orderQueue;
-          payments: typeof paymentQueue;
-        };
-        consumers: {
-          processOrder: ReturnType<typeof defineConsumer>;
-          processPayment: ReturnType<typeof defineConsumer>;
-        };
-      }>();
+      // THEN - Verify merged contract has expected structure
+      expectTypeOf(merged.queues!.orders).toEqualTypeOf(orderQueue);
+      expectTypeOf(merged.queues!.payments).toEqualTypeOf(paymentQueue);
+      expectTypeOf(merged.consumers!.processOrder).toMatchTypeOf<
+        ConsumerDefinition<typeof orderMessage>
+      >();
+      expectTypeOf(merged.consumers!.processPayment).toMatchTypeOf<
+        ConsumerDefinition<typeof paymentMessage>
+      >();
     });
 
     it("should return a valid ContractDefinition with all resource types", () => {
@@ -134,29 +138,17 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(contract1, contract2);
 
-      // THEN - Verify merged contract is a valid ContractDefinition with all resource types
-      expectTypeOf(merged).toMatchObjectType<{
-        exchanges: {
-          ex1: typeof exchange1;
-          ex2: typeof exchange2;
-        };
-        queues: {
-          q1: typeof queue1;
-          q2: typeof queue2;
-        };
-        bindings: {
-          b1: ReturnType<typeof defineQueueBinding>;
-          b2: ReturnType<typeof defineQueueBinding>;
-        };
-        publishers: {
-          pub1: ReturnType<typeof definePublisher>;
-          pub2: ReturnType<typeof definePublisher>;
-        };
-        consumers: {
-          con1: ReturnType<typeof defineConsumer>;
-          con2: ReturnType<typeof defineConsumer>;
-        };
-      }>();
+      // THEN - Verify merged contract has all resource types
+      expectTypeOf(merged.exchanges!.ex1).toEqualTypeOf(exchange1);
+      expectTypeOf(merged.exchanges!.ex2).toEqualTypeOf(exchange2);
+      expectTypeOf(merged.queues!.q1).toEqualTypeOf(queue1);
+      expectTypeOf(merged.queues!.q2).toEqualTypeOf(queue2);
+      expectTypeOf(merged.bindings!.b1).toMatchTypeOf<QueueBindingDefinition>();
+      expectTypeOf(merged.bindings!.b2).toMatchTypeOf<QueueBindingDefinition>();
+      expectTypeOf(merged.publishers!.pub1).toMatchTypeOf<PublisherDefinition<typeof message1>>();
+      expectTypeOf(merged.publishers!.pub2).toMatchTypeOf<PublisherDefinition<typeof message2>>();
+      expectTypeOf(merged.consumers!.con1).toMatchTypeOf<ConsumerDefinition<typeof message1>>();
+      expectTypeOf(merged.consumers!.con2).toMatchTypeOf<ConsumerDefinition<typeof message2>>();
     });
 
     it("should return a valid ContractDefinition when merging three or more contracts", () => {
@@ -182,19 +174,13 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(contract1, contract2, contract3);
 
-      // THEN - Verify merged contract is a valid ContractDefinition
-      expectTypeOf(merged).toMatchObjectType<{
-        exchanges: {
-          ex1: typeof ex1;
-          ex2: typeof ex2;
-          ex3: typeof ex3;
-        };
-        publishers: {
-          pub1: ReturnType<typeof definePublisher>;
-          pub2: ReturnType<typeof definePublisher>;
-          pub3: ReturnType<typeof definePublisher>;
-        };
-      }>();
+      // THEN - Verify merged contract has all exchanges and publishers
+      expectTypeOf(merged.exchanges!.ex1).toEqualTypeOf(ex1);
+      expectTypeOf(merged.exchanges!.ex2).toEqualTypeOf(ex2);
+      expectTypeOf(merged.exchanges!.ex3).toEqualTypeOf(ex3);
+      expectTypeOf(merged.publishers!.pub1).toMatchTypeOf<PublisherDefinition<typeof msg>>();
+      expectTypeOf(merged.publishers!.pub2).toMatchTypeOf<PublisherDefinition<typeof msg>>();
+      expectTypeOf(merged.publishers!.pub3).toMatchTypeOf<PublisherDefinition<typeof msg>>();
     });
 
     it("should return a valid ContractDefinition when handling empty contracts", () => {
@@ -210,15 +196,9 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(emptyContract, fullContract);
 
-      // THEN - Verify merged contract is a valid ContractDefinition
-      expectTypeOf(merged).toMatchObjectType<{
-        exchanges: {
-          test: typeof exchange;
-        };
-        publishers: {
-          testPub: ReturnType<typeof definePublisher>;
-        };
-      }>();
+      // THEN - Verify merged contract has expected structure
+      expectTypeOf(merged.exchanges!.test).toEqualTypeOf(exchange);
+      expectTypeOf(merged.publishers!.testPub).toMatchTypeOf<PublisherDefinition<typeof message>>();
     });
 
     it("should return a valid ContractDefinition preserving types", () => {
@@ -236,13 +216,9 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(contract1, contract2);
 
-      // THEN - Verify merged contract is a valid ContractDefinition
-      expectTypeOf(merged).toMatchObjectType<{
-        exchanges: {
-          ex1: typeof ex1;
-          ex2: typeof ex2;
-        };
-      }>();
+      // THEN - Verify merged contract preserves types
+      expectTypeOf(merged.exchanges!.ex1).toEqualTypeOf(ex1);
+      expectTypeOf(merged.exchanges!.ex2).toEqualTypeOf(ex2);
     });
 
     it("should return a valid ContractDefinition when merging partial contracts", () => {
@@ -262,18 +238,10 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(contractWithExchange, contractWithQueue, contractWithPublisher);
 
-      // THEN - Verify merged contract is a valid ContractDefinition
-      expectTypeOf(merged).toMatchObjectType<{
-        exchanges: {
-          ex: typeof exchange;
-        };
-        queues: {
-          q: typeof queue;
-        };
-        publishers: {
-          pub: ReturnType<typeof definePublisher>;
-        };
-      }>();
+      // THEN - Verify merged contract has all partial resources
+      expectTypeOf(merged.exchanges!.ex).toEqualTypeOf(exchange);
+      expectTypeOf(merged.queues!.q).toEqualTypeOf(queue);
+      expectTypeOf(merged.publishers!.pub).toMatchTypeOf<PublisherDefinition<typeof message>>();
     });
 
     it("should return a valid ContractDefinition with different message types", () => {
@@ -311,13 +279,13 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(orderContract, paymentContract);
 
-      // THEN - Verify merged contract is a valid ContractDefinition
-      expectTypeOf(merged).toMatchObjectType<{
-        publishers: {
-          orderCreated: ReturnType<typeof definePublisher>;
-          paymentProcessed: ReturnType<typeof definePublisher>;
-        };
-      }>();
+      // THEN - Verify merged contract has different message types
+      expectTypeOf(merged.publishers!.orderCreated).toMatchTypeOf<
+        PublisherDefinition<typeof orderMessage>
+      >();
+      expectTypeOf(merged.publishers!.paymentProcessed).toMatchTypeOf<
+        PublisherDefinition<typeof paymentMessage>
+      >();
     });
 
     it("should return a valid ContractDefinition with only exchanges", () => {
@@ -331,13 +299,9 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(contract1, contract2);
 
-      // THEN - Verify merged contract is a valid ContractDefinition
-      expectTypeOf(merged).toMatchObjectType<{
-        exchanges: {
-          ex1: typeof ex1;
-          ex2: typeof ex2;
-        };
-      }>();
+      // THEN - Verify merged contract has both exchanges
+      expectTypeOf(merged.exchanges!.ex1).toEqualTypeOf(ex1);
+      expectTypeOf(merged.exchanges!.ex2).toEqualTypeOf(ex2);
     });
 
     it("should return a valid ContractDefinition for single contract", () => {
@@ -352,15 +316,9 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(contract);
 
-      // THEN - Verify merged contract is a valid ContractDefinition
-      expectTypeOf(merged).toMatchObjectType<{
-        exchanges: {
-          test: typeof exchange;
-        };
-        publishers: {
-          testPub: ReturnType<typeof definePublisher>;
-        };
-      }>();
+      // THEN - Verify merged contract has expected structure
+      expectTypeOf(merged.exchanges!.test).toEqualTypeOf(exchange);
+      expectTypeOf(merged.publishers!.testPub).toMatchTypeOf<PublisherDefinition<typeof message>>();
     });
   });
 });
