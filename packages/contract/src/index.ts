@@ -9,6 +9,7 @@ export {
   defineQueue,
   definePublisherFirst,
   defineConsumerFirst,
+  mergeContracts,
 } from "./builder.js";
 export type { PublisherFirstResult, ConsumerFirstResult } from "./builder.js";
 export type {
@@ -28,4 +29,5 @@ export type {
   QueueDefinition,
   InferPublisherNames,
   InferConsumerNames,
+  MergeContracts,
 } from "./types.js";

@@ -461,3 +461,67 @@ export type InferPublisherNames<TContract extends ContractDefinition> =
  */
 export type InferConsumerNames<TContract extends ContractDefinition> =
   TContract["consumers"] extends Record<string, unknown> ? keyof TContract["consumers"] : never;
+
+/**
+ * Merge multiple contract types into a single contract type.
+ *
+ * This utility type properly merges the types of multiple contracts, preserving
+ * type safety for all publishers, consumers, and other resources. It's used internally
+ * by the `mergeContracts` function to provide full type inference.
+ *
+ * The type uses a recursive approach to merge contracts left-to-right, where later
+ * contracts override earlier ones for any conflicting resource names.
+ *
+ * @template TContracts - Tuple of contract definitions to merge
+ * @returns A merged contract type with all resources from input contracts
+ *
+ * @example
+ * ```typescript
+ * type OrderContract = { publishers: { orderCreated: PublisherDefinition } };
+ * type PaymentContract = { publishers: { paymentReceived: PublisherDefinition } };
+ * type Merged = MergeContracts<[OrderContract, PaymentContract]>;
+ * // Result: { publishers: { orderCreated: ..., paymentReceived: ... } }
+ * ```
+ */
+export type MergeContracts<TContracts extends readonly ContractDefinition[]> =
+  TContracts extends readonly []
+    ? ContractDefinition
+    : TContracts extends readonly [infer Only extends ContractDefinition]
+      ? Only
+      : TContracts extends readonly [
+            infer First extends ContractDefinition,
+            ...infer Rest extends readonly ContractDefinition[],
+          ]
+        ? ContractDefinition & {
+            exchanges: (First["exchanges"] extends Record<string, ExchangeDefinition>
+              ? First["exchanges"]
+              : {}) &
+              (MergeContracts<Rest>["exchanges"] extends Record<string, ExchangeDefinition>
+                ? MergeContracts<Rest>["exchanges"]
+                : {});
+            queues: (First["queues"] extends Record<string, QueueDefinition>
+              ? First["queues"]
+              : {}) &
+              (MergeContracts<Rest>["queues"] extends Record<string, QueueDefinition>
+                ? MergeContracts<Rest>["queues"]
+                : {});
+            bindings: (First["bindings"] extends Record<string, BindingDefinition>
+              ? First["bindings"]
+              : {}) &
+              (MergeContracts<Rest>["bindings"] extends Record<string, BindingDefinition>
+                ? MergeContracts<Rest>["bindings"]
+                : {});
+            publishers: (First["publishers"] extends Record<string, PublisherDefinition>
+              ? First["publishers"]
+              : {}) &
+              (MergeContracts<Rest>["publishers"] extends Record<string, PublisherDefinition>
+                ? MergeContracts<Rest>["publishers"]
+                : {});
+            consumers: (First["consumers"] extends Record<string, ConsumerDefinition>
+              ? First["consumers"]
+              : {}) &
+              (MergeContracts<Rest>["consumers"] extends Record<string, ConsumerDefinition>
+                ? MergeContracts<Rest>["consumers"]
+                : {});
+          }
+        : ContractDefinition;

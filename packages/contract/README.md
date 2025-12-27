@@ -59,6 +59,21 @@ const contract = defineContract({
 - ✅ Full type safety with TypeScript inference
 - ✅ Event-oriented (publisher-first) and command-oriented (consumer-first) patterns
 
+### Merging Contracts
+
+For larger applications, split contracts into subdomains and merge them:
+
+```typescript
+import { mergeContracts } from '@amqp-contract/contract';
+
+const orderContract = defineContract({ /* order resources */ });
+const paymentContract = defineContract({ /* payment resources */ });
+
+const appContract = mergeContracts(orderContract, paymentContract);
+```
+
+Learn more in the [Contract Merging guide](https://btravers.github.io/amqp-contract/guide/defining-contracts#merging-contracts).
+
 ## Documentation
 
 📖 **[Read the full documentation →](https://btravers.github.io/amqp-contract)**
