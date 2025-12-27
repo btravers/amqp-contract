@@ -1,29 +1,34 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Inject, Injectable, Logger } from "@nestjs/common";
 import { AmqpClientService } from "@amqp-contract/client-nestjs";
 import type { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
+import type { Future, Result } from "@swan-io/boxed";
+import type { MessageValidationError, TechnicalError } from "@amqp-contract/client";
 
 @Injectable()
 export class UrgentUpdateUseCase {
   private readonly logger = new Logger(UrgentUpdateUseCase.name);
 
-  constructor(private readonly amqpClient: AmqpClientService<typeof orderContract>) {}
+  constructor(
+    @Inject(AmqpClientService) private readonly amqpClient: AmqpClientService<typeof orderContract>,
+  ) {}
 
-  async execute(
+  execute(
     orderId: string,
     status: "processing" | "shipped" | "delivered" | "cancelled",
-  ) {
-    const result = await this.amqpClient.publish("orderUrgentUpdate", {
-      orderId,
-      status,
-      updatedAt: new Date().toISOString(),
-    });
+  ): Future<Result<{ success: true }, TechnicalError | MessageValidationError>> {
+    this.logger.log(`Publishing urgent update for ${orderId}: ${status}`);
 
-    if (result.isError()) {
-      this.logger.error(`Failed to publish urgent update for ${orderId}`, result.error);
-      throw result.error;
-    }
-
-    this.logger.warn(`Published urgent update for ${orderId}: ${status}`);
-    return { success: true };
+    return this.amqpClient
+      .publish("orderUrgentUpdate", {
+        orderId,
+        status,
+        updatedAt: new Date().toISOString(),
+      })
+      .map((result) => {
+        return result.mapOk(() => {
+          this.logger.log(`Published urgent update for ${orderId}: ${status}`);
+          return { success: true as const };
+        });
+      });
   }
 }

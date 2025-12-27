@@ -1,24 +1,43 @@
 import type { INestApplicationContext } from "@nestjs/common";
-import { afterEach, beforeEach, describe, expect } from "vitest";
+import { describe, expect } from "vitest";
 import { bootstrap } from "./bootstrap.js";
 import { it } from "@amqp-contract/testing/extension";
-import { OrderService } from "./order.service.js";
+import {
+  CreateOrderUseCase,
+  ShipOrderUseCase,
+  UrgentUpdateUseCase,
+  UpdateOrderStatusUseCase,
+} from "./use-cases/index.js";
+
+const testIt = it.extend<{
+  app: INestApplicationContext;
+  createOrderUseCase: CreateOrderUseCase;
+  updateOrderStatusUseCase: UpdateOrderStatusUseCase;
+  shipOrderUseCase: ShipOrderUseCase;
+  urgentUpdateUseCase: UrgentUpdateUseCase;
+}>({
+  app: async ({}, use) => {
+    const app = await bootstrap();
+    await use(app);
+    await app.close();
+  },
+  createOrderUseCase: async ({ app }, use) => {
+    await use(app.get(CreateOrderUseCase));
+  },
+  updateOrderStatusUseCase: async ({ app }, use) => {
+    await use(app.get(UpdateOrderStatusUseCase));
+  },
+  shipOrderUseCase: async ({ app }, use) => {
+    await use(app.get(ShipOrderUseCase));
+  },
+  urgentUpdateUseCase: async ({ app }, use) => {
+    await use(app.get(UrgentUpdateUseCase));
+  },
+});
 
 describe("NestJS Client Integration", () => {
-  let app: INestApplicationContext;
-
-  beforeEach(async () => {
-    app = await bootstrap();
-  });
-
-  afterEach(async () => {
-    await app.close();
-  });
-
-  it("should publish a new order successfully", async () => {
+  testIt("should publish a new order successfully", async ({ createOrderUseCase }) => {
     // GIVEN
-    const orderService = app.get(OrderService);
-
     const newOrder = {
       orderId: "TEST-001",
       customerId: "CUST-123",
@@ -30,42 +49,47 @@ describe("NestJS Client Integration", () => {
     };
 
     // WHEN
-    const result = await orderService.createOrder(newOrder);
+    const result = await createOrderUseCase.execute(newOrder).resultToPromise();
 
     // THEN
-    expect(result).toEqual({ success: true });
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.get()).toEqual({ success: true });
+    }
   });
 
-  it("should publish order status updates", async () => {
-    // GIVEN
-    const orderService = app.get(OrderService);
-
+  testIt("should publish order status updates", async ({ updateOrderStatusUseCase }) => {
     // WHEN
-    const result = await orderService.updateOrderStatus("TEST-001", "processing");
+    const result = await updateOrderStatusUseCase
+      .execute("TEST-001", "processing")
+      .resultToPromise();
 
     // THEN
-    expect(result).toEqual({ success: true });
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.get()).toEqual({ success: true });
+    }
   });
 
-  it("should publish shipment notifications", async () => {
-    // GIVEN
-    const orderService = app.get(OrderService);
-
+  testIt("should publish shipment notifications", async ({ shipOrderUseCase }) => {
     // WHEN
-    const result = await orderService.shipOrder("TEST-001");
+    const result = await shipOrderUseCase.execute("TEST-001").resultToPromise();
 
     // THEN
-    expect(result).toEqual({ success: true });
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.get()).toEqual({ success: true });
+    }
   });
 
-  it("should publish urgent updates", async () => {
-    // GIVEN
-    const orderService = app.get(OrderService);
-
+  testIt("should publish urgent updates", async ({ urgentUpdateUseCase }) => {
     // WHEN
-    const result = await orderService.urgentUpdate("TEST-002", "cancelled");
+    const result = await urgentUpdateUseCase.execute("TEST-002", "cancelled").resultToPromise();
 
     // THEN
-    expect(result).toEqual({ success: true });
+    expect(result.isOk()).toBe(true);
+    if (result.isOk()) {
+      expect(result.get()).toEqual({ success: true });
+    }
   });
 });

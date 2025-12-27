@@ -1,7 +1,6 @@
 import { type ConfigType, Module } from "@nestjs/common";
 import { AmqpClientModule } from "@amqp-contract/client-nestjs";
 import { ConfigModule } from "@nestjs/config";
-import { OrderService } from "./order.service.js";
 import {
   CreateOrderUseCase,
   ShipOrderUseCase,
@@ -23,14 +22,12 @@ import { orderContract } from "@amqp-contract-samples/basic-order-processing-con
     }),
   ],
   providers: [
-    // Use Cases (Application Layer)
+    // Use Cases (Application Layer) - inject directly
     CreateOrderUseCase,
     UpdateOrderStatusUseCase,
     ShipOrderUseCase,
     UrgentUpdateUseCase,
-    // Service (Interface Adapter Layer)
-    OrderService,
   ],
-  exports: [OrderService],
+  exports: [CreateOrderUseCase, UpdateOrderStatusUseCase, ShipOrderUseCase, UrgentUpdateUseCase],
 })
 export class AppModule {}
