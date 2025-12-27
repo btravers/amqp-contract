@@ -12,7 +12,10 @@ export default defineConfig({
       {
         test: {
           name: "unit",
-          include: ["src/**/*.unit.spec.ts"],
+          include: ["src/**/*.unit.spec.ts", "src/**/*.test-d.ts"],
+          typecheck: {
+            enabled: true,
+          },
         },
       },
       {
@@ -20,15 +23,6 @@ export default defineConfig({
           name: "integration",
           globalSetup: "@amqp-contract/testing/global-setup",
           include: ["src/**/*.integration.spec.ts"],
-        },
-      },
-      {
-        test: {
-          name: "typecheck",
-          include: ["src/**/*.test-d.ts"],
-          typecheck: {
-            enabled: true,
-          },
         },
       },
     ],

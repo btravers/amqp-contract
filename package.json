@@ -17,7 +17,6 @@
     "sort-package-json": "sort-package-json '**/package.json' '!**/node_modules/**'",
     "test": "turbo run test",
     "test:integration": "turbo run test:integration",
-    "test:type": "turbo run test:type",
     "typecheck": "turbo run typecheck",
     "version": "changeset version"
   },
