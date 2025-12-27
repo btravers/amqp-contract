@@ -1,16 +1,16 @@
 import { ConfigModule, ConfigType } from "@nestjs/config";
-import { Logger, Module } from "@nestjs/common";
-import { AmqpWorkerModule } from "@amqp-contract/worker-nestjs";
-import { amqpConfig } from "./config/amqp.config.js";
-import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
 import {
-  HandlersModule,
   HandleUrgentOrderHandler,
+  HandlersModule,
   NotifyOrderHandler,
   ProcessAnalyticsHandler,
   ProcessOrderHandler,
   ShipOrderHandler,
 } from "./handlers";
+import { AmqpWorkerModule } from "@amqp-contract/worker-nestjs";
+import { Module } from "@nestjs/common";
+import { amqpConfig } from "./config/amqp.config.js";
+import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
 
 @Module({
   imports: [

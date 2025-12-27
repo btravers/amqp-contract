@@ -6,10 +6,10 @@ import {
   ShipOrderHandler,
 } from "./handlers/index.js";
 import { describe, expect, vi } from "vitest";
-import { bootstrap } from "./bootstrap.js";
+import type { INestApplicationContext } from "@nestjs/common";
 import { it as baseIt } from "@amqp-contract/testing/extension";
+import { bootstrap } from "./bootstrap.js";
 import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
-import { INestApplicationContext } from "@nestjs/common";
 
 const it = baseIt.extend<{ app: INestApplicationContext }>({
   app: async ({ amqpConnectionUrl }, use) => {

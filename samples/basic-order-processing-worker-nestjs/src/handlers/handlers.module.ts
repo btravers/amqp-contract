@@ -1,4 +1,3 @@
-import { Module } from "@nestjs/common";
 import {
   HandleUrgentOrderHandler,
   NotifyOrderHandler,
@@ -6,6 +5,7 @@ import {
   ProcessOrderHandler,
   ShipOrderHandler,
 } from "./index.js";
+import { Module } from "@nestjs/common";
 
 @Module({
   providers: [
