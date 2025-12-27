@@ -17,6 +17,10 @@
       "dependsOn": ["build"],
       "cache": false
     },
+    "test:type": {
+      "dependsOn": ["build"],
+      "cache": false
+    },
     "dev": {
       "cache": false,
       "persistent": true,
