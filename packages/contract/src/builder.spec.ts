@@ -1255,12 +1255,10 @@ describe("builder", () => {
       const merged = mergeContracts(contract1, contract2);
 
       // THEN
-      expect(merged.publishers).toBeDefined();
-      expect(Object.keys(merged.publishers ?? {})).toEqual(["pub1", "shared", "pub2"]);
-      expect(merged.publishers?.["shared"]).toEqual({
-        exchange,
-        message: message2,
-        routingKey: "v2",
+      expect(merged.publishers).toEqual({
+        pub1: { exchange, message: message1, routingKey: "first" },
+        shared: { exchange, message: message2, routingKey: "v2" },
+        pub2: { exchange, message: message2, routingKey: "second" },
       });
     });
   });
