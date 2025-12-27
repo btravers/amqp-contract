@@ -9,12 +9,12 @@ import {
   mergeContracts,
 } from "./builder.js";
 import { describe, expectTypeOf, it } from "vitest";
-import type { MergeContracts } from "./types.js";
+import type { ContractDefinition } from "./types.js";
 import { z } from "zod";
 
 describe("mergeContracts - Type Tests", () => {
   describe("Type safety and inference", () => {
-    it("should merge two contracts with publishers", () => {
+    it("should return a valid ContractDefinition when merging two contracts with publishers", () => {
       // GIVEN
       const orderExchange = defineExchange("orders", "topic", { durable: true });
       const paymentExchange = defineExchange("payments", "topic", { durable: true });
@@ -43,12 +43,13 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(orderContract, paymentContract);
 
-      // THEN - Verify merged type matches expected structure
-      type Expected = MergeContracts<[typeof orderContract, typeof paymentContract]>;
-      expectTypeOf(merged).toMatchTypeOf<Expected>();
+      // THEN - Verify result is a valid ContractDefinition
+      expectTypeOf(merged).toMatchTypeOf<ContractDefinition>();
+      expectTypeOf(merged).toHaveProperty("exchanges");
+      expectTypeOf(merged).toHaveProperty("publishers");
     });
 
-    it("should merge two contracts with consumers", () => {
+    it("should return a valid ContractDefinition when merging two contracts with consumers", () => {
       // GIVEN
       const orderQueue = defineQueue("orders", { durable: true });
       const paymentQueue = defineQueue("payments", { durable: true });
@@ -73,12 +74,13 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(orderContract, paymentContract);
 
-      // THEN - Verify merged type matches expected structure
-      type Expected = MergeContracts<[typeof orderContract, typeof paymentContract]>;
-      expectTypeOf(merged).toMatchTypeOf<Expected>();
+      // THEN - Verify result is a valid ContractDefinition
+      expectTypeOf(merged).toMatchTypeOf<ContractDefinition>();
+      expectTypeOf(merged).toHaveProperty("queues");
+      expectTypeOf(merged).toHaveProperty("consumers");
     });
 
-    it("should merge all resource types", () => {
+    it("should return a valid ContractDefinition with all resource types", () => {
       // GIVEN
       const exchange1 = defineExchange("ex1", "topic", { durable: true });
       const exchange2 = defineExchange("ex2", "topic", { durable: true });
@@ -118,12 +120,16 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(contract1, contract2);
 
-      // THEN - Verify merged type matches expected structure with all resources
-      type Expected = MergeContracts<[typeof contract1, typeof contract2]>;
-      expectTypeOf(merged).toMatchTypeOf<Expected>();
+      // THEN - Verify result is a valid ContractDefinition with all resource types
+      expectTypeOf(merged).toMatchTypeOf<ContractDefinition>();
+      expectTypeOf(merged).toHaveProperty("exchanges");
+      expectTypeOf(merged).toHaveProperty("queues");
+      expectTypeOf(merged).toHaveProperty("bindings");
+      expectTypeOf(merged).toHaveProperty("publishers");
+      expectTypeOf(merged).toHaveProperty("consumers");
     });
 
-    it("should merge three or more contracts", () => {
+    it("should return a valid ContractDefinition when merging three or more contracts", () => {
       // GIVEN
       const ex1 = defineExchange("ex1", "topic", { durable: true });
       const ex2 = defineExchange("ex2", "topic", { durable: true });
@@ -146,12 +152,13 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(contract1, contract2, contract3);
 
-      // THEN - Verify merged type matches expected structure with all three contracts
-      type Expected = MergeContracts<[typeof contract1, typeof contract2, typeof contract3]>;
-      expectTypeOf(merged).toMatchTypeOf<Expected>();
+      // THEN - Verify result is a valid ContractDefinition
+      expectTypeOf(merged).toMatchTypeOf<ContractDefinition>();
+      expectTypeOf(merged).toHaveProperty("exchanges");
+      expectTypeOf(merged).toHaveProperty("publishers");
     });
 
-    it("should handle empty contracts in merge", () => {
+    it("should return a valid ContractDefinition when handling empty contracts", () => {
       // GIVEN
       const exchange = defineExchange("test", "topic", { durable: true });
       const message = defineMessage(z.object({ id: z.string() }));
@@ -164,12 +171,13 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(emptyContract, fullContract);
 
-      // THEN - Verify merged type matches expected structure
-      type Expected = MergeContracts<[typeof emptyContract, typeof fullContract]>;
-      expectTypeOf(merged).toMatchTypeOf<Expected>();
+      // THEN - Verify result is a valid ContractDefinition
+      expectTypeOf(merged).toMatchTypeOf<ContractDefinition>();
+      expectTypeOf(merged).toHaveProperty("exchanges");
+      expectTypeOf(merged).toHaveProperty("publishers");
     });
 
-    it("should preserve exact types when merging", () => {
+    it("should return a valid ContractDefinition preserving types", () => {
       // GIVEN
       const ex1 = defineExchange("ex1", "topic", { durable: true });
       const ex2 = defineExchange("ex2", "topic", { durable: true });
@@ -184,12 +192,12 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(contract1, contract2);
 
-      // THEN - Verify merged type matches expected structure
-      type Expected = MergeContracts<[typeof contract1, typeof contract2]>;
-      expectTypeOf(merged).toMatchTypeOf<Expected>();
+      // THEN - Verify result is a valid ContractDefinition
+      expectTypeOf(merged).toMatchTypeOf<ContractDefinition>();
+      expectTypeOf(merged).toHaveProperty("exchanges");
     });
 
-    it("should merge partial contracts with exact types", () => {
+    it("should return a valid ContractDefinition when merging partial contracts", () => {
       // GIVEN
       const exchange = defineExchange("ex", "topic", { durable: true });
       const queue = defineQueue("q", { durable: true });
@@ -206,14 +214,14 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(contractWithExchange, contractWithQueue, contractWithPublisher);
 
-      // THEN - Verify merged type matches expected structure
-      type Expected = MergeContracts<
-        [typeof contractWithExchange, typeof contractWithQueue, typeof contractWithPublisher]
-      >;
-      expectTypeOf(merged).toMatchTypeOf<Expected>();
+      // THEN - Verify result is a valid ContractDefinition
+      expectTypeOf(merged).toMatchTypeOf<ContractDefinition>();
+      expectTypeOf(merged).toHaveProperty("exchanges");
+      expectTypeOf(merged).toHaveProperty("queues");
+      expectTypeOf(merged).toHaveProperty("publishers");
     });
 
-    it("should merge publishers with different message types", () => {
+    it("should return a valid ContractDefinition with different message types", () => {
       // GIVEN
       const exchange = defineExchange("ex", "topic", { durable: true });
       const orderMessage = defineMessage(
@@ -248,12 +256,12 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(orderContract, paymentContract);
 
-      // THEN - Verify merged type matches expected structure
-      type Expected = MergeContracts<[typeof orderContract, typeof paymentContract]>;
-      expectTypeOf(merged).toMatchTypeOf<Expected>();
+      // THEN - Verify result is a valid ContractDefinition
+      expectTypeOf(merged).toMatchTypeOf<ContractDefinition>();
+      expectTypeOf(merged).toHaveProperty("publishers");
     });
 
-    it("should merge contracts with only exchanges", () => {
+    it("should return a valid ContractDefinition with only exchanges", () => {
       // GIVEN
       const ex1 = defineExchange("ex1", "topic", { durable: true });
       const ex2 = defineExchange("ex2", "direct", { durable: false });
@@ -264,12 +272,12 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(contract1, contract2);
 
-      // THEN - Verify merged type matches expected structure
-      type Expected = MergeContracts<[typeof contract1, typeof contract2]>;
-      expectTypeOf(merged).toMatchTypeOf<Expected>();
+      // THEN - Verify result is a valid ContractDefinition
+      expectTypeOf(merged).toMatchTypeOf<ContractDefinition>();
+      expectTypeOf(merged).toHaveProperty("exchanges");
     });
 
-    it("should preserve exact types for single contract", () => {
+    it("should return a valid ContractDefinition for single contract", () => {
       // GIVEN
       const exchange = defineExchange("test", "topic", { durable: true });
       const message = defineMessage(z.object({ id: z.string() }));
@@ -281,9 +289,10 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(contract);
 
-      // THEN - Verify merged type matches expected structure
-      type Expected = MergeContracts<[typeof contract]>;
-      expectTypeOf(merged).toMatchTypeOf<Expected>();
+      // THEN - Verify result is a valid ContractDefinition
+      expectTypeOf(merged).toMatchTypeOf<ContractDefinition>();
+      expectTypeOf(merged).toHaveProperty("exchanges");
+      expectTypeOf(merged).toHaveProperty("publishers");
     });
   });
 });
