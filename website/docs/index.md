@@ -89,7 +89,7 @@ const orderCreatedEvent = definePublisherFirst(
 );
 
 // Create consumer from the event
-const { consumer: processOrderConsumer, binding: orderBinding } = 
+const { consumer: processOrderConsumer, binding: orderBinding } =
   orderCreatedEvent.createConsumer(orderProcessingQueue);
 
 // Compose contract

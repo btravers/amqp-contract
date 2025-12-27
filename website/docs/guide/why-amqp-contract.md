@@ -123,7 +123,7 @@ const orderCreatedEvent = definePublisherFirst(
 );
 
 // 4. Create consumer from event (ensures schema consistency)
-const { consumer: processOrderConsumer, binding: orderBinding } = 
+const { consumer: processOrderConsumer, binding: orderBinding } =
   orderCreatedEvent.createConsumer(orderProcessingQueue);
 
 // 5. Create contract
@@ -215,7 +215,7 @@ const orderCreatedEvent = definePublisherFirst(
   { routingKey: 'order.created' }
 );
 
-const { consumer: processOrderConsumer, binding: orderBinding } = 
+const { consumer: processOrderConsumer, binding: orderBinding } =
   orderCreatedEvent.createConsumer(orderProcessingQueue);
 
 const contract = defineContract({
