@@ -30,17 +30,32 @@ const orderMessage = defineMessage(
   })
 );
 
-// 2. Create contract
+// 2. Publisher-first pattern (recommended for events)
+const orderCreatedEvent = definePublisherFirst(
+  ordersExchange,
+  orderMessage,
+  { routingKey: 'order.created' }
+);
+
+// 3. Create consumer from event
+const orderProcessingQueue = defineQueue('order-processing', { durable: true });
+const { consumer: processOrderConsumer, binding: orderBinding } =
+  orderCreatedEvent.createConsumer(orderProcessingQueue);
+
+// 4. Compose contract
 const contract = defineContract({
   exchanges: { orders: ordersExchange },
+  queues: { orderProcessing: orderProcessingQueue },
+  bindings: { orderBinding },
   publishers: {
-    orderCreated: definePublisher(ordersExchange, orderMessage, {
-      routingKey: 'order.created',
-    }),
+    orderCreated: orderCreatedEvent.publisher,
+  },
+  consumers: {
+    processOrder: processOrderConsumer,
   },
 });
 
-// 3. Client knows exact types
+// 5. Client knows exact types
 const clientResult = await TypedAmqpClient.create({
   contract,
   urls: ['amqp://localhost']
@@ -106,16 +121,24 @@ import { type } from 'arktype';
 
 const ordersExchange = defineExchange('orders', 'topic', { durable: true });
 
-// All work the same way:
-definePublisher(ordersExchange, defineMessage(z.object({ id: z.string() })), {
-  routingKey: 'order.created',
-});
-definePublisher(ordersExchange, defineMessage(v.object({ id: v.string() })), {
-  routingKey: 'order.created',
-});
-definePublisher(ordersExchange, defineMessage(type({ id: 'string' })), {
-  routingKey: 'order.created',
-});
+// All work the same way with definePublisherFirst:
+const zodEvent = definePublisherFirst(
+  ordersExchange,
+  defineMessage(z.object({ id: z.string() })),
+  { routingKey: 'order.created' }
+);
+
+const valibotEvent = definePublisherFirst(
+  ordersExchange,
+  defineMessage(v.object({ id: v.string() })),
+  { routingKey: 'order.created' }
+);
+
+const arktypeEvent = definePublisherFirst(
+  ordersExchange,
+  defineMessage(type({ id: 'string' })),
+  { routingKey: 'order.created' }
+);
 ```
 
 ## AMQP Resources

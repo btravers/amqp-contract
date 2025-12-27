@@ -44,8 +44,7 @@ import {
   defineContract,
   defineExchange,
   defineQueue,
-  defineQueueBinding,
-  defineConsumer,
+  defineConsumerFirst,
   defineMessage,
 } from '@amqp-contract/contract';
 import { z } from 'zod';
@@ -67,16 +66,22 @@ const orderMessage = defineMessage(
   })
 );
 
+// Consumer-first pattern
+const orderCommandFirst = defineConsumerFirst(
+  orderProcessingQueue,
+  ordersExchange,
+  orderMessage,
+  { routingKey: 'order.created' }
+);
+
 export const contract = defineContract({
   exchanges: { orders: ordersExchange },
   queues: { orderProcessing: orderProcessingQueue },
   bindings: {
-    orderBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
-      routingKey: 'order.created',
-    }),
+    orderBinding: orderCommandFirst.binding,
   },
   consumers: {
-    processOrder: defineConsumer(orderProcessingQueue, orderMessage),
+    processOrder: orderCommandFirst.consumer,
   },
 });
 ```

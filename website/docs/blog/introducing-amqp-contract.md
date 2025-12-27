@@ -71,10 +71,8 @@ import {
   defineContract,
   defineExchange,
   defineQueue,
-  definePublisher,
-  defineConsumer,
+  definePublisherFirst,
   defineMessage,
-  defineQueueBinding,
 } from '@amqp-contract/contract';
 import { z } from 'zod';
 
@@ -99,6 +97,17 @@ const orderMessage = defineMessage(
   })
 );
 
+// Publisher-first pattern ensures consistency
+const orderCreatedEvent = definePublisherFirst(
+  ordersExchange,
+  orderMessage,
+  { routingKey: 'order.created' }
+);
+
+// Create consumer from event
+const { consumer: processOrderConsumer, binding: orderBinding } =
+  orderCreatedEvent.createConsumer(orderProcessingQueue);
+
 // Compose your contract
 export const contract = defineContract({
   exchanges: {
@@ -108,19 +117,13 @@ export const contract = defineContract({
     orderProcessing: orderProcessingQueue,
   },
   bindings: {
-    orderBinding: defineQueueBinding(
-      orderProcessingQueue,
-      ordersExchange,
-      { routingKey: 'order.created' }
-    ),
+    orderBinding,
   },
   publishers: {
-    orderCreated: definePublisher(ordersExchange, orderMessage, {
-      routingKey: 'order.created',
-    }),
+    orderCreated: orderCreatedEvent.publisher,
   },
   consumers: {
-    processOrder: defineConsumer(orderProcessingQueue, orderMessage),
+    processOrder: processOrderConsumer,
   },
 });
 ```

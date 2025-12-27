@@ -60,7 +60,13 @@ Get up and running in three simple steps:
 ::: code-group
 
 ```typescript [1. Define Contract]
-import { defineContract, defineExchange, defineQueue, definePublisher, defineConsumer, defineMessage } from '@amqp-contract/contract';
+import {
+  defineContract,
+  defineExchange,
+  defineQueue,
+  definePublisherFirst,
+  defineMessage,
+} from '@amqp-contract/contract';
 import { z } from 'zod';
 
 // Define resources
@@ -75,17 +81,27 @@ const orderMessage = defineMessage(
   })
 );
 
+// Publisher-first pattern ensures consistency
+const orderCreatedEvent = definePublisherFirst(
+  ordersExchange,
+  orderMessage,
+  { routingKey: 'order.created' }
+);
+
+// Create consumer from the event
+const { consumer: processOrderConsumer, binding: orderBinding } =
+  orderCreatedEvent.createConsumer(orderProcessingQueue);
+
 // Compose contract
 export const contract = defineContract({
   exchanges: { orders: ordersExchange },
   queues: { orderProcessing: orderProcessingQueue },
+  bindings: { orderBinding },
   publishers: {
-    orderCreated: definePublisher(ordersExchange, orderMessage, {
-      routingKey: 'order.created',
-    }),
+    orderCreated: orderCreatedEvent.publisher,
   },
   consumers: {
-    processOrder: defineConsumer(orderProcessingQueue, orderMessage),
+    processOrder: processOrderConsumer,
   },
 });
 ```

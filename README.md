@@ -28,7 +28,13 @@ End-to-end type safety and automatic validation for AMQP messaging
 ## Quick Example
 
 ```typescript
-import { defineContract, defineExchange, defineQueue, definePublisher, defineConsumer, defineQueueBinding, defineMessage } from '@amqp-contract/contract';
+import {
+  defineContract,
+  defineExchange,
+  defineQueue,
+  definePublisherFirst,
+  defineMessage,
+} from '@amqp-contract/contract';
 import { TypedAmqpClient } from '@amqp-contract/client';
 import { TypedAmqpWorker } from '@amqp-contract/worker';
 import { z } from 'zod';
@@ -45,7 +51,18 @@ const orderMessage = defineMessage(
   })
 );
 
-// 3. Define contract
+// 3. Publisher-first pattern ensures consistency
+const orderCreatedEvent = definePublisherFirst(
+  ordersExchange,
+  orderMessage,
+  { routingKey: 'order.created' }
+);
+
+// 4. Create consumer from event
+const { consumer: processOrderConsumer, binding: orderBinding } =
+  orderCreatedEvent.createConsumer(orderProcessingQueue);
+
+// 5. Define contract
 const contract = defineContract({
   exchanges: {
     orders: ordersExchange,
@@ -54,21 +71,17 @@ const contract = defineContract({
     orderProcessing: orderProcessingQueue,
   },
   bindings: {
-    orderBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
-      routingKey: 'order.created',
-    }),
+    orderBinding,
   },
   publishers: {
-    orderCreated: definePublisher(ordersExchange, orderMessage, {
-      routingKey: 'order.created',
-    }),
+    orderCreated: orderCreatedEvent.publisher,
   },
   consumers: {
-    processOrder: defineConsumer(orderProcessingQueue, orderMessage),
+    processOrder: processOrderConsumer,
   },
 });
 
-// 4. Client - type-safe publishing with explicit error handling
+// 6. Client - type-safe publishing with explicit error handling
 const clientResult = await TypedAmqpClient.create({ contract, connection });
 if (clientResult.isError()) {
   throw clientResult.error; // or handle error appropriately
@@ -89,7 +102,7 @@ result.match({
   },
 });
 
-// 5. Worker - type-safe consuming
+// 7. Worker - type-safe consuming
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {

@@ -43,7 +43,7 @@ First, define your AMQP contract with publishers:
 import {
   defineContract,
   defineExchange,
-  definePublisher,
+  definePublisherFirst,
   defineMessage,
 } from '@amqp-contract/contract';
 import { z } from 'zod';
@@ -64,12 +64,17 @@ const orderMessage = defineMessage(
   })
 );
 
+// Publisher-first pattern
+const orderCreatedEvent = definePublisherFirst(
+  ordersExchange,
+  orderMessage,
+  { routingKey: 'order.created' }
+);
+
 export const contract = defineContract({
   exchanges: { orders: ordersExchange },
   publishers: {
-    orderCreated: definePublisher(ordersExchange, orderMessage, {
-      routingKey: 'order.created',
-    }),
+    orderCreated: orderCreatedEvent.publisher,
   },
 });
 ```
