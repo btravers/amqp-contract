@@ -38,7 +38,7 @@ async function runDemo(): Promise<void> {
       >,
       errorMessage: string,
     ): Promise<void> => {
-      const result = await future.resultToPromise();
+      const result = await future;
       if (result.isError()) {
         logger.error(errorMessage, result.error);
         throw result.error;

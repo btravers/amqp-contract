@@ -17,9 +17,7 @@ export class CreateOrderUseCase {
 
   constructor(private readonly amqpClient: AmqpClientService<typeof orderContract>) {}
 
-  execute(
-    order: CreateOrderInput,
-  ): Future<Result<{ success: true }, TechnicalError | MessageValidationError>> {
+  execute(order: CreateOrderInput): Future<Result<void, TechnicalError | MessageValidationError>> {
     this.logger.log(`Publishing order ${order.orderId}`);
 
     return this.amqpClient
@@ -27,11 +25,8 @@ export class CreateOrderUseCase {
         ...order,
         createdAt: new Date().toISOString(),
       })
-      .map((result) => {
-        return result.mapOk(() => {
-          this.logger.log(`Published order ${order.orderId}`);
-          return { success: true as const };
-        });
+      .tapOk(() => {
+        this.logger.log(`Published order ${order.orderId}`);
       });
   }
 }

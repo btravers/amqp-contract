@@ -1,4 +1,4 @@
-import { type ConfigType, Module } from "@nestjs/common";
+import { Module } from "@nestjs/common";
 import {
   CreateOrderUseCase,
   ShipOrderUseCase,
@@ -6,7 +6,7 @@ import {
   UrgentUpdateUseCase,
 } from "./use-cases/index.js";
 import { AmqpClientModule } from "@amqp-contract/client-nestjs";
-import { ConfigModule } from "@nestjs/config";
+import { ConfigModule, ConfigType } from "@nestjs/config";
 import { amqpConfig } from "./config/amqp.config.js";
 import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
 

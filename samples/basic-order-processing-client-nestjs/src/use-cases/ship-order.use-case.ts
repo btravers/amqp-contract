@@ -10,9 +10,7 @@ export class ShipOrderUseCase {
 
   constructor(private readonly amqpClient: AmqpClientService<typeof orderContract>) {}
 
-  execute(
-    orderId: string,
-  ): Future<Result<{ success: true }, TechnicalError | MessageValidationError>> {
+  execute(orderId: string): Future<Result<void, TechnicalError | MessageValidationError>> {
     this.logger.log(`Publishing shipment for ${orderId}`);
 
     return this.amqpClient
@@ -21,11 +19,8 @@ export class ShipOrderUseCase {
         status: "shipped" as const,
         updatedAt: new Date().toISOString(),
       })
-      .map((result) => {
-        return result.mapOk(() => {
-          this.logger.log(`Published shipment for ${orderId}`);
-          return { success: true as const };
-        });
+      .tapOk(() => {
+        this.logger.log(`Published shipment for ${orderId}`);
       });
   }
 }

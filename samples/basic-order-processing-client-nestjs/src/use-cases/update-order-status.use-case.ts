@@ -13,7 +13,7 @@ export class UpdateOrderStatusUseCase {
   execute(
     orderId: string,
     status: "processing" | "shipped" | "delivered" | "cancelled",
-  ): Future<Result<{ success: true }, TechnicalError | MessageValidationError>> {
+  ): Future<Result<void, TechnicalError | MessageValidationError>> {
     this.logger.log(`Publishing status update for ${orderId}: ${status}`);
 
     return this.amqpClient
@@ -22,11 +22,8 @@ export class UpdateOrderStatusUseCase {
         status,
         updatedAt: new Date().toISOString(),
       })
-      .map((result) => {
-        return result.mapOk(() => {
-          this.logger.log(`Published status update for ${orderId}: ${status}`);
-          return { success: true as const };
-        });
+      .tapOk(() => {
+        this.logger.log(`Published status update for ${orderId}: ${status}`);
       });
   }
 }
