@@ -25,6 +25,8 @@ pnpm build
 
 2. Run the basic order processing example:
 
+**Plain TypeScript:**
+
 ```bash
 # Terminal 1: Start the worker
 pnpm --filter @amqp-contract-samples/basic-order-processing-worker dev
@@ -33,11 +35,25 @@ pnpm --filter @amqp-contract-samples/basic-order-processing-worker dev
 pnpm --filter @amqp-contract-samples/basic-order-processing-client dev
 ```
 
+**NestJS:**
+
+```bash
+# Terminal 1: Start the NestJS worker
+pnpm --filter @amqp-contract-samples/basic-order-processing-worker-nestjs dev
+
+# Terminal 2: Run the NestJS client
+pnpm --filter @amqp-contract-samples/basic-order-processing-client-nestjs dev
+```
+
 ## Available Samples
 
-| Sample                                                      | Description                                        |
-| ----------------------------------------------------------- | -------------------------------------------------- |
-| [Basic Order Processing](./basic-order-processing-contract) | Complete example with client, worker, and contract |
-| [AsyncAPI Generation](./asyncapi-generation)                | Generate AsyncAPI 3.0 specifications               |
+| Sample                                                                             | Description                                     |
+| ---------------------------------------------------------------------------------- | ----------------------------------------------- |
+| [Basic Order Processing - Contract](./basic-order-processing-contract)             | Shared contract definition for order processing |
+| [Basic Order Processing - Client](./basic-order-processing-client)                 | Plain TypeScript client for publishing orders   |
+| [Basic Order Processing - Worker](./basic-order-processing-worker)                 | Plain TypeScript worker for consuming orders    |
+| [Basic Order Processing - Client (NestJS)](./basic-order-processing-client-nestjs) | NestJS client with dependency injection         |
+| [Basic Order Processing - Worker (NestJS)](./basic-order-processing-worker-nestjs) | NestJS worker with modular handlers             |
+| [AsyncAPI Generation](./asyncapi-generation)                                       | Generate AsyncAPI 3.0 specifications            |
 
 For detailed documentation, examples, and tutorials, visit the **[amqp-contract website](https://btravers.github.io/amqp-contract/)**.

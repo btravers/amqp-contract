@@ -2,4 +2,8 @@ export { AmqpClientModule, type AmqpClientModuleAsyncOptions } from "./client.mo
 export { MODULE_OPTIONS_TOKEN } from "./client.module-definition.js";
 export { AmqpClientService } from "./client.service.js";
 export type { AmqpClientModuleOptions } from "./client.service.js";
-export type { ClientInferPublisherInput } from "@amqp-contract/client";
+export type {
+  ClientInferPublisherInput,
+  TechnicalError,
+  MessageValidationError,
+} from "@amqp-contract/client";
