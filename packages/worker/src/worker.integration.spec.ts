@@ -541,7 +541,6 @@ describe("AmqpWorker Integration", () => {
     // WHEN - Delete the queue, which causes RabbitMQ
     // to cancel the consumer and send a null message to the consumer callback
     await adminChannel.deleteQueue(queue.name);
-    await adminChannel.close();
 
     // THEN - Wait for the null message to be received
     await vi.waitFor(
@@ -557,6 +556,7 @@ describe("AmqpWorker Integration", () => {
     expect(messageHandler).toHaveBeenCalledWith(null);
 
     // Clean up
+    await adminChannel.close();
     await consumerChannel.close();
   });
 
@@ -623,8 +623,8 @@ describe("AmqpWorker Integration", () => {
     );
 
     // THEN - Verify the worker was created successfully and can consume messages
-    // The worker code has null message handling at lines 220-227 in worker.ts
-    // that will log "Consumer cancelled by server" when RabbitMQ sends a null message
+    // The worker code has null message handling that will log "Consumer cancelled
+    // by server" when RabbitMQ sends a null message during consumer cancellation
     expect(mockLogger.info).toHaveBeenCalledWith(
       "Message consumed successfully",
       expect.objectContaining({
