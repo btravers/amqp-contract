@@ -98,7 +98,11 @@ export default withMermaid(
           },
           {
             text: "Advanced",
-            items: [{ text: "AsyncAPI Generation", link: "/guide/asyncapi-generation" }],
+            items: [
+              { text: "Connection Sharing", link: "/guide/connection-sharing" },
+              { text: "Channel Configuration", link: "/guide/channel-configuration" },
+              { text: "AsyncAPI Generation", link: "/guide/asyncapi-generation" },
+            ],
           },
         ],
         "/api/": [

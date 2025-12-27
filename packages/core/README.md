@@ -65,38 +65,7 @@ const amqpClient = new AmqpClient(contract, {
 await amqpClient.close();
 ```
 
-### Channel Configuration
-
-The `AmqpClient` constructor accepts optional `channelOptions` to customize the underlying AMQP channel behavior. This allows you to override default settings or add custom setup logic.
-
-```typescript
-import { AmqpClient } from "@amqp-contract/core";
-import type { Channel } from "amqplib";
-
-const amqpClient = new AmqpClient(contract, {
-  urls: ["amqp://localhost"],
-  channelOptions: {
-    // Override JSON serialization (default: true)
-    json: false,
-    
-    // Set a custom channel name for debugging
-    name: "my-custom-channel",
-    
-    // Enable confirm channel for publisher confirms
-    confirm: true,
-    
-    // Add custom setup logic after contract topology is established
-    setup: async (channel: Channel) => {
-      // Your custom channel setup
-      await channel.prefetch(10);
-      // Add additional exchanges, queues, or bindings not in the contract
-      await channel.assertQueue("custom-queue", { durable: true });
-    },
-  },
-});
-```
-
-**Note:** When providing a custom `setup` function, it will be called *after* the contract topology (exchanges, queues, and bindings) has been established. This ensures your contract is always properly set up before any custom logic runs.
+For advanced channel configuration options (custom setup, prefetch, publisher confirms), see the [Channel Configuration Guide](https://btravers.github.io/amqp-contract/guide/channel-configuration).
 
 ### Logger Interface
 
