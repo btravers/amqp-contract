@@ -8,11 +8,11 @@ import type { orderContract } from "@amqp-contract-samples/basic-order-processin
 export class ShipOrderUseCase {
   private readonly logger = new Logger(ShipOrderUseCase.name);
 
-  constructor(
-    private readonly amqpClient: AmqpClientService<typeof orderContract>,
-  ) {}
+  constructor(private readonly amqpClient: AmqpClientService<typeof orderContract>) {}
 
-  execute(orderId: string): Future<Result<{ success: true }, TechnicalError | MessageValidationError>> {
+  execute(
+    orderId: string,
+  ): Future<Result<{ success: true }, TechnicalError | MessageValidationError>> {
     this.logger.log(`Publishing shipment for ${orderId}`);
 
     return this.amqpClient

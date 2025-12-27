@@ -7,7 +7,9 @@ export class HandleUrgentOrderHandler {
   private readonly logger = new Logger(HandleUrgentOrderHandler.name);
 
   handler = defineHandler(orderContract, "handleUrgentOrder", async (message) => {
-    this.logger.warn(`[URGENT] Priority order update received: ${message.orderId} -> ${message.status}`);
+    this.logger.warn(
+      `[URGENT] Priority order update received: ${message.orderId} -> ${message.status}`,
+    );
     this.logger.warn(`Urgent update handled for order ${message.orderId}`);
   });
 }

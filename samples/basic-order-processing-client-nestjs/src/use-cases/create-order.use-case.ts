@@ -15,9 +15,7 @@ export type CreateOrderInput = {
 export class CreateOrderUseCase {
   private readonly logger = new Logger(CreateOrderUseCase.name);
 
-  constructor(
-    private readonly amqpClient: AmqpClientService<typeof orderContract>,
-  ) {}
+  constructor(private readonly amqpClient: AmqpClientService<typeof orderContract>) {}
 
   execute(
     order: CreateOrderInput,

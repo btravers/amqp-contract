@@ -10,7 +10,9 @@ export class ProcessOrderHandler {
     this.logger.log(
       `[PROCESSING] New order received: ${message.orderId} for customer ${message.customerId}`,
     );
-    this.logger.debug(`Order details: ${message.items.length} items, total: $${message.totalAmount}`);
+    this.logger.debug(
+      `Order details: ${message.items.length} items, total: $${message.totalAmount}`,
+    );
     this.logger.log(`Order ${message.orderId} processed successfully`);
   });
 }

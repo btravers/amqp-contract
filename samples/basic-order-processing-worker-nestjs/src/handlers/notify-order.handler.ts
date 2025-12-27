@@ -15,7 +15,9 @@ export class NotifyOrderHandler {
       );
     } else {
       // It's a status update
-      this.logger.log(`[NOTIFICATIONS] Status update received: ${message.orderId} -> ${message.status}`);
+      this.logger.log(
+        `[NOTIFICATIONS] Status update received: ${message.orderId} -> ${message.status}`,
+      );
     }
     this.logger.debug("Notification sent");
   });
