@@ -6,6 +6,7 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "noImplicitReturns": true,
+    "strictNullChecks": true,
     "strictPropertyInitialization": true
   },
   "include": ["src/**/*.ts"],
