@@ -12,6 +12,7 @@
     "@amqp-contract-samples/basic-order-processing-contract": "workspace:*",
     "@amqp-contract/client-nestjs": "workspace:*",
     "@nestjs/common": "catalog:",
+    "@nestjs/config": "catalog:",
     "@nestjs/core": "catalog:",
     "pino": "catalog:",
     "pino-pretty": "catalog:",

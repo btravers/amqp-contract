@@ -1,16 +1,16 @@
-import { AmqpWorkerModule } from "@amqp-contract/worker-nestjs";
-import { describe, expect } from "vitest";
 import {
-  handleUrgentOrderHandler,
-  notifyOrderHandler,
-  processAnalyticsHandler,
-  processOrderHandler,
-  shipOrderHandler,
+  HandleUrgentOrderHandler,
+  NotifyOrderHandler,
+  ProcessAnalyticsHandler,
+  ProcessOrderHandler,
+  ShipOrderHandler,
 } from "./handlers/index.js";
+import { AmqpWorkerModule } from "@amqp-contract/worker-nestjs";
 import { it } from "@amqp-contract/testing/extension";
 import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
-import { Test, type TestingModule } from "@nestjs/testing";
 import { TypedAmqpClient } from "@amqp-contract/client";
+import { describe, expect, vi } from "vitest";
+import { Test, type TestingModule } from "@nestjs/testing";
 
 describe("NestJS Worker Integration", () => {
   it("should process new orders from order.created queue", async ({ amqpConnectionUrl }) => {
@@ -26,10 +26,10 @@ describe("NestJS Worker Integration", () => {
           contract: orderContract,
           handlers: {
             processOrder: testProcessOrderHandler,
-            notifyOrder: notifyOrderHandler,
-            shipOrder: shipOrderHandler,
-            handleUrgentOrder: handleUrgentOrderHandler,
-            processAnalytics: processAnalyticsHandler,
+            notifyOrder: new NotifyOrderHandler().handler,
+            shipOrder: new ShipOrderHandler().handler,
+            handleUrgentOrder: new HandleUrgentOrderHandler().handler,
+            processAnalytics: new ProcessAnalyticsHandler().handler,
           },
           urls: [amqpConnectionUrl],
         }),
@@ -61,9 +61,10 @@ describe("NestJS Worker Integration", () => {
     expect(result.isOk()).toBe(true);
 
     // THEN
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    expect(processedOrders).toHaveLength(1);
-    expect(processedOrders[0]).toEqual(newOrder);
+    await vi.waitFor(() => {
+      expect(processedOrders).toHaveLength(1);
+      expect(processedOrders[0]).toEqual(newOrder);
+    });
 
     // CLEANUP
     await client.close().resultToPromise();
@@ -82,11 +83,11 @@ describe("NestJS Worker Integration", () => {
         AmqpWorkerModule.forRoot({
           contract: orderContract,
           handlers: {
-            processOrder: processOrderHandler,
+            processOrder: new ProcessOrderHandler().handler,
             notifyOrder: testNotifyOrderHandler,
-            shipOrder: shipOrderHandler,
-            handleUrgentOrder: handleUrgentOrderHandler,
-            processAnalytics: processAnalyticsHandler,
+            shipOrder: new ShipOrderHandler().handler,
+            handleUrgentOrder: new HandleUrgentOrderHandler().handler,
+            processAnalytics: new ProcessAnalyticsHandler().handler,
           },
           urls: [amqpConnectionUrl],
         }),
@@ -126,8 +127,9 @@ describe("NestJS Worker Integration", () => {
     expect(result2.isOk()).toBe(true);
 
     // THEN
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    expect(notifications.length).toBeGreaterThanOrEqual(2);
+    await vi.waitFor(() => {
+      expect(notifications.length).toBeGreaterThanOrEqual(2);
+    });
 
     // CLEANUP
     await client.close().resultToPromise();
@@ -146,11 +148,11 @@ describe("NestJS Worker Integration", () => {
         AmqpWorkerModule.forRoot({
           contract: orderContract,
           handlers: {
-            processOrder: processOrderHandler,
-            notifyOrder: notifyOrderHandler,
+            processOrder: new ProcessOrderHandler().handler,
+            notifyOrder: new NotifyOrderHandler().handler,
             shipOrder: testShipOrderHandler,
-            handleUrgentOrder: handleUrgentOrderHandler,
-            processAnalytics: processAnalyticsHandler,
+            handleUrgentOrder: new HandleUrgentOrderHandler().handler,
+            processAnalytics: new ProcessAnalyticsHandler().handler,
           },
           urls: [amqpConnectionUrl],
         }),
@@ -180,9 +182,10 @@ describe("NestJS Worker Integration", () => {
     expect(result.isOk()).toBe(true);
 
     // THEN
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    expect(shippedOrders).toHaveLength(1);
-    expect(shippedOrders[0]).toEqual(shippedOrder);
+    await vi.waitFor(() => {
+      expect(shippedOrders).toHaveLength(1);
+      expect(shippedOrders[0]).toEqual(shippedOrder);
+    });
 
     // CLEANUP
     await client.close().resultToPromise();

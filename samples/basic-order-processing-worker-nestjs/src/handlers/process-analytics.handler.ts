@@ -1,30 +1,25 @@
 import { defineHandler } from "@amqp-contract/worker";
-import { Logger } from "@nestjs/common";
 import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
+import { Injectable, Logger } from "@nestjs/common";
 
-const logger = new Logger("ProcessAnalyticsHandler");
+@Injectable()
+export class ProcessAnalyticsHandler {
+  private readonly logger = new Logger(ProcessAnalyticsHandler.name);
 
-export const processAnalyticsHandler = defineHandler(
-  orderContract,
-  "processAnalytics",
-  async (message) => {
+  handler = defineHandler(orderContract, "processAnalytics", async (message) => {
     // Check if it's a new order or a status update
     if ("items" in message) {
       // It's a full order
-      logger.log(
+      this.logger.log(
         `[ANALYTICS] New order data received via exchange-to-exchange binding: ${message.orderId}`,
       );
-      logger.debug(`Analytics: ${message.items.length} items, total: $${message.totalAmount}`);
+      this.logger.debug(`Analytics: ${message.items.length} items, total: $${message.totalAmount}`);
     } else {
       // It's a status update
-      logger.log(
+      this.logger.log(
         `[ANALYTICS] Status update received via exchange-to-exchange binding: ${message.orderId} -> ${message.status}`,
       );
     }
-
-    // Simulate analytics processing
-    await new Promise((resolve) => setTimeout(resolve, 100));
-
-    logger.debug("Analytics data processed");
-  },
-);
+    this.logger.debug("Analytics data processed");
+  });
+}

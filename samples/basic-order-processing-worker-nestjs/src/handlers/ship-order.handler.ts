@@ -1,14 +1,13 @@
 import { defineHandler } from "@amqp-contract/worker";
-import { Logger } from "@nestjs/common";
 import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
+import { Injectable, Logger } from "@nestjs/common";
 
-const logger = new Logger("ShipOrderHandler");
+@Injectable()
+export class ShipOrderHandler {
+  private readonly logger = new Logger(ShipOrderHandler.name);
 
-export const shipOrderHandler = defineHandler(orderContract, "shipOrder", async (message) => {
-  logger.log(`[SHIPPING] Shipment notification received: ${message.orderId} -> ${message.status}`);
-
-  // Simulate shipping preparation
-  await new Promise((resolve) => setTimeout(resolve, 400));
-
-  logger.log(`Shipping label prepared for order ${message.orderId}`);
-});
+  handler = defineHandler(orderContract, "shipOrder", async (message) => {
+    this.logger.log(`[SHIPPING] Shipment notification received: ${message.orderId} -> ${message.status}`);
+    this.logger.log(`Shipping label prepared for order ${message.orderId}`);
+  });
+}

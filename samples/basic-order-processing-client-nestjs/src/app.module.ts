@@ -1,20 +1,27 @@
 import { AmqpClientModule } from "@amqp-contract/client-nestjs";
-import { Module } from "@nestjs/common";
+import { ConfigModule as NestConfigModule } from "@nestjs/config";
 import { OrderService } from "./order.service.js";
 import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
 import { z } from "zod";
+import { Module } from "@nestjs/common";
 
-const env = z
-  .object({
-    AMQP_URL: z.string().url().default("amqp://localhost:5672"),
-  })
-  .parse(process.env);
+const envSchema = z.object({
+  AMQP_URL: z.string().url().default("amqp://localhost:5672"),
+});
+
+export type AppConfig = z.infer<typeof envSchema>;
 
 @Module({
   imports: [
-    AmqpClientModule.forRoot({
-      contract: orderContract,
-      urls: [env.AMQP_URL],
+    NestConfigModule.forFeature(() => {
+      const config = envSchema.parse(process.env);
+      return config;
+    }),
+    AmqpClientModule.forRootAsync({
+      useFactory: () => ({
+        contract: orderContract,
+        urls: [process.env["AMQP_URL"] || "amqp://localhost:5672"],
+      }),
     }),
   ],
   providers: [OrderService],

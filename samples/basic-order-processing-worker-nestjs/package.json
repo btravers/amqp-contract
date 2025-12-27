@@ -13,6 +13,7 @@
     "@amqp-contract/worker": "workspace:*",
     "@amqp-contract/worker-nestjs": "workspace:*",
     "@nestjs/common": "catalog:",
+    "@nestjs/config": "catalog:",
     "@nestjs/core": "catalog:",
     "pino": "catalog:",
     "pino-pretty": "catalog:",
