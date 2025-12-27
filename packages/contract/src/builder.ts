@@ -15,18 +15,6 @@ import type {
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 
 /**
- * Routing key type for publisher-first result.
- * This is a string that can be used to override the publisher's routing key for consumer bindings.
- */
-type PublisherFirstRoutingKey = string;
-
-/**
- * Routing key type for consumer-first result.
- * This is a string that matches the consumer's binding pattern.
- */
-type ConsumerFirstRoutingKey = string;
-
-/**
  * Define a fanout exchange.
  *
  * A fanout exchange routes messages to all bound queues without considering routing keys.
@@ -771,10 +759,12 @@ export type PublisherFirstResult<
  *
  * @template TMessage - The message definition
  * @template TPublisher - The publisher definition
+ * @template TRoutingKey - The literal routing key type from the publisher (for documentation purposes)
  */
 export type PublisherFirstResultWithRoutingKey<
   TMessage extends MessageDefinition,
   TPublisher extends PublisherDefinition<TMessage>,
+  TRoutingKey extends string = string,
 > = {
   /** The publisher definition */
   publisher: TPublisher;
@@ -788,7 +778,7 @@ export type PublisherFirstResultWithRoutingKey<
    */
   createConsumer: (
     queue: QueueDefinition,
-    routingKey?: PublisherFirstRoutingKey,
+    routingKey?: TRoutingKey | (string & {}),
   ) => {
     consumer: ConsumerDefinition<TMessage>;
     binding: QueueBindingDefinition;
@@ -908,11 +898,14 @@ export function definePublisherFirst<TMessage extends MessageDefinition>(
  * });
  * ```
  */
-export function definePublisherFirst<TMessage extends MessageDefinition>(
+export function definePublisherFirst<
+  TMessage extends MessageDefinition,
+  TRoutingKey extends string = string,
+>(
   exchange: DirectExchangeDefinition,
   message: TMessage,
   options: {
-    routingKey: string;
+    routingKey: TRoutingKey;
     arguments?: Record<string, unknown>;
   },
 ): PublisherFirstResult<
@@ -981,16 +974,20 @@ export function definePublisherFirst<TMessage extends MessageDefinition>(
  * });
  * ```
  */
-export function definePublisherFirst<TMessage extends MessageDefinition>(
+export function definePublisherFirst<
+  TMessage extends MessageDefinition,
+  TRoutingKey extends string = string,
+>(
   exchange: TopicExchangeDefinition,
   message: TMessage,
   options: {
-    routingKey: string;
+    routingKey: TRoutingKey;
     arguments?: Record<string, unknown>;
   },
 ): PublisherFirstResultWithRoutingKey<
   TMessage,
-  Extract<PublisherDefinition<TMessage>, { exchange: TopicExchangeDefinition }>
+  Extract<PublisherDefinition<TMessage>, { exchange: TopicExchangeDefinition }>,
+  TRoutingKey
 >;
 
 /**
@@ -1006,7 +1003,7 @@ export function definePublisherFirst<TMessage extends MessageDefinition>(
   },
 ):
   | PublisherFirstResult<TMessage, PublisherDefinition<TMessage>>
-  | PublisherFirstResultWithRoutingKey<TMessage, PublisherDefinition<TMessage>> {
+  | PublisherFirstResultWithRoutingKey<TMessage, PublisherDefinition<TMessage>, string> {
   // Create the publisher
   const publisher = callDefinePublisher(exchange, message, options);
 
@@ -1025,7 +1022,7 @@ export function definePublisherFirst<TMessage extends MessageDefinition>(
     return {
       publisher,
       createConsumer,
-    } as PublisherFirstResultWithRoutingKey<TMessage, PublisherDefinition<TMessage>>;
+    } as PublisherFirstResultWithRoutingKey<TMessage, PublisherDefinition<TMessage>, string>;
   }
 
   // For fanout and direct exchanges, use the same routing key from publisher
@@ -1081,11 +1078,13 @@ export type ConsumerFirstResult<
  * @template TMessage - The message definition
  * @template TConsumer - The consumer definition
  * @template TBinding - The queue binding definition
+ * @template TRoutingKey - The literal routing key type from the binding (for documentation purposes)
  */
 export type ConsumerFirstResultWithRoutingKey<
   TMessage extends MessageDefinition,
   TConsumer extends ConsumerDefinition<TMessage>,
   TBinding extends QueueBindingDefinition,
+  TRoutingKey extends string = string,
 > = {
   /** The consumer definition */
   consumer: TConsumer;
@@ -1098,7 +1097,7 @@ export type ConsumerFirstResultWithRoutingKey<
    * @param routingKey - The concrete routing key that matches the binding pattern
    * @returns A publisher definition with the specified routing key
    */
-  createPublisher: (routingKey: ConsumerFirstRoutingKey) => PublisherDefinition<TMessage>;
+  createPublisher: (routingKey: TRoutingKey | (string & {})) => PublisherDefinition<TMessage>;
 };
 
 /**
@@ -1211,12 +1210,15 @@ export function defineConsumerFirst<TMessage extends MessageDefinition>(
  * });
  * ```
  */
-export function defineConsumerFirst<TMessage extends MessageDefinition>(
+export function defineConsumerFirst<
+  TMessage extends MessageDefinition,
+  TRoutingKey extends string = string,
+>(
   queue: QueueDefinition,
   exchange: DirectExchangeDefinition,
   message: TMessage,
   options: {
-    routingKey: string;
+    routingKey: TRoutingKey;
     arguments?: Record<string, unknown>;
   },
 ): ConsumerFirstResult<
@@ -1277,18 +1279,22 @@ export function defineConsumerFirst<TMessage extends MessageDefinition>(
  * });
  * ```
  */
-export function defineConsumerFirst<TMessage extends MessageDefinition>(
+export function defineConsumerFirst<
+  TMessage extends MessageDefinition,
+  TRoutingKey extends string = string,
+>(
   queue: QueueDefinition,
   exchange: TopicExchangeDefinition,
   message: TMessage,
   options: {
-    routingKey: string;
+    routingKey: TRoutingKey;
     arguments?: Record<string, unknown>;
   },
 ): ConsumerFirstResultWithRoutingKey<
   TMessage,
   ConsumerDefinition<TMessage>,
-  Extract<QueueBindingDefinition, { exchange: TopicExchangeDefinition }>
+  Extract<QueueBindingDefinition, { exchange: TopicExchangeDefinition }>,
+  TRoutingKey
 >;
 
 /**
@@ -1308,7 +1314,8 @@ export function defineConsumerFirst<TMessage extends MessageDefinition>(
   | ConsumerFirstResultWithRoutingKey<
       TMessage,
       ConsumerDefinition<TMessage>,
-      QueueBindingDefinition
+      QueueBindingDefinition,
+      string
     > {
   // Create the consumer
   const consumer = defineConsumer(queue, message);
@@ -1329,7 +1336,8 @@ export function defineConsumerFirst<TMessage extends MessageDefinition>(
     } as ConsumerFirstResultWithRoutingKey<
       TMessage,
       ConsumerDefinition<TMessage>,
-      QueueBindingDefinition
+      QueueBindingDefinition,
+      string
     >;
   }
 
