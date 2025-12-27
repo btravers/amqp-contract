@@ -1,4 +1,4 @@
-import { Logger, Module } from "@nestjs/common";
+import { ConfigModule, ConfigType } from "@nestjs/config";
 import {
   HandleUrgentOrderHandler,
   NotifyOrderHandler,
@@ -6,8 +6,8 @@ import {
   ProcessOrderHandler,
   ShipOrderHandler,
 } from "./handlers/index.js";
+import { Logger, Module } from "@nestjs/common";
 import { AmqpWorkerModule } from "@amqp-contract/worker-nestjs";
-import { ConfigModule, ConfigType } from "@nestjs/config";
 import { amqpConfig } from "./config/amqp.config.js";
 import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
 
@@ -15,6 +15,7 @@ import { orderContract } from "@amqp-contract-samples/basic-order-processing-con
   imports: [
     ConfigModule.forFeature(amqpConfig),
     AmqpWorkerModule.forRootAsync({
+      imports: [ConfigModule.forFeature(amqpConfig)],
       inject: [
         amqpConfig.KEY,
         Logger,

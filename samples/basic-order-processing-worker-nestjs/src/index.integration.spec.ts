@@ -14,6 +14,7 @@ import { orderContract } from "@amqp-contract-samples/basic-order-processing-con
 describe("NestJS Worker Integration", () => {
   it("should process new orders from order.created queue", async ({ amqpConnectionUrl }) => {
     // GIVEN - Bootstrap the real application
+    process.env["AMQP_URL"] = amqpConnectionUrl;
     const app = await bootstrap();
 
     try {
@@ -65,6 +66,7 @@ describe("NestJS Worker Integration", () => {
 
   it("should notify on all order events", async ({ amqpConnectionUrl }) => {
     // GIVEN - Bootstrap the real application
+    process.env["AMQP_URL"] = amqpConnectionUrl;
     const app = await bootstrap();
 
     try {
@@ -114,6 +116,7 @@ describe("NestJS Worker Integration", () => {
 
   it("should handle shipped orders", async ({ amqpConnectionUrl }) => {
     // GIVEN - Bootstrap the real application
+    process.env["AMQP_URL"] = amqpConnectionUrl;
     const app = await bootstrap();
 
     try {
@@ -163,6 +166,7 @@ describe("NestJS Worker Integration", () => {
 
   it("should handle urgent updates", async ({ amqpConnectionUrl }) => {
     // GIVEN - Bootstrap the real application
+    process.env["AMQP_URL"] = amqpConnectionUrl;
     const app = await bootstrap();
 
     try {
@@ -214,6 +218,7 @@ describe("NestJS Worker Integration", () => {
     amqpConnectionUrl,
   }) => {
     // GIVEN - Bootstrap the real application
+    process.env["AMQP_URL"] = amqpConnectionUrl;
     const app = await bootstrap();
 
     try {

@@ -16,8 +16,11 @@ const testIt = amqpIt.extend<{
   shipOrderUseCase: ShipOrderUseCase;
   urgentUpdateUseCase: UrgentUpdateUseCase;
 }>({
-  app: async (_context, use) => {
+  app: async ({ amqpConnectionUrl }, use) => {
+    // Set AMQP_URL environment variable for the test
+    process.env["AMQP_URL"] = amqpConnectionUrl;
     const app = await bootstrap();
+    await app.init();
     await use(app);
     await app.close();
   },
@@ -52,7 +55,7 @@ describe("NestJS Client Integration", () => {
     const result = await createOrderUseCase.execute(newOrder).resultToPromise();
 
     // THEN
-    expect(result).toMatchObject({ _tag: "Ok", value: { success: true } });
+    expect(result).toMatchObject({ _tag: "Ok" });
   });
 
   testIt("should publish order status updates", async ({ updateOrderStatusUseCase }) => {
@@ -62,7 +65,7 @@ describe("NestJS Client Integration", () => {
       .resultToPromise();
 
     // THEN
-    expect(result).toMatchObject({ _tag: "Ok", value: { success: true } });
+    expect(result).toMatchObject({ _tag: "Ok" });
   });
 
   testIt("should publish shipment notifications", async ({ shipOrderUseCase }) => {
@@ -70,7 +73,7 @@ describe("NestJS Client Integration", () => {
     const result = await shipOrderUseCase.execute("TEST-001").resultToPromise();
 
     // THEN
-    expect(result).toMatchObject({ _tag: "Ok", value: { success: true } });
+    expect(result).toMatchObject({ _tag: "Ok" });
   });
 
   testIt("should publish urgent updates", async ({ urgentUpdateUseCase }) => {
@@ -78,6 +81,6 @@ describe("NestJS Client Integration", () => {
     const result = await urgentUpdateUseCase.execute("TEST-002", "cancelled").resultToPromise();
 
     // THEN
-    expect(result).toMatchObject({ _tag: "Ok", value: { success: true } });
+    expect(result).toMatchObject({ _tag: "Ok" });
   });
 });
