@@ -1,6 +1,6 @@
+import { Injectable, Logger } from "@nestjs/common";
 import { defineHandler } from "@amqp-contract/worker";
 import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
-import { Injectable, Logger } from "@nestjs/common";
 
 @Injectable()
 export class ProcessOrderHandler {

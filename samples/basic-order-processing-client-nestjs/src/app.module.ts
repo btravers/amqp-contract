@@ -2,8 +2,8 @@ import { AmqpClientModule } from "@amqp-contract/client-nestjs";
 import { ConfigModule as NestConfigModule } from "@nestjs/config";
 import { OrderService } from "./order.service.js";
 import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
-import { z } from "zod";
 import { Module } from "@nestjs/common";
+import { z } from "zod";
 
 const envSchema = z.object({
   AMQP_URL: z.string().url().default("amqp://localhost:5672"),

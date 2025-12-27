@@ -1,7 +1,7 @@
-import { AppModule } from "./app.module.js";
-import { OrderService } from "./order.service.js";
 import { Logger } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
+import { AppModule } from "./app.module.js";
+import { OrderService } from "./order.service.js";
 
 async function bootstrap() {
   const logger = new Logger("Bootstrap");

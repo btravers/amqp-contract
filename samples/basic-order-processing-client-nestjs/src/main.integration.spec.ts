@@ -1,9 +1,9 @@
-import { AmqpClientModule } from "@amqp-contract/client-nestjs";
-import { describe, expect } from "vitest";
-import { it } from "@amqp-contract/testing/extension";
-import { OrderService } from "./order.service.js";
-import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
 import { Test, type TestingModule } from "@nestjs/testing";
+import { describe, expect } from "vitest";
+import { AmqpClientModule } from "@amqp-contract/client-nestjs";
+import { OrderService } from "./order.service.js";
+import { it } from "@amqp-contract/testing/extension";
+import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
 
 describe("NestJS Client Integration", () => {
   it("should publish a new order successfully", async ({ amqpConnectionUrl }) => {

@@ -1,3 +1,5 @@
+import { Logger, Module } from "@nestjs/common";
+import { ConfigModule as NestConfigModule } from "@nestjs/config";
 import {
   HandleUrgentOrderHandler,
   NotifyOrderHandler,
@@ -6,10 +8,8 @@ import {
   ShipOrderHandler,
 } from "./handlers/index.js";
 import { AmqpWorkerModule } from "@amqp-contract/worker-nestjs";
-import { ConfigModule as NestConfigModule } from "@nestjs/config";
-import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
 import { z } from "zod";
-import { Logger, Module } from "@nestjs/common";
+import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
 
 const envSchema = z.object({
   AMQP_URL: z.string().url().default("amqp://localhost:5672"),
