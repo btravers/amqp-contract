@@ -688,6 +688,9 @@ importers:
       '@swan-io/boxed':
         specifier: 'catalog:'
         version: 3.2.1(typescript@5.9.3)
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 4.0.16(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
       tsx:
         specifier: 'catalog:'
         version: 4.21.0
@@ -793,6 +796,9 @@ importers:
       '@amqp-contract/tsconfig':
         specifier: workspace:*
         version: link:../../tools/tsconfig
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 4.0.16(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
       tsx:
         specifier: 'catalog:'
         version: 4.21.0
