@@ -752,12 +752,18 @@ export type PublisherFirstResult<
 };
 
 // fixme: implement ExtractConsumerRoutingKeyFromPublisherRoutingKey for topic exchanges
+/**
+ * Extract the routing key type that consumers can use based on a publisher's routing key.
+ * - If publisher has a concrete key (no wildcards), consumers can use any pattern
+ * - If publisher has a pattern, consumers should use the same pattern or more specific
+ * @internal
+ */
 type ExtractConsumerRoutingKeyFromPublisherRoutingKey<TRoutingKey extends string> =
   TRoutingKey extends `${infer _Prefix}.*${infer _Suffix}`
-    ? string
+    ? TRoutingKey | (string & {})
     : TRoutingKey extends `${infer _Prefix}#${infer _Suffix}`
-      ? string
-      : TRoutingKey;
+      ? TRoutingKey | (string & {})
+      : TRoutingKey | (string & {});
 
 /**
  * Publisher-first builder result for topic exchanges.
@@ -1083,12 +1089,18 @@ export type ConsumerFirstResult<
 };
 
 // fixme: implement ExtractPblisherRoutingKeyFromConsumerRoutingKey for topic exchanges
-type ExtractPblisherRoutingKeyFromConsumerRoutingKey<TRoutingKey extends string> =
+/**
+ * Extract the routing key type that publishers can use based on a consumer's routing key pattern.
+ * - If consumer has a pattern with wildcards, publishers can use any concrete key
+ * - If consumer has a concrete key (no wildcards), publishers should use the same key
+ * @internal
+ */
+type ExtractPublisherRoutingKeyFromConsumerRoutingKey<TRoutingKey extends string> =
   TRoutingKey extends `${infer _Prefix}.*${infer _Suffix}`
-    ? string
+    ? TRoutingKey | (string & {})
     : TRoutingKey extends `${infer _Prefix}#${infer _Suffix}`
-      ? string
-      : TRoutingKey;
+      ? TRoutingKey | (string & {})
+      : TRoutingKey | (string & {});
 
 /**
  * Consumer-first builder result for topic exchanges.
@@ -1119,7 +1131,7 @@ export type ConsumerFirstResultWithRoutingKey<
    * @returns A publisher definition with the specified routing key
    */
   createPublisher: (
-    routingKey: ExtractPblisherRoutingKeyFromConsumerRoutingKey<TRoutingKey>,
+    routingKey: ExtractPublisherRoutingKeyFromConsumerRoutingKey<TRoutingKey>,
   ) => PublisherDefinition<TMessage>;
 };
 
