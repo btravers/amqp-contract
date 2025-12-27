@@ -149,7 +149,7 @@ export class AmqpClientService<TContract extends ContractDefinition>
     publisherName: TName,
     message: ClientInferPublisherInput<TContract, TName>,
     options?: Options.Publish,
-  ): Future<Result<boolean, TechnicalError | MessageValidationError>> {
+  ): Future<Result<void, TechnicalError | MessageValidationError>> {
     if (!this.client) {
       return Future.value(
         Result.Error(

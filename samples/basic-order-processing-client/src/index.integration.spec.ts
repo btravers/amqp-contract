@@ -32,7 +32,7 @@ describe("Basic Order Processing Client Integration", () => {
     const result = await client.publish("orderCreated", newOrder);
 
     // THEN
-    expect(result).toEqual(Result.Ok(true));
+    expect(result).toEqual(Result.Ok(undefined));
 
     // CLEANUP
     await client.close().resultToPromise();
@@ -60,7 +60,7 @@ describe("Basic Order Processing Client Integration", () => {
     const result = await client.publish("orderUpdated", orderUpdate);
 
     // THEN
-    expect(result).toEqual(Result.Ok(true));
+    expect(result).toEqual(Result.Ok(undefined));
 
     // CLEANUP
     await client.close().resultToPromise();
