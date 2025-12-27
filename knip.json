@@ -17,10 +17,6 @@
       "entry": ["src/index.ts"],
       "project": ["src/**/*.ts"]
     },
-    "samples/basic-order-processing-contract": {
-      "entry": ["src/index.ts", "src/subdomain-example.ts"],
-      "project": ["src/**/*.ts"]
-    },
     "samples/basic-order-processing-worker": {
       "entry": ["src/index.ts", "src/index-with-external-handlers.ts", "src/handlers.ts"],
       "project": ["src/**/*.ts"]
