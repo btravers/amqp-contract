@@ -43,10 +43,12 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(orderContract, paymentContract);
 
-      // THEN - Verify result is a valid ContractDefinition
+      // THEN - Verify merged contract has both exchanges and publishers from both contracts
       expectTypeOf(merged).toMatchTypeOf<ContractDefinition>();
-      expectTypeOf(merged).toHaveProperty("exchanges");
-      expectTypeOf(merged).toHaveProperty("publishers");
+      expectTypeOf(merged.exchanges).toHaveProperty("orders");
+      expectTypeOf(merged.exchanges).toHaveProperty("payments");
+      expectTypeOf(merged.publishers).toHaveProperty("orderCreated");
+      expectTypeOf(merged.publishers).toHaveProperty("paymentReceived");
     });
 
     it("should return a valid ContractDefinition when merging two contracts with consumers", () => {
@@ -74,10 +76,12 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(orderContract, paymentContract);
 
-      // THEN - Verify result is a valid ContractDefinition
+      // THEN - Verify merged contract has both queues and consumers from both contracts
       expectTypeOf(merged).toMatchTypeOf<ContractDefinition>();
-      expectTypeOf(merged).toHaveProperty("queues");
-      expectTypeOf(merged).toHaveProperty("consumers");
+      expectTypeOf(merged.queues).toHaveProperty("orders");
+      expectTypeOf(merged.queues).toHaveProperty("payments");
+      expectTypeOf(merged.consumers).toHaveProperty("processOrder");
+      expectTypeOf(merged.consumers).toHaveProperty("processPayment");
     });
 
     it("should return a valid ContractDefinition with all resource types", () => {
@@ -120,13 +124,18 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(contract1, contract2);
 
-      // THEN - Verify result is a valid ContractDefinition with all resource types
+      // THEN - Verify merged contract has all resource types from both contracts
       expectTypeOf(merged).toMatchTypeOf<ContractDefinition>();
-      expectTypeOf(merged).toHaveProperty("exchanges");
-      expectTypeOf(merged).toHaveProperty("queues");
-      expectTypeOf(merged).toHaveProperty("bindings");
-      expectTypeOf(merged).toHaveProperty("publishers");
-      expectTypeOf(merged).toHaveProperty("consumers");
+      expectTypeOf(merged.exchanges).toHaveProperty("ex1");
+      expectTypeOf(merged.exchanges).toHaveProperty("ex2");
+      expectTypeOf(merged.queues).toHaveProperty("q1");
+      expectTypeOf(merged.queues).toHaveProperty("q2");
+      expectTypeOf(merged.bindings).toHaveProperty("b1");
+      expectTypeOf(merged.bindings).toHaveProperty("b2");
+      expectTypeOf(merged.publishers).toHaveProperty("pub1");
+      expectTypeOf(merged.publishers).toHaveProperty("pub2");
+      expectTypeOf(merged.consumers).toHaveProperty("con1");
+      expectTypeOf(merged.consumers).toHaveProperty("con2");
     });
 
     it("should return a valid ContractDefinition when merging three or more contracts", () => {
@@ -152,10 +161,14 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(contract1, contract2, contract3);
 
-      // THEN - Verify result is a valid ContractDefinition
+      // THEN - Verify merged contract has all exchanges and publishers from all three contracts
       expectTypeOf(merged).toMatchTypeOf<ContractDefinition>();
-      expectTypeOf(merged).toHaveProperty("exchanges");
-      expectTypeOf(merged).toHaveProperty("publishers");
+      expectTypeOf(merged.exchanges).toHaveProperty("ex1");
+      expectTypeOf(merged.exchanges).toHaveProperty("ex2");
+      expectTypeOf(merged.exchanges).toHaveProperty("ex3");
+      expectTypeOf(merged.publishers).toHaveProperty("pub1");
+      expectTypeOf(merged.publishers).toHaveProperty("pub2");
+      expectTypeOf(merged.publishers).toHaveProperty("pub3");
     });
 
     it("should return a valid ContractDefinition when handling empty contracts", () => {
@@ -171,10 +184,10 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(emptyContract, fullContract);
 
-      // THEN - Verify result is a valid ContractDefinition
+      // THEN - Verify merged contract has resources from the full contract
       expectTypeOf(merged).toMatchTypeOf<ContractDefinition>();
-      expectTypeOf(merged).toHaveProperty("exchanges");
-      expectTypeOf(merged).toHaveProperty("publishers");
+      expectTypeOf(merged.exchanges).toHaveProperty("test");
+      expectTypeOf(merged.publishers).toHaveProperty("testPub");
     });
 
     it("should return a valid ContractDefinition preserving types", () => {
@@ -192,9 +205,10 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(contract1, contract2);
 
-      // THEN - Verify result is a valid ContractDefinition
+      // THEN - Verify merged contract has both exchanges with correct types
       expectTypeOf(merged).toMatchTypeOf<ContractDefinition>();
-      expectTypeOf(merged).toHaveProperty("exchanges");
+      expectTypeOf(merged.exchanges).toHaveProperty("ex1");
+      expectTypeOf(merged.exchanges).toHaveProperty("ex2");
     });
 
     it("should return a valid ContractDefinition when merging partial contracts", () => {
@@ -214,11 +228,11 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(contractWithExchange, contractWithQueue, contractWithPublisher);
 
-      // THEN - Verify result is a valid ContractDefinition
+      // THEN - Verify merged contract has all resources from all three contracts
       expectTypeOf(merged).toMatchTypeOf<ContractDefinition>();
-      expectTypeOf(merged).toHaveProperty("exchanges");
-      expectTypeOf(merged).toHaveProperty("queues");
-      expectTypeOf(merged).toHaveProperty("publishers");
+      expectTypeOf(merged.exchanges).toHaveProperty("ex");
+      expectTypeOf(merged.queues).toHaveProperty("q");
+      expectTypeOf(merged.publishers).toHaveProperty("pub");
     });
 
     it("should return a valid ContractDefinition with different message types", () => {
@@ -256,9 +270,10 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(orderContract, paymentContract);
 
-      // THEN - Verify result is a valid ContractDefinition
+      // THEN - Verify merged contract has both publishers with different message types
       expectTypeOf(merged).toMatchTypeOf<ContractDefinition>();
-      expectTypeOf(merged).toHaveProperty("publishers");
+      expectTypeOf(merged.publishers).toHaveProperty("orderCreated");
+      expectTypeOf(merged.publishers).toHaveProperty("paymentProcessed");
     });
 
     it("should return a valid ContractDefinition with only exchanges", () => {
@@ -272,9 +287,10 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(contract1, contract2);
 
-      // THEN - Verify result is a valid ContractDefinition
+      // THEN - Verify merged contract has both exchanges with different types
       expectTypeOf(merged).toMatchTypeOf<ContractDefinition>();
-      expectTypeOf(merged).toHaveProperty("exchanges");
+      expectTypeOf(merged.exchanges).toHaveProperty("ex1");
+      expectTypeOf(merged.exchanges).toHaveProperty("ex2");
     });
 
     it("should return a valid ContractDefinition for single contract", () => {
@@ -289,10 +305,10 @@ describe("mergeContracts - Type Tests", () => {
       // WHEN
       const merged = mergeContracts(contract);
 
-      // THEN - Verify result is a valid ContractDefinition
+      // THEN - Verify merged contract preserves all resources from single contract
       expectTypeOf(merged).toMatchTypeOf<ContractDefinition>();
-      expectTypeOf(merged).toHaveProperty("exchanges");
-      expectTypeOf(merged).toHaveProperty("publishers");
+      expectTypeOf(merged.exchanges).toHaveProperty("test");
+      expectTypeOf(merged.publishers).toHaveProperty("testPub");
     });
   });
 });
