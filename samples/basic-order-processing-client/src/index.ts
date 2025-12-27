@@ -45,7 +45,7 @@ async function main() {
   const publishWithLog = async <T extends Parameters<typeof client.publish>[0]>(
     publisherName: T,
     message: Parameters<typeof client.publish<T>>[1],
-  ): Promise<boolean> => {
+  ): Promise<void> => {
     const result = await client.publish(publisherName, message);
     if (result.isError()) {
       logger.error({ error: result.error }, `Failed to publish: ${publisherName}`);
@@ -54,7 +54,6 @@ async function main() {
       throw result.error;
     }
     logger.debug(`Successfully published to ${publisherName}`);
-    return result.value;
   };
 
   // 1. Publish a new order (routing key: order.created)

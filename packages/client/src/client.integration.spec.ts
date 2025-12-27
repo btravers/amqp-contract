@@ -78,7 +78,7 @@ describe("AmqpClient Integration", () => {
       });
 
       // THEN
-      expect(result).toEqual(Result.Ok(true));
+      expect(result).toEqual(Result.Ok(undefined));
 
       await expect(pendingMessages()).resolves.toEqual([
         expect.objectContaining({
@@ -156,7 +156,7 @@ describe("AmqpClient Integration", () => {
       );
 
       // THEN
-      expect(result).toEqual(Result.Ok(true));
+      expect(result).toEqual(Result.Ok(undefined));
 
       await expect(pendingMessages()).resolves.toEqual([
         expect.objectContaining({

@@ -21,7 +21,7 @@ describe("AmqpClientService", () => {
     vi.spyOn(TypedAmqpClient, "create").mockReturnValue(
       Future.value(Result.Ok(mockClient as unknown as TypedAmqpClient<never>)),
     );
-    (mockClient.publish as ReturnType<typeof vi.fn>).mockReturnValue(Future.value(Result.Ok(true)));
+    (mockClient.publish as ReturnType<typeof vi.fn>).mockReturnValue(Future.value(Result.Ok(undefined)));
     (mockClient.close as ReturnType<typeof vi.fn>).mockReturnValue(
       Future.value(Result.Ok(undefined)),
     );
