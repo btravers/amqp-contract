@@ -589,6 +589,7 @@ describe("AmqpWorker Integration", () => {
 
     // Create a mock logger to capture warnings
     const mockLogger = {
+      debug: vi.fn(),
       info: vi.fn(),
       warn: vi.fn(),
       error: vi.fn(),
