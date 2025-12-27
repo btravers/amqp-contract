@@ -751,7 +751,6 @@ export type PublisherFirstResult<
   };
 };
 
-// fixme: implement ExtractConsumerRoutingKeyFromPublisherRoutingKey for topic exchanges
 // ============================================================================
 // Routing Key and Binding Pattern Validation Types
 // ============================================================================
@@ -879,6 +878,20 @@ type ValidateBindingPattern<S extends string> = S extends `${infer Part}.${infer
 export type BindingPattern<S extends string> = ValidateBindingPattern<S> extends true ? S : never;
 
 /**
+ * Helper type for pattern matching with # in the middle
+ * Handles backtracking to match # with zero or more segments
+ * @internal
+ */
+type MatchesAfterHash<
+  Key extends string,
+  PatternRest extends string,
+> = MatchesPattern<Key, PatternRest> extends true
+  ? true // # matches zero segments
+  : Key extends `${string}.${infer KeyRest}`
+    ? MatchesAfterHash<KeyRest, PatternRest> // # matches one or more segments
+    : false;
+
+/**
  * Check if a routing key matches a binding pattern
  * Implements AMQP topic exchange pattern matching:
  * - * matches exactly one word
@@ -890,7 +903,7 @@ type MatchesPattern<
   Pattern extends string,
 > = Pattern extends `${infer PatternPart}.${infer PatternRest}`
   ? PatternPart extends "#"
-    ? true // # matches everything remaining
+    ? MatchesAfterHash<Key, PatternRest> // # in the middle: backtrack over all possible segment lengths
     : Key extends `${infer KeyPart}.${infer KeyRest}`
       ? PatternPart extends "*"
         ? MatchesPattern<KeyRest, PatternRest> // * matches one segment
@@ -909,9 +922,22 @@ type MatchesPattern<
         : false;
 
 /**
- * Validate that a routing key matches a binding pattern
- * Returns the routing key if valid, never otherwise
- * @internal
+ * Validate that a routing key matches a binding pattern.
+ * 
+ * This is a utility type provided for users who want compile-time validation
+ * that a routing key matches a specific pattern. It's not enforced internally
+ * in the API to avoid TypeScript recursion depth issues with complex routing keys.
+ * 
+ * Returns the routing key if it's valid and matches the pattern, `never` otherwise.
+ * 
+ * @example
+ * ```typescript
+ * type ValidKey = MatchingRoutingKey<"order.*", "order.created">; // "order.created"
+ * type InvalidKey = MatchingRoutingKey<"order.*", "user.created">; // never
+ * ```
+ * 
+ * @template Pattern - The binding pattern (can contain * and # wildcards)
+ * @template Key - The routing key to validate
  */
 export type MatchingRoutingKey<Pattern extends string, Key extends string> =
   RoutingKey<Key> extends never
