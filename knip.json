@@ -13,10 +13,7 @@
       "entry": ["*.json"]
     },
     "website": {
-      "entry": [
-        "docs/.vitepress/config.ts",
-        "docs/.vitepress/theme/index.ts"
-      ],
+      "entry": ["docs/.vitepress/config.ts", "docs/.vitepress/theme/index.ts"],
       "ignoreDependencies": [
         "@amqp-contract/asyncapi",
         "@amqp-contract/client",
