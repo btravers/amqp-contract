@@ -1,5 +1,5 @@
 import { Future, Result } from "@swan-io/boxed";
-import { Inject, Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import type { MessageValidationError, TechnicalError } from "@amqp-contract/client";
 import { AmqpClientService } from "@amqp-contract/client-nestjs";
 import type { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
@@ -9,7 +9,7 @@ export class UpdateOrderStatusUseCase {
   private readonly logger = new Logger(UpdateOrderStatusUseCase.name);
 
   constructor(
-    @Inject(AmqpClientService) private readonly amqpClient: AmqpClientService<typeof orderContract>,
+    private readonly amqpClient: AmqpClientService<typeof orderContract>,
   ) {}
 
   execute(

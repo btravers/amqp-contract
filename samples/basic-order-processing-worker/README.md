@@ -41,9 +41,9 @@ const workerResult = await TypedAmqpWorker.create({
 });
 ```
 
-### External Handlers (src/handlers.ts - Better Organization)
+### External Handlers (src/handlers.ts)
 
-Handlers are defined in separate files using `defineHandler` or `defineHandlers`. This approach is recommended for:
+Handlers can be organized in separate files using `defineHandler` or `defineHandlers`. The `src/handlers.ts` file demonstrates this pattern, which is recommended for:
 
 - Production applications
 - Better code organization and testability
@@ -60,7 +60,9 @@ export const processOrderHandler = defineHandler(
   }
 );
 
-// index.ts
+// index.ts - to use external handlers, import them:
+import { processOrderHandler, /* other handlers */ } from './handlers.js';
+
 const workerResult = await TypedAmqpWorker.create({
   contract: orderContract,
   handlers: {
@@ -71,7 +73,7 @@ const workerResult = await TypedAmqpWorker.create({
 });
 ```
 
-The main `src/index.ts` file shows the inline approach for simplicity, while `src/handlers.ts` demonstrates how to organize handlers externally for better maintainability.
+The main `src/index.ts` file uses inline handlers for simplicity, while `src/handlers.ts` provides an example of how to organize handlers externally for better maintainability.
 
 ## Environment Variables
 
