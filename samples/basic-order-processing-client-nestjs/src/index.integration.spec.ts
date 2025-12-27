@@ -52,35 +52,33 @@ describe("NestJS Client Integration", () => {
     };
 
     // WHEN
-    const result = await createOrderUseCase.execute(newOrder).resultToPromise();
+    const result = await createOrderUseCase.execute(newOrder);
 
     // THEN
-    expect(result).toMatchObject({ _tag: "Ok" });
+    expect(result).toMatchObject({ tag: "Ok" });
   });
 
   testIt("should publish order status updates", async ({ updateOrderStatusUseCase }) => {
     // WHEN
-    const result = await updateOrderStatusUseCase
-      .execute("TEST-001", "processing")
-      .resultToPromise();
+    const result = await updateOrderStatusUseCase.execute("TEST-001", "processing");
 
     // THEN
-    expect(result).toMatchObject({ _tag: "Ok" });
+    expect(result).toMatchObject({ tag: "Ok" });
   });
 
   testIt("should publish shipment notifications", async ({ shipOrderUseCase }) => {
     // WHEN
-    const result = await shipOrderUseCase.execute("TEST-001").resultToPromise();
+    const result = await shipOrderUseCase.execute("TEST-001");
 
     // THEN
-    expect(result).toMatchObject({ _tag: "Ok" });
+    expect(result).toMatchObject({ tag: "Ok" });
   });
 
   testIt("should publish urgent updates", async ({ urgentUpdateUseCase }) => {
     // WHEN
-    const result = await urgentUpdateUseCase.execute("TEST-002", "cancelled").resultToPromise();
+    const result = await urgentUpdateUseCase.execute("TEST-002", "cancelled");
 
     // THEN
-    expect(result).toMatchObject({ _tag: "Ok" });
+    expect(result).toMatchObject({ tag: "Ok" });
   });
 });

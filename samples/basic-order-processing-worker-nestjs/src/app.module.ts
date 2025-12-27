@@ -1,11 +1,4 @@
 import { ConfigModule, ConfigType } from "@nestjs/config";
-import {
-  HandleUrgentOrderHandler,
-  NotifyOrderHandler,
-  ProcessAnalyticsHandler,
-  ProcessOrderHandler,
-  ShipOrderHandler,
-} from "./handlers/index.js";
 import { Logger, Module } from "@nestjs/common";
 import { AmqpWorkerModule } from "@amqp-contract/worker-nestjs";
 import { amqpConfig } from "./config/amqp.config.js";
@@ -16,44 +9,31 @@ import { orderContract } from "@amqp-contract-samples/basic-order-processing-con
     ConfigModule.forFeature(amqpConfig),
     AmqpWorkerModule.forRootAsync({
       imports: [ConfigModule.forFeature(amqpConfig)],
-      inject: [
-        amqpConfig.KEY,
-        Logger,
-        ProcessOrderHandler,
-        NotifyOrderHandler,
-        ShipOrderHandler,
-        HandleUrgentOrderHandler,
-        ProcessAnalyticsHandler,
-      ],
-      useFactory: (
-        config: ConfigType<typeof amqpConfig>,
-        logger: Logger,
-        processOrder: ProcessOrderHandler,
-        notifyOrder: NotifyOrderHandler,
-        shipOrder: ShipOrderHandler,
-        handleUrgentOrder: HandleUrgentOrderHandler,
-        processAnalytics: ProcessAnalyticsHandler,
-      ) => ({
+      inject: [amqpConfig.KEY],
+      useFactory: (config: ConfigType<typeof amqpConfig>) => ({
         contract: orderContract,
         handlers: {
-          processOrder: processOrder.handler,
-          notifyOrder: notifyOrder.handler,
-          shipOrder: shipOrder.handler,
-          handleUrgentOrder: handleUrgentOrder.handler,
-          processAnalytics: processAnalytics.handler,
+          processOrder: async (message) => {
+            console.log(`[PROCESSING] New order received: ${message.orderId}`);
+          },
+          notifyOrder: async (message) => {
+            console.log(`[NOTIFICATION] Order event: ${message.orderId}`);
+          },
+          shipOrder: async (message) => {
+            console.log(`[SHIPPING] Order shipped: ${message.orderId}`);
+          },
+          handleUrgentOrder: async (message) => {
+            console.log(`[URGENT] Urgent order: ${message.orderId}`);
+          },
+          processAnalytics: async (message) => {
+            console.log(`[ANALYTICS] Processing analytics for: ${message.orderId}`);
+          },
         },
         urls: [config.url],
-        logger,
+        logger: new Logger("AmqpWorker"),
       }),
     }),
   ],
-  providers: [
-    Logger,
-    ProcessOrderHandler,
-    NotifyOrderHandler,
-    ShipOrderHandler,
-    HandleUrgentOrderHandler,
-    ProcessAnalyticsHandler,
-  ],
+  providers: [Logger],
 })
 export class AppModule {}
