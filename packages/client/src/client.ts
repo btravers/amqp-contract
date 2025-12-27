@@ -91,7 +91,7 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
         });
     };
 
-    const publishMessage = (validatedMessage: unknown) => {
+    const publishMessage = (validatedMessage: unknown): Future<Result<void, TechnicalError>> => {
       return Future.fromPromise(
         this.amqpClient.channel.publish(
           publisher.exchange.name,
@@ -116,18 +116,12 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
             routingKey: publisher.routingKey,
           });
 
-          return Result.Ok(published);
+          return Result.Ok(undefined);
         });
     };
 
     // Validate message using schema
-    return validateMessage()
-      .flatMapOk((validatedMessage) => publishMessage(validatedMessage))
-      .mapOkToResult((result) =>
-        result
-          ? Result.Ok(undefined)
-          : Result.Error(new TechnicalError("Unknown error during publishing")),
-      );
+    return validateMessage().flatMapOk((validatedMessage) => publishMessage(validatedMessage));
   }
 
   /**
