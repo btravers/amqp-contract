@@ -45,7 +45,7 @@ const { consumer, binding } = orderCreatedEvent.createConsumer(orderQueue);
 
 // For topic exchanges, consumers can override with their own pattern
 const analyticsQueue = defineQueue('analytics', { durable: true });
-const { consumer: analyticsConsumer, binding: analyticsBinding } = 
+const { consumer: analyticsConsumer, binding: analyticsBinding } =
   orderCreatedEvent.createConsumer(analyticsQueue, 'order.*');  // Subscribe to all order events
 
 const contract = defineContract({
@@ -53,7 +53,7 @@ const contract = defineContract({
   queues: { orderQueue, analyticsQueue },
   bindings: { orderBinding: binding, analyticsBinding },
   publishers: { orderCreated: orderCreatedEvent.publisher },
-  consumers: { 
+  consumers: {
     processOrder: consumer,
     trackOrders: analyticsConsumer,
   },

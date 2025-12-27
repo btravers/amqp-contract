@@ -103,6 +103,7 @@ export const contract = defineContract({
 ```
 
 **Pattern Matching:**
+
 - `*` matches exactly one word (e.g., `order.*` matches `order.created` but not `order.item.shipped`)
 - `#` matches zero or more words (e.g., `order.#` matches `order.created`, `order.item.shipped`, etc.)
 
@@ -187,6 +188,7 @@ export const contract = defineContract({
 ```
 
 **Pattern Matching:**
+
 - `*` matches exactly one word (e.g., `order.*` matches `order.created` but not `order.item.shipped`)
 - `#` matches zero or more words (e.g., `order.#` matches `order.created`, `order.item.shipped`, etc.)
 
@@ -539,7 +541,7 @@ type InvalidMatch = MatchingRoutingKey<'order.*', 'user.created'>;   // ❌ neve
 
 - **Character Set**: Only alphanumeric characters, hyphens (`-`), and underscores (`_`) allowed
 - **Format**: Dot-separated segments (e.g., `order.created`, `user.login.success`)
-- **Wildcards**: 
+- **Wildcards**:
   - `*` matches exactly one word
   - `#` matches zero or more words
   - Only valid in binding patterns, not routing keys

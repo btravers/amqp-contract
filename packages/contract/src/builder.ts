@@ -882,14 +882,12 @@ export type BindingPattern<S extends string> = ValidateBindingPattern<S> extends
  * Handles backtracking to match # with zero or more segments
  * @internal
  */
-type MatchesAfterHash<
-  Key extends string,
-  PatternRest extends string,
-> = MatchesPattern<Key, PatternRest> extends true
-  ? true // # matches zero segments
-  : Key extends `${string}.${infer KeyRest}`
-    ? MatchesAfterHash<KeyRest, PatternRest> // # matches one or more segments
-    : false;
+type MatchesAfterHash<Key extends string, PatternRest extends string> =
+  MatchesPattern<Key, PatternRest> extends true
+    ? true // # matches zero segments
+    : Key extends `${string}.${infer KeyRest}`
+      ? MatchesAfterHash<KeyRest, PatternRest> // # matches one or more segments
+      : false;
 
 /**
  * Check if a routing key matches a binding pattern
@@ -923,19 +921,19 @@ type MatchesPattern<
 
 /**
  * Validate that a routing key matches a binding pattern.
- * 
+ *
  * This is a utility type provided for users who want compile-time validation
  * that a routing key matches a specific pattern. It's not enforced internally
  * in the API to avoid TypeScript recursion depth issues with complex routing keys.
- * 
+ *
  * Returns the routing key if it's valid and matches the pattern, `never` otherwise.
- * 
+ *
  * @example
  * ```typescript
  * type ValidKey = MatchingRoutingKey<"order.*", "order.created">; // "order.created"
  * type InvalidKey = MatchingRoutingKey<"order.*", "user.created">; // never
  * ```
- * 
+ *
  * @template Pattern - The binding pattern (can contain * and # wildcards)
  * @template Key - The routing key to validate
  */
