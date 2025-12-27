@@ -1,6 +1,6 @@
 import { defineHandler } from "@amqp-contract/worker";
-import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
 import { Logger } from "@nestjs/common";
+import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
 
 const logger = new Logger("ProcessOrderHandler");
 
