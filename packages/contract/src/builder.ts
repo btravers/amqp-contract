@@ -751,6 +751,14 @@ export type PublisherFirstResult<
   };
 };
 
+// fixme: implement ExtractConsumerRoutingKeyFromPublisherRoutingKey for topic exchanges
+type ExtractConsumerRoutingKeyFromPublisherRoutingKey<TRoutingKey extends string> =
+  TRoutingKey extends `${infer _Prefix}.*${infer _Suffix}`
+    ? string
+    : TRoutingKey extends `${infer _Prefix}#${infer _Suffix}`
+      ? string
+      : TRoutingKey;
+
 /**
  * Publisher-first builder result for topic exchanges.
  *
@@ -764,7 +772,7 @@ export type PublisherFirstResult<
 export type PublisherFirstResultWithRoutingKey<
   TMessage extends MessageDefinition,
   TPublisher extends PublisherDefinition<TMessage>,
-  TRoutingKey extends string = string,
+  TRoutingKey extends string,
 > = {
   /** The publisher definition */
   publisher: TPublisher;
@@ -778,7 +786,7 @@ export type PublisherFirstResultWithRoutingKey<
    */
   createConsumer: (
     queue: QueueDefinition,
-    routingKey?: TRoutingKey | (string & {}),
+    routingKey?: ExtractConsumerRoutingKeyFromPublisherRoutingKey<TRoutingKey>,
   ) => {
     consumer: ConsumerDefinition<TMessage>;
     binding: QueueBindingDefinition;
@@ -900,7 +908,7 @@ export function definePublisherFirst<TMessage extends MessageDefinition>(
  */
 export function definePublisherFirst<
   TMessage extends MessageDefinition,
-  TRoutingKey extends string = string,
+  TRoutingKey extends string,
 >(
   exchange: DirectExchangeDefinition,
   message: TMessage,
@@ -976,7 +984,7 @@ export function definePublisherFirst<
  */
 export function definePublisherFirst<
   TMessage extends MessageDefinition,
-  TRoutingKey extends string = string,
+  TRoutingKey extends string,
 >(
   exchange: TopicExchangeDefinition,
   message: TMessage,
@@ -1074,6 +1082,14 @@ export type ConsumerFirstResult<
       >;
 };
 
+// fixme: implement ExtractPblisherRoutingKeyFromConsumerRoutingKey for topic exchanges
+type ExtractPblisherRoutingKeyFromConsumerRoutingKey<TRoutingKey extends string> =
+  TRoutingKey extends `${infer _Prefix}.*${infer _Suffix}`
+    ? string
+    : TRoutingKey extends `${infer _Prefix}#${infer _Suffix}`
+      ? string
+      : TRoutingKey;
+
 /**
  * Consumer-first builder result for topic exchanges.
  *
@@ -1089,7 +1105,7 @@ export type ConsumerFirstResultWithRoutingKey<
   TMessage extends MessageDefinition,
   TConsumer extends ConsumerDefinition<TMessage>,
   TBinding extends QueueBindingDefinition,
-  TRoutingKey extends string = string,
+  TRoutingKey extends string,
 > = {
   /** The consumer definition */
   consumer: TConsumer;
@@ -1102,7 +1118,9 @@ export type ConsumerFirstResultWithRoutingKey<
    * @param routingKey - The concrete routing key that matches the binding pattern
    * @returns A publisher definition with the specified routing key
    */
-  createPublisher: (routingKey: TRoutingKey | (string & {})) => PublisherDefinition<TMessage>;
+  createPublisher: (
+    routingKey: ExtractPblisherRoutingKeyFromConsumerRoutingKey<TRoutingKey>,
+  ) => PublisherDefinition<TMessage>;
 };
 
 /**
@@ -1215,10 +1233,7 @@ export function defineConsumerFirst<TMessage extends MessageDefinition>(
  * });
  * ```
  */
-export function defineConsumerFirst<
-  TMessage extends MessageDefinition,
-  TRoutingKey extends string = string,
->(
+export function defineConsumerFirst<TMessage extends MessageDefinition, TRoutingKey extends string>(
   queue: QueueDefinition,
   exchange: DirectExchangeDefinition,
   message: TMessage,
@@ -1284,10 +1299,7 @@ export function defineConsumerFirst<
  * });
  * ```
  */
-export function defineConsumerFirst<
-  TMessage extends MessageDefinition,
-  TRoutingKey extends string = string,
->(
+export function defineConsumerFirst<TMessage extends MessageDefinition, TRoutingKey extends string>(
   queue: QueueDefinition,
   exchange: TopicExchangeDefinition,
   message: TMessage,
