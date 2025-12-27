@@ -59,7 +59,7 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     publisherName: TName,
     message: ClientInferPublisherInput<TContract, TName>,
     options?: Options.Publish,
-  ): Future<Result<boolean, TechnicalError | MessageValidationError>> {
+  ): Future<Result<void, TechnicalError | MessageValidationError>> {
     const publishers = this.contract.publishers;
     if (!publishers) {
       return Future.value(Result.Error(new TechnicalError("No publishers defined in contract")));
@@ -121,7 +121,13 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     };
 
     // Validate message using schema
-    return validateMessage().flatMapOk((validatedMessage) => publishMessage(validatedMessage));
+    return validateMessage()
+      .flatMapOk((validatedMessage) => publishMessage(validatedMessage))
+      .mapOkToResult((result) =>
+        result
+          ? Result.Ok(undefined)
+          : Result.Error(new TechnicalError("Unknown error during publishing")),
+      );
   }
 
   /**
