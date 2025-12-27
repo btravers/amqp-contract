@@ -39,16 +39,18 @@ export class AmqpClient {
     // Create default setup function that calls setupAmqpTopology
     const defaultSetup = (channel: Channel) => setupAmqpTopology(channel, this.contract);
 
+    // Destructure setup from channelOptions to handle it separately
+    const { setup: userSetup, ...otherChannelOptions } = options.channelOptions ?? {};
+
     // Merge user-provided channel options with defaults
     const channelOpts: CreateChannelOpts = {
       json: true,
       setup: defaultSetup,
-      ...options.channelOptions,
+      ...otherChannelOptions,
     };
 
     // If user provided a custom setup, wrap it to call both
-    if (options.channelOptions?.setup) {
-      const userSetup = options.channelOptions.setup;
+    if (userSetup) {
       channelOpts.setup = async (channel: Channel) => {
         // First run the topology setup
         await defaultSetup(channel);
@@ -66,8 +68,7 @@ export class AmqpClient {
           });
         } else {
           // Promise-based setup function
-          const result = (userSetup as (channel: Channel) => Promise<void>)(channel);
-          await result;
+          await (userSetup as (channel: Channel) => Promise<void>)(channel);
         }
       };
     }
