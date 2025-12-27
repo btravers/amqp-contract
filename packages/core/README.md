@@ -65,6 +65,8 @@ const amqpClient = new AmqpClient(contract, {
 await amqpClient.close();
 ```
 
+For advanced channel configuration options (custom setup, prefetch, publisher confirms), see the [Channel Configuration Guide](https://btravers.github.io/amqp-contract/guide/channel-configuration).
+
 ### Logger Interface
 
 The core package exports a `Logger` interface that can be used to implement custom logging for AMQP operations:
