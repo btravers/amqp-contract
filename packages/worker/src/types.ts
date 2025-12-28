@@ -40,12 +40,16 @@ export type WorkerInferConsumerInput<
 > = ConsumerInferInput<InferConsumer<TContract, TName>>;
 
 /**
- * Infer consumer handler type for a specific consumer
+ * Infer consumer handler type for a specific consumer.
+ * If the consumer has a batchSize defined, the handler receives an array of messages.
+ * Otherwise, it receives a single message.
  */
 export type WorkerInferConsumerHandler<
   TContract extends ContractDefinition,
   TName extends InferConsumerNames<TContract>,
-> = (message: WorkerInferConsumerInput<TContract, TName>) => Promise<void>;
+> = InferConsumer<TContract, TName> extends { batchSize: number }
+  ? (messages: Array<WorkerInferConsumerInput<TContract, TName>>) => Promise<void>
+  : (message: WorkerInferConsumerInput<TContract, TName>) => Promise<void>;
 
 /**
  * Infer all consumer handlers for a contract
