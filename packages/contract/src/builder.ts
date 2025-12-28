@@ -946,15 +946,15 @@ export type PublisherFirstResultWithRoutingKey<
  * );
  *
  * // Create publisher-first relationship (event pattern)
- * const logEvent = definePublisherFirst(logsExchange, logMessage);
+ * const { publisher: publishLog, createConsumer: createLogConsumer } = definePublisherFirst(logsExchange, logMessage);
  *
  * // Multiple queues can consume the same event
  * const logsQueue1 = defineQueue('logs-queue-1', { durable: true });
  * const logsQueue2 = defineQueue('logs-queue-2', { durable: true });
  *
  * // Use in contract
- * const { consumer: consumer1, binding: binding1 } = logEvent.createConsumer(logsQueue1);
- * const { consumer: consumer2, binding: binding2 } = logEvent.createConsumer(logsQueue2);
+ * const { consumer: consumer1, binding: binding1 } = createLogConsumer(logsQueue1);
+ * const { consumer: consumer2, binding: binding2 } = createLogConsumer(logsQueue2);
  *
  * const contract = defineContract({
  *   exchanges: { logs: logsExchange },
@@ -963,7 +963,7 @@ export type PublisherFirstResultWithRoutingKey<
  *     logBinding1: binding1,
  *     logBinding2: binding2,
  *   },
- *   publishers: { publishLog: logEvent.publisher },
+ *   publishers: { publishLog },
  *   consumers: {
  *     consumeLog1: consumer1,
  *     consumeLog2: consumer2,
@@ -1012,7 +1012,7 @@ export function definePublisherFirst<TMessage extends MessageDefinition>(
  * );
  *
  * // Create publisher-first relationship with routing key
- * const taskEvent = definePublisherFirst(
+ * const { publisher: executeTaskPublisher, createConsumer: createTaskConsumer } = definePublisherFirst(
  *   tasksExchange,
  *   taskMessage,
  *   { routingKey: 'task.execute' }
@@ -1020,13 +1020,13 @@ export function definePublisherFirst<TMessage extends MessageDefinition>(
  *
  * // Use in contract - routing key is consistent across publisher and bindings
  * const taskQueue = defineQueue('task-queue', { durable: true });
- * const { consumer, binding } = taskEvent.createConsumer(taskQueue);
+ * const { consumer, binding } = createTaskConsumer(taskQueue);
  *
  * const contract = defineContract({
  *   exchanges: { tasks: tasksExchange },
  *   queues: { taskQueue },
  *   bindings: { taskBinding: binding },
- *   publishers: { executeTask: taskEvent.publisher },
+ *   publishers: { executeTask: executeTaskPublisher },
  *   consumers: { processTask: consumer },
  * });
  * ```
@@ -1079,7 +1079,7 @@ export function definePublisherFirst<
  * );
  *
  * // Create publisher-first relationship with concrete routing key
- * const orderCreatedEvent = definePublisherFirst(
+ * const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } = definePublisherFirst(
  *   ordersExchange,
  *   orderMessage,
  *   { routingKey: 'order.created' }  // Concrete key
@@ -1091,9 +1091,9 @@ export function definePublisherFirst<
  *
  * // Use in contract
  * const { consumer: processConsumer, binding: processBinding } =
- *   orderCreatedEvent.createConsumer(orderQueue);  // Uses 'order.created'
+ *   createOrderCreatedConsumer(orderQueue);  // Uses 'order.created'
  * const { consumer: allOrdersConsumer, binding: allOrdersBinding } =
- *   orderCreatedEvent.createConsumer(allOrdersQueue, 'order.*');  // Uses pattern
+ *   createOrderCreatedConsumer(allOrdersQueue, 'order.*');  // Uses pattern
  *
  * const contract = defineContract({
  *   exchanges: { orders: ordersExchange },
@@ -1102,7 +1102,7 @@ export function definePublisherFirst<
  *     orderBinding: processBinding,
  *     allOrdersBinding,
  *   },
- *   publishers: { orderCreated: orderCreatedEvent.publisher },
+ *   publishers: { orderCreated: orderCreatedPublisher },
  *   consumers: {
  *     processOrder: processConsumer,
  *     trackAllOrders: allOrdersConsumer,
@@ -1278,7 +1278,7 @@ export type ConsumerFirstResultWithRoutingKey<
  * );
  *
  * // Create consumer-first relationship
- * const notificationConsumerFirst = defineConsumerFirst(
+ * const { consumer: processNotificationConsumer, binding: notificationBinding, createPublisher: createNotificationPublisher } = defineConsumerFirst(
  *   notificationsQueue,
  *   notificationsExchange,
  *   notificationMessage
@@ -1288,9 +1288,9 @@ export type ConsumerFirstResultWithRoutingKey<
  * const contract = defineContract({
  *   exchanges: { notifications: notificationsExchange },
  *   queues: { notificationsQueue },
- *   bindings: { notificationBinding: notificationConsumerFirst.binding },
- *   publishers: { sendNotification: notificationConsumerFirst.createPublisher() },
- *   consumers: { processNotification: notificationConsumerFirst.consumer },
+ *   bindings: { notificationBinding },
+ *   publishers: { sendNotification: createNotificationPublisher() },
+ *   consumers: { processNotification: processNotificationConsumer },
  * });
  * ```
  */
@@ -1340,7 +1340,7 @@ export function defineConsumerFirst<TMessage extends MessageDefinition>(
  * );
  *
  * // Create consumer-first relationship with routing key
- * const taskConsumerFirst = defineConsumerFirst(
+ * const { consumer: processTaskConsumer, binding: taskBinding, createPublisher: createTaskPublisher } = defineConsumerFirst(
  *   taskQueue,
  *   tasksExchange,
  *   taskMessage,
@@ -1351,9 +1351,9 @@ export function defineConsumerFirst<TMessage extends MessageDefinition>(
  * const contract = defineContract({
  *   exchanges: { tasks: tasksExchange },
  *   queues: { taskQueue },
- *   bindings: { taskBinding: taskConsumerFirst.binding },
- *   publishers: { executeTask: taskConsumerFirst.createPublisher() },
- *   consumers: { processTask: taskConsumerFirst.consumer },
+ *   bindings: { taskBinding },
+ *   publishers: { executeTask: createTaskPublisher() },
+ *   consumers: { processTask: processTaskConsumer },
  * });
  * ```
  */
@@ -1403,7 +1403,7 @@ export function defineConsumerFirst<TMessage extends MessageDefinition, TRouting
  * );
  *
  * // Create consumer-first relationship with pattern
- * const orderConsumerFirst = defineConsumerFirst(
+ * const { consumer: processOrderConsumer, binding: orderBinding, createPublisher: createOrderPublisher } = defineConsumerFirst(
  *   orderQueue,
  *   ordersExchange,
  *   orderMessage,
@@ -1414,12 +1414,12 @@ export function defineConsumerFirst<TMessage extends MessageDefinition, TRouting
  * const contract = defineContract({
  *   exchanges: { orders: ordersExchange },
  *   queues: { orderQueue },
- *   bindings: { orderBinding: orderConsumerFirst.binding },
+ *   bindings: { orderBinding },
  *   publishers: {
- *     orderCreated: orderConsumerFirst.createPublisher('order.created'),  // Concrete key
- *     orderUpdated: orderConsumerFirst.createPublisher('order.updated'),  // Concrete key
+ *     orderCreated: createOrderPublisher('order.created'),  // Concrete key
+ *     orderUpdated: createOrderPublisher('order.updated'),  // Concrete key
  *   },
- *   consumers: { processOrder: orderConsumerFirst.consumer },
+ *   consumers: { processOrder: processOrderConsumer },
  * });
  * ```
  */
