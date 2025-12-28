@@ -28,8 +28,8 @@
     "@amqp-contract/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "mermaid": "catalog:",
-    "turbo": "catalog:",
     "tsx": "catalog:",
+    "turbo": "catalog:",
     "vitepress": "catalog:",
     "vitepress-plugin-mermaid": "catalog:"
   }
