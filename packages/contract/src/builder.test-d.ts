@@ -10,7 +10,9 @@ describe("RoutingKey type validation", () => {
   test("should accept valid routing keys", () => {
     expectTypeOf<RoutingKey<"order.created">>().toEqualTypeOf<"order.created">();
     expectTypeOf<RoutingKey<"user-profile.updated">>().toEqualTypeOf<"user-profile.updated">();
-    expectTypeOf<RoutingKey<"system_event.notification">>().toEqualTypeOf<"system_event.notification">();
+    expectTypeOf<
+      RoutingKey<"system_event.notification">
+    >().toEqualTypeOf<"system_event.notification">();
     expectTypeOf<RoutingKey<"a">>().toEqualTypeOf<"a">();
     expectTypeOf<RoutingKey<"ABC123">>().toEqualTypeOf<"ABC123">();
   });
@@ -18,10 +20,10 @@ describe("RoutingKey type validation", () => {
   test("should reject routing keys with wildcards", () => {
     // * wildcard is not allowed in routing keys
     expectTypeOf<RoutingKey<"order.*">>().toEqualTypeOf<never>();
-    
+
     // # wildcard is not allowed in routing keys
     expectTypeOf<RoutingKey<"order.#">>().toEqualTypeOf<never>();
-    
+
     // wildcards in the middle not allowed
     expectTypeOf<RoutingKey<"order.*.created">>().toEqualTypeOf<never>();
   });
@@ -57,47 +59,61 @@ describe("MatchingRoutingKey pattern matching", () => {
   test("should match valid routing keys against patterns with * wildcard", () => {
     // * matches exactly one word
     expectTypeOf<MatchingRoutingKey<"order.*", "order.created">>().toEqualTypeOf<"order.created">();
-    expectTypeOf<MatchingRoutingKey<"*.created", "order.created">>().toEqualTypeOf<"order.created">();
+    expectTypeOf<
+      MatchingRoutingKey<"*.created", "order.created">
+    >().toEqualTypeOf<"order.created">();
   });
 
   test("should match valid routing keys against patterns with # wildcard", () => {
     // # matches zero or more words
     expectTypeOf<MatchingRoutingKey<"order.#", "order.created">>().toEqualTypeOf<"order.created">();
-    expectTypeOf<MatchingRoutingKey<"order.#", "order.created.urgent">>().toEqualTypeOf<"order.created.urgent">();
+    expectTypeOf<
+      MatchingRoutingKey<"order.#", "order.created.urgent">
+    >().toEqualTypeOf<"order.created.urgent">();
   });
 
   test("should match exact routing keys", () => {
-    expectTypeOf<MatchingRoutingKey<"order.created", "order.created">>().toEqualTypeOf<"order.created">();
+    expectTypeOf<
+      MatchingRoutingKey<"order.created", "order.created">
+    >().toEqualTypeOf<"order.created">();
   });
 
   test("should reject non-matching routing keys", () => {
     // Wrong prefix
     expectTypeOf<MatchingRoutingKey<"order.*", "user.created">>().toEqualTypeOf<never>();
-    
+
     // * matches only one word, not multiple
     expectTypeOf<MatchingRoutingKey<"order.*", "order.created.urgent">>().toEqualTypeOf<never>();
-    
+
     // Wrong suffix
     expectTypeOf<MatchingRoutingKey<"*.created", "order.updated">>().toEqualTypeOf<never>();
   });
 
   test("should handle # wildcard in the middle of patterns", () => {
     // # matches zero segments
-    expectTypeOf<MatchingRoutingKey<"order.#.completed", "order.completed">>().toEqualTypeOf<"order.completed">();
-    
+    expectTypeOf<
+      MatchingRoutingKey<"order.#.completed", "order.completed">
+    >().toEqualTypeOf<"order.completed">();
+
     // # matches one segment
-    expectTypeOf<MatchingRoutingKey<"order.#.completed", "order.created.completed">>().toEqualTypeOf<"order.created.completed">();
-    
+    expectTypeOf<
+      MatchingRoutingKey<"order.#.completed", "order.created.completed">
+    >().toEqualTypeOf<"order.created.completed">();
+
     // # matches two segments
-    expectTypeOf<MatchingRoutingKey<"order.#.completed", "order.created.urgent.completed">>().toEqualTypeOf<"order.created.urgent.completed">();
+    expectTypeOf<
+      MatchingRoutingKey<"order.#.completed", "order.created.urgent.completed">
+    >().toEqualTypeOf<"order.created.urgent.completed">();
   });
 
   test("should reject when # pattern does not match suffix", () => {
     // Missing .completed suffix
     expectTypeOf<MatchingRoutingKey<"order.#.completed", "order.created">>().toEqualTypeOf<never>();
-    
+
     // Wrong prefix
-    expectTypeOf<MatchingRoutingKey<"order.#.completed", "user.completed">>().toEqualTypeOf<never>();
+    expectTypeOf<
+      MatchingRoutingKey<"order.#.completed", "user.completed">
+    >().toEqualTypeOf<never>();
   });
 });
 

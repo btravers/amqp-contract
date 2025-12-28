@@ -1032,7 +1032,10 @@ export function definePublisherFirst<
   },
 ): PublisherFirstResult<
   TMessage,
-  Extract<PublisherDefinition<TMessage>, { exchange: DirectExchangeDefinition | TopicExchangeDefinition }>
+  Extract<
+    PublisherDefinition<TMessage>,
+    { exchange: DirectExchangeDefinition | TopicExchangeDefinition }
+  >
 >;
 
 /**
@@ -1108,7 +1111,10 @@ export function definePublisherFirst<
   },
 ): PublisherFirstResultWithRoutingKey<
   TMessage,
-  Extract<PublisherDefinition<TMessage>, { exchange: DirectExchangeDefinition | TopicExchangeDefinition }>,
+  Extract<
+    PublisherDefinition<TMessage>,
+    { exchange: DirectExchangeDefinition | TopicExchangeDefinition }
+  >,
   TRoutingKey
 >;
 
@@ -1449,7 +1455,10 @@ export function defineConsumerFirst<TMessage extends MessageDefinition>(
   if (exchange.type === "topic") {
     const createPublisher = (
       routingKey: string,
-    ): Extract<PublisherDefinition<TMessage>, { exchange: DirectExchangeDefinition | TopicExchangeDefinition }> => {
+    ): Extract<
+      PublisherDefinition<TMessage>,
+      { exchange: DirectExchangeDefinition | TopicExchangeDefinition }
+    > => {
       return callDefinePublisher(exchange, message, { ...options, routingKey }) as Extract<
         PublisherDefinition<TMessage>,
         { exchange: DirectExchangeDefinition | TopicExchangeDefinition }
