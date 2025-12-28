@@ -116,7 +116,7 @@ const orderMessage = defineMessage(
 );
 
 // 3. Publisher-first pattern for event-oriented messaging
-const orderCreatedEvent = definePublisherFirst(
+const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } = definePublisherFirst(
   ordersExchange,
   orderMessage,
   { routingKey: 'order.created' }
@@ -124,7 +124,7 @@ const orderCreatedEvent = definePublisherFirst(
 
 // 4. Create consumer from event (ensures schema consistency)
 const { consumer: processOrderConsumer, binding: orderBinding } =
-  orderCreatedEvent.createConsumer(orderProcessingQueue);
+  createOrderCreatedConsumer(orderProcessingQueue);
 
 // 5. Create contract
 const contract = defineContract({
@@ -132,7 +132,7 @@ const contract = defineContract({
   queues: { orderProcessing: orderProcessingQueue },
   bindings: { orderBinding },
   publishers: {
-    orderCreated: orderCreatedEvent.publisher,
+    orderCreated: orderCreatedPublisher,
   },
   consumers: {
     processOrder: processOrderConsumer,
@@ -209,14 +209,14 @@ Your contract is the single source of truth:
 
 ```typescript
 // ✅ One contract definition using publisher-first pattern
-const orderCreatedEvent = definePublisherFirst(
+const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } = definePublisherFirst(
   ordersExchange,
   orderMessage,
   { routingKey: 'order.created' }
 );
 
 const { consumer: processOrderConsumer, binding: orderBinding } =
-  orderCreatedEvent.createConsumer(orderProcessingQueue);
+  createOrderCreatedConsumer(orderProcessingQueue);
 
 const contract = defineContract({
   // Define once, use across all publishers and consumers
@@ -225,7 +225,7 @@ const contract = defineContract({
   queues: { orderProcessing: orderProcessingQueue },
   bindings: { orderBinding },
   publishers: {
-    orderCreated: orderCreatedEvent.publisher,
+    orderCreated: orderCreatedPublisher,
   },
   consumers: {
     processOrder: processOrderConsumer,

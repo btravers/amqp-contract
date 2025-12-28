@@ -31,7 +31,7 @@ const orderMessage = defineMessage(
 );
 
 // 2. Publisher-first pattern (recommended for events)
-const orderCreatedEvent = definePublisherFirst(
+const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } = definePublisherFirst(
   ordersExchange,
   orderMessage,
   { routingKey: 'order.created' }
@@ -40,7 +40,7 @@ const orderCreatedEvent = definePublisherFirst(
 // 3. Create consumer from event
 const orderProcessingQueue = defineQueue('order-processing', { durable: true });
 const { consumer: processOrderConsumer, binding: orderBinding } =
-  orderCreatedEvent.createConsumer(orderProcessingQueue);
+  createOrderCreatedConsumer(orderProcessingQueue);
 
 // 4. Compose contract
 const contract = defineContract({
@@ -48,7 +48,7 @@ const contract = defineContract({
   queues: { orderProcessing: orderProcessingQueue },
   bindings: { orderBinding },
   publishers: {
-    orderCreated: orderCreatedEvent.publisher,
+    orderCreated: orderCreatedPublisher,
   },
   consumers: {
     processOrder: processOrderConsumer,
@@ -122,19 +122,19 @@ import { type } from 'arktype';
 const ordersExchange = defineExchange('orders', 'topic', { durable: true });
 
 // All work the same way with definePublisherFirst:
-const zodEvent = definePublisherFirst(
+const { publisher: zodPublisher, createConsumer: createZodConsumer } = definePublisherFirst(
   ordersExchange,
   defineMessage(z.object({ id: z.string() })),
   { routingKey: 'order.created' }
 );
 
-const valibotEvent = definePublisherFirst(
+const { publisher: valibotPublisher, createConsumer: createValibotConsumer } = definePublisherFirst(
   ordersExchange,
   defineMessage(v.object({ id: v.string() })),
   { routingKey: 'order.created' }
 );
 
-const arktypeEvent = definePublisherFirst(
+const { publisher: arktypePublisher, createConsumer: createArktypeConsumer } = definePublisherFirst(
   ordersExchange,
   defineMessage(type({ id: 'string' })),
   { routingKey: 'order.created' }
