@@ -137,6 +137,24 @@ async function main() {
 
         logger.info("Analytics data processed");
       },
+
+      // Handler for FAILED orders (from dead letter exchange)
+      handleFailedOrders: async (message) => {
+        logger.error(
+          {
+            orderId: message.orderId,
+            customerId: message.customerId,
+            totalAmount: message.totalAmount,
+          },
+          "[DLX] Failed order received from dead letter exchange",
+        );
+
+        // Implement retry logic, alert, or store for manual processing
+        // For this example, we just log the failure
+        await new Promise((resolve) => setTimeout(resolve, 200));
+
+        logger.error({ orderId: message.orderId }, "Failed order logged for investigation");
+      },
     },
     urls: [env.AMQP_URL],
   })
@@ -151,9 +169,13 @@ async function main() {
   logger.info("  • order.shipped     → shipOrder handler");
   logger.info("  • order.*.urgent    → handleUrgentOrder handler");
   logger.info("  • order.# (via analytics exchange) → processAnalytics handler");
+  logger.info("  • order.failed (via DLX) → handleFailedOrders handler");
   logger.info("=".repeat(60));
   logger.info("Exchange-to-Exchange Binding:");
   logger.info("  orders → order-analytics (routing: order.#)");
+  logger.info("=".repeat(60));
+  logger.info("Dead Letter Exchange:");
+  logger.info("  order-processing → orders-dlx (routing: order.failed)");
   logger.info("=".repeat(60));
 
   // Handle graceful shutdown

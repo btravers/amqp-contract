@@ -552,6 +552,158 @@ These types are used internally by `definePublisherFirst` and `defineConsumerFir
 TypeScript's type system has recursion depth limits (~50 levels). For very long routing keys or deeply nested patterns, validation may fall back to `string`. This doesn't affect runtime behavior—it only means some edge cases won't be caught at compile time.
 :::
 
+## Dead Letter Exchanges
+
+Dead Letter Exchanges (DLX) automatically handle failed, rejected, or expired messages. When a message in a queue is rejected (nack), expires (TTL), or the queue reaches its length limit, it can be automatically routed to a DLX for further processing or storage.
+
+### Basic Dead Letter Configuration
+
+```typescript
+import {
+  defineExchange,
+  defineQueue,
+  defineQueueBinding,
+  defineContract,
+} from '@amqp-contract/contract';
+
+// 1. Define the dead letter exchange
+const ordersDlx = defineExchange('orders-dlx', 'topic', { durable: true });
+
+// 2. Define the main queue with dead letter configuration
+const orderProcessingQueue = defineQueue('order-processing', {
+  durable: true,
+  deadLetter: {
+    exchange: ordersDlx,
+    routingKey: 'order.failed', // Optional: routing key for DLX
+  },
+  // Optional: Add message TTL to automatically move old messages to DLX
+  arguments: {
+    'x-message-ttl': 86400000, // 24 hours in milliseconds
+  },
+});
+
+// 3. Define a queue to collect dead-lettered messages
+const ordersDlxQueue = defineQueue('orders-dlx-queue', { durable: true });
+
+// 4. Compose the contract
+export const contract = defineContract({
+  exchanges: {
+    ordersDlx,
+  },
+  queues: {
+    orderProcessing: orderProcessingQueue,
+    ordersDlxQueue,
+  },
+  bindings: {
+    // Bind the DLX queue to receive failed messages
+    dlxBinding: defineQueueBinding(ordersDlxQueue, ordersDlx, {
+      routingKey: 'order.failed',
+    }),
+  },
+});
+```
+
+### Dead Letter Features
+
+**Automatic Routing**: Messages are automatically routed to the DLX when:
+
+- A message is rejected with `nack` and `requeue: false`
+- A message's TTL (time-to-live) expires
+- The queue reaches its maximum length
+
+**Routing Key Options**:
+
+- If `routingKey` is specified, it will be used when routing to the DLX
+- If not specified, the original message routing key is preserved
+
+**Common Use Cases**:
+
+- **Error Handling**: Collect and process failed messages
+- **Message Expiry**: Handle expired messages separately
+- **Retry Logic**: Implement custom retry strategies for failed messages
+- **Debugging**: Store failed messages for analysis
+
+### Complete DLX Example
+
+```typescript
+import {
+  defineContract,
+  defineExchange,
+  defineQueue,
+  defineQueueBinding,
+  definePublisher,
+  defineConsumer,
+  defineMessage,
+} from '@amqp-contract/contract';
+import { z } from 'zod';
+
+// Define exchanges
+const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+const ordersDlx = defineExchange('orders-dlx', 'topic', { durable: true });
+
+// Define message schema
+const orderMessage = defineMessage(
+  z.object({
+    orderId: z.string(),
+    amount: z.number(),
+  })
+);
+
+// Define queues with DLX configuration
+const orderProcessingQueue = defineQueue('order-processing', {
+  durable: true,
+  deadLetter: {
+    exchange: ordersDlx,
+    routingKey: 'order.failed',
+  },
+  arguments: {
+    'x-message-ttl': 86400000, // 24 hours
+  },
+});
+
+const ordersDlxQueue = defineQueue('orders-dlx-queue', { durable: true });
+
+// Compose contract
+export const contract = defineContract({
+  exchanges: {
+    orders: ordersExchange,
+    ordersDlx,
+  },
+  queues: {
+    orderProcessing: orderProcessingQueue,
+    ordersDlxQueue,
+  },
+  bindings: {
+    // Main queue binding
+    orderBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
+      routingKey: 'order.created',
+    }),
+    // DLX queue binding
+    dlxBinding: defineQueueBinding(ordersDlxQueue, ordersDlx, {
+      routingKey: 'order.failed',
+    }),
+  },
+  publishers: {
+    orderCreated: definePublisher(ordersExchange, orderMessage, {
+      routingKey: 'order.created',
+    }),
+  },
+  consumers: {
+    processOrder: defineConsumer(orderProcessingQueue, orderMessage),
+    handleFailedOrders: defineConsumer(ordersDlxQueue, orderMessage),
+  },
+});
+```
+
+::: tip Best Practices
+
+- Always declare the DLX in your contract's `exchanges`
+- Create a dedicated queue for collecting dead-lettered messages
+- Use meaningful routing keys for DLX messages (e.g., `order.failed`)
+- Consider implementing retry logic in your DLX consumer
+- Monitor DLX queues for issues in your message processing
+  :::
+
 ## Next Steps
 
 - Learn about [Client Usage](/guide/client-usage)

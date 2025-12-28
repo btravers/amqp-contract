@@ -1,5 +1,6 @@
 import { ConfigModule, ConfigType } from "@nestjs/config";
 import {
+  HandleFailedOrdersHandler,
   HandleUrgentOrderHandler,
   HandlersModule,
   NotifyOrderHandler,
@@ -23,6 +24,7 @@ import { orderContract } from "@amqp-contract-samples/basic-order-processing-con
         ShipOrderHandler,
         HandleUrgentOrderHandler,
         ProcessAnalyticsHandler,
+        HandleFailedOrdersHandler,
         amqpConfig.KEY,
       ],
       useFactory: (
@@ -31,6 +33,7 @@ import { orderContract } from "@amqp-contract-samples/basic-order-processing-con
         shipOrder: ShipOrderHandler,
         handleUrgentOrder: HandleUrgentOrderHandler,
         processAnalytics: ProcessAnalyticsHandler,
+        handleFailedOrders: HandleFailedOrdersHandler,
         config: ConfigType<typeof amqpConfig>,
       ) => ({
         contract: orderContract,
@@ -40,6 +43,7 @@ import { orderContract } from "@amqp-contract-samples/basic-order-processing-con
           shipOrder: shipOrder.handler,
           handleUrgentOrder: handleUrgentOrder.handler,
           processAnalytics: processAnalytics.handler,
+          handleFailedOrders: handleFailedOrders.handler,
         },
         urls: [config.url],
       }),

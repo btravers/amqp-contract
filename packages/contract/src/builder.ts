@@ -135,16 +135,27 @@ export function defineExchange(
  * @param options.durable - If true, the queue survives broker restarts (default: false)
  * @param options.exclusive - If true, the queue can only be used by the declaring connection (default: false)
  * @param options.autoDelete - If true, the queue is deleted when the last consumer unsubscribes (default: false)
- * @param options.arguments - Additional AMQP arguments (e.g., x-message-ttl, x-dead-letter-exchange)
+ * @param options.deadLetter - Dead letter configuration for handling failed messages
+ * @param options.arguments - Additional AMQP arguments (e.g., x-message-ttl, x-max-priority)
  * @returns A queue definition
  *
  * @example
  * ```typescript
- * const orderProcessingQueue = defineQueue('order-processing', {
+ * // Basic queue
+ * const orderQueue = defineQueue('order-processing', {
  *   durable: true,
+ * });
+ *
+ * // Queue with dead letter exchange
+ * const dlx = defineExchange('orders-dlx', 'topic', { durable: true });
+ * const orderQueueWithDLX = defineQueue('order-processing', {
+ *   durable: true,
+ *   deadLetter: {
+ *     exchange: dlx,
+ *     routingKey: 'order.failed'
+ *   },
  *   arguments: {
  *     'x-message-ttl': 86400000, // 24 hours
- *     'x-dead-letter-exchange': 'orders-dlx'
  *   }
  * });
  * ```

@@ -115,6 +115,27 @@ export type ExchangeDefinition =
   | TopicExchangeDefinition;
 
 /**
+ * Configuration for dead letter exchange (DLX) on a queue.
+ *
+ * When a message in a queue is rejected, expires, or exceeds the queue length limit,
+ * it can be automatically forwarded to a dead letter exchange for further processing
+ * or storage.
+ */
+export type DeadLetterConfig = {
+  /**
+   * The exchange to send dead-lettered messages to.
+   * This exchange must be declared in the contract.
+   */
+  exchange: ExchangeDefinition;
+
+  /**
+   * Optional routing key to use when forwarding messages to the dead letter exchange.
+   * If not specified, the original message routing key is used.
+   */
+  routingKey?: string;
+};
+
+/**
  * Definition of an AMQP queue.
  *
  * A queue stores messages until they are consumed by workers. Queues are bound to exchanges
@@ -146,6 +167,26 @@ export type QueueDefinition = {
   autoDelete?: boolean;
 
   /**
+   * Dead letter configuration for handling failed or rejected messages.
+   *
+   * When configured, messages that are rejected, expire, or exceed queue limits
+   * will be automatically forwarded to the specified dead letter exchange.
+   *
+   * @example
+   * ```typescript
+   * const dlx = defineExchange('orders-dlx', 'topic', { durable: true });
+   * const queue = defineQueue('order-processing', {
+   *   durable: true,
+   *   deadLetter: {
+   *     exchange: dlx,
+   *     routingKey: 'order.failed'
+   *   }
+   * });
+   * ```
+   */
+  deadLetter?: DeadLetterConfig;
+
+  /**
    * Additional AMQP arguments for advanced configuration.
    *
    * Common arguments include:
@@ -153,15 +194,16 @@ export type QueueDefinition = {
    * - `x-expires`: Queue expiration time in milliseconds
    * - `x-max-length`: Maximum number of messages in the queue
    * - `x-max-length-bytes`: Maximum size of the queue in bytes
-   * - `x-dead-letter-exchange`: Exchange for dead-lettered messages
-   * - `x-dead-letter-routing-key`: Routing key for dead-lettered messages
    * - `x-max-priority`: Maximum priority level for priority queues
+   *
+   * Note: When using the `deadLetter` property, the `x-dead-letter-exchange` and
+   * `x-dead-letter-routing-key` arguments are automatically set and should not be
+   * specified in this arguments object.
    *
    * @example
    * ```typescript
    * {
    *   'x-message-ttl': 86400000, // 24 hours
-   *   'x-dead-letter-exchange': 'dlx',
    *   'x-max-priority': 10
    * }
    * ```
