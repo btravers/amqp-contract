@@ -13,16 +13,21 @@ import type {
  * providing better code organization and reusability.
  *
  * Supports three patterns:
- * 1. Simple handler: just the function
- * 2. Handler with prefetch: [handler, { prefetch: 10 }]
- * 3. Batch handler: [batchHandler, { batchSize: 5, batchTimeout: 1000 }]
+ * 1. Simple handler: just the function (single message handler)
+ * 2. Handler with prefetch: [handler, { prefetch: 10 }] (single message handler with config)
+ * 3. Batch handler: [batchHandler, { batchSize: 5, batchTimeout: 1000 }] (REQUIRES batchSize config)
+ *
+ * **Important**: Batch handlers (handlers that accept an array of messages) MUST include
+ * batchSize configuration. You cannot create a batch handler without specifying batchSize.
  *
  * @template TContract - The contract definition type
  * @template TName - The consumer name from the contract
  * @param contract - The contract definition containing the consumer
  * @param consumerName - The name of the consumer from the contract
- * @param handler - The async handler function that processes messages
+ * @param handler - The async handler function that processes messages (single or batch)
  * @param options - Optional consumer options (prefetch, batchSize, batchTimeout)
+ *   - For single-message handlers: { prefetch?: number } is optional
+ *   - For batch handlers: { batchSize: number, batchTimeout?: number } is REQUIRED
  * @returns A type-safe handler that can be used with TypedAmqpWorker
  *
  * @example
@@ -30,7 +35,7 @@ import type {
  * import { defineHandler } from '@amqp-contract/worker';
  * import { orderContract } from './contract';
  *
- * // Simple handler without options
+ * // Simple single-message handler without options
  * const processOrderHandler = defineHandler(
  *   orderContract,
  *   'processOrder',
@@ -40,7 +45,7 @@ import type {
  *   }
  * );
  *
- * // Handler with prefetch
+ * // Single-message handler with prefetch
  * const processOrderWithPrefetch = defineHandler(
  *   orderContract,
  *   'processOrder',
@@ -50,11 +55,12 @@ import type {
  *   { prefetch: 10 }
  * );
  *
- * // Batch handler
+ * // Batch handler - MUST include batchSize
  * const processBatchOrders = defineHandler(
  *   orderContract,
  *   'processOrders',
  *   async (messages) => {
+ *     // messages is an array - batchSize configuration is REQUIRED
  *     await db.insertMany(messages);
  *   },
  *   { batchSize: 5, batchTimeout: 1000 }
@@ -67,9 +73,7 @@ export function defineHandler<
 >(
   contract: TContract,
   consumerName: TName,
-  handler:
-    | WorkerInferConsumerHandler<TContract, TName>
-    | WorkerInferConsumerBatchHandler<TContract, TName>,
+  handler: WorkerInferConsumerHandler<TContract, TName>,
 ): WorkerInferConsumerHandlerEntry<TContract, TName>;
 export function defineHandler<
   TContract extends ContractDefinition,
