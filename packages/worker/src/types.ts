@@ -88,16 +88,24 @@ export type ConsumerOptions = {
 
 /**
  * Infer handler entry for a consumer - either a function or a tuple of [handler, options].
+ *
+ * Three patterns are supported:
+ * 1. Simple handler: `async (message) => { ... }`
+ * 2. Handler with prefetch: `[async (message) => { ... }, { prefetch: 10 }]`
+ * 3. Batch handler: `[async (messages) => { ... }, { batchSize: 5, batchTimeout: 1000 }]`
  */
 export type WorkerInferConsumerHandlerEntry<
   TContract extends ContractDefinition,
   TName extends InferConsumerNames<TContract>,
 > =
   | WorkerInferConsumerHandler<TContract, TName>
-  | WorkerInferConsumerBatchHandler<TContract, TName>
   | readonly [
-      WorkerInferConsumerHandler<TContract, TName> | WorkerInferConsumerBatchHandler<TContract, TName>,
-      ConsumerOptions,
+      WorkerInferConsumerHandler<TContract, TName>,
+      { prefetch?: number; batchSize?: never; batchTimeout?: never },
+    ]
+  | readonly [
+      WorkerInferConsumerBatchHandler<TContract, TName>,
+      { prefetch?: number; batchSize: number; batchTimeout?: number },
     ];
 
 /**
