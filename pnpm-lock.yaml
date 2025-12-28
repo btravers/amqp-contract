@@ -406,6 +406,9 @@ importers:
       '@amqp-contract/tsconfig':
         specifier: workspace:*
         version: link:../../tools/tsconfig
+      '@amqp-contract/typedoc':
+        specifier: workspace:*
+        version: link:../../tools/typedoc
       '@types/amqplib':
         specifier: 'catalog:'
         version: 0.10.8
@@ -415,6 +418,9 @@ importers:
       tsdown:
         specifier: 'catalog:'
         version: 0.18.3(oxc-resolver@11.16.2)(typescript@5.9.3)
+      typedoc:
+        specifier: 'catalog:'
+        version: 0.28.15(typescript@5.9.3)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3

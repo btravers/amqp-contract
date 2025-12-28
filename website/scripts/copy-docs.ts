@@ -14,6 +14,7 @@ type PackageInfo = {
 
 const packages: PackageInfo[] = [
   { name: "@amqp-contract/contract", folder: "contract" },
+  { name: "@amqp-contract/core", folder: "core" },
   { name: "@amqp-contract/client", folder: "client" },
   { name: "@amqp-contract/worker", folder: "worker" },
   { name: "@amqp-contract/asyncapi", folder: "asyncapi" },
@@ -59,6 +60,7 @@ Welcome to the amqp-contract API documentation. This documentation is auto-gener
 ## Core Packages
 
 - [@amqp-contract/contract](./contract/) - Core contract definitions
+- [@amqp-contract/core](./core/) - Core utilities for AMQP setup and management
 - [@amqp-contract/client](./client/) - Type-safe AMQP client
 - [@amqp-contract/worker](./worker/) - Type-safe AMQP worker
 - [@amqp-contract/asyncapi](./asyncapi/) - AsyncAPI specification generator
