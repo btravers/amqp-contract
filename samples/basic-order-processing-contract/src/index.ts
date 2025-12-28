@@ -42,12 +42,29 @@ const orderStatusSchema = z.object({
 const ordersExchange = defineExchange("orders", "topic", { durable: true });
 const orderAnalyticsExchange = defineExchange("order-analytics", "topic", { durable: true });
 
+// Define dead letter exchange for failed messages
+const ordersDlx = defineExchange("orders-dlx", "topic", { durable: true });
+
 // Define queues so they can be referenced
-const orderProcessingQueue = defineQueue("order-processing", { durable: true });
+const orderProcessingQueue = defineQueue("order-processing", {
+  durable: true,
+  // Configure dead letter exchange for failed order processing
+  deadLetter: {
+    exchange: ordersDlx,
+    routingKey: "order.failed",
+  },
+  // Optional: Add message TTL (time-to-live) to automatically move old messages to DLX
+  arguments: {
+    "x-message-ttl": 86400000, // 24 hours
+  },
+});
 const orderNotificationsQueue = defineQueue("order-notifications", { durable: true });
 const orderShippingQueue = defineQueue("order-shipping", { durable: true });
 const orderUrgentQueue = defineQueue("order-urgent", { durable: true });
 const analyticsProcessingQueue = defineQueue("analytics-processing", { durable: true });
+
+// Dead letter queue to collect failed messages
+const ordersDlxQueue = defineQueue("orders-dlx-queue", { durable: true });
 
 // Define messages with metadata
 const orderMessage = defineMessage(orderSchema, {
@@ -95,11 +112,17 @@ const shipOrderCommand = defineConsumerFirst(
  * 1. Publisher-First Pattern: orderCreatedEvent can be consumed by multiple queues
  * 2. Consumer-First Pattern: shipOrderCommand ensures publisher matches consumer
  * 3. Traditional Approach: For advanced scenarios like exchange-to-exchange bindings
+ * 4. Dead Letter Exchange: Failed messages from orderProcessingQueue are routed to DLX
  *
  * Benefits of Publisher-First / Consumer-First:
  * - Guaranteed message schema consistency
  * - Automatic routing key synchronization
  * - Type-safe contract definitions
+ *
+ * Dead Letter Exchange Pattern:
+ * - Failed or rejected messages are automatically routed to a DLX
+ * - Messages that exceed TTL are moved to DLX
+ * - Enables message retry and error handling strategies
  */
 export const orderContract = defineContract({
   exchanges: {
@@ -108,9 +131,12 @@ export const orderContract = defineContract({
 
     // Secondary exchange for analytics (receives filtered events from orders exchange)
     orderAnalytics: orderAnalyticsExchange,
+
+    // Dead letter exchange for failed messages
+    ordersDlx,
   },
   queues: {
-    // Queue for processing all new orders
+    // Queue for processing all new orders (with DLX configuration)
     orderProcessing: orderProcessingQueue,
 
     // Queue for all notifications (subscribes to all order events)
@@ -124,6 +150,9 @@ export const orderContract = defineContract({
 
     // Queue for analytics (receives events through orderAnalytics exchange)
     analyticsProcessing: analyticsProcessingQueue,
+
+    // Dead letter queue to collect failed messages
+    ordersDlxQueue,
   },
   bindings: {
     // Binding from Publisher-First pattern (guaranteed consistent routing key)
@@ -152,6 +181,11 @@ export const orderContract = defineContract({
     // Bind analytics queue to analytics exchange for all events
     analyticsBinding: defineQueueBinding(analyticsProcessingQueue, orderAnalyticsExchange, {
       routingKey: "order.#",
+    }),
+
+    // Bind DLX queue to DLX to collect failed messages
+    ordersDlxBinding: defineQueueBinding(ordersDlxQueue, ordersDlx, {
+      routingKey: "order.failed",
     }),
   },
   publishers: {
@@ -183,5 +217,8 @@ export const orderContract = defineContract({
     // Traditional consumers (for other scenarios)
     handleUrgentOrder: defineConsumer(orderUrgentQueue, orderStatusMessage),
     processAnalytics: defineConsumer(analyticsProcessingQueue, orderUnionMessage),
+
+    // Consumer for dead letter queue (handles failed messages)
+    handleFailedOrders: defineConsumer(ordersDlxQueue, orderMessage),
   },
 });
