@@ -1,5 +1,10 @@
 {
   "extends": "@amqp-contract/typedoc/base.json",
   "entryPoints": ["src/index.ts"],
-  "out": "docs"
+  "out": "docs",
+  "externalSymbolLinkMappings": {
+    "@amqp-contract/client": {
+      "TypedAmqpClient": "https://btravers.github.io/amqp-contract/api/client#typedamqpclient"
+    }
+  }
 }
