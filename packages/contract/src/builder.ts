@@ -850,8 +850,18 @@ type ValidateRoutingKey<S extends string> = S extends `${infer Segment}.${infer 
   : IsValidSegment<S>;
 
 /**
- * Type-safe routing key that validates character set and format
- * @internal
+ * Type-safe routing key that validates character set and format.
+ *
+ * Validates that a routing key contains only allowed characters (a-z, A-Z, 0-9, -, _)
+ * and follows the dot-separated segment format required by AMQP.
+ *
+ * @public
+ * @template S - The routing key string to validate
+ * @example
+ * ```typescript
+ * type Valid = RoutingKey<"order.created">; // "order.created"
+ * type Invalid = RoutingKey<"order@created">; // never
+ * ```
  */
 export type RoutingKey<S extends string> = ValidateRoutingKey<S> extends true ? S : never;
 
@@ -872,8 +882,20 @@ type ValidateBindingPattern<S extends string> = S extends `${infer Part}.${infer
   : IsValidBindingPart<S>;
 
 /**
- * Type-safe binding pattern that validates wildcards and format
- * @internal
+ * Type-safe binding pattern that validates wildcards and format.
+ *
+ * Validates that a binding pattern contains only allowed characters (a-z, A-Z, 0-9, -, _)
+ * and AMQP wildcards (* for one word, # for zero or more words), following the
+ * dot-separated format required by AMQP topic exchanges.
+ *
+ * @public
+ * @template S - The binding pattern string to validate
+ * @example
+ * ```typescript
+ * type ValidPattern = BindingPattern<"order.*">; // "order.*"
+ * type ValidHash = BindingPattern<"order.#">; // "order.#"
+ * type Invalid = BindingPattern<"order.@">; // never
+ * ```
  */
 export type BindingPattern<S extends string> = ValidateBindingPattern<S> extends true ? S : never;
 
