@@ -9,6 +9,9 @@
     "build": "turbo run build",
     "changeset": "changeset",
     "dev": "turbo run dev",
+    "docs:build": "turbo run build:docs && tsx scripts/copy-docs.ts && vitepress build docs",
+    "docs:dev": "vitepress dev docs",
+    "docs:preview": "vitepress preview docs",
     "format": "oxfmt .",
     "lint": "oxlint .",
     "prepare": "lefthook install",
@@ -24,12 +27,17 @@
     "@changesets/cli": "catalog:",
     "@commitlint/cli": "catalog:",
     "@commitlint/config-conventional": "catalog:",
+    "@types/node": "catalog:",
     "knip": "catalog:",
     "lefthook": "catalog:",
+    "mermaid": "catalog:",
     "oxfmt": "catalog:",
     "oxlint": "catalog:",
     "sort-package-json": "catalog:",
-    "turbo": "catalog:"
+    "tsx": "catalog:",
+    "turbo": "catalog:",
+    "vitepress": "catalog:",
+    "vitepress-plugin-mermaid": "catalog:"
   },
   "packageManager": "pnpm@10.26.2"
 }

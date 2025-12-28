@@ -11,20 +11,6 @@
     },
     "tools/*": {
       "entry": ["*.json"]
-    },
-    "website": {
-      "entry": ["docs/.vitepress/config.ts", "docs/.vitepress/theme/index.ts"],
-      "ignoreDependencies": [
-        "@amqp-contract/asyncapi",
-        "@amqp-contract/client",
-        "@amqp-contract/client-nestjs",
-        "@amqp-contract/contract",
-        "@amqp-contract/core",
-        "@amqp-contract/testing",
-        "@amqp-contract/worker",
-        "@amqp-contract/worker-nestjs",
-        "@amqp-contract/tsconfig"
-      ]
     }
   },
   "ignore": ["coverage/**", "**/dist/**"],
