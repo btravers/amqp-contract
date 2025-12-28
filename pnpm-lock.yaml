@@ -833,6 +833,9 @@ importers:
       '@amqp-contract/contract':
         specifier: workspace:*
         version: link:../packages/contract
+      '@amqp-contract/core':
+        specifier: workspace:*
+        version: link:../packages/core
       '@amqp-contract/testing':
         specifier: workspace:*
         version: link:../packages/testing
