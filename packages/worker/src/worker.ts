@@ -18,11 +18,23 @@ import type {
 /**
  * Internal type for consumer options extracted from handler tuples.
  * Not exported - options are specified inline in the handler tuple types.
- * Note: These options are mutually exclusive as defined in the discriminated union types.
+ * Uses discriminated union to enforce mutual exclusivity:
+ * - Prefetch-only mode: Cannot have batchSize or batchTimeout
+ * - Batch mode: Requires batchSize, allows batchTimeout and prefetch
  */
 type ConsumerOptions =
-  | { prefetch?: number; batchSize?: never; batchTimeout?: never }
-  | { prefetch?: number; batchSize: number; batchTimeout?: number };
+  | {
+      /** Prefetch-based processing (no batching) */
+      prefetch?: number;
+      batchSize?: never;
+      batchTimeout?: never;
+    }
+  | {
+      /** Batch-based processing */
+      prefetch?: number;
+      batchSize: number;
+      batchTimeout?: number;
+    };
 
 /**
  * Options for creating a type-safe AMQP worker.
@@ -140,12 +152,18 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
       if (Array.isArray(handlerEntry)) {
         // Tuple format: [handler, options]
+        // Type assertion is safe: The discriminated union in WorkerInferConsumerHandlerEntry
+        // ensures the handler matches the options (single-message or batch handler).
+        // TypeScript loses this type relationship during runtime extraction, but it's
+        // guaranteed by the type system at compile time.
         this.actualHandlers[consumerName] = handlerEntry[0] as unknown as
           | WorkerInferConsumerHandler<TContract, InferConsumerNames<TContract>>
           | WorkerInferConsumerBatchHandler<TContract, InferConsumerNames<TContract>>;
         this.consumerOptions[consumerName] = handlerEntry[1];
       } else {
         // Direct function format
+        // Type assertion is safe: handlerEntry is guaranteed to be a function type
+        // by the discriminated union, but TypeScript needs help with the union narrowing.
         this.actualHandlers[consumerName] = handlerEntry as unknown as
           | WorkerInferConsumerHandler<TContract, InferConsumerNames<TContract>>
           | WorkerInferConsumerBatchHandler<TContract, InferConsumerNames<TContract>>;
@@ -373,6 +391,52 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   }
 
   /**
+   * Parse and validate a message from AMQP
+   * @returns Future<Result<validated message, void>> - Ok with validated message, or Error (already handled with nack)
+   */
+  private parseAndValidateMessage<TName extends InferConsumerNames<TContract>>(
+    msg: Message,
+    consumer: ConsumerDefinition,
+    consumerName: TName,
+  ): Future<Result<WorkerInferConsumerInput<TContract, TName>, void>> {
+    // Parse message
+    const parseResult = Result.fromExecution(() => JSON.parse(msg.content.toString()));
+    if (parseResult.isError()) {
+      this.logger?.error("Error parsing message", {
+        consumerName: String(consumerName),
+        queueName: consumer.queue.name,
+        error: parseResult.error,
+      });
+
+      // fixme proper error handling strategy
+      // Reject message with no requeue (malformed JSON)
+      this.amqpClient.channel.nack(msg, false, false);
+      return Future.value(Result.Error(undefined));
+    }
+
+    const rawValidation = consumer.message.payload["~standard"].validate(parseResult.value);
+    return Future.fromPromise(
+      rawValidation instanceof Promise ? rawValidation : Promise.resolve(rawValidation),
+    ).mapOkToResult((validationResult) => {
+      if (validationResult.issues) {
+        const error = new MessageValidationError(String(consumerName), validationResult.issues);
+        this.logger?.error("Message validation failed", {
+          consumerName: String(consumerName),
+          queueName: consumer.queue.name,
+          error,
+        });
+
+        // fixme proper error handling strategy
+        // Reject message with no requeue (validation failed)
+        this.amqpClient.channel.nack(msg, false, false);
+        return Result.Error(undefined);
+      }
+
+      return Result.Ok(validationResult.value as WorkerInferConsumerInput<TContract, TName>);
+    });
+  }
+
+  /**
    * Consume messages one at a time
    */
   private consumeSingle<TName extends InferConsumerNames<TContract>>(
@@ -392,45 +456,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           return;
         }
 
-        // Parse message
-        const parseResult = Result.fromExecution(() => JSON.parse(msg.content.toString()));
-        if (parseResult.isError()) {
-          this.logger?.error("Error parsing message", {
-            consumerName: String(consumerName),
-            queueName: consumer.queue.name,
-            error: parseResult.error,
-          });
-
-          // fixme proper error handling strategy
-          // Reject message with no requeue (malformed JSON)
-          this.amqpClient.channel.nack(msg, false, false);
-          return;
-        }
-
-        const rawValidation = consumer.message.payload["~standard"].validate(parseResult.value);
-        await Future.fromPromise(
-          rawValidation instanceof Promise ? rawValidation : Promise.resolve(rawValidation),
-        )
-          .mapOkToResult((validationResult) => {
-            if (validationResult.issues) {
-              return Result.Error(
-                new MessageValidationError(String(consumerName), validationResult.issues),
-              );
-            }
-
-            return Result.Ok(validationResult.value as WorkerInferConsumerInput<TContract, TName>);
-          })
-          .tapError((error) => {
-            this.logger?.error("Message validation failed", {
-              consumerName: String(consumerName),
-              queueName: consumer.queue.name,
-              error,
-            });
-
-            // fixme proper error handling strategy
-            // Reject message with no requeue (validation failed)
-            this.amqpClient.channel.nack(msg, false, false);
-          })
+        // Parse and validate message
+        await this.parseAndValidateMessage(msg, consumer, consumerName)
           .flatMapOk((validatedMessage) =>
             Future.fromPromise(handler(validatedMessage)).tapError((error) => {
               this.logger?.error("Error processing message", {
@@ -483,9 +510,16 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       amqpMessage: Message;
     };
     let batch: BatchItem[] = [];
+    // Track if batch processing is currently in progress to avoid race conditions
+    let isProcessing = false;
 
     const processBatch = async () => {
-      if (batch.length === 0) return;
+      // Prevent concurrent batch processing
+      if (isProcessing || batch.length === 0) {
+        return;
+      }
+
+      isProcessing = true;
 
       const currentBatch = batch;
       batch = [];
@@ -531,10 +565,17 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         for (const item of currentBatch) {
           this.amqpClient.channel.nack(item.amqpMessage, false, true);
         }
+      } finally {
+        isProcessing = false;
       }
     };
 
     const scheduleBatchProcessing = () => {
+      // Don't schedule if batch is currently being processed
+      if (isProcessing) {
+        return;
+      }
+
       // Clear existing timer
       const existingTimer = this.batchTimers.get(timerKey);
       if (existingTimer) {
@@ -568,46 +609,11 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           return;
         }
 
-        // Parse message
-        const parseResult = Result.fromExecution(() => JSON.parse(msg.content.toString()));
-        if (parseResult.isError()) {
-          this.logger?.error("Error parsing message", {
-            consumerName: String(consumerName),
-            queueName: consumer.queue.name,
-            error: parseResult.error,
-          });
-
-          // fixme proper error handling strategy
-          // Reject message with no requeue (malformed JSON)
-          this.amqpClient.channel.nack(msg, false, false);
-          return;
-        }
-
-        const rawValidation = consumer.message.payload["~standard"].validate(parseResult.value);
-        const validationResult = await Future.fromPromise(
-          rawValidation instanceof Promise ? rawValidation : Promise.resolve(rawValidation),
-        )
-          .mapOkToResult((validationResult) => {
-            if (validationResult.issues) {
-              return Result.Error(
-                new MessageValidationError(String(consumerName), validationResult.issues),
-              );
-            }
-
-            return Result.Ok(validationResult.value as WorkerInferConsumerInput<TContract, TName>);
-          })
-          .toPromise();
+        // Parse and validate message
+        const validationResult = await this.parseAndValidateMessage(msg, consumer, consumerName).toPromise();
 
         if (validationResult.isError()) {
-          this.logger?.error("Message validation failed", {
-            consumerName: String(consumerName),
-            queueName: consumer.queue.name,
-            error: validationResult.error,
-          });
-
-          // fixme proper error handling strategy
-          // Reject message with no requeue (validation failed)
-          this.amqpClient.channel.nack(msg, false, false);
+          // Error already handled in parseAndValidateMessage (nacked)
           return;
         }
 

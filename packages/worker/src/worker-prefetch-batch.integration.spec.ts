@@ -358,4 +358,174 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
       ]),
     ]);
   });
+
+  describe("Validation Error Handling", () => {
+    it("should reject worker creation with invalid prefetch (zero)", async ({ amqpConnectionUrl }) => {
+      // GIVEN
+      const TestMessage = z.object({ id: z.string() });
+      const exchange = defineExchange("validation-test-exchange", "topic", { durable: false });
+      const queue = defineQueue("validation-test-queue", { durable: false });
+
+      const contract = defineContract({
+        exchanges: { test: exchange },
+        queues: { testQueue: queue },
+        bindings: {
+          testBinding: defineQueueBinding(queue, exchange, { routingKey: "test.#" }),
+        },
+        consumers: {
+          testConsumer: defineConsumer(queue, defineMessage(TestMessage)),
+        },
+      });
+
+      // WHEN
+      const result = await TypedAmqpWorker.create({
+        contract,
+        handlers: {
+          testConsumer: [async () => {}, { prefetch: 0 }],
+        },
+        urls: [amqpConnectionUrl],
+      }).toPromise();
+
+      // THEN
+      expect(result.isError()).toBe(true);
+      if (result.isError()) {
+        expect(result.error.message).toContain("Invalid prefetch value");
+        expect(result.error.message).toContain("must be a positive integer");
+      }
+    });
+
+    it("should reject worker creation with invalid prefetch (negative)", async ({ amqpConnectionUrl }) => {
+      // GIVEN
+      const TestMessage = z.object({ id: z.string() });
+      const exchange = defineExchange("validation-test-exchange", "topic", { durable: false });
+      const queue = defineQueue("validation-test-queue", { durable: false });
+
+      const contract = defineContract({
+        exchanges: { test: exchange },
+        queues: { testQueue: queue },
+        bindings: {
+          testBinding: defineQueueBinding(queue, exchange, { routingKey: "test.#" }),
+        },
+        consumers: {
+          testConsumer: defineConsumer(queue, defineMessage(TestMessage)),
+        },
+      });
+
+      // WHEN
+      const result = await TypedAmqpWorker.create({
+        contract,
+        handlers: {
+          testConsumer: [async () => {}, { prefetch: -5 }],
+        },
+        urls: [amqpConnectionUrl],
+      }).toPromise();
+
+      // THEN
+      expect(result.isError()).toBe(true);
+      if (result.isError()) {
+        expect(result.error.message).toContain("Invalid prefetch value");
+      }
+    });
+
+    it("should reject worker creation with invalid batchSize (zero)", async ({ amqpConnectionUrl }) => {
+      // GIVEN
+      const TestMessage = z.object({ id: z.string() });
+      const exchange = defineExchange("validation-test-exchange", "topic", { durable: false });
+      const queue = defineQueue("validation-test-queue", { durable: false });
+
+      const contract = defineContract({
+        exchanges: { test: exchange },
+        queues: { testQueue: queue },
+        bindings: {
+          testBinding: defineQueueBinding(queue, exchange, { routingKey: "test.#" }),
+        },
+        consumers: {
+          testConsumer: defineConsumer(queue, defineMessage(TestMessage)),
+        },
+      });
+
+      // WHEN
+      const result = await TypedAmqpWorker.create({
+        contract,
+        handlers: {
+          testConsumer: [async () => {}, { batchSize: 0 }],
+        },
+        urls: [amqpConnectionUrl],
+      }).toPromise();
+
+      // THEN
+      expect(result.isError()).toBe(true);
+      if (result.isError()) {
+        expect(result.error.message).toContain("Invalid batchSize");
+        expect(result.error.message).toContain("must be a positive integer");
+      }
+    });
+
+    it("should reject worker creation with invalid batchTimeout (negative)", async ({ amqpConnectionUrl }) => {
+      // GIVEN
+      const TestMessage = z.object({ id: z.string() });
+      const exchange = defineExchange("validation-test-exchange", "topic", { durable: false });
+      const queue = defineQueue("validation-test-queue", { durable: false });
+
+      const contract = defineContract({
+        exchanges: { test: exchange },
+        queues: { testQueue: queue },
+        bindings: {
+          testBinding: defineQueueBinding(queue, exchange, { routingKey: "test.#" }),
+        },
+        consumers: {
+          testConsumer: defineConsumer(queue, defineMessage(TestMessage)),
+        },
+      });
+
+      // WHEN
+      const result = await TypedAmqpWorker.create({
+        contract,
+        handlers: {
+          testConsumer: [async () => {}, { batchSize: 5, batchTimeout: -100 }],
+        },
+        urls: [amqpConnectionUrl],
+      }).toPromise();
+
+      // THEN
+      expect(result.isError()).toBe(true);
+      if (result.isError()) {
+        expect(result.error.message).toContain("Invalid batchTimeout");
+        expect(result.error.message).toContain("must be a positive number");
+      }
+    });
+
+    it("should reject worker creation with invalid batchTimeout (zero)", async ({ amqpConnectionUrl }) => {
+      // GIVEN
+      const TestMessage = z.object({ id: z.string() });
+      const exchange = defineExchange("validation-test-exchange", "topic", { durable: false });
+      const queue = defineQueue("validation-test-queue", { durable: false });
+
+      const contract = defineContract({
+        exchanges: { test: exchange },
+        queues: { testQueue: queue },
+        bindings: {
+          testBinding: defineQueueBinding(queue, exchange, { routingKey: "test.#" }),
+        },
+        consumers: {
+          testConsumer: defineConsumer(queue, defineMessage(TestMessage)),
+        },
+      });
+
+      // WHEN
+      const result = await TypedAmqpWorker.create({
+        contract,
+        handlers: {
+          testConsumer: [async () => {}, { batchSize: 5, batchTimeout: 0 }],
+        },
+        urls: [amqpConnectionUrl],
+      }).toPromise();
+
+      // THEN
+      expect(result.isError()).toBe(true);
+      if (result.isError()) {
+        expect(result.error.message).toContain("Invalid batchTimeout");
+      }
+    });
+  });
 });
