@@ -16,11 +16,13 @@
     "@amqp-contract/client": "workspace:*",
     "@amqp-contract/client-nestjs": "workspace:*",
     "@amqp-contract/contract": "workspace:*",
+    "@amqp-contract/core": "workspace:*",
     "@amqp-contract/testing": "workspace:*",
     "@amqp-contract/worker": "workspace:*",
     "@amqp-contract/worker-nestjs": "workspace:*"
   },
   "devDependencies": {
+    "@amqp-contract/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "mermaid": "catalog:",
     "tsx": "catalog:",
