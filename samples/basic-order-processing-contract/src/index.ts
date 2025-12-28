@@ -85,32 +85,34 @@ const orderUnionMessage = defineMessage(z.union([orderSchema, orderStatusSchema]
  * Use this for events where publishers don't need to know about queues.
  * Multiple consumers can subscribe to the same event.
  */
-const orderCreatedEvent = definePublisherFirst(ordersExchange, orderMessage, {
-  routingKey: "order.created",
-});
+const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } =
+  definePublisherFirst(ordersExchange, orderMessage, {
+    routingKey: "order.created",
+  });
 
 // Create consumer for processing queue using publisher-first pattern
 const { consumer: processOrderConsumer, binding: processOrderBinding } =
-  orderCreatedEvent.createConsumer(orderProcessingQueue);
+  createOrderCreatedConsumer(orderProcessingQueue);
 
 /**
  * RECOMMENDED APPROACH: Consumer-First Pattern (Command-Oriented)
  *
  * Use this for commands where the consumer defines what it expects.
  */
-const shipOrderCommand = defineConsumerFirst(
-  orderShippingQueue,
-  ordersExchange,
-  orderStatusMessage,
-  { routingKey: "order.shipped" },
-);
+const {
+  consumer: shipOrderConsumer,
+  binding: shipOrderBinding,
+  createPublisher: createShipOrderPublisher,
+} = defineConsumerFirst(orderShippingQueue, ordersExchange, orderStatusMessage, {
+  routingKey: "order.shipped",
+});
 
 /**
  * Order processing contract demonstrating recommended patterns
  *
  * This contract demonstrates:
- * 1. Publisher-First Pattern: orderCreatedEvent can be consumed by multiple queues
- * 2. Consumer-First Pattern: shipOrderCommand ensures publisher matches consumer
+ * 1. Publisher-First Pattern: createOrderCreatedConsumer can be used by multiple queues
+ * 2. Consumer-First Pattern: shipOrderConsumer ensures publisher matches consumer
  * 3. Traditional Approach: For advanced scenarios like exchange-to-exchange bindings
  * 4. Dead Letter Exchange: Failed messages from orderProcessingQueue are routed to DLX
  *
@@ -165,7 +167,7 @@ export const orderContract = defineContract({
     }),
 
     // Binding from Consumer-First pattern (guaranteed consistent routing key)
-    orderShippingBinding: shipOrderCommand.binding,
+    orderShippingBinding: shipOrderBinding,
 
     // Exchange-to-Exchange binding: Route all order events to analytics exchange
     // (Use traditional approach for complex routing patterns)
@@ -190,10 +192,10 @@ export const orderContract = defineContract({
   },
   publishers: {
     // Publisher from Publisher-First pattern (event-oriented)
-    orderCreated: orderCreatedEvent.publisher,
+    orderCreated: orderCreatedPublisher,
 
     // Publisher from Consumer-First pattern (command-oriented)
-    orderShipped: shipOrderCommand.createPublisher("order.shipped"),
+    orderShipped: createShipOrderPublisher("order.shipped"),
 
     // Traditional publishers (for other events)
     orderUpdated: definePublisher(ordersExchange, orderStatusMessage, {
@@ -212,7 +214,7 @@ export const orderContract = defineContract({
     notifyOrder: defineConsumer(orderNotificationsQueue, orderUnionMessage),
 
     // Consumer from Consumer-First pattern
-    shipOrder: shipOrderCommand.consumer,
+    shipOrder: shipOrderConsumer,
 
     // Traditional consumers (for other scenarios)
     handleUrgentOrder: defineConsumer(orderUrgentQueue, orderStatusMessage),

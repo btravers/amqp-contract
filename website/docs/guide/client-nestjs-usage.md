@@ -65,7 +65,10 @@ const orderMessage = defineMessage(
 );
 
 // Publisher-first pattern
-const orderCreatedEvent = definePublisherFirst(
+const {
+  publisher: orderCreatedPublisher,
+  createConsumer: createOrderCreatedConsumer,
+} = definePublisherFirst(
   ordersExchange,
   orderMessage,
   { routingKey: 'order.created' }
@@ -74,7 +77,7 @@ const orderCreatedEvent = definePublisherFirst(
 export const contract = defineContract({
   exchanges: { orders: ordersExchange },
   publishers: {
-    orderCreated: orderCreatedEvent.publisher,
+    orderCreated: orderCreatedPublisher,
   },
 });
 ```

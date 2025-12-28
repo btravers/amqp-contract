@@ -67,7 +67,7 @@ const orderMessage = defineMessage(
 );
 
 // Consumer-first pattern
-const orderCommandFirst = defineConsumerFirst(
+const { consumer: processOrderConsumer, binding: orderBinding, createPublisher: createOrderPublisher } = defineConsumerFirst(
   orderProcessingQueue,
   ordersExchange,
   orderMessage,
@@ -78,10 +78,10 @@ export const contract = defineContract({
   exchanges: { orders: ordersExchange },
   queues: { orderProcessing: orderProcessingQueue },
   bindings: {
-    orderBinding: orderCommandFirst.binding,
+    orderBinding: orderBinding,
   },
   consumers: {
-    processOrder: orderCommandFirst.consumer,
+    processOrder: processOrderConsumer,
   },
 });
 ```

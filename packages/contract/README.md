@@ -33,7 +33,10 @@ const orderMessage = defineMessage(z.object({
   amount: z.number(),
 }));
 
-const orderCreatedEvent = definePublisherFirst(
+const {
+  publisher: orderCreatedPublisher,
+  createConsumer: createOrderCreatedConsumer,
+} = definePublisherFirst(
   ordersExchange,
   orderMessage,
   { routingKey: 'order.created' }
@@ -41,18 +44,18 @@ const orderCreatedEvent = definePublisherFirst(
 
 // Multiple queues can consume the same event
 const orderQueue = defineQueue('order-processing', { durable: true });
-const { consumer, binding } = orderCreatedEvent.createConsumer(orderQueue);
+const { consumer, binding } = createOrderCreatedConsumer(orderQueue);
 
 // For topic exchanges, consumers can override with their own pattern
 const analyticsQueue = defineQueue('analytics', { durable: true });
 const { consumer: analyticsConsumer, binding: analyticsBinding } =
-  orderCreatedEvent.createConsumer(analyticsQueue, 'order.*');  // Subscribe to all order events
+  createOrderCreatedConsumer(analyticsQueue, 'order.*');  // Subscribe to all order events
 
 const contract = defineContract({
   exchanges: { orders: ordersExchange },
   queues: { orderQueue, analyticsQueue },
   bindings: { orderBinding: binding, analyticsBinding },
-  publishers: { orderCreated: orderCreatedEvent.publisher },
+  publishers: { orderCreated: orderCreatedPublisher },
   consumers: {
     processOrder: consumer,
     trackOrders: analyticsConsumer,

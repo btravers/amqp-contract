@@ -98,7 +98,10 @@ const orderMessage = defineMessage(
 );
 
 // Publisher-first pattern ensures consistency
-const orderCreatedEvent = definePublisherFirst(
+const {
+  publisher: orderCreatedPublisher,
+  createConsumer: createOrderCreatedConsumer,
+} = definePublisherFirst(
   ordersExchange,
   orderMessage,
   { routingKey: 'order.created' }
@@ -106,7 +109,7 @@ const orderCreatedEvent = definePublisherFirst(
 
 // Create consumer from event
 const { consumer: processOrderConsumer, binding: orderBinding } =
-  orderCreatedEvent.createConsumer(orderProcessingQueue);
+  createOrderCreatedConsumer(orderProcessingQueue);
 
 // Compose your contract
 export const contract = defineContract({
@@ -120,7 +123,7 @@ export const contract = defineContract({
     orderBinding,
   },
   publishers: {
-    orderCreated: orderCreatedEvent.publisher,
+    orderCreated: orderCreatedPublisher,
   },
   consumers: {
     processOrder: processOrderConsumer,

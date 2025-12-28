@@ -30,7 +30,7 @@ const orderMessage = defineMessage(z.object({
 }));
 
 // Publisher-first: creates publisher without knowing about queues
-const orderCreatedEvent = definePublisherFirst(
+const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } = definePublisherFirst(
   ordersExchange,
   orderMessage,
   { routingKey: 'order.created' }
@@ -42,9 +42,9 @@ const analyticsQueue = defineQueue('analytics', { durable: true });
 
 // Create consumers for each queue
 const { consumer: processConsumer, binding: processBinding } =
-  orderCreatedEvent.createConsumer(orderQueue);
+  createOrderCreatedConsumer(orderQueue);
 const { consumer: analyticsConsumer, binding: analyticsBinding } =
-  orderCreatedEvent.createConsumer(analyticsQueue);
+  createOrderCreatedConsumer(analyticsQueue);
 
 // Compose contract
 export const contract = defineContract({
@@ -55,7 +55,7 @@ export const contract = defineContract({
     analyticsBinding: analyticsBinding, // Same routing key
   },
   publishers: {
-    orderCreated: orderCreatedEvent.publisher,
+    orderCreated: orderCreatedPublisher,
   },
   consumers: {
     processOrder: processConsumer,      // Same message schema
@@ -77,7 +77,7 @@ For topic exchanges, consumers can optionally override the routing key with thei
 
 ```typescript
 // Publisher uses a concrete routing key
-const orderCreatedEvent = definePublisherFirst(
+const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } = definePublisherFirst(
   ordersExchange,  // topic exchange
   orderMessage,
   { routingKey: 'order.created' }
@@ -85,15 +85,15 @@ const orderCreatedEvent = definePublisherFirst(
 
 // Consumers can use different patterns or the default key
 const { consumer: exactConsumer, binding: exactBinding } =
-  orderCreatedEvent.createConsumer(exactMatchQueue);  // Uses 'order.created'
+  createOrderCreatedConsumer(exactMatchQueue);  // Uses 'order.created'
 
 const { consumer: patternConsumer, binding: patternBinding } =
-  orderCreatedEvent.createConsumer(allOrdersQueue, 'order.*');  // Uses pattern 'order.*'
+  createOrderCreatedConsumer(allOrdersQueue, 'order.*');  // Uses pattern 'order.*'
 
 export const contract = defineContract({
   // ...
   publishers: {
-    orderCreated: orderCreatedEvent.publisher,
+    orderCreated: orderCreatedPublisher,
   },
   consumers: {
     processExactOrder: exactConsumer,      // Receives only 'order.created'
@@ -130,7 +130,7 @@ const taskMessage = defineMessage(z.object({
 }));
 
 // Consumer-first: defines consumer expectations
-const taskCommand = defineConsumerFirst(
+const { consumer: taskConsumer, binding: taskBinding, createPublisher: createTaskPublisher } = defineConsumerFirst(
   taskQueue,
   tasksExchange,
   taskMessage,
@@ -142,13 +142,13 @@ export const contract = defineContract({
   exchanges: { tasks: tasksExchange },
   queues: { taskQueue },
   bindings: {
-    taskBinding: taskCommand.binding, // Consistent routing key
+    taskBinding: taskBinding, // Consistent routing key
   },
   publishers: {
-    executeTask: taskCommand.createPublisher('task.execute'), // Matching schema & routing key
+    executeTask: createTaskPublisher('task.execute'), // Matching schema & routing key
   },
   consumers: {
-    processTask: taskCommand.consumer,
+    processTask: taskConsumer,
   },
 });
 ```
@@ -166,7 +166,7 @@ For topic exchanges, the consumer binding can use patterns with wildcards, and p
 
 ```typescript
 // Consumer binds with a pattern
-const orderEventsCommand = defineConsumerFirst(
+const { consumer: orderEventsConsumer, binding: orderEventsBinding, createPublisher: createOrderEventsPublisher } = defineConsumerFirst(
   orderQueue,
   ordersExchange,  // topic exchange
   orderMessage,
@@ -177,12 +177,12 @@ const orderEventsCommand = defineConsumerFirst(
 export const contract = defineContract({
   // ...
   publishers: {
-    orderCreated: orderEventsCommand.createPublisher('order.created'),  // Matches order.*
-    orderUpdated: orderEventsCommand.createPublisher('order.updated'),  // Matches order.*
-    orderShipped: orderEventsCommand.createPublisher('order.shipped'),  // Matches order.*
+    orderCreated: createOrderEventsPublisher('order.created'),  // Matches order.*
+    orderUpdated: createOrderEventsPublisher('order.updated'),  // Matches order.*
+    orderShipped: createOrderEventsPublisher('order.shipped'),  // Matches order.*
   },
   consumers: {
-    processOrders: orderEventsCommand.consumer,
+    processOrders: orderEventsConsumer,
   },
 });
 ```
