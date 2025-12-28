@@ -85,9 +85,10 @@ const orderUnionMessage = defineMessage(z.union([orderSchema, orderStatusSchema]
  * Use this for events where publishers don't need to know about queues.
  * Multiple consumers can subscribe to the same event.
  */
-const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } = definePublisherFirst(ordersExchange, orderMessage, {
-  routingKey: "order.created",
-});
+const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } =
+  definePublisherFirst(ordersExchange, orderMessage, {
+    routingKey: "order.created",
+  });
 
 // Create consumer for processing queue using publisher-first pattern
 const { consumer: processOrderConsumer, binding: processOrderBinding } =
@@ -98,12 +99,13 @@ const { consumer: processOrderConsumer, binding: processOrderBinding } =
  *
  * Use this for commands where the consumer defines what it expects.
  */
-const { consumer: shipOrderConsumer, binding: shipOrderBinding, createPublisher: createShipOrderPublisher } = defineConsumerFirst(
-  orderShippingQueue,
-  ordersExchange,
-  orderStatusMessage,
-  { routingKey: "order.shipped" },
-);
+const {
+  consumer: shipOrderConsumer,
+  binding: shipOrderBinding,
+  createPublisher: createShipOrderPublisher,
+} = defineConsumerFirst(orderShippingQueue, ordersExchange, orderStatusMessage, {
+  routingKey: "order.shipped",
+});
 
 /**
  * Order processing contract demonstrating recommended patterns
