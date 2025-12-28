@@ -14,12 +14,11 @@ import type {
 /**
  * Internal type for consumer options extracted from handler tuples.
  * Not exported - options are specified inline in the handler tuple types.
+ * Note: These options are mutually exclusive as defined in the discriminated union types.
  */
-type ConsumerOptions = {
-  prefetch?: number;
-  batchSize?: number;
-  batchTimeout?: number;
-};
+type ConsumerOptions =
+  | { prefetch?: number; batchSize?: never; batchTimeout?: never }
+  | { prefetch?: number; batchSize: number; batchTimeout?: number };
 
 /**
  * Options for creating a type-safe AMQP worker.

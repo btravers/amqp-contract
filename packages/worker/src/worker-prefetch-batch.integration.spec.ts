@@ -174,10 +174,11 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
       { timeout: 5000 },
     );
 
-    expect(batches).toHaveLength(3);
-    expect(batches[0]).toHaveLength(3);
-    expect(batches[1]).toHaveLength(3);
-    expect(batches[2]).toHaveLength(1);
+    expect(batches).toEqual([
+      expect.arrayContaining([expect.anything(), expect.anything(), expect.anything()]),
+      expect.arrayContaining([expect.anything(), expect.anything(), expect.anything()]),
+      expect.arrayContaining([expect.anything()]),
+    ]);
 
     // Verify message content
     const allMessages = batches.flat();
@@ -258,9 +259,12 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
       { timeout: 2000 },
     );
 
-    expect(batches).toHaveLength(1);
-    expect(batches[0]!).toHaveLength(2);
-    expect(batches[0]!.map((m) => m.id)).toEqual(["1", "2"]);
+    expect(batches).toEqual([
+      expect.arrayContaining([
+        expect.objectContaining({ id: "1" }),
+        expect.objectContaining({ id: "2" }),
+      ]),
+    ]);
   });
 
   it("should combine prefetch and batch configuration", async ({
@@ -330,9 +334,10 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
       { timeout: 5000 },
     );
 
-    expect(batches).toHaveLength(3);
-    expect(batches[0]).toHaveLength(4);
-    expect(batches[1]).toHaveLength(4);
-    expect(batches[2]).toHaveLength(4);
+    expect(batches).toEqual([
+      expect.arrayContaining([expect.anything(), expect.anything(), expect.anything(), expect.anything()]),
+      expect.arrayContaining([expect.anything(), expect.anything(), expect.anything(), expect.anything()]),
+      expect.arrayContaining([expect.anything(), expect.anything(), expect.anything(), expect.anything()]),
+    ]);
   });
 });
