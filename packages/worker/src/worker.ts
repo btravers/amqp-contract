@@ -1,10 +1,15 @@
 import { AmqpClient, type Logger } from "@amqp-contract/core";
 import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
+import type { Channel, Message } from "amqplib";
 import type { ConsumerDefinition, ContractDefinition, InferConsumerNames } from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
 import { MessageValidationError, TechnicalError } from "./errors.js";
-import type { WorkerInferConsumerHandlers, WorkerInferConsumerInput } from "./types.js";
-import type { Message } from "amqplib";
+import type {
+  WorkerInferConsumerBatchHandler,
+  WorkerInferConsumerHandler,
+  WorkerInferConsumerHandlers,
+  WorkerInferConsumerInput,
+} from "./types.js";
 
 /**
  * Internal type for consumer options extracted from handler tuples.
@@ -115,6 +120,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     >
   >;
   private readonly consumerOptions: Partial<Record<InferConsumerNames<TContract>, ConsumerOptions>>;
+  private readonly batchTimers: Map<string, NodeJS.Timeout> = new Map();
 
   private constructor(
     private readonly contract: TContract,
@@ -126,7 +132,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     this.actualHandlers = {};
     this.consumerOptions = {};
 
-    for (const consumerName in handlers) {
+    for (const consumerName of Object.keys(handlers) as InferConsumerNames<TContract>[]) {
       const handlerEntry = handlers[consumerName];
       
       if (Array.isArray(handlerEntry)) {
@@ -213,6 +219,12 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * ```
    */
   close(): Future<Result<void, TechnicalError>> {
+    // Clear all pending batch timers
+    for (const timer of this.batchTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.batchTimers.clear();
+
     return Future.fromPromise(this.amqpClient.close())
       .mapError((error) => new TechnicalError("Failed to close AMQP connection", error))
       .mapOk(() => undefined);
@@ -252,7 +264,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
     // Apply the maximum prefetch if any consumer specified it
     if (maxPrefetch > 0) {
-      this.amqpClient.channel.addSetup(async (channel) => {
+      this.amqpClient.channel.addSetup(async (channel: Channel) => {
         await channel.prefetch(maxPrefetch);
       });
     }
@@ -308,6 +320,21 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         return Future.value(
           Result.Error(
             new TechnicalError(`Invalid batchSize for "${String(consumerName)}": must be a positive integer`),
+          ),
+        );
+      }
+    }
+
+    // Validate batch timeout if specified
+    if (options.batchTimeout !== undefined) {
+      if (
+        typeof options.batchTimeout !== "number" ||
+        !Number.isFinite(options.batchTimeout) ||
+        options.batchTimeout <= 0
+      ) {
+        return Future.value(
+          Result.Error(
+            new TechnicalError(`Invalid batchTimeout for "${String(consumerName)}": must be a positive number`),
           ),
         );
       }
@@ -434,6 +461,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   ): Future<Result<void, TechnicalError>> {
     const batchSize = options.batchSize!;
     const batchTimeout = options.batchTimeout ?? 1000;
+    const timerKey = String(consumerName);
 
     // Note: Prefetch is handled globally in consumeAll()
     // Batch accumulation state
@@ -442,16 +470,18 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       amqpMessage: Message;
     };
     let batch: BatchItem[] = [];
-    let batchTimer: NodeJS.Timeout | null = null;
 
     const processBatch = async () => {
       if (batch.length === 0) return;
 
       const currentBatch = batch;
       batch = [];
-      if (batchTimer) {
-        clearTimeout(batchTimer);
-        batchTimer = null;
+      
+      // Clear timer from tracking
+      const timer = this.batchTimers.get(timerKey);
+      if (timer) {
+        clearTimeout(timer);
+        this.batchTimers.delete(timerKey);
       }
 
       const messages = currentBatch.map((item) => item.message);
@@ -492,10 +522,14 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     };
 
     const scheduleBatchProcessing = () => {
-      if (batchTimer) {
-        clearTimeout(batchTimer);
+      // Clear existing timer
+      const existingTimer = this.batchTimers.get(timerKey);
+      if (existingTimer) {
+        clearTimeout(existingTimer);
       }
-      batchTimer = setTimeout(() => {
+      
+      // Schedule new timer and track it
+      const timer = setTimeout(() => {
         processBatch().catch((error) => {
           this.logger?.error("Unexpected error in batch processing", {
             consumerName: String(consumerName),
@@ -503,6 +537,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           });
         });
       }, batchTimeout);
+      
+      this.batchTimers.set(timerKey, timer);
     };
 
     // Start consuming
@@ -577,7 +613,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
               await processBatch();
             } else {
               // Schedule batch processing if not already scheduled
-              if (!batchTimer) {
+              if (!this.batchTimers.has(timerKey)) {
                 scheduleBatchProcessing();
               }
             }

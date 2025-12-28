@@ -77,7 +77,7 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
     const messages: Array<{ id: string; message: string }> = [];
     await workerFactory(contract, {
       testConsumer: [
-        async (msg) => {
+        async (msg: { id: string; message: string }) => {
           messages.push(msg);
           // Simulate slow processing to test prefetch
           await new Promise((resolve) => setTimeout(resolve, 100));
@@ -146,7 +146,7 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
     await workerFactory(contract, {
       // Use tuple format with batch options
       batchConsumer: [
-        async (messages) => {
+        async (messages: Array<{ id: string; value: number }>) => {
           batches.push(messages);
         },
         {
@@ -228,7 +228,7 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
     const batches: Array<Array<{ id: string; text: string }>> = [];
     await workerFactory(contract, {
       batchConsumer: [
-        async (messages) => {
+        async (messages: Array<{ id: string; text: string }>) => {
           batches.push(messages);
         },
         {
@@ -259,8 +259,8 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
     );
 
     expect(batches).toHaveLength(1);
-    expect(batches[0]).toHaveLength(2);
-    expect(batches[0].map((m) => m.id)).toEqual(["1", "2"]);
+    expect(batches[0]!).toHaveLength(2);
+    expect(batches[0]!.map((m) => m.id)).toEqual(["1", "2"]);
   });
 
   it("should combine prefetch and batch configuration", async ({
@@ -300,7 +300,7 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
     const batches: Array<Array<{ id: string }>> = [];
     await workerFactory(contract, {
       combinedConsumer: [
-        async (messages) => {
+        async (messages: Array<{ id: string }>) => {
           batches.push(messages);
           // Simulate processing time
           await new Promise((resolve) => setTimeout(resolve, 50));

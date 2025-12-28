@@ -165,7 +165,7 @@ const worker = await TypedAmqpWorker.create({
 - Messages are accumulated until `batchSize` is reached
 - If timeout is reached before batch is full, partial batch is processed
 - All messages in a batch are acknowledged/rejected together
-- If `prefetch` is not set, it defaults to `batchSize`
+- If a consumer does not set `prefetch` but sets `batchSize`, that `batchSize` is used as its effective prefetch contribution; the actual channel prefetch is the maximum effective prefetch across all consumers (so it may be higher than an individual consumer's `batchSize`)
 - Handler can be either a function or a tuple `[handler, options]` for per-consumer configuration
 
 ## Defining Handlers Externally
