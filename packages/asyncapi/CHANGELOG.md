@@ -1,5 +1,66 @@
 # @amqp-contract/asyncapi
 
+## 0.5.0
+
+### Minor Changes
+
+- Add routing key parameters with type validation for all exchange types
+
+  This release introduces comprehensive routing key parameter support with compile-time type validation:
+
+  **New Features:**
+  - Added routing key parameter support for topic and direct exchanges
+  - Implemented type-level validation for routing keys and binding patterns
+    - `RoutingKey<T>` type validates routing key format and character set
+    - `BindingPattern<T>` type validates AMQP pattern syntax (\*, #)
+    - `MatchingRoutingKey<Pattern, Key>` validates key matches pattern
+  - Enhanced `definePublisherFirst` and `defineConsumerFirst` functions:
+    - `createPublisher()` accepts routing key parameter for topic exchanges
+    - `createConsumer()` accepts optional routing key pattern
+  - Routing key validation ensures AMQP compliance at compile-time:
+    - Validates allowed characters (a-z, A-Z, 0-9, -, \_)
+    - Validates proper segment formatting with dot separators
+    - Implements AMQP topic exchange pattern matching logic
+
+  **Type Safety Improvements:**
+  - When consumer uses pattern with wildcards (e.g., "order.\*"), publishers can use any matching string
+  - When consumer uses concrete key, publishers must use exact same key
+  - When publisher uses concrete key, consumers can use any pattern
+  - Pattern matching logic:
+    - `*` matches exactly one word
+    - `#` matches zero or more words
+
+  **Usage Example:**
+
+  ```typescript
+  // Topic exchange with routing key parameters
+  const consumer = defineConsumerFirst(
+    topicExchange,
+    "order.*", // Pattern with wildcard
+    orderSchema
+  );
+
+  // Publishers can specify concrete keys matching the pattern
+  const publisher = consumer.createPublisher("order.created");
+
+  // Or define publisher first with concrete key
+  const publisher2 = definePublisherFirst(
+    topicExchange,
+    "order.updated", // Concrete routing key
+    orderSchema
+  );
+
+  // Consumers can subscribe with any pattern
+  const consumer2 = publisher2.createConsumer("order.*");
+  ```
+
+  This feature provides end-to-end type safety for routing keys and binding patterns, catching configuration errors at compile time rather than runtime.
+
+### Patch Changes
+
+- Updated dependencies
+  - @amqp-contract/contract@0.5.0
+
 ## 0.4.0
 
 ### Minor Changes
