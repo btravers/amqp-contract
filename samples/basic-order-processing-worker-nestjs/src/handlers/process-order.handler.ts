@@ -7,9 +7,9 @@ import { orderContract } from "@amqp-contract-samples/basic-order-processing-con
 export class ProcessOrderHandler {
   private readonly logger = new Logger(ProcessOrderHandler.name);
 
-  async handle(
+  handleMessage = async (
     message: WorkerInferConsumerInput<typeof orderContract, "processOrder">,
-  ): Promise<void> {
+  ) => {
     this.logger.log(
       `[PROCESSING] New order received: ${message.orderId} for customer ${message.customerId}`,
     );
@@ -17,7 +17,9 @@ export class ProcessOrderHandler {
       `Order details: ${message.items.length} items, total: $${message.totalAmount}`,
     );
     this.logger.log(`Order ${message.orderId} processed successfully`);
-  }
+  };
 
-  handler = defineHandler(orderContract, "processOrder", (message) => this.handle(message));
+  handler = defineHandler(orderContract, "processOrder", async (message) =>
+    this.handleMessage(message),
+  );
 }

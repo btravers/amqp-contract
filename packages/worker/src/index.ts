@@ -3,7 +3,9 @@ export type { CreateWorkerOptions } from "./worker.js";
 export { MessageValidationError, TechnicalError } from "./errors.js";
 export { defineHandler, defineHandlers } from "./handlers.js";
 export type {
-  WorkerInferConsumerInput,
+  WorkerInferConsumerBatchHandler,
   WorkerInferConsumerHandler,
+  WorkerInferConsumerHandlerEntry,
   WorkerInferConsumerHandlers,
+  WorkerInferConsumerInput,
 } from "./types.js";

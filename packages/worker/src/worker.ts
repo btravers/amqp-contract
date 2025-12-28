@@ -1,9 +1,40 @@
 import { AmqpClient, type Logger } from "@amqp-contract/core";
 import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
-import type { ContractDefinition, InferConsumerNames } from "@amqp-contract/contract";
+import type { Channel, Message } from "amqplib";
+import type {
+  ConsumerDefinition,
+  ContractDefinition,
+  InferConsumerNames,
+} from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
 import { MessageValidationError, TechnicalError } from "./errors.js";
-import type { WorkerInferConsumerHandlers, WorkerInferConsumerInput } from "./types.js";
+import type {
+  WorkerInferConsumerBatchHandler,
+  WorkerInferConsumerHandler,
+  WorkerInferConsumerHandlers,
+  WorkerInferConsumerInput,
+} from "./types.js";
+
+/**
+ * Internal type for consumer options extracted from handler tuples.
+ * Not exported - options are specified inline in the handler tuple types.
+ * Uses discriminated union to enforce mutual exclusivity:
+ * - Prefetch-only mode: Cannot have batchSize or batchTimeout
+ * - Batch mode: Requires batchSize, allows batchTimeout and prefetch
+ */
+type ConsumerOptions =
+  | {
+      /** Prefetch-based processing (no batching) */
+      prefetch?: number;
+      batchSize?: never;
+      batchTimeout?: never;
+    }
+  | {
+      /** Batch-based processing */
+      prefetch?: number;
+      batchSize: number;
+      batchTimeout?: number;
+    };
 
 /**
  * Options for creating a type-safe AMQP worker.
@@ -15,9 +46,24 @@ import type { WorkerInferConsumerHandlers, WorkerInferConsumerInput } from "./ty
  * const options: CreateWorkerOptions<typeof contract> = {
  *   contract: myContract,
  *   handlers: {
+ *     // Simple handler
  *     processOrder: async (message) => {
  *       console.log('Processing order:', message.orderId);
- *     }
+ *     },
+ *     // Handler with options (prefetch)
+ *     processPayment: [
+ *       async (message) => {
+ *         console.log('Processing payment:', message.paymentId);
+ *       },
+ *       { prefetch: 10 }
+ *     ],
+ *     // Handler with batch processing
+ *     processNotifications: [
+ *       async (messages) => {
+ *         console.log('Processing batch:', messages.length);
+ *       },
+ *       { batchSize: 5, batchTimeout: 1000 }
+ *     ]
  *   },
  *   urls: ['amqp://localhost'],
  *   connectionOptions: {
@@ -30,7 +76,7 @@ import type { WorkerInferConsumerHandlers, WorkerInferConsumerInput } from "./ty
 export type CreateWorkerOptions<TContract extends ContractDefinition> = {
   /** The AMQP contract definition specifying consumers and their message schemas */
   contract: TContract;
-  /** Handlers for each consumer defined in the contract */
+  /** Handlers for each consumer defined in the contract. Can be a function or a tuple of [handler, options] */
   handlers: WorkerInferConsumerHandlers<TContract>;
   /** AMQP broker URL(s). Multiple URLs provide failover support */
   urls: ConnectionUrl[];
@@ -81,12 +127,49 @@ export type CreateWorkerOptions<TContract extends ContractDefinition> = {
  * ```
  */
 export class TypedAmqpWorker<TContract extends ContractDefinition> {
+  private readonly actualHandlers: Partial<
+    Record<
+      InferConsumerNames<TContract>,
+      | WorkerInferConsumerHandler<TContract, InferConsumerNames<TContract>>
+      | WorkerInferConsumerBatchHandler<TContract, InferConsumerNames<TContract>>
+    >
+  >;
+  private readonly consumerOptions: Partial<Record<InferConsumerNames<TContract>, ConsumerOptions>>;
+  private readonly batchTimers: Map<string, NodeJS.Timeout> = new Map();
+
   private constructor(
     private readonly contract: TContract,
     private readonly amqpClient: AmqpClient,
-    private readonly handlers: WorkerInferConsumerHandlers<TContract>,
+    handlers: WorkerInferConsumerHandlers<TContract>,
     private readonly logger?: Logger,
-  ) {}
+  ) {
+    // Extract handlers and options from the handlers object
+    this.actualHandlers = {};
+    this.consumerOptions = {};
+
+    for (const consumerName of Object.keys(handlers) as InferConsumerNames<TContract>[]) {
+      const handlerEntry = handlers[consumerName];
+
+      if (Array.isArray(handlerEntry)) {
+        // Tuple format: [handler, options]
+        // Type assertion is safe: The discriminated union in WorkerInferConsumerHandlerEntry
+        // ensures the handler matches the options (single-message or batch handler).
+        // TypeScript loses this type relationship during runtime extraction, but it's
+        // guaranteed by the type system at compile time.
+        this.actualHandlers[consumerName] = handlerEntry[0] as unknown as
+          | WorkerInferConsumerHandler<TContract, InferConsumerNames<TContract>>
+          | WorkerInferConsumerBatchHandler<TContract, InferConsumerNames<TContract>>;
+        this.consumerOptions[consumerName] = handlerEntry[1];
+      } else {
+        // Direct function format
+        // Type assertion is safe: handlerEntry is guaranteed to be a function type
+        // by the discriminated union, but TypeScript needs help with the union narrowing.
+        this.actualHandlers[consumerName] = handlerEntry as unknown as
+          | WorkerInferConsumerHandler<TContract, InferConsumerNames<TContract>>
+          | WorkerInferConsumerBatchHandler<TContract, InferConsumerNames<TContract>>;
+      }
+    }
+  }
 
   /**
    * Create a type-safe AMQP worker from a contract.
@@ -157,6 +240,12 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * ```
    */
   close(): Future<Result<void, TechnicalError>> {
+    // Clear all pending batch timers
+    for (const timer of this.batchTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.batchTimers.clear();
+
     return Future.fromPromise(this.amqpClient.close())
       .mapError((error) => new TechnicalError("Failed to close AMQP connection", error))
       .mapOk(() => undefined);
@@ -170,7 +259,38 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       return Future.value(Result.Error(new TechnicalError("No consumers defined in contract")));
     }
 
+    // Calculate the maximum prefetch value among all consumers
+    // Since prefetch is per-channel in AMQP 0.9.1, we use the maximum value
     const consumerNames = Object.keys(this.contract.consumers) as InferConsumerNames<TContract>[];
+    let maxPrefetch = 0;
+
+    for (const consumerName of consumerNames) {
+      const options = this.consumerOptions[consumerName];
+      if (options?.prefetch !== undefined) {
+        if (options.prefetch <= 0 || !Number.isInteger(options.prefetch)) {
+          return Future.value(
+            Result.Error(
+              new TechnicalError(
+                `Invalid prefetch value for "${String(consumerName)}": must be a positive integer`,
+              ),
+            ),
+          );
+        }
+        maxPrefetch = Math.max(maxPrefetch, options.prefetch);
+      }
+      if (options?.batchSize !== undefined) {
+        // Batch consumers need prefetch at least equal to batch size
+        const effectivePrefetch = options.prefetch ?? options.batchSize;
+        maxPrefetch = Math.max(maxPrefetch, effectivePrefetch);
+      }
+    }
+
+    // Apply the maximum prefetch if any consumer specified it
+    if (maxPrefetch > 0) {
+      this.amqpClient.channel.addSetup(async (channel: Channel) => {
+        await channel.prefetch(maxPrefetch);
+      });
+    }
 
     return Future.all(consumerNames.map((consumerName) => this.consume(consumerName)))
       .map(Result.all)
@@ -207,13 +327,123 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       );
     }
 
-    const handler = this.handlers[consumerName];
+    const handler = this.actualHandlers[consumerName];
     if (!handler) {
       return Future.value(
         Result.Error(new TechnicalError(`Handler for "${String(consumerName)}" not provided`)),
       );
     }
 
+    // Get consumer-specific options
+    const options = this.consumerOptions[consumerName] ?? {};
+
+    // Validate batch size if specified
+    if (options.batchSize !== undefined) {
+      if (options.batchSize <= 0 || !Number.isInteger(options.batchSize)) {
+        return Future.value(
+          Result.Error(
+            new TechnicalError(
+              `Invalid batchSize for "${String(consumerName)}": must be a positive integer`,
+            ),
+          ),
+        );
+      }
+    }
+
+    // Validate batch timeout if specified
+    if (options.batchTimeout !== undefined) {
+      if (
+        typeof options.batchTimeout !== "number" ||
+        !Number.isFinite(options.batchTimeout) ||
+        options.batchTimeout <= 0
+      ) {
+        return Future.value(
+          Result.Error(
+            new TechnicalError(
+              `Invalid batchTimeout for "${String(consumerName)}": must be a positive number`,
+            ),
+          ),
+        );
+      }
+    }
+
+    // Check if this is a batch consumer
+    const isBatchConsumer = options.batchSize !== undefined && options.batchSize > 0;
+
+    if (isBatchConsumer) {
+      return this.consumeBatch(
+        consumerName,
+        consumer,
+        options,
+        handler as unknown as (
+          messages: Array<WorkerInferConsumerInput<TContract, TName>>,
+        ) => Promise<void>,
+      );
+    } else {
+      return this.consumeSingle(
+        consumerName,
+        consumer,
+        handler as unknown as (
+          message: WorkerInferConsumerInput<TContract, TName>,
+        ) => Promise<void>,
+      );
+    }
+  }
+
+  /**
+   * Parse and validate a message from AMQP
+   * @returns Future<Result<validated message, void>> - Ok with validated message, or Error (already handled with nack)
+   */
+  private parseAndValidateMessage<TName extends InferConsumerNames<TContract>>(
+    msg: Message,
+    consumer: ConsumerDefinition,
+    consumerName: TName,
+  ): Future<Result<WorkerInferConsumerInput<TContract, TName>, void>> {
+    // Parse message
+    const parseResult = Result.fromExecution(() => JSON.parse(msg.content.toString()));
+    if (parseResult.isError()) {
+      this.logger?.error("Error parsing message", {
+        consumerName: String(consumerName),
+        queueName: consumer.queue.name,
+        error: parseResult.error,
+      });
+
+      // fixme proper error handling strategy
+      // Reject message with no requeue (malformed JSON)
+      this.amqpClient.channel.nack(msg, false, false);
+      return Future.value(Result.Error(undefined));
+    }
+
+    const rawValidation = consumer.message.payload["~standard"].validate(parseResult.value);
+    return Future.fromPromise(
+      rawValidation instanceof Promise ? rawValidation : Promise.resolve(rawValidation),
+    ).mapOkToResult((validationResult) => {
+      if (validationResult.issues) {
+        const error = new MessageValidationError(String(consumerName), validationResult.issues);
+        this.logger?.error("Message validation failed", {
+          consumerName: String(consumerName),
+          queueName: consumer.queue.name,
+          error,
+        });
+
+        // fixme proper error handling strategy
+        // Reject message with no requeue (validation failed)
+        this.amqpClient.channel.nack(msg, false, false);
+        return Result.Error(undefined) as Result<WorkerInferConsumerInput<TContract, TName>, void>;
+      }
+
+      return Result.Ok(validationResult.value as WorkerInferConsumerInput<TContract, TName>);
+    }) as Future<Result<WorkerInferConsumerInput<TContract, TName>, void>>;
+  }
+
+  /**
+   * Consume messages one at a time
+   */
+  private consumeSingle<TName extends InferConsumerNames<TContract>>(
+    consumerName: TName,
+    consumer: ConsumerDefinition,
+    handler: (message: WorkerInferConsumerInput<TContract, TName>) => Promise<void>,
+  ): Future<Result<void, TechnicalError>> {
     // Start consuming
     return Future.fromPromise(
       this.amqpClient.channel.consume(consumer.queue.name, async (msg) => {
@@ -226,45 +456,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           return;
         }
 
-        // Parse message
-        const parseResult = Result.fromExecution(() => JSON.parse(msg.content.toString()));
-        if (parseResult.isError()) {
-          this.logger?.error("Error parsing message", {
-            consumerName: String(consumerName),
-            queueName: consumer.queue.name,
-            error: parseResult.error,
-          });
-
-          // fixme proper error handling strategy
-          // Reject message with no requeue (malformed JSON)
-          this.amqpClient.channel.nack(msg, false, false);
-          return;
-        }
-
-        const rawValidation = consumer.message.payload["~standard"].validate(parseResult.value);
-        await Future.fromPromise(
-          rawValidation instanceof Promise ? rawValidation : Promise.resolve(rawValidation),
-        )
-          .mapOkToResult((validationResult) => {
-            if (validationResult.issues) {
-              return Result.Error(
-                new MessageValidationError(String(consumerName), validationResult.issues),
-              );
-            }
-
-            return Result.Ok(validationResult.value as WorkerInferConsumerInput<TContract, TName>);
-          })
-          .tapError((error) => {
-            this.logger?.error("Message validation failed", {
-              consumerName: String(consumerName),
-              queueName: consumer.queue.name,
-              error,
-            });
-
-            // fixme proper error handling strategy
-            // Reject message with no requeue (validation failed)
-            this.amqpClient.channel.nack(msg, false, false);
-          })
+        // Parse and validate message
+        await this.parseAndValidateMessage(msg, consumer, consumerName)
           .flatMapOk((validatedMessage) =>
             Future.fromPromise(handler(validatedMessage)).tapError((error) => {
               this.logger?.error("Error processing message", {
@@ -288,6 +481,166 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
             this.amqpClient.channel.ack(msg);
           })
           .toPromise();
+      }),
+    )
+      .mapError(
+        (error) =>
+          new TechnicalError(`Failed to start consuming for "${String(consumerName)}"`, error),
+      )
+      .mapOk(() => undefined);
+  }
+
+  /**
+   * Consume messages in batches
+   */
+  private consumeBatch<TName extends InferConsumerNames<TContract>>(
+    consumerName: TName,
+    consumer: ConsumerDefinition,
+    options: ConsumerOptions,
+    handler: (messages: Array<WorkerInferConsumerInput<TContract, TName>>) => Promise<void>,
+  ): Future<Result<void, TechnicalError>> {
+    const batchSize = options.batchSize!;
+    const batchTimeout = options.batchTimeout ?? 1000;
+    const timerKey = String(consumerName);
+
+    // Note: Prefetch is handled globally in consumeAll()
+    // Batch accumulation state
+    type BatchItem = {
+      message: WorkerInferConsumerInput<TContract, TName>;
+      amqpMessage: Message;
+    };
+    let batch: BatchItem[] = [];
+    // Track if batch processing is currently in progress to avoid race conditions
+    let isProcessing = false;
+
+    const processBatch = async () => {
+      // Prevent concurrent batch processing
+      if (isProcessing || batch.length === 0) {
+        return;
+      }
+
+      isProcessing = true;
+
+      const currentBatch = batch;
+      batch = [];
+
+      // Clear timer from tracking
+      const timer = this.batchTimers.get(timerKey);
+      if (timer) {
+        clearTimeout(timer);
+        this.batchTimers.delete(timerKey);
+      }
+
+      const messages = currentBatch.map((item) => item.message);
+
+      this.logger?.info("Processing batch", {
+        consumerName: String(consumerName),
+        queueName: consumer.queue.name,
+        batchSize: currentBatch.length,
+      });
+
+      try {
+        await handler(messages);
+
+        // Acknowledge all messages in the batch
+        for (const item of currentBatch) {
+          this.amqpClient.channel.ack(item.amqpMessage);
+        }
+
+        this.logger?.info("Batch processed successfully", {
+          consumerName: String(consumerName),
+          queueName: consumer.queue.name,
+          batchSize: currentBatch.length,
+        });
+      } catch (error) {
+        this.logger?.error("Error processing batch", {
+          consumerName: String(consumerName),
+          queueName: consumer.queue.name,
+          batchSize: currentBatch.length,
+          error,
+        });
+
+        // fixme proper error handling strategy
+        // Reject all messages and requeue (handler failed)
+        for (const item of currentBatch) {
+          this.amqpClient.channel.nack(item.amqpMessage, false, true);
+        }
+      } finally {
+        isProcessing = false;
+      }
+    };
+
+    const scheduleBatchProcessing = () => {
+      // Don't schedule if batch is currently being processed
+      if (isProcessing) {
+        return;
+      }
+
+      // Clear existing timer
+      const existingTimer = this.batchTimers.get(timerKey);
+      if (existingTimer) {
+        clearTimeout(existingTimer);
+      }
+
+      // Schedule new timer and track it
+      const timer = setTimeout(() => {
+        processBatch().catch((error) => {
+          this.logger?.error("Unexpected error in batch processing", {
+            consumerName: String(consumerName),
+            error,
+          });
+        });
+      }, batchTimeout);
+
+      this.batchTimers.set(timerKey, timer);
+    };
+
+    // Start consuming
+    return Future.fromPromise(
+      this.amqpClient.channel.consume(consumer.queue.name, async (msg) => {
+        // Handle null messages (consumer cancellation)
+        if (msg === null) {
+          this.logger?.warn("Consumer cancelled by server", {
+            consumerName: String(consumerName),
+            queueName: consumer.queue.name,
+          });
+          // Process any remaining messages in the batch
+          await processBatch();
+          return;
+        }
+
+        // Parse and validate message
+        const validationResult = await this.parseAndValidateMessage(
+          msg,
+          consumer,
+          consumerName,
+        ).toPromise();
+
+        if (validationResult.isError()) {
+          // Error already handled in parseAndValidateMessage (nacked)
+          return;
+        }
+
+        // Add to batch
+        batch.push({
+          message: validationResult.value,
+          amqpMessage: msg,
+        });
+
+        // Process batch if full
+        if (batch.length >= batchSize) {
+          await processBatch();
+          // After processing a full batch, schedule timer for any subsequent messages
+          // This ensures that if more messages arrive at a slow rate, they won't be held indefinitely
+          if (batch.length > 0 && !this.batchTimers.has(timerKey)) {
+            scheduleBatchProcessing();
+          }
+        } else {
+          // Schedule batch processing if not already scheduled
+          if (!this.batchTimers.has(timerKey)) {
+            scheduleBatchProcessing();
+          }
+        }
       }),
     )
       .mapError(

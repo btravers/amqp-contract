@@ -16,7 +16,17 @@
 pnpm add @amqp-contract/worker
 ```
 
+## Features
+
+- ✅ **Type-safe message consumption** — Handlers are fully typed based on your contract
+- ✅ **Automatic validation** — Messages are validated before reaching your handlers
+- ✅ **Prefetch configuration** — Control message flow with per-consumer prefetch settings
+- ✅ **Batch processing** — Process multiple messages at once for better throughput
+- ✅ **Automatic reconnection** — Built-in connection management with failover support
+
 ## Usage
+
+### Basic Usage
 
 ```typescript
 import { TypedAmqpWorker } from '@amqp-contract/worker';
@@ -54,6 +64,10 @@ const worker = await TypedAmqpWorker.create({
 // Clean up when needed
 // await worker.close();
 ```
+
+### Advanced Features
+
+For advanced features like prefetch configuration and batch processing, see the [Worker Usage Guide](https://btravers.github.io/amqp-contract/guide/worker-usage).
 
 ## Defining Handlers Externally
 

@@ -40,7 +40,9 @@ export type WorkerInferConsumerInput<
 > = ConsumerInferInput<InferConsumer<TContract, TName>>;
 
 /**
- * Infer consumer handler type for a specific consumer
+ * Infer consumer handler type for a specific consumer.
+ * Handlers always receive a single message by default.
+ * For batch processing, use consumerOptions to configure batch behavior.
  */
 export type WorkerInferConsumerHandler<
   TContract extends ContractDefinition,
@@ -48,8 +50,40 @@ export type WorkerInferConsumerHandler<
 > = (message: WorkerInferConsumerInput<TContract, TName>) => Promise<void>;
 
 /**
- * Infer all consumer handlers for a contract
+ * Infer consumer handler type for batch processing.
+ * Batch handlers receive an array of messages.
+ */
+export type WorkerInferConsumerBatchHandler<
+  TContract extends ContractDefinition,
+  TName extends InferConsumerNames<TContract>,
+> = (messages: Array<WorkerInferConsumerInput<TContract, TName>>) => Promise<void>;
+
+/**
+ * Infer handler entry for a consumer - either a function or a tuple of [handler, options].
+ *
+ * Three patterns are supported:
+ * 1. Simple handler: `async (message) => { ... }`
+ * 2. Handler with prefetch: `[async (message) => { ... }, { prefetch: 10 }]`
+ * 3. Batch handler: `[async (messages) => { ... }, { batchSize: 5, batchTimeout: 1000 }]`
+ */
+export type WorkerInferConsumerHandlerEntry<
+  TContract extends ContractDefinition,
+  TName extends InferConsumerNames<TContract>,
+> =
+  | WorkerInferConsumerHandler<TContract, TName>
+  | readonly [
+      WorkerInferConsumerHandler<TContract, TName>,
+      { prefetch?: number; batchSize?: never; batchTimeout?: never },
+    ]
+  | readonly [
+      WorkerInferConsumerBatchHandler<TContract, TName>,
+      { prefetch?: number; batchSize: number; batchTimeout?: number },
+    ];
+
+/**
+ * Infer all consumer handlers for a contract.
+ * Handlers can be either single-message handlers, batch handlers, or a tuple of [handler, options].
  */
 export type WorkerInferConsumerHandlers<TContract extends ContractDefinition> = {
-  [K in InferConsumerNames<TContract>]: WorkerInferConsumerHandler<TContract, K>;
+  [K in InferConsumerNames<TContract>]: WorkerInferConsumerHandlerEntry<TContract, K>;
 };

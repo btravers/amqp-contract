@@ -355,13 +355,138 @@ async function main() {
 main().catch(console.error);
 ```
 
+## Advanced Features
+
+### Prefetch Configuration
+
+Control the number of unacknowledged messages a consumer can have at once. This helps manage memory usage and processing rate.
+
+Use the tuple syntax `[handler, options]` to configure prefetch per-handler:
+
+```typescript
+const worker = await TypedAmqpWorker.create({
+  contract,
+  handlers: {
+    processOrder: [
+      async (message) => {
+        // Process one message at a time
+        console.log('Order:', message.orderId);
+        await saveToDatabase(message);
+      },
+      { prefetch: 10 } // Process up to 10 messages concurrently
+    ],
+  },
+  urls: ['amqp://localhost'],
+});
+```
+
+::: warning Channel-Wide Prefetch
+In AMQP 0.9.1, prefetch is set per-channel. Since all consumers in a worker share the same channel, the worker will use the **maximum prefetch value** among all consumers.
+
+For example, if you have two consumers with prefetch values of 5 and 10, the effective prefetch for the channel will be 10.
+:::
+
+### Batch Processing
+
+Process multiple messages at once for better throughput. This is especially useful for bulk database operations or API calls.
+
+```typescript
+const worker = await TypedAmqpWorker.create({
+  contract,
+  handlers: {
+    processOrders: [
+      async (messages) => {
+        // Handler receives array of messages for batch processing
+        console.log(`Processing ${messages.length} orders`);
+
+        // Batch insert to database
+        await db.orders.insertMany(messages.map(msg => ({
+          id: msg.orderId,
+          amount: msg.amount,
+        })));
+
+        // All messages are acked together on success
+        // Or nacked together on error
+      },
+      {
+        batchSize: 5,        // Process messages in batches of 5
+        batchTimeout: 1000,  // Wait max 1 second to fill batch
+        prefetch: 10,        // Optional: fetch more messages than batch size
+      }
+    ],
+  },
+  urls: ['amqp://localhost'],
+});
+```
+
+**Batch Processing Behavior:**
+
+- Messages are accumulated until `batchSize` is reached
+- If `batchTimeout` is reached before batch is full, the partial batch is processed
+- All messages in a batch are acknowledged or rejected together
+- If a consumer does not set `prefetch` but sets `batchSize`, that `batchSize` is used as its effective prefetch contribution
+- The actual channel prefetch is the maximum effective prefetch across all consumers
+
+**Type Safety:**
+
+TypeScript automatically enforces the correct handler signature based on configuration:
+
+```typescript
+// Single message handler (no batchSize)
+[async (message) => { ... }, { prefetch: 10 }]
+
+// Batch handler (with batchSize)
+[async (messages) => { ... }, { batchSize: 5 }]
+```
+
+### Handler Configuration Patterns
+
+Three configuration patterns are supported:
+
+1. **Simple handler** - No options
+
+```typescript
+handlers: {
+  processOrder: async (message) => {
+    // Single message processing
+  }
+}
+```
+
+2. **Handler with prefetch** - Control concurrency
+
+```typescript
+handlers: {
+  processOrder: [
+    async (message) => {
+      // Single message processing with prefetch
+    },
+    { prefetch: 10 }
+  ]
+}
+```
+
+3. **Batch handler** - Process multiple messages
+
+```typescript
+handlers: {
+  processOrders: [
+    async (messages) => {
+      // Batch processing
+    },
+    { batchSize: 5, batchTimeout: 1000 }
+  ]
+}
+```
+
 ## Best Practices
 
 1. **Handle Errors** - Always wrap business logic in try-catch
-2. **Use Prefetch** - Limit concurrent messages with `prefetch` option
-3. **Graceful Shutdown** - Properly close connections
-4. **Idempotency** - Handlers should be safe to retry
-5. **Dead Letters** - Configure DLQ for failed messages
+2. **Use Prefetch** - Limit concurrent messages with `prefetch` option to control memory usage
+3. **Batch for Throughput** - Use batch processing for bulk operations (database inserts, API calls)
+4. **Graceful Shutdown** - Properly close connections to finish processing in-flight messages
+5. **Idempotency** - Handlers should be safe to retry since messages may be redelivered
+6. **Dead Letters** - Configure DLQ for failed messages to avoid infinite retry loops
 
 ## Next Steps
 
