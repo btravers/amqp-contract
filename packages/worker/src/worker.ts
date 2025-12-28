@@ -429,11 +429,11 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         // fixme proper error handling strategy
         // Reject message with no requeue (validation failed)
         this.amqpClient.channel.nack(msg, false, false);
-        return Result.Error(undefined);
+        return Result.Error(undefined) as Result<WorkerInferConsumerInput<TContract, TName>, void>;
       }
 
       return Result.Ok(validationResult.value as WorkerInferConsumerInput<TContract, TName>);
-    });
+    }) as Future<Result<WorkerInferConsumerInput<TContract, TName>, void>>;
   }
 
   /**
@@ -610,7 +610,11 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         }
 
         // Parse and validate message
-        const validationResult = await this.parseAndValidateMessage(msg, consumer, consumerName).toPromise();
+        const validationResult = await this.parseAndValidateMessage(
+          msg,
+          consumer,
+          consumerName,
+        ).toPromise();
 
         if (validationResult.isError()) {
           // Error already handled in parseAndValidateMessage (nacked)

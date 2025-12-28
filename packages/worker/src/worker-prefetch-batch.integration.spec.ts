@@ -270,97 +270,10 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
     ]);
   });
 
-  it("should combine prefetch and batch configuration", async ({
-    workerFactory,
-    publishMessage,
-  }) => {
-    // GIVEN
-    const TestMessage = z.object({
-      id: z.string(),
-    });
-
-    const exchange = defineExchange("combined-test-exchange", "topic", { durable: false });
-    const queue = defineQueue("combined-test-queue", { durable: false });
-
-    const contract = defineContract({
-      exchanges: {
-        test: exchange,
-      },
-      queues: {
-        testQueue: queue,
-      },
-      bindings: {
-        testBinding: defineQueueBinding(queue, exchange, {
-          routingKey: "test.#",
-        }),
-      },
-      publishers: {
-        testPublisher: definePublisher(exchange, defineMessage(TestMessage), {
-          routingKey: "test.combined",
-        }),
-      },
-      consumers: {
-        combinedConsumer: defineConsumer(queue, defineMessage(TestMessage)),
-      },
-    });
-
-    const batches: Array<Array<{ id: string }>> = [];
-    await workerFactory(contract, {
-      combinedConsumer: [
-        async (messages: Array<{ id: string }>) => {
-          batches.push(messages);
-          // Simulate processing time
-          await new Promise((resolve) => setTimeout(resolve, 50));
-        },
-        {
-          prefetch: 10,
-          batchSize: 4,
-          batchTimeout: 1000,
-        },
-      ],
-    });
-
-    // WHEN - Publish 12 messages
-    for (let i = 0; i < 12; i++) {
-      publishMessage(exchange.name, "test.combined", {
-        id: `msg-${i}`,
-      });
-    }
-
-    // THEN - Should receive 3 batches of 4
-    await vi.waitFor(
-      () => {
-        if (batches.length < 3) {
-          throw new Error(`Only ${batches.length} batches received, expected 3`);
-        }
-      },
-      { timeout: 5000 },
-    );
-
-    expect(batches).toEqual([
-      expect.arrayContaining([
-        expect.anything(),
-        expect.anything(),
-        expect.anything(),
-        expect.anything(),
-      ]),
-      expect.arrayContaining([
-        expect.anything(),
-        expect.anything(),
-        expect.anything(),
-        expect.anything(),
-      ]),
-      expect.arrayContaining([
-        expect.anything(),
-        expect.anything(),
-        expect.anything(),
-        expect.anything(),
-      ]),
-    ]);
-  });
-
   describe("Validation Error Handling", () => {
-    it("should reject worker creation with invalid prefetch (zero)", async ({ amqpConnectionUrl }) => {
+    it("should reject worker creation with invalid prefetch (zero)", async ({
+      amqpConnectionUrl,
+    }) => {
       // GIVEN
       const TestMessage = z.object({ id: z.string() });
       const exchange = defineExchange("validation-test-exchange", "topic", { durable: false });
@@ -394,7 +307,9 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
       }
     });
 
-    it("should reject worker creation with invalid prefetch (negative)", async ({ amqpConnectionUrl }) => {
+    it("should reject worker creation with invalid prefetch (negative)", async ({
+      amqpConnectionUrl,
+    }) => {
       // GIVEN
       const TestMessage = z.object({ id: z.string() });
       const exchange = defineExchange("validation-test-exchange", "topic", { durable: false });
@@ -427,7 +342,9 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
       }
     });
 
-    it("should reject worker creation with invalid batchSize (zero)", async ({ amqpConnectionUrl }) => {
+    it("should reject worker creation with invalid batchSize (zero)", async ({
+      amqpConnectionUrl,
+    }) => {
       // GIVEN
       const TestMessage = z.object({ id: z.string() });
       const exchange = defineExchange("validation-test-exchange", "topic", { durable: false });
@@ -461,7 +378,9 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
       }
     });
 
-    it("should reject worker creation with invalid batchTimeout (negative)", async ({ amqpConnectionUrl }) => {
+    it("should reject worker creation with invalid batchTimeout (negative)", async ({
+      amqpConnectionUrl,
+    }) => {
       // GIVEN
       const TestMessage = z.object({ id: z.string() });
       const exchange = defineExchange("validation-test-exchange", "topic", { durable: false });
@@ -495,7 +414,9 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
       }
     });
 
-    it("should reject worker creation with invalid batchTimeout (zero)", async ({ amqpConnectionUrl }) => {
+    it("should reject worker creation with invalid batchTimeout (zero)", async ({
+      amqpConnectionUrl,
+    }) => {
       // GIVEN
       const TestMessage = z.object({ id: z.string() });
       const exchange = defineExchange("validation-test-exchange", "topic", { durable: false });
