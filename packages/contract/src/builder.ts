@@ -759,36 +759,123 @@ export type PublisherFirstResult<
  * Valid characters for routing keys and binding patterns
  * @internal
  */
-/**
- * Type-safe routing key for AMQP exchanges.
- * 
- * Routing keys should contain only alphanumeric characters, hyphens, underscores, and dots.
- * Examples: "order.created", "user-updated", "payment_processed"
- * 
- * Note: Full character-level validation is not enforced at compile time to avoid TypeScript
- * recursion depth limits. Runtime validation should be performed when needed.
- * 
- * @template S - The routing key string literal type
- * @public
- */
-export type RoutingKey<S extends string> = S;
+type ValidChar =
+  | "a"
+  | "b"
+  | "c"
+  | "d"
+  | "e"
+  | "f"
+  | "g"
+  | "h"
+  | "i"
+  | "j"
+  | "k"
+  | "l"
+  | "m"
+  | "n"
+  | "o"
+  | "p"
+  | "q"
+  | "r"
+  | "s"
+  | "t"
+  | "u"
+  | "v"
+  | "w"
+  | "x"
+  | "y"
+  | "z"
+  | "A"
+  | "B"
+  | "C"
+  | "D"
+  | "E"
+  | "F"
+  | "G"
+  | "H"
+  | "I"
+  | "J"
+  | "K"
+  | "L"
+  | "M"
+  | "N"
+  | "O"
+  | "P"
+  | "Q"
+  | "R"
+  | "S"
+  | "T"
+  | "U"
+  | "V"
+  | "W"
+  | "X"
+  | "Y"
+  | "Z"
+  | "0"
+  | "1"
+  | "2"
+  | "3"
+  | "4"
+  | "5"
+  | "6"
+  | "7"
+  | "8"
+  | "9"
+  | "-"
+  | "_";
 
 /**
- * Type-safe binding pattern for AMQP topic exchanges.
- * 
- * Binding patterns support wildcards:
- * - `*` matches exactly one word (e.g., "order.*" matches "order.created" but not "order.item.added")
- * - `#` matches zero or more words (e.g., "order.#" matches "order.created", "order.item.added", etc.)
- * 
- * Examples: "order.*", "order.#", "*.created", "#"
- * 
- * Note: Full pattern validation is not enforced at compile time to avoid TypeScript
- * recursion depth limits. Runtime validation should be performed when needed.
- * 
- * @template S - The binding pattern string literal type
- * @public
+ * Check if a segment (part between dots) contains only valid characters
+ * @internal
  */
-export type BindingPattern<S extends string> = S;
+type IsValidSegment<S extends string> = S extends `${infer First}${infer Rest}`
+  ? First extends ValidChar
+    ? Rest extends ""
+      ? true
+      : IsValidSegment<Rest>
+    : false
+  : S extends ""
+    ? false
+    : never;
+
+/**
+ * Validate a routing key format
+ * @internal
+ */
+type ValidateRoutingKey<S extends string> = S extends `${infer Segment}.${infer Rest}`
+  ? IsValidSegment<Segment> extends true
+    ? ValidateRoutingKey<Rest>
+    : false
+  : IsValidSegment<S>;
+
+/**
+ * Type-safe routing key that validates character set and format
+ * @internal
+ */
+export type RoutingKey<S extends string> = ValidateRoutingKey<S> extends true ? S : never;
+
+/**
+ * Check if a binding pattern part is valid (* or # wildcards, or valid segment)
+ * @internal
+ */
+type IsValidBindingPart<S extends string> = S extends "*" | "#" ? true : IsValidSegment<S>;
+
+/**
+ * Validate a binding pattern format
+ * @internal
+ */
+type ValidateBindingPattern<S extends string> = S extends `${infer Part}.${infer Rest}`
+  ? IsValidBindingPart<Part> extends true
+    ? ValidateBindingPattern<Rest>
+    : false
+  : IsValidBindingPart<S>;
+
+/**
+ * Type-safe binding pattern that validates wildcards and format
+ * @internal
+ */
+export type BindingPattern<S extends string> = ValidateBindingPattern<S> extends true ? S : never;
 
 /**
  * Helper type for pattern matching with # in the middle
@@ -835,32 +922,29 @@ type MatchesPattern<
 /**
  * Validate that a routing key matches a binding pattern.
  *
- * This is a utility type provided for users who want compile-time pattern matching validation.
- * It checks if a routing key matches a specific binding pattern using AMQP topic exchange
- * semantics (* matches one word, # matches zero or more words).
+ * This is a utility type provided for users who want compile-time validation
+ * that a routing key matches a specific pattern. It's not enforced internally
+ * in the API to avoid TypeScript recursion depth issues with complex routing keys.
  *
- * Note: This type uses recursive conditional types which may hit TypeScript's recursion depth
- * limit for very complex patterns. For most common use cases, it works reliably.
- *
- * Returns the routing key if it matches the pattern, `never` otherwise.
+ * Returns the routing key if it's valid and matches the pattern, `never` otherwise.
  *
  * @example
  * ```typescript
  * type ValidKey = MatchingRoutingKey<"order.*", "order.created">; // "order.created"
  * type InvalidKey = MatchingRoutingKey<"order.*", "user.created">; // never
- * type MultiWord = MatchingRoutingKey<"order.#", "order.item.created">; // "order.item.created"
  * ```
  *
  * @template Pattern - The binding pattern (can contain * and # wildcards)
  * @template Key - The routing key to validate
- * @public
  */
-export type MatchingRoutingKey<Pattern extends string, Key extends string> = MatchesPattern<
-  Key,
-  Pattern
-> extends true
-  ? Key
-  : never;
+export type MatchingRoutingKey<Pattern extends string, Key extends string> =
+  RoutingKey<Key> extends never
+    ? never // Invalid routing key
+    : BindingPattern<Pattern> extends never
+      ? never // Invalid pattern
+      : MatchesPattern<Key, Pattern> extends true
+        ? Key
+        : never;
 
 /**
  * Publisher-first builder result for topic exchanges.
@@ -1019,7 +1103,10 @@ export function definePublisherFirst<
     routingKey: RoutingKey<TRoutingKey>;
     arguments?: Record<string, unknown>;
   },
-): PublisherFirstResult<TMessage, PublisherDefinition<TMessage>>;
+): PublisherFirstResult<
+  TMessage,
+  Extract<PublisherDefinition<TMessage>, { exchange: DirectExchangeDefinition }>
+>;
 
 /**
  * Define a publisher-first relationship for event-oriented messaging with topic exchange.
@@ -1092,7 +1179,11 @@ export function definePublisherFirst<
     routingKey: RoutingKey<TRoutingKey>;
     arguments?: Record<string, unknown>;
   },
-): PublisherFirstResultWithRoutingKey<TMessage, PublisherDefinition<TMessage>, TRoutingKey>;
+): PublisherFirstResultWithRoutingKey<
+  TMessage,
+  Extract<PublisherDefinition<TMessage>, { exchange: TopicExchangeDefinition }>,
+  TRoutingKey
+>;
 
 /**
  * Implementation of definePublisherFirst.
@@ -1327,7 +1418,11 @@ export function defineConsumerFirst<TMessage extends MessageDefinition, TRouting
     routingKey: RoutingKey<TRoutingKey>;
     arguments?: Record<string, unknown>;
   },
-): ConsumerFirstResult<TMessage, ConsumerDefinition<TMessage>, QueueBindingDefinition>;
+): ConsumerFirstResult<
+  TMessage,
+  ConsumerDefinition<TMessage>,
+  Extract<QueueBindingDefinition, { exchange: DirectExchangeDefinition }>
+>;
 
 /**
  * Define a consumer-first relationship between a consumer and publisher with topic exchange.
@@ -1389,7 +1484,11 @@ export function defineConsumerFirst<TMessage extends MessageDefinition, TRouting
     routingKey: BindingPattern<TRoutingKey>;
     arguments?: Record<string, unknown>;
   },
-): ConsumerFirstResultWithRoutingKey<TMessage, ConsumerDefinition<TMessage>, QueueBindingDefinition>;
+): ConsumerFirstResultWithRoutingKey<
+  TMessage,
+  ConsumerDefinition<TMessage>,
+  Extract<QueueBindingDefinition, { exchange: TopicExchangeDefinition }>
+>;
 
 /**
  * Implementation of defineConsumerFirst.

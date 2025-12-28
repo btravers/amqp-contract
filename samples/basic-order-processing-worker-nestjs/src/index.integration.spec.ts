@@ -39,7 +39,7 @@ describe("NestJS Worker Integration", () => {
     // WHEN
     publishMessage(
       orderContract.publishers.orderCreated.exchange.name,
-      orderContract.publishers.orderCreated.routingKey!,
+      orderContract.publishers.orderCreated.routingKey,
       newOrder,
     );
 
@@ -68,7 +68,7 @@ describe("NestJS Worker Integration", () => {
     // WHEN - Publish an order created event
     publishMessage(
       orderContract.publishers.orderUpdated.exchange.name,
-      orderContract.publishers.orderUpdated.routingKey!,
+      orderContract.publishers.orderUpdated.routingKey,
       orderUpdate,
     );
 
@@ -97,7 +97,7 @@ describe("NestJS Worker Integration", () => {
     // WHEN
     publishMessage(
       orderContract.publishers.orderShipped.exchange.name,
-      orderContract.publishers.orderShipped.routingKey!,
+      orderContract.publishers.orderShipped.routingKey,
       shippedOrder,
     );
 
@@ -126,7 +126,7 @@ describe("NestJS Worker Integration", () => {
     // WHEN
     publishMessage(
       orderContract.publishers.orderUrgentUpdate.exchange.name,
-      orderContract.publishers.orderUrgentUpdate.routingKey!,
+      orderContract.publishers.orderUrgentUpdate.routingKey,
       urgentUpdate,
     );
 
@@ -160,7 +160,7 @@ describe("NestJS Worker Integration", () => {
     // WHEN
     publishMessage(
       orderContract.publishers.orderCreated.exchange.name,
-      orderContract.publishers.orderCreated.routingKey!,
+      orderContract.publishers.orderCreated.routingKey,
       newOrder,
     );
 

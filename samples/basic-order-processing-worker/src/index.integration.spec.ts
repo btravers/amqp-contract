@@ -36,7 +36,7 @@ describe("Basic Order Processing Worker Integration", () => {
     // WHEN
     publishMessage(
       orderContract.publishers.orderCreated.exchange.name,
-      orderContract.publishers.orderCreated.routingKey!,
+      orderContract.publishers.orderCreated.routingKey,
       newOrder,
     );
 
@@ -86,12 +86,12 @@ describe("Basic Order Processing Worker Integration", () => {
 
     publishMessage(
       orderContract.publishers.orderCreated.exchange.name,
-      orderContract.publishers.orderCreated.routingKey!,
+      orderContract.publishers.orderCreated.routingKey,
       newOrder,
     );
     publishMessage(
       orderContract.publishers.orderUpdated.exchange.name,
-      orderContract.publishers.orderUpdated.routingKey!,
+      orderContract.publishers.orderUpdated.routingKey,
       orderUpdate,
     );
 
@@ -139,7 +139,7 @@ describe("Basic Order Processing Worker Integration", () => {
     // WHEN
     publishMessage(
       orderContract.publishers.orderCreated.exchange.name,
-      orderContract.publishers.orderCreated.routingKey!,
+      orderContract.publishers.orderCreated.routingKey,
       newOrder,
     );
 
