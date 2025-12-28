@@ -68,19 +68,28 @@ export type ConsumerOptions = {
  * const options: CreateWorkerOptions<typeof contract> = {
  *   contract: myContract,
  *   handlers: {
+ *     // Simple handler
  *     processOrder: async (message) => {
  *       console.log('Processing order:', message.orderId);
- *     }
+ *     },
+ *     // Handler with options (prefetch)
+ *     processPayment: [
+ *       async (message) => {
+ *         console.log('Processing payment:', message.paymentId);
+ *       },
+ *       { prefetch: 10 }
+ *     ],
+ *     // Handler with batch processing
+ *     processNotifications: [
+ *       async (messages) => {
+ *         console.log('Processing batch:', messages.length);
+ *       },
+ *       { batchSize: 5, batchTimeout: 1000 }
+ *     ]
  *   },
  *   urls: ['amqp://localhost'],
  *   connectionOptions: {
  *     heartbeatIntervalInSeconds: 30
- *   },
- *   consumerOptions: {
- *     processOrder: {
- *       prefetch: 10,
- *       batchSize: 5
- *     }
  *   },
  *   logger: myLogger
  * };
@@ -89,14 +98,12 @@ export type ConsumerOptions = {
 export type CreateWorkerOptions<TContract extends ContractDefinition> = {
   /** The AMQP contract definition specifying consumers and their message schemas */
   contract: TContract;
-  /** Handlers for each consumer defined in the contract */
+  /** Handlers for each consumer defined in the contract. Can be a function or a tuple of [handler, options] */
   handlers: WorkerInferConsumerHandlers<TContract>;
   /** AMQP broker URL(s). Multiple URLs provide failover support */
   urls: ConnectionUrl[];
   /** Optional connection configuration (heartbeat, reconnect settings, etc.) */
   connectionOptions?: AmqpConnectionManagerOptions | undefined;
-  /** Optional per-consumer configuration (prefetch, batch settings, etc.) */
-  consumerOptions?: Partial<Record<InferConsumerNames<TContract>, ConsumerOptions>> | undefined;
   /** Optional logger for logging message consumption and errors */
   logger?: Logger | undefined;
 };
@@ -142,13 +149,42 @@ export type CreateWorkerOptions<TContract extends ContractDefinition> = {
  * ```
  */
 export class TypedAmqpWorker<TContract extends ContractDefinition> {
+  private readonly actualHandlers: Partial<
+    Record<
+      InferConsumerNames<TContract>,
+      | WorkerInferConsumerHandler<TContract, InferConsumerNames<TContract>>
+      | WorkerInferConsumerBatchHandler<TContract, InferConsumerNames<TContract>>
+    >
+  >;
+  private readonly consumerOptions: Partial<Record<InferConsumerNames<TContract>, ConsumerOptions>>;
+
   private constructor(
     private readonly contract: TContract,
     private readonly amqpClient: AmqpClient,
-    private readonly handlers: WorkerInferConsumerHandlers<TContract>,
-    private readonly consumerOptions: Partial<Record<InferConsumerNames<TContract>, ConsumerOptions>>,
+    handlers: WorkerInferConsumerHandlers<TContract>,
     private readonly logger?: Logger,
-  ) {}
+  ) {
+    // Extract handlers and options from the handlers object
+    this.actualHandlers = {};
+    this.consumerOptions = {};
+
+    for (const consumerName in handlers) {
+      const handlerEntry = handlers[consumerName];
+      
+      if (Array.isArray(handlerEntry)) {
+        // Tuple format: [handler, options]
+        this.actualHandlers[consumerName] = handlerEntry[0] as unknown as
+          | WorkerInferConsumerHandler<TContract, InferConsumerNames<TContract>>
+          | WorkerInferConsumerBatchHandler<TContract, InferConsumerNames<TContract>>;
+        this.consumerOptions[consumerName] = handlerEntry[1];
+      } else {
+        // Direct function format
+        this.actualHandlers[consumerName] = handlerEntry as unknown as
+          | WorkerInferConsumerHandler<TContract, InferConsumerNames<TContract>>
+          | WorkerInferConsumerBatchHandler<TContract, InferConsumerNames<TContract>>;
+      }
+    }
+  }
 
   /**
    * Create a type-safe AMQP worker from a contract.
@@ -184,7 +220,6 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     handlers,
     urls,
     connectionOptions,
-    consumerOptions,
     logger,
   }: CreateWorkerOptions<TContract>): Future<Result<TypedAmqpWorker<TContract>, TechnicalError>> {
     const worker = new TypedAmqpWorker(
@@ -194,7 +229,6 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         connectionOptions,
       }),
       handlers,
-      consumerOptions ?? {},
       logger,
     );
 
@@ -300,7 +334,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       );
     }
 
-    const handler = this.handlers[consumerName];
+    const handler = this.actualHandlers[consumerName];
     if (!handler) {
       return Future.value(
         Result.Error(new TechnicalError(`Handler for "${String(consumerName)}" not provided`)),

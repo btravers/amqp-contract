@@ -1,7 +1,6 @@
 /* oxlint-disable eslint/sort-imports */
 import {
   ContractDefinition,
-  InferConsumerNames,
   defineConsumer,
   defineContract,
   defineExchange,
@@ -15,13 +14,11 @@ import { TypedAmqpWorker } from "./worker.js";
 import { it as baseIt } from "@amqp-contract/testing/extension";
 import { z } from "zod";
 import type { WorkerInferConsumerHandlers } from "./types.js";
-import type { ConsumerOptions } from "./worker.js";
 
 const it = baseIt.extend<{
   workerFactory: <TContract extends ContractDefinition>(
     contract: TContract,
     handlers: WorkerInferConsumerHandlers<TContract>,
-    consumerOptions?: Partial<Record<InferConsumerNames<TContract>, ConsumerOptions>>,
   ) => Promise<TypedAmqpWorker<TContract>>;
 }>({
   workerFactory: async ({ amqpConnectionUrl }, use) => {
@@ -30,13 +27,11 @@ const it = baseIt.extend<{
       async <TContract extends ContractDefinition>(
         contract: TContract,
         handlers: WorkerInferConsumerHandlers<TContract>,
-        consumerOptions?: Partial<Record<InferConsumerNames<TContract>, ConsumerOptions>>,
       ) => {
         const worker = await TypedAmqpWorker.create({
           contract,
           handlers,
           urls: [amqpConnectionUrl],
-          consumerOptions,
         }).resultToPromise();
         workers.push(worker);
         return worker;
@@ -80,21 +75,16 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
     });
 
     const messages: Array<{ id: string; message: string }> = [];
-    await workerFactory(
-      contract,
-      {
-        testConsumer: async (msg) => {
+    await workerFactory(contract, {
+      testConsumer: [
+        async (msg) => {
           messages.push(msg);
           // Simulate slow processing to test prefetch
           await new Promise((resolve) => setTimeout(resolve, 100));
         },
-      },
-      {
-        testConsumer: {
-          prefetch: 5,
-        },
-      },
-    );
+        { prefetch: 5 },
+      ],
+    });
 
     // WHEN - Publish multiple messages
     for (let i = 0; i < 10; i++) {
@@ -153,21 +143,18 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
     });
 
     const batches: Array<Array<{ id: string; value: number }>> = [];
-    await workerFactory(
-      contract,
-      {
-        // TypeScript should accept batch handler
-        batchConsumer: async (messages) => {
+    await workerFactory(contract, {
+      // Use tuple format with batch options
+      batchConsumer: [
+        async (messages) => {
           batches.push(messages);
         },
-      },
-      {
-        batchConsumer: {
+        {
           batchSize: 3,
           batchTimeout: 2000,
         },
-      },
-    );
+      ],
+    });
 
     // WHEN - Publish 7 messages (should result in 2 full batches of 3 and 1 partial batch of 1)
     for (let i = 0; i < 7; i++) {
@@ -239,20 +226,17 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
     });
 
     const batches: Array<Array<{ id: string; text: string }>> = [];
-    await workerFactory(
-      contract,
-      {
-        batchConsumer: async (messages) => {
+    await workerFactory(contract, {
+      batchConsumer: [
+        async (messages) => {
           batches.push(messages);
         },
-      },
-      {
-        batchConsumer: {
+        {
           batchSize: 5,
           batchTimeout: 500, // 500ms timeout
         },
-      },
-    );
+      ],
+    });
 
     // WHEN - Publish only 2 messages (less than batch size)
     publishMessage(exchange.name, "test.timeout", {
@@ -314,23 +298,20 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
     });
 
     const batches: Array<Array<{ id: string }>> = [];
-    await workerFactory(
-      contract,
-      {
-        combinedConsumer: async (messages) => {
+    await workerFactory(contract, {
+      combinedConsumer: [
+        async (messages) => {
           batches.push(messages);
           // Simulate processing time
           await new Promise((resolve) => setTimeout(resolve, 50));
         },
-      },
-      {
-        combinedConsumer: {
+        {
           prefetch: 10,
           batchSize: 4,
           batchTimeout: 1000,
         },
-      },
-    );
+      ],
+    });
 
     // WHEN - Publish 12 messages
     for (let i = 0; i < 12; i++) {
