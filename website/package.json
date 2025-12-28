@@ -22,6 +22,7 @@
     "@amqp-contract/worker-nestjs": "workspace:*"
   },
   "devDependencies": {
+    "@amqp-contract/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "mermaid": "catalog:",
     "tsx": "catalog:",

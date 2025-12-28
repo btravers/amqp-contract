@@ -846,6 +846,9 @@ importers:
         specifier: workspace:*
         version: link:../packages/worker-nestjs
     devDependencies:
+      '@amqp-contract/tsconfig':
+        specifier: workspace:*
+        version: link:../tools/tsconfig
       '@types/node':
         specifier: 'catalog:'
         version: 25.0.3
