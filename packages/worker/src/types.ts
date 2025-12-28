@@ -59,34 +59,6 @@ export type WorkerInferConsumerBatchHandler<
 > = (messages: Array<WorkerInferConsumerInput<TContract, TName>>) => Promise<void>;
 
 /**
- * Consumer options for configuring message consumption behavior.
- */
-export type ConsumerOptions = {
-  /**
-   * Maximum number of unacknowledged messages the consumer can have at once.
-   * Controls the prefetch count for this consumer's channel.
-   * If not set, uses the channel's default prefetch (typically unlimited).
-   */
-  prefetch?: number;
-
-  /**
-   * Number of messages to batch together before calling the handler.
-   * When set, the handler will receive an array of messages instead of a single message.
-   * Messages are accumulated until either the batch size is reached or the batch timeout expires.
-   */
-  batchSize?: number;
-
-  /**
-   * Maximum time in milliseconds to wait for a batch to fill before processing.
-   * Only used when batchSize is set. If the timeout is reached before the batch is full,
-   * the handler will be called with whatever messages have been accumulated.
-   *
-   * @default 1000 (1 second)
-   */
-  batchTimeout?: number;
-};
-
-/**
  * Infer handler entry for a consumer - either a function or a tuple of [handler, options].
  *
  * Three patterns are supported:

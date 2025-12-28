@@ -7,54 +7,12 @@ import type { WorkerInferConsumerHandlers, WorkerInferConsumerInput } from "./ty
 import type { Message } from "amqplib";
 
 /**
- * Consumer-specific options for controlling message consumption behavior.
- *
- * @example
- * ```typescript
- * const consumerOptions: ConsumerOptions = {
- *   prefetch: 10,       // Limit unacknowledged messages
- *   batchSize: 5,       // Process messages in batches
- *   batchTimeout: 1000  // Max wait time for batch
- * };
- * ```
+ * Internal type for consumer options extracted from handler tuples.
+ * Not exported - options are specified inline in the handler tuple types.
  */
-export type ConsumerOptions = {
-  /**
-   * Maximum number of unacknowledged messages the consumer can have at once.
-   * Controls the prefetch count for this consumer's channel.
-   * If not set, uses the channel's default prefetch (typically unlimited).
-   *
-   * @example
-   * ```typescript
-   * prefetch: 10  // Limit to 10 unacknowledged messages
-   * ```
-   */
+type ConsumerOptions = {
   prefetch?: number;
-
-  /**
-   * Number of messages to batch together before calling the handler.
-   * When set, the handler will receive an array of messages instead of a single message.
-   * Messages are accumulated until either the batch size is reached or the batch timeout expires.
-   *
-   * @example
-   * ```typescript
-   * batchSize: 5  // Process messages in batches of 5
-   * ```
-   */
   batchSize?: number;
-
-  /**
-   * Maximum time in milliseconds to wait for a batch to fill before processing.
-   * Only used when batchSize is set. If the timeout is reached before the batch is full,
-   * the handler will be called with whatever messages have been accumulated.
-   *
-   * @default 1000 (1 second)
-   *
-   * @example
-   * ```typescript
-   * batchTimeout: 500  // Wait max 500ms for batch to fill
-   * ```
-   */
   batchTimeout?: number;
 };
 
