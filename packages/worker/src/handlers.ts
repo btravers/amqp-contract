@@ -1,5 +1,10 @@
 import type { ContractDefinition, InferConsumerNames } from "@amqp-contract/contract";
-import type { WorkerInferConsumerHandler, WorkerInferConsumerHandlers } from "./types.js";
+import type {
+  WorkerInferConsumerBatchHandler,
+  WorkerInferConsumerHandler,
+  WorkerInferConsumerHandlerEntry,
+  WorkerInferConsumerHandlers,
+} from "./types.js";
 
 /**
  * Define a type-safe handler for a specific consumer in a contract.
@@ -7,11 +12,17 @@ import type { WorkerInferConsumerHandler, WorkerInferConsumerHandlers } from "./
  * This utility allows you to define handlers outside of the worker creation,
  * providing better code organization and reusability.
  *
+ * Supports three patterns:
+ * 1. Simple handler: just the function
+ * 2. Handler with prefetch: [handler, { prefetch: 10 }]
+ * 3. Batch handler: [batchHandler, { batchSize: 5, batchTimeout: 1000 }]
+ *
  * @template TContract - The contract definition type
  * @template TName - The consumer name from the contract
  * @param contract - The contract definition containing the consumer
  * @param consumerName - The name of the consumer from the contract
  * @param handler - The async handler function that processes messages
+ * @param options - Optional consumer options (prefetch, batchSize, batchTimeout)
  * @returns A type-safe handler that can be used with TypedAmqpWorker
  *
  * @example
@@ -19,55 +30,35 @@ import type { WorkerInferConsumerHandler, WorkerInferConsumerHandlers } from "./
  * import { defineHandler } from '@amqp-contract/worker';
  * import { orderContract } from './contract';
  *
- * // Define handler outside of worker creation
+ * // Simple handler without options
  * const processOrderHandler = defineHandler(
  *   orderContract,
  *   'processOrder',
  *   async (message) => {
- *     // message is fully typed based on the contract
  *     console.log('Processing order:', message.orderId);
  *     await processPayment(message);
  *   }
  * );
  *
- * // Use the handler in worker
- * const worker = await TypedAmqpWorker.create({
- *   contract: orderContract,
- *   handlers: {
- *     processOrder: processOrderHandler,
- *   },
- *   connection: 'amqp://localhost',
- * });
- * ```
- *
- * @example
- * ```typescript
- * // Define multiple handlers
- * const processOrderHandler = defineHandler(
+ * // Handler with prefetch
+ * const processOrderWithPrefetch = defineHandler(
  *   orderContract,
  *   'processOrder',
  *   async (message) => {
  *     await processOrder(message);
- *   }
- * );
- *
- * const notifyOrderHandler = defineHandler(
- *   orderContract,
- *   'notifyOrder',
- *   async (message) => {
- *     await sendNotification(message);
- *   }
- * );
- *
- * // Compose handlers
- * const worker = await TypedAmqpWorker.create({
- *   contract: orderContract,
- *   handlers: {
- *     processOrder: processOrderHandler,
- *     notifyOrder: notifyOrderHandler,
  *   },
- *   connection: 'amqp://localhost',
- * });
+ *   { prefetch: 10 }
+ * );
+ *
+ * // Batch handler
+ * const processBatchOrders = defineHandler(
+ *   orderContract,
+ *   'processOrders',
+ *   async (messages) => {
+ *     await db.insertMany(messages);
+ *   },
+ *   { batchSize: 5, batchTimeout: 1000 }
+ * );
  * ```
  */
 export function defineHandler<
@@ -76,8 +67,39 @@ export function defineHandler<
 >(
   contract: TContract,
   consumerName: TName,
+  handler:
+    | WorkerInferConsumerHandler<TContract, TName>
+    | WorkerInferConsumerBatchHandler<TContract, TName>,
+): WorkerInferConsumerHandlerEntry<TContract, TName>;
+export function defineHandler<
+  TContract extends ContractDefinition,
+  TName extends InferConsumerNames<TContract>,
+>(
+  contract: TContract,
+  consumerName: TName,
   handler: WorkerInferConsumerHandler<TContract, TName>,
-): WorkerInferConsumerHandler<TContract, TName> {
+  options: { prefetch?: number; batchSize?: never; batchTimeout?: never },
+): WorkerInferConsumerHandlerEntry<TContract, TName>;
+export function defineHandler<
+  TContract extends ContractDefinition,
+  TName extends InferConsumerNames<TContract>,
+>(
+  contract: TContract,
+  consumerName: TName,
+  handler: WorkerInferConsumerBatchHandler<TContract, TName>,
+  options: { prefetch?: number; batchSize: number; batchTimeout?: number },
+): WorkerInferConsumerHandlerEntry<TContract, TName>;
+export function defineHandler<
+  TContract extends ContractDefinition,
+  TName extends InferConsumerNames<TContract>,
+>(
+  contract: TContract,
+  consumerName: TName,
+  handler:
+    | WorkerInferConsumerHandler<TContract, TName>
+    | WorkerInferConsumerBatchHandler<TContract, TName>,
+  options?: { prefetch?: number; batchSize?: number; batchTimeout?: number },
+): WorkerInferConsumerHandlerEntry<TContract, TName> {
   // Validate that the consumer exists in the contract
   const consumers = contract.consumers;
 
@@ -89,8 +111,11 @@ export function defineHandler<
     );
   }
 
-  // Return the handler as-is, with type checking enforced
-  return handler;
+  // Return the handler with options if provided, otherwise just the handler
+  if (options) {
+    return [handler, options] as WorkerInferConsumerHandlerEntry<TContract, TName>;
+  }
+  return handler as WorkerInferConsumerHandlerEntry<TContract, TName>;
 }
 
 /**
