@@ -630,6 +630,11 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         // Process batch if full
         if (batch.length >= batchSize) {
           await processBatch();
+          // After processing a full batch, schedule timer for any subsequent messages
+          // This ensures that if more messages arrive at a slow rate, they won't be held indefinitely
+          if (batch.length > 0 && !this.batchTimers.has(timerKey)) {
+            scheduleBatchProcessing();
+          }
         } else {
           // Schedule batch processing if not already scheduled
           if (!this.batchTimers.has(timerKey)) {
