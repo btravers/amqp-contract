@@ -756,137 +756,41 @@ export type PublisherFirstResult<
 // ============================================================================
 
 /**
- * Valid characters for routing keys and binding patterns
- * @internal
- */
-type ValidChar =
-  | "a"
-  | "b"
-  | "c"
-  | "d"
-  | "e"
-  | "f"
-  | "g"
-  | "h"
-  | "i"
-  | "j"
-  | "k"
-  | "l"
-  | "m"
-  | "n"
-  | "o"
-  | "p"
-  | "q"
-  | "r"
-  | "s"
-  | "t"
-  | "u"
-  | "v"
-  | "w"
-  | "x"
-  | "y"
-  | "z"
-  | "A"
-  | "B"
-  | "C"
-  | "D"
-  | "E"
-  | "F"
-  | "G"
-  | "H"
-  | "I"
-  | "J"
-  | "K"
-  | "L"
-  | "M"
-  | "N"
-  | "O"
-  | "P"
-  | "Q"
-  | "R"
-  | "S"
-  | "T"
-  | "U"
-  | "V"
-  | "W"
-  | "X"
-  | "Y"
-  | "Z"
-  | "0"
-  | "1"
-  | "2"
-  | "3"
-  | "4"
-  | "5"
-  | "6"
-  | "7"
-  | "8"
-  | "9"
-  | "-"
-  | "_";
-
-/**
- * Check if a segment (part between dots) contains only valid characters
- * @internal
- */
-type IsValidSegment<S extends string> = S extends `${infer First}${infer Rest}`
-  ? First extends ValidChar
-    ? Rest extends ""
-      ? true
-      : IsValidSegment<Rest>
-    : false
-  : S extends ""
-    ? false
-    : never;
-
-/**
- * Validate a routing key format
- * @internal
- */
-type ValidateRoutingKey<S extends string> = S extends `${infer Segment}.${infer Rest}`
-  ? IsValidSegment<Segment> extends true
-    ? ValidateRoutingKey<Rest>
-    : false
-  : IsValidSegment<S>;
-
-/**
- * Type-safe routing key that validates character set and format.
+ * Type-safe routing key that validates basic format.
  *
- * Validates that a routing key contains only allowed characters (a-z, A-Z, 0-9, -, _)
- * and follows the dot-separated segment format required by AMQP.
+ * Validates that a routing key follows basic AMQP routing key rules:
+ * - Must not contain wildcards (* or #)
+ * - Must not be empty
+ * - Should contain alphanumeric characters, dots, hyphens, and underscores
+ *
+ * Note: Full character-by-character validation is not performed to avoid TypeScript
+ * recursion depth limits. Runtime validation is still recommended.
  *
  * @public
  * @template S - The routing key string to validate
  * @example
  * ```typescript
  * type Valid = RoutingKey<"order.created">; // "order.created"
- * type Invalid = RoutingKey<"order@created">; // never
+ * type Invalid = RoutingKey<"order.*">; // never (contains wildcard)
+ * type Invalid2 = RoutingKey<"">; // never (empty string)
  * ```
  */
-export type RoutingKey<S extends string> = ValidateRoutingKey<S> extends true ? S : never;
+export type RoutingKey<S extends string> = S extends ""
+  ? never // Empty string not allowed
+  : S extends `${string}*${string}` | `${string}#${string}`
+    ? never // Wildcards not allowed in routing keys
+    : S; // Accept the routing key as-is
 
 /**
- * Check if a binding pattern part is valid (* or # wildcards, or valid segment)
- * @internal
- */
-type IsValidBindingPart<S extends string> = S extends "*" | "#" ? true : IsValidSegment<S>;
-
-/**
- * Validate a binding pattern format
- * @internal
- */
-type ValidateBindingPattern<S extends string> = S extends `${infer Part}.${infer Rest}`
-  ? IsValidBindingPart<Part> extends true
-    ? ValidateBindingPattern<Rest>
-    : false
-  : IsValidBindingPart<S>;
-
-/**
- * Type-safe binding pattern that validates wildcards and format.
+ * Type-safe binding pattern that validates basic format and wildcards.
  *
- * Validates that a binding pattern contains only allowed characters (a-z, A-Z, 0-9, -, _)
- * and AMQP wildcards (* for one word, # for zero or more words), following the
- * dot-separated format required by AMQP topic exchanges.
+ * Validates that a binding pattern follows basic AMQP binding pattern rules:
+ * - Can contain wildcards (* for one word, # for zero or more words)
+ * - Must not be empty
+ * - Should contain alphanumeric characters, dots, hyphens, underscores, and wildcards
+ *
+ * Note: Full character-by-character validation is not performed to avoid TypeScript
+ * recursion depth limits. Runtime validation is still recommended.
  *
  * @public
  * @template S - The binding pattern string to validate
@@ -894,10 +798,11 @@ type ValidateBindingPattern<S extends string> = S extends `${infer Part}.${infer
  * ```typescript
  * type ValidPattern = BindingPattern<"order.*">; // "order.*"
  * type ValidHash = BindingPattern<"order.#">; // "order.#"
- * type Invalid = BindingPattern<"order.@">; // never
+ * type ValidConcrete = BindingPattern<"order.created">; // "order.created"
+ * type Invalid = BindingPattern<"">; // never (empty string)
  * ```
  */
-export type BindingPattern<S extends string> = ValidateBindingPattern<S> extends true ? S : never;
+export type BindingPattern<S extends string> = S extends "" ? never : S;
 
 /**
  * Helper type for pattern matching with # in the middle
@@ -1127,7 +1032,7 @@ export function definePublisherFirst<
   },
 ): PublisherFirstResult<
   TMessage,
-  Extract<PublisherDefinition<TMessage>, { exchange: DirectExchangeDefinition }>
+  Extract<PublisherDefinition<TMessage>, { exchange: DirectExchangeDefinition | TopicExchangeDefinition }>
 >;
 
 /**
@@ -1203,7 +1108,7 @@ export function definePublisherFirst<
   },
 ): PublisherFirstResultWithRoutingKey<
   TMessage,
-  Extract<PublisherDefinition<TMessage>, { exchange: TopicExchangeDefinition }>,
+  Extract<PublisherDefinition<TMessage>, { exchange: DirectExchangeDefinition | TopicExchangeDefinition }>,
   TRoutingKey
 >;
 
@@ -1319,7 +1224,10 @@ export type ConsumerFirstResultWithRoutingKey<
    */
   createPublisher: <TPublisherRoutingKey extends string>(
     routingKey: RoutingKey<TPublisherRoutingKey>,
-  ) => PublisherDefinition<TMessage>;
+  ) => Extract<
+    PublisherDefinition<TMessage>,
+    { exchange: DirectExchangeDefinition | TopicExchangeDefinition }
+  >;
 };
 
 /**
@@ -1539,8 +1447,13 @@ export function defineConsumerFirst<TMessage extends MessageDefinition>(
 
   // For topic exchanges, allow specifying routing key when creating publisher
   if (exchange.type === "topic") {
-    const createPublisher = (routingKey: string): PublisherDefinition<TMessage> => {
-      return callDefinePublisher(exchange, message, { ...options, routingKey });
+    const createPublisher = (
+      routingKey: string,
+    ): Extract<PublisherDefinition<TMessage>, { exchange: DirectExchangeDefinition | TopicExchangeDefinition }> => {
+      return callDefinePublisher(exchange, message, { ...options, routingKey }) as Extract<
+        PublisherDefinition<TMessage>,
+        { exchange: DirectExchangeDefinition | TopicExchangeDefinition }
+      >;
     };
 
     return {

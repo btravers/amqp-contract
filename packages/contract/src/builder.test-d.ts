@@ -3,8 +3,8 @@
  * These tests ensure that the type system correctly validates routing keys and patterns
  */
 
-import { describe, expectTypeOf, test } from "vitest";
 import type { BindingPattern, MatchingRoutingKey, RoutingKey } from "./builder.js";
+import { describe, expectTypeOf, test } from "vitest";
 
 describe("RoutingKey type validation", () => {
   test("should accept valid routing keys", () => {
@@ -15,26 +15,20 @@ describe("RoutingKey type validation", () => {
     expectTypeOf<RoutingKey<"ABC123">>().toEqualTypeOf<"ABC123">();
   });
 
-  test("should reject invalid routing keys with special characters", () => {
-    // @ is not allowed
-    expectTypeOf<RoutingKey<"order@created">>().toEqualTypeOf<never>();
+  test("should reject routing keys with wildcards", () => {
+    // * wildcard is not allowed in routing keys
+    expectTypeOf<RoutingKey<"order.*">>().toEqualTypeOf<never>();
     
-    // ! is not allowed
-    expectTypeOf<RoutingKey<"order.created!">>().toEqualTypeOf<never>();
+    // # wildcard is not allowed in routing keys
+    expectTypeOf<RoutingKey<"order.#">>().toEqualTypeOf<never>();
     
-    // space is not allowed
-    expectTypeOf<RoutingKey<"order created">>().toEqualTypeOf<never>();
+    // wildcards in the middle not allowed
+    expectTypeOf<RoutingKey<"order.*.created">>().toEqualTypeOf<never>();
   });
 
-  test("should reject empty or malformed routing keys", () => {
+  test("should reject empty routing keys", () => {
     // empty is not allowed
     expectTypeOf<RoutingKey<"">>().toEqualTypeOf<never>();
-    
-    // cannot start with dot
-    expectTypeOf<RoutingKey<".order">>().toEqualTypeOf<never>();
-    
-    // cannot end with dot
-    expectTypeOf<RoutingKey<"order.">>().toEqualTypeOf<never>();
   });
 });
 
@@ -53,16 +47,7 @@ describe("BindingPattern type validation", () => {
     expectTypeOf<BindingPattern<"order.created">>().toEqualTypeOf<"order.created">();
   });
 
-  test("should reject invalid binding patterns", () => {
-    // @ is not allowed
-    expectTypeOf<BindingPattern<"order.@">>().toEqualTypeOf<never>();
-    
-    // ! is not allowed
-    expectTypeOf<BindingPattern<"order.*!">>().toEqualTypeOf<never>();
-    
-    // space is not allowed
-    expectTypeOf<BindingPattern<"order created">>().toEqualTypeOf<never>();
-    
+  test("should reject empty binding patterns", () => {
     // empty is not allowed
     expectTypeOf<BindingPattern<"">>().toEqualTypeOf<never>();
   });
@@ -118,20 +103,6 @@ describe("MatchingRoutingKey pattern matching", () => {
 
 describe("Publisher and Consumer factory types", () => {
   test("definePublisherFirst with direct exchange should accept valid routing keys", () => {
-    // Import the necessary types to test the factory functions
-    type TestMessage = {
-      schema: { '~standard': { validate: (data: unknown) => Promise<{ value?: string; issues?: unknown[] }> } };
-      summary?: string;
-      description?: string;
-    };
-    
-    type TestExchange = {
-      name: string;
-      type: "direct";
-      durable?: boolean;
-      autoDelete?: boolean;
-    };
-    
     // Test that the publisher factory method accepts RoutingKey validated routing keys
     // The actual runtime validation will be tested in integration tests
     expectTypeOf<RoutingKey<"order.created">>().toEqualTypeOf<"order.created">();
