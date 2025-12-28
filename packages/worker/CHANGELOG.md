@@ -1,5 +1,69 @@
 # @amqp-contract/worker
 
+## 0.5.0
+
+### Minor Changes
+
+- Add routing key parameters with type validation for all exchange types
+
+  This release introduces comprehensive routing key parameter support with compile-time type validation:
+
+  **New Features:**
+
+  - Added routing key parameter support for topic and direct exchanges
+  - Implemented type-level validation for routing keys and binding patterns
+    - `RoutingKey<T>` type validates routing key format and character set
+    - `BindingPattern<T>` type validates AMQP pattern syntax (\*, #)
+    - `MatchingRoutingKey<Pattern, Key>` validates key matches pattern
+  - Enhanced `definePublisherFirst` and `defineConsumerFirst` functions:
+    - `createPublisher()` accepts routing key parameter for topic exchanges
+    - `createConsumer()` accepts optional routing key pattern
+  - Routing key validation ensures AMQP compliance at compile-time:
+    - Validates allowed characters (a-z, A-Z, 0-9, -, \_)
+    - Validates proper segment formatting with dot separators
+    - Implements AMQP topic exchange pattern matching logic
+
+  **Type Safety Improvements:**
+
+  - When consumer uses pattern with wildcards (e.g., "order.\*"), publishers can use any matching string
+  - When consumer uses concrete key, publishers must use exact same key
+  - When publisher uses concrete key, consumers can use any pattern
+  - Pattern matching logic:
+    - `*` matches exactly one word
+    - `#` matches zero or more words
+
+  **Usage Example:**
+
+  ```typescript
+  // Topic exchange with routing key parameters
+  const consumer = defineConsumerFirst(
+    topicExchange,
+    "order.*", // Pattern with wildcard
+    orderSchema
+  );
+
+  // Publishers can specify concrete keys matching the pattern
+  const publisher = consumer.createPublisher("order.created");
+
+  // Or define publisher first with concrete key
+  const publisher2 = definePublisherFirst(
+    topicExchange,
+    "order.updated", // Concrete routing key
+    orderSchema
+  );
+
+  // Consumers can subscribe with any pattern
+  const consumer2 = publisher2.createConsumer("order.*");
+  ```
+
+  This feature provides end-to-end type safety for routing keys and binding patterns, catching configuration errors at compile time rather than runtime.
+
+### Patch Changes
+
+- Updated dependencies
+  - @amqp-contract/contract@0.5.0
+  - @amqp-contract/core@0.5.0
+
 ## 0.4.0
 
 ### Minor Changes
@@ -51,6 +115,7 @@
   This release introduces an optional Logger interface that allows users to integrate their preferred logging framework with amqp-contract:
 
   **New Features:**
+
   - Added `Logger` interface in `@amqp-contract/core` with debug, info, warn, and error methods
   - Added `LoggerContext` type for structured logging context
   - Client and Worker now accept an optional `logger` option to enable message logging
@@ -102,10 +167,12 @@
   This release introduces connection readiness handling with the following changes:
 
   **Breaking Changes:**
+
   - `TypedAmqpClient.create()` now returns `Future<Result<TypedAmqpClient, TechnicalError>>` instead of directly returning the client instance
   - `TypedAmqpWorker.create()` now returns `Future<Result<TypedAmqpWorker, TechnicalError>>` instead of directly returning the worker instance
 
   **New Features:**
+
   - Added `waitForConnectionReady()` method to ensure AMQP connection is established before operations
   - Improved error handling with explicit Result types for connection failures
 
@@ -154,10 +221,12 @@
   This release introduces a new `@amqp-contract/core` package that centralizes AMQP infrastructure setup logic. The core package provides a `setupInfra` function that handles the creation of exchanges, queues, and bindings, eliminating code duplication across client and worker packages.
 
   **New Features:**
+
   - New `@amqp-contract/core` package with centralized AMQP setup logic
   - `setupInfra` function for creating exchanges, queues, and bindings from contract definitions
 
   **Changes:**
+
   - Updated `@amqp-contract/client` to use core setup function
   - Updated `@amqp-contract/worker` to use core setup function
   - All packages are now versioned together as a fixed group
@@ -236,6 +305,7 @@
 ### Patch Changes
 
 - Refactor createClient and createWorker to accept options object and auto-connect
+
   - createClient now accepts { contract, connection } and auto-connects
   - createWorker now accepts { contract, handlers, connection } and auto-connects/consumeAll
   - Updated all tests and samples to use new API
