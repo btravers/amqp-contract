@@ -7,6 +7,58 @@ import type { WorkerInferConsumerHandlers, WorkerInferConsumerInput } from "./ty
 import type { Message } from "amqplib";
 
 /**
+ * Consumer-specific options for controlling message consumption behavior.
+ *
+ * @example
+ * ```typescript
+ * const consumerOptions: ConsumerOptions = {
+ *   prefetch: 10,       // Limit unacknowledged messages
+ *   batchSize: 5,       // Process messages in batches
+ *   batchTimeout: 1000  // Max wait time for batch
+ * };
+ * ```
+ */
+export type ConsumerOptions = {
+  /**
+   * Maximum number of unacknowledged messages the consumer can have at once.
+   * Controls the prefetch count for this consumer's channel.
+   * If not set, uses the channel's default prefetch (typically unlimited).
+   *
+   * @example
+   * ```typescript
+   * prefetch: 10  // Limit to 10 unacknowledged messages
+   * ```
+   */
+  prefetch?: number;
+
+  /**
+   * Number of messages to batch together before calling the handler.
+   * When set, the handler will receive an array of messages instead of a single message.
+   * Messages are accumulated until either the batch size is reached or the batch timeout expires.
+   *
+   * @example
+   * ```typescript
+   * batchSize: 5  // Process messages in batches of 5
+   * ```
+   */
+  batchSize?: number;
+
+  /**
+   * Maximum time in milliseconds to wait for a batch to fill before processing.
+   * Only used when batchSize is set. If the timeout is reached before the batch is full,
+   * the handler will be called with whatever messages have been accumulated.
+   *
+   * @default 1000 (1 second)
+   *
+   * @example
+   * ```typescript
+   * batchTimeout: 500  // Wait max 500ms for batch to fill
+   * ```
+   */
+  batchTimeout?: number;
+};
+
+/**
  * Options for creating a type-safe AMQP worker.
  *
  * @typeParam TContract - The contract definition type
@@ -24,6 +76,12 @@ import type { Message } from "amqplib";
  *   connectionOptions: {
  *     heartbeatIntervalInSeconds: 30
  *   },
+ *   consumerOptions: {
+ *     processOrder: {
+ *       prefetch: 10,
+ *       batchSize: 5
+ *     }
+ *   },
  *   logger: myLogger
  * };
  * ```
@@ -37,6 +95,8 @@ export type CreateWorkerOptions<TContract extends ContractDefinition> = {
   urls: ConnectionUrl[];
   /** Optional connection configuration (heartbeat, reconnect settings, etc.) */
   connectionOptions?: AmqpConnectionManagerOptions | undefined;
+  /** Optional per-consumer configuration (prefetch, batch settings, etc.) */
+  consumerOptions?: Partial<Record<InferConsumerNames<TContract>, ConsumerOptions>> | undefined;
   /** Optional logger for logging message consumption and errors */
   logger?: Logger | undefined;
 };
@@ -86,6 +146,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     private readonly contract: TContract,
     private readonly amqpClient: AmqpClient,
     private readonly handlers: WorkerInferConsumerHandlers<TContract>,
+    private readonly consumerOptions: Partial<Record<InferConsumerNames<TContract>, ConsumerOptions>>,
     private readonly logger?: Logger,
   ) {}
 
@@ -123,6 +184,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     handlers,
     urls,
     connectionOptions,
+    consumerOptions,
     logger,
   }: CreateWorkerOptions<TContract>): Future<Result<TypedAmqpWorker<TContract>, TechnicalError>> {
     const worker = new TypedAmqpWorker(
@@ -132,6 +194,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         connectionOptions,
       }),
       handlers,
+      consumerOptions ?? {},
       logger,
     );
 
@@ -173,24 +236,24 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
     // Calculate the maximum prefetch value among all consumers
     // Since prefetch is per-channel in AMQP 0.9.1, we use the maximum value
-    const consumers = this.contract.consumers;
+    const consumerNames = Object.keys(this.contract.consumers) as InferConsumerNames<TContract>[];
     let maxPrefetch = 0;
     
-    for (const consumerName in consumers) {
-      const consumer = consumers[consumerName];
-      if (consumer?.prefetch !== undefined) {
-        if (consumer.prefetch <= 0 || !Number.isInteger(consumer.prefetch)) {
+    for (const consumerName of consumerNames) {
+      const options = this.consumerOptions[consumerName];
+      if (options?.prefetch !== undefined) {
+        if (options.prefetch <= 0 || !Number.isInteger(options.prefetch)) {
           return Future.value(
             Result.Error(
               new TechnicalError(`Invalid prefetch value for "${String(consumerName)}": must be a positive integer`),
             ),
           );
         }
-        maxPrefetch = Math.max(maxPrefetch, consumer.prefetch);
+        maxPrefetch = Math.max(maxPrefetch, options.prefetch);
       }
-      if (consumer?.batchSize !== undefined) {
+      if (options?.batchSize !== undefined) {
         // Batch consumers need prefetch at least equal to batch size
-        const effectivePrefetch = consumer.prefetch ?? consumer.batchSize;
+        const effectivePrefetch = options.prefetch ?? options.batchSize;
         maxPrefetch = Math.max(maxPrefetch, effectivePrefetch);
       }
     }
@@ -201,8 +264,6 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         await channel.prefetch(maxPrefetch);
       });
     }
-
-    const consumerNames = Object.keys(this.contract.consumers) as InferConsumerNames<TContract>[];
 
     return Future.all(consumerNames.map((consumerName) => this.consume(consumerName)))
       .map(Result.all)
@@ -246,9 +307,12 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       );
     }
 
+    // Get consumer-specific options
+    const options = this.consumerOptions[consumerName] ?? {};
+
     // Validate batch size if specified
-    if (consumer.batchSize !== undefined) {
-      if (consumer.batchSize <= 0 || !Number.isInteger(consumer.batchSize)) {
+    if (options.batchSize !== undefined) {
+      if (options.batchSize <= 0 || !Number.isInteger(options.batchSize)) {
         return Future.value(
           Result.Error(
             new TechnicalError(`Invalid batchSize for "${String(consumerName)}": must be a positive integer`),
@@ -258,12 +322,13 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     }
 
     // Check if this is a batch consumer
-    const isBatchConsumer = consumer.batchSize !== undefined && consumer.batchSize > 0;
+    const isBatchConsumer = options.batchSize !== undefined && options.batchSize > 0;
 
     if (isBatchConsumer) {
       return this.consumeBatch(
         consumerName,
         consumer,
+        options,
         handler as unknown as (messages: Array<WorkerInferConsumerInput<TContract, TName>>) => Promise<void>,
       );
     } else {
@@ -372,10 +437,11 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   private consumeBatch<TName extends InferConsumerNames<TContract>>(
     consumerName: TName,
     consumer: ConsumerDefinition,
+    options: ConsumerOptions,
     handler: (messages: Array<WorkerInferConsumerInput<TContract, TName>>) => Promise<void>,
   ): Future<Result<void, TechnicalError>> {
-    const batchSize = consumer.batchSize!;
-    const batchTimeout = consumer.batchTimeout ?? 1000;
+    const batchSize = options.batchSize!;
+    const batchTimeout = options.batchTimeout ?? 1000;
 
     // Note: Prefetch is handled globally in consumeAll()
     // Batch accumulation state

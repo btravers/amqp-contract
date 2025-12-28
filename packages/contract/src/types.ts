@@ -387,25 +387,9 @@ export type PublisherDefinition<TMessage extends MessageDefinition = MessageDefi
  *
  * @example
  * ```typescript
- * // Single message consumer
  * const consumer: ConsumerDefinition = {
  *   queue: orderProcessingQueue,
  *   message: orderMessage
- * };
- *
- * // Consumer with prefetch
- * const consumerWithPrefetch: ConsumerDefinition = {
- *   queue: orderProcessingQueue,
- *   message: orderMessage,
- *   prefetch: 10
- * };
- *
- * // Batch consumer
- * const batchConsumer: ConsumerDefinition = {
- *   queue: orderProcessingQueue,
- *   message: orderMessage,
- *   batchSize: 5,
- *   batchTimeout: 1000
  * };
  * ```
  */
@@ -415,47 +399,6 @@ export type ConsumerDefinition<TMessage extends MessageDefinition = MessageDefin
 
   /** The message definition including the payload schema */
   message: TMessage;
-
-  /**
-   * Maximum number of unacknowledged messages the consumer can have at once.
-   * Controls the prefetch count for this consumer's channel.
-   * If not set, uses the channel's default prefetch (typically unlimited).
-   *
-   * @example
-   * ```typescript
-   * // Limit to 10 unacknowledged messages
-   * prefetch: 10
-   * ```
-   */
-  prefetch?: number;
-
-  /**
-   * Number of messages to batch together before calling the handler.
-   * When set, the handler will receive an array of messages instead of a single message.
-   * Messages are accumulated until either the batch size is reached or the batch timeout expires.
-   *
-   * @example
-   * ```typescript
-   * // Process messages in batches of 5
-   * batchSize: 5
-   * ```
-   */
-  batchSize?: number;
-
-  /**
-   * Maximum time in milliseconds to wait for a batch to fill before processing.
-   * Only used when batchSize is set. If the timeout is reached before the batch is full,
-   * the handler will be called with whatever messages have been accumulated.
-   *
-   * @default 1000 (1 second)
-   *
-   * @example
-   * ```typescript
-   * // Wait max 500ms for batch to fill
-   * batchTimeout: 500
-   * ```
-   */
-  batchTimeout?: number;
 };
 
 /**

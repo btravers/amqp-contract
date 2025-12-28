@@ -41,19 +41,29 @@ export type WorkerInferConsumerInput<
 
 /**
  * Infer consumer handler type for a specific consumer.
- * If the consumer has a batchSize defined, the handler receives an array of messages.
- * Otherwise, it receives a single message.
+ * Handlers always receive a single message by default.
+ * For batch processing, use consumerOptions to configure batch behavior.
  */
 export type WorkerInferConsumerHandler<
   TContract extends ContractDefinition,
   TName extends InferConsumerNames<TContract>,
-> = InferConsumer<TContract, TName> extends { batchSize: number }
-  ? (messages: Array<WorkerInferConsumerInput<TContract, TName>>) => Promise<void>
-  : (message: WorkerInferConsumerInput<TContract, TName>) => Promise<void>;
+> = (message: WorkerInferConsumerInput<TContract, TName>) => Promise<void>;
 
 /**
- * Infer all consumer handlers for a contract
+ * Infer consumer handler type for batch processing.
+ * Batch handlers receive an array of messages.
+ */
+export type WorkerInferConsumerBatchHandler<
+  TContract extends ContractDefinition,
+  TName extends InferConsumerNames<TContract>,
+> = (messages: Array<WorkerInferConsumerInput<TContract, TName>>) => Promise<void>;
+
+/**
+ * Infer all consumer handlers for a contract.
+ * Handlers can be either single-message or batch handlers.
  */
 export type WorkerInferConsumerHandlers<TContract extends ContractDefinition> = {
-  [K in InferConsumerNames<TContract>]: WorkerInferConsumerHandler<TContract, K>;
+  [K in InferConsumerNames<TContract>]:
+    | WorkerInferConsumerHandler<TContract, K>
+    | WorkerInferConsumerBatchHandler<TContract, K>;
 };
