@@ -104,6 +104,8 @@ const worker = await TypedAmqpWorker.create({
 });
 ```
 
+**Note:** In AMQP 0.9.1, prefetch is set per-channel. Since all consumers in a worker share the same channel, the worker will use the maximum prefetch value among all consumers. For example, if you have two consumers with prefetch values of 5 and 10, the effective prefetch for the channel will be 10.
+
 ### Batch Processing
 
 Process multiple messages at once for better throughput:
