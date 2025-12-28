@@ -33,7 +33,10 @@ const orderMessage = defineMessage(z.object({
   amount: z.number(),
 }));
 
-const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } = definePublisherFirst(
+const {
+  publisher: orderCreatedPublisher,
+  createConsumer: createOrderCreatedConsumer,
+} = definePublisherFirst(
   ordersExchange,
   orderMessage,
   { routingKey: 'order.created' }

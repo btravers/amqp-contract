@@ -98,7 +98,10 @@ const orderMessage = defineMessage(
 );
 
 // Publisher-first pattern ensures consistency
-const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } = definePublisherFirst(
+const {
+  publisher: orderCreatedPublisher,
+  createConsumer: createOrderCreatedConsumer,
+} = definePublisherFirst(
   ordersExchange,
   orderMessage,
   { routingKey: 'order.created' }
