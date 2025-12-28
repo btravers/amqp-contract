@@ -1,0 +1,31 @@
+{
+  "name": "@amqp-contract/docs",
+  "private": true,
+  "description": "Documentation website for amqp-contract",
+  "license": "MIT",
+  "author": "Benoit TRAVERS",
+  "type": "module",
+  "scripts": {
+    "build": "tsx ../scripts/copy-docs.ts && vitepress build .",
+    "dev": "vitepress dev .",
+    "preview": "vitepress preview ."
+  },
+  "dependencies": {
+    "@amqp-contract/asyncapi": "workspace:*",
+    "@amqp-contract/client": "workspace:*",
+    "@amqp-contract/client-nestjs": "workspace:*",
+    "@amqp-contract/contract": "workspace:*",
+    "@amqp-contract/core": "workspace:*",
+    "@amqp-contract/testing": "workspace:*",
+    "@amqp-contract/worker": "workspace:*",
+    "@amqp-contract/worker-nestjs": "workspace:*"
+  },
+  "devDependencies": {
+    "@amqp-contract/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "mermaid": "catalog:",
+    "tsx": "catalog:",
+    "vitepress": "catalog:",
+    "vitepress-plugin-mermaid": "catalog:"
+  }
+}

@@ -7,11 +7,12 @@
   "type": "module",
   "scripts": {
     "build": "turbo run build",
+    "build:docs": "turbo run build:docs",
     "changeset": "changeset",
     "dev": "turbo run dev",
-    "docs:build": "turbo run build:docs && tsx scripts/copy-docs.ts && vitepress build docs",
-    "docs:dev": "vitepress dev docs",
-    "docs:preview": "vitepress preview docs",
+    "docs:build": "pnpm build:docs && pnpm --filter @amqp-contract/docs build",
+    "docs:dev": "pnpm --filter @amqp-contract/docs dev",
+    "docs:preview": "pnpm --filter @amqp-contract/docs preview",
     "format": "oxfmt .",
     "lint": "oxlint .",
     "prepare": "lefthook install",
@@ -27,17 +28,12 @@
     "@changesets/cli": "catalog:",
     "@commitlint/cli": "catalog:",
     "@commitlint/config-conventional": "catalog:",
-    "@types/node": "catalog:",
     "knip": "catalog:",
     "lefthook": "catalog:",
-    "mermaid": "catalog:",
     "oxfmt": "catalog:",
     "oxlint": "catalog:",
     "sort-package-json": "catalog:",
-    "tsx": "catalog:",
-    "turbo": "catalog:",
-    "vitepress": "catalog:",
-    "vitepress-plugin-mermaid": "catalog:"
+    "turbo": "catalog:"
   },
   "packageManager": "pnpm@10.26.2"
 }
