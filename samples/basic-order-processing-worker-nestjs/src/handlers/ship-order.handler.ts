@@ -14,5 +14,7 @@ export class ShipOrderHandler {
     this.logger.log(`Shipping label prepared for order ${message.orderId}`);
   };
 
-  handler = defineHandler(orderContract, "shipOrder", async (message) => this.handleMessage(message));
+  handler = defineHandler(orderContract, "shipOrder", async (message) =>
+    this.handleMessage(message),
+  );
 }

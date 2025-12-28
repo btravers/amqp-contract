@@ -7,12 +7,16 @@ import { orderContract } from "@amqp-contract-samples/basic-order-processing-con
 export class HandleUrgentOrderHandler {
   private readonly logger = new Logger(HandleUrgentOrderHandler.name);
 
-  handleMessage = async (message: WorkerInferConsumerInput<typeof orderContract, "handleUrgentOrder">) => {
+  handleMessage = async (
+    message: WorkerInferConsumerInput<typeof orderContract, "handleUrgentOrder">,
+  ) => {
     this.logger.warn(
       `[URGENT] Priority order update received: ${message.orderId} -> ${message.status}`,
     );
     this.logger.warn(`Urgent update handled for order ${message.orderId}`);
   };
 
-  handler = defineHandler(orderContract, "handleUrgentOrder", async (message) => this.handleMessage(message));
+  handler = defineHandler(orderContract, "handleUrgentOrder", async (message) =>
+    this.handleMessage(message),
+  );
 }
