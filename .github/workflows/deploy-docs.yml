@@ -31,15 +31,13 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Build website
-        run: |
-          cd website
-          pnpm build
+      - name: Build documentation
+        run: pnpm docs:build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4
         with:
-          path: website/docs/.vitepress/dist
+          path: docs/.vitepress/dist
 
   deploy:
     environment:

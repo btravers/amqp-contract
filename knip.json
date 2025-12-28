@@ -12,8 +12,8 @@
     "tools/*": {
       "entry": ["*.json"]
     },
-    "website": {
-      "entry": ["docs/.vitepress/config.ts", "docs/.vitepress/theme/index.ts"],
+    "docs": {
+      "entry": [".vitepress/config.ts", ".vitepress/theme/index.ts"],
       "ignoreDependencies": [
         "@amqp-contract/asyncapi",
         "@amqp-contract/client",

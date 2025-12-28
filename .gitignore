@@ -89,11 +89,11 @@ dist
 .turbo/
 
 # VitePress
-website/docs/.vitepress/cache
-website/docs/.vitepress/dist
+docs/.vitepress/cache
+docs/.vitepress/dist
 
 # TypeDoc generated API documentation
-website/docs/api/
+docs/api/
 packages/*/docs/
 
 # Gatsby files
