@@ -42,7 +42,10 @@ const it = baseIt.extend<{
 });
 
 describe("AmqpWorker Prefetch and Batch Integration", () => {
-  it("should apply prefetch configuration to consumer", async ({ workerFactory, publishMessage }) => {
+  it("should apply prefetch configuration to consumer", async ({
+    workerFactory,
+    publishMessage,
+  }) => {
     // GIVEN
     const TestMessage = z.object({
       id: z.string(),
@@ -335,9 +338,24 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
     );
 
     expect(batches).toEqual([
-      expect.arrayContaining([expect.anything(), expect.anything(), expect.anything(), expect.anything()]),
-      expect.arrayContaining([expect.anything(), expect.anything(), expect.anything(), expect.anything()]),
-      expect.arrayContaining([expect.anything(), expect.anything(), expect.anything(), expect.anything()]),
+      expect.arrayContaining([
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+      ]),
+      expect.arrayContaining([
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+      ]),
+      expect.arrayContaining([
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+      ]),
     ]);
   });
 });

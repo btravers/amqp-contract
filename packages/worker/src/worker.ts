@@ -1,7 +1,11 @@
 import { AmqpClient, type Logger } from "@amqp-contract/core";
 import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
 import type { Channel, Message } from "amqplib";
-import type { ConsumerDefinition, ContractDefinition, InferConsumerNames } from "@amqp-contract/contract";
+import type {
+  ConsumerDefinition,
+  ContractDefinition,
+  InferConsumerNames,
+} from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
 import { MessageValidationError, TechnicalError } from "./errors.js";
 import type {
@@ -133,7 +137,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
     for (const consumerName of Object.keys(handlers) as InferConsumerNames<TContract>[]) {
       const handlerEntry = handlers[consumerName];
-      
+
       if (Array.isArray(handlerEntry)) {
         // Tuple format: [handler, options]
         this.actualHandlers[consumerName] = handlerEntry[0] as unknown as
@@ -241,14 +245,16 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     // Since prefetch is per-channel in AMQP 0.9.1, we use the maximum value
     const consumerNames = Object.keys(this.contract.consumers) as InferConsumerNames<TContract>[];
     let maxPrefetch = 0;
-    
+
     for (const consumerName of consumerNames) {
       const options = this.consumerOptions[consumerName];
       if (options?.prefetch !== undefined) {
         if (options.prefetch <= 0 || !Number.isInteger(options.prefetch)) {
           return Future.value(
             Result.Error(
-              new TechnicalError(`Invalid prefetch value for "${String(consumerName)}": must be a positive integer`),
+              new TechnicalError(
+                `Invalid prefetch value for "${String(consumerName)}": must be a positive integer`,
+              ),
             ),
           );
         }
@@ -318,7 +324,9 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       if (options.batchSize <= 0 || !Number.isInteger(options.batchSize)) {
         return Future.value(
           Result.Error(
-            new TechnicalError(`Invalid batchSize for "${String(consumerName)}": must be a positive integer`),
+            new TechnicalError(
+              `Invalid batchSize for "${String(consumerName)}": must be a positive integer`,
+            ),
           ),
         );
       }
@@ -333,7 +341,9 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       ) {
         return Future.value(
           Result.Error(
-            new TechnicalError(`Invalid batchTimeout for "${String(consumerName)}": must be a positive number`),
+            new TechnicalError(
+              `Invalid batchTimeout for "${String(consumerName)}": must be a positive number`,
+            ),
           ),
         );
       }
@@ -347,13 +357,17 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         consumerName,
         consumer,
         options,
-        handler as unknown as (messages: Array<WorkerInferConsumerInput<TContract, TName>>) => Promise<void>,
+        handler as unknown as (
+          messages: Array<WorkerInferConsumerInput<TContract, TName>>,
+        ) => Promise<void>,
       );
     } else {
       return this.consumeSingle(
         consumerName,
         consumer,
-        handler as unknown as (message: WorkerInferConsumerInput<TContract, TName>) => Promise<void>,
+        handler as unknown as (
+          message: WorkerInferConsumerInput<TContract, TName>,
+        ) => Promise<void>,
       );
     }
   }
@@ -475,7 +489,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
       const currentBatch = batch;
       batch = [];
-      
+
       // Clear timer from tracking
       const timer = this.batchTimers.get(timerKey);
       if (timer) {
@@ -526,7 +540,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       if (existingTimer) {
         clearTimeout(existingTimer);
       }
-      
+
       // Schedule new timer and track it
       const timer = setTimeout(() => {
         processBatch().catch((error) => {
@@ -536,88 +550,84 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           });
         });
       }, batchTimeout);
-      
+
       this.batchTimers.set(timerKey, timer);
     };
 
     // Start consuming
     return Future.fromPromise(
       this.amqpClient.channel.consume(consumer.queue.name, async (msg) => {
-            // Handle null messages (consumer cancellation)
-            if (msg === null) {
-              this.logger?.warn("Consumer cancelled by server", {
-                consumerName: String(consumerName),
-                queueName: consumer.queue.name,
-              });
-              // Process any remaining messages in the batch
-              await processBatch();
-              return;
+        // Handle null messages (consumer cancellation)
+        if (msg === null) {
+          this.logger?.warn("Consumer cancelled by server", {
+            consumerName: String(consumerName),
+            queueName: consumer.queue.name,
+          });
+          // Process any remaining messages in the batch
+          await processBatch();
+          return;
+        }
+
+        // Parse message
+        const parseResult = Result.fromExecution(() => JSON.parse(msg.content.toString()));
+        if (parseResult.isError()) {
+          this.logger?.error("Error parsing message", {
+            consumerName: String(consumerName),
+            queueName: consumer.queue.name,
+            error: parseResult.error,
+          });
+
+          // fixme proper error handling strategy
+          // Reject message with no requeue (malformed JSON)
+          this.amqpClient.channel.nack(msg, false, false);
+          return;
+        }
+
+        const rawValidation = consumer.message.payload["~standard"].validate(parseResult.value);
+        const validationResult = await Future.fromPromise(
+          rawValidation instanceof Promise ? rawValidation : Promise.resolve(rawValidation),
+        )
+          .mapOkToResult((validationResult) => {
+            if (validationResult.issues) {
+              return Result.Error(
+                new MessageValidationError(String(consumerName), validationResult.issues),
+              );
             }
 
-            // Parse message
-            const parseResult = Result.fromExecution(() => JSON.parse(msg.content.toString()));
-            if (parseResult.isError()) {
-              this.logger?.error("Error parsing message", {
-                consumerName: String(consumerName),
-                queueName: consumer.queue.name,
-                error: parseResult.error,
-              });
+            return Result.Ok(validationResult.value as WorkerInferConsumerInput<TContract, TName>);
+          })
+          .toPromise();
 
-              // fixme proper error handling strategy
-              // Reject message with no requeue (malformed JSON)
-              this.amqpClient.channel.nack(msg, false, false);
-              return;
-            }
+        if (validationResult.isError()) {
+          this.logger?.error("Message validation failed", {
+            consumerName: String(consumerName),
+            queueName: consumer.queue.name,
+            error: validationResult.error,
+          });
 
-            const rawValidation = consumer.message.payload["~standard"].validate(
-              parseResult.value,
-            );
-            const validationResult = await Future.fromPromise(
-              rawValidation instanceof Promise ? rawValidation : Promise.resolve(rawValidation),
-            )
-              .mapOkToResult((validationResult) => {
-                if (validationResult.issues) {
-                  return Result.Error(
-                    new MessageValidationError(String(consumerName), validationResult.issues),
-                  );
-                }
+          // fixme proper error handling strategy
+          // Reject message with no requeue (validation failed)
+          this.amqpClient.channel.nack(msg, false, false);
+          return;
+        }
 
-                return Result.Ok(
-                  validationResult.value as WorkerInferConsumerInput<TContract, TName>,
-                );
-              })
-              .toPromise();
+        // Add to batch
+        batch.push({
+          message: validationResult.value,
+          amqpMessage: msg,
+        });
 
-            if (validationResult.isError()) {
-              this.logger?.error("Message validation failed", {
-                consumerName: String(consumerName),
-                queueName: consumer.queue.name,
-                error: validationResult.error,
-              });
-
-              // fixme proper error handling strategy
-              // Reject message with no requeue (validation failed)
-              this.amqpClient.channel.nack(msg, false, false);
-              return;
-            }
-
-            // Add to batch
-            batch.push({
-              message: validationResult.value,
-              amqpMessage: msg,
-            });
-
-            // Process batch if full
-            if (batch.length >= batchSize) {
-              await processBatch();
-            } else {
-              // Schedule batch processing if not already scheduled
-              if (!this.batchTimers.has(timerKey)) {
-                scheduleBatchProcessing();
-              }
-            }
-          }),
-      )
+        // Process batch if full
+        if (batch.length >= batchSize) {
+          await processBatch();
+        } else {
+          // Schedule batch processing if not already scheduled
+          if (!this.batchTimers.has(timerKey)) {
+            scheduleBatchProcessing();
+          }
+        }
+      }),
+    )
       .mapError(
         (error) =>
           new TechnicalError(`Failed to start consuming for "${String(consumerName)}"`, error),

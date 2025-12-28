@@ -398,7 +398,7 @@ const worker = await TypedAmqpWorker.create({
       async (messages) => {
         // Handler receives array of messages for batch processing
         console.log(`Processing ${messages.length} orders`);
-        
+
         // Batch insert to database
         await db.orders.insertMany(messages.map(msg => ({
           id: msg.orderId,
@@ -444,6 +444,7 @@ TypeScript automatically enforces the correct handler signature based on configu
 Three configuration patterns are supported:
 
 1. **Simple handler** - No options
+
 ```typescript
 handlers: {
   processOrder: async (message) => {
@@ -453,6 +454,7 @@ handlers: {
 ```
 
 2. **Handler with prefetch** - Control concurrency
+
 ```typescript
 handlers: {
   processOrder: [
@@ -465,6 +467,7 @@ handlers: {
 ```
 
 3. **Batch handler** - Process multiple messages
+
 ```typescript
 handlers: {
   processOrders: [

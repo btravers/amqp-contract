@@ -26,7 +26,7 @@ describe("NestJS Worker Integration", () => {
     // GIVEN
     // Spy on the handler
     const processOrderHandler = app.get(ProcessOrderHandler);
-    const handlerSpy = vi.spyOn(processOrderHandler, "handle");
+    const handlerSpy = vi.spyOn(processOrderHandler, "handler");
 
     const newOrder = {
       orderId: "ORD-TEST-001",
@@ -57,7 +57,7 @@ describe("NestJS Worker Integration", () => {
     // GIVEN
     // Spy on the handler
     const notifyHandler = app.get(NotifyOrderHandler);
-    const handlerSpy = vi.spyOn(notifyHandler, "handle");
+    const handlerSpy = vi.spyOn(notifyHandler, "handler");
 
     const orderUpdate = {
       orderId: "ORD-TEST-002",
@@ -86,7 +86,7 @@ describe("NestJS Worker Integration", () => {
     // GIVEN
     // Spy on the handler
     const shipHandler = app.get(ShipOrderHandler);
-    const handlerSpy = vi.spyOn(shipHandler, "handle");
+    const handlerSpy = vi.spyOn(shipHandler, "handler");
 
     const shippedOrder = {
       orderId: "ORD-TEST-003",
@@ -115,7 +115,7 @@ describe("NestJS Worker Integration", () => {
     // GIVEN
     // Spy on the handler
     const urgentHandler = app.get(HandleUrgentOrderHandler);
-    const handlerSpy = vi.spyOn(urgentHandler, "handle");
+    const handlerSpy = vi.spyOn(urgentHandler, "handler");
 
     const urgentUpdate = {
       orderId: "ORD-TEST-004",
@@ -147,7 +147,7 @@ describe("NestJS Worker Integration", () => {
     // GIVEN
     // Spy on the handler
     const analyticsHandler = app.get(ProcessAnalyticsHandler);
-    const handlerSpy = vi.spyOn(analyticsHandler, "handle");
+    const handlerSpy = vi.spyOn(analyticsHandler, "handler");
 
     const newOrder = {
       orderId: "ORD-TEST-005",
