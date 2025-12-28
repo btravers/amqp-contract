@@ -22,17 +22,12 @@ const logger = pino({
 
 async function main() {
   // Create type-safe client
-  const clientResult = await TypedAmqpClient.create({
+  const client = await TypedAmqpClient.create({
     contract: orderContract,
     urls: [env.AMQP_URL],
-  });
-
-  if (clientResult.isError()) {
-    logger.error({ error: clientResult.error }, "Failed to create client");
-    throw clientResult.error;
-  }
-
-  const client = clientResult.get();
+  })
+    .tapError((error) => logger.error({ error }, "Failed to create client"))
+    .resultToPromise();
 
   logger.info("Client ready");
   logger.info("=".repeat(60));
