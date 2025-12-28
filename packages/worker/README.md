@@ -16,7 +16,17 @@
 pnpm add @amqp-contract/worker
 ```
 
+## Features
+
+- ✅ **Type-safe message consumption** — Handlers are fully typed based on your contract
+- ✅ **Automatic validation** — Messages are validated before reaching your handlers
+- ✅ **Prefetch configuration** — Control message flow with per-consumer prefetch settings
+- ✅ **Batch processing** — Process multiple messages at once for better throughput
+- ✅ **Automatic reconnection** — Built-in connection management with failover support
+
 ## Usage
+
+### Basic Usage
 
 ```typescript
 import { TypedAmqpWorker } from '@amqp-contract/worker';
@@ -54,6 +64,96 @@ const worker = await TypedAmqpWorker.create({
 // Clean up when needed
 // await worker.close();
 ```
+
+### Prefetch Configuration
+
+Control the number of unacknowledged messages a consumer can have:
+
+```typescript
+import { defineConsumer, defineQueue, defineMessage } from '@amqp-contract/contract';
+import { z } from 'zod';
+
+const orderQueue = defineQueue('orders', { durable: true });
+const orderMessage = defineMessage(z.object({
+  orderId: z.string(),
+  amount: z.number(),
+}));
+
+// Consumer with prefetch limit of 10 messages
+const orderConsumer = defineConsumer(orderQueue, orderMessage, {
+  prefetch: 10, // Process up to 10 messages concurrently
+});
+
+const contract = defineContract({
+  // ... other definitions
+  consumers: {
+    processOrder: orderConsumer,
+  },
+});
+
+// Handler receives single messages
+const worker = await TypedAmqpWorker.create({
+  contract,
+  handlers: {
+    processOrder: async (message) => {
+      // Process one message at a time
+      console.log('Order:', message.orderId);
+    },
+  },
+  urls: ['amqp://localhost'],
+});
+```
+
+### Batch Processing
+
+Process multiple messages at once for better throughput:
+
+```typescript
+import { defineConsumer } from '@amqp-contract/contract';
+
+// Consumer configured for batch processing
+const orderConsumer = defineConsumer(orderQueue, orderMessage, {
+  batchSize: 5,        // Process messages in batches of 5
+  batchTimeout: 1000,  // Wait max 1 second to fill batch
+  prefetch: 10,        // Optional: fetch more messages than batch size
+});
+
+const contract = defineContract({
+  // ... other definitions
+  consumers: {
+    processOrders: orderConsumer,
+  },
+});
+
+// Handler receives array of messages (TypeScript knows this!)
+const worker = await TypedAmqpWorker.create({
+  contract,
+  handlers: {
+    processOrders: async (messages) => {
+      // Process batch of messages
+      console.log(`Processing ${messages.length} orders`);
+
+      // Batch insert to database
+      await db.orders.insertMany(messages.map(msg => ({
+        id: msg.orderId,
+        amount: msg.amount,
+      })));
+
+      // All messages are acked together on success
+      // Or nacked together on error
+    },
+  },
+  urls: ['amqp://localhost'],
+});
+```
+
+**Batch Processing Notes:**
+
+- Messages are accumulated until `batchSize` is reached
+- If timeout is reached before batch is full, partial batch is processed
+- All messages in a batch are acknowledged/rejected together
+- If `prefetch` is not set, it defaults to `batchSize`
+- Handler type automatically changes to `(messages: Array<T>) => Promise<void>`
 
 ## Defining Handlers Externally
 
