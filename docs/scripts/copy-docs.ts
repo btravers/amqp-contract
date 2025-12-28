@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
-const rootDir = join(__dirname, "..");
+const rootDir = join(__dirname, "..", "..");
 const docsDir = join(rootDir, "docs", "api");
 const packagesDir = join(rootDir, "packages");
 

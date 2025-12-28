@@ -6,8 +6,12 @@
   "author": "Benoit TRAVERS",
   "type": "module",
   "scripts": {
-    "build": "tsx ../scripts/copy-docs.ts && vitepress build .",
+    "build": "tsx scripts/copy-docs.ts && vitepress build .",
+    "build:docs": "turbo run build:docs",
     "dev": "vitepress dev .",
+    "docs:build": "pnpm build:docs && pnpm build",
+    "docs:dev": "pnpm dev",
+    "docs:preview": "pnpm preview",
     "preview": "vitepress preview ."
   },
   "dependencies": {
@@ -24,6 +28,7 @@
     "@amqp-contract/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "mermaid": "catalog:",
+    "turbo": "catalog:",
     "tsx": "catalog:",
     "vitepress": "catalog:",
     "vitepress-plugin-mermaid": "catalog:"

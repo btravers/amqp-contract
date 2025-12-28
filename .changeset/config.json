@@ -17,6 +17,5 @@
   "linked": [],
   "access": "public",
   "baseBranch": "main",
-  "updateInternalDependencies": "patch",
-  "ignore": ["@amqp-contract/docs"]
+  "updateInternalDependencies": "patch"
 }
