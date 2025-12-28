@@ -720,7 +720,7 @@ function callDefineQueueBinding(
 }
 
 /**
- * Publisher-first builder result.
+ * Publisher-first builder result for fanout and direct exchanges.
  *
  * This type represents a publisher and provides a method to create
  * a consumer that uses the same message schema with a binding to the exchange.
@@ -746,6 +746,162 @@ export type PublisherFirstResult<
    * @returns An object with the consumer definition and binding
    */
   createConsumer: (queue: QueueDefinition) => {
+    consumer: ConsumerDefinition<TMessage>;
+    binding: QueueBindingDefinition;
+  };
+};
+
+// ============================================================================
+// Routing Key and Binding Pattern Validation Types
+// ============================================================================
+
+/**
+ * Type-safe routing key that validates basic format.
+ *
+ * Validates that a routing key follows basic AMQP routing key rules:
+ * - Must not contain wildcards (* or #)
+ * - Must not be empty
+ * - Should contain alphanumeric characters, dots, hyphens, and underscores
+ *
+ * Note: Full character-by-character validation is not performed to avoid TypeScript
+ * recursion depth limits. Runtime validation is still recommended.
+ *
+ * @public
+ * @template S - The routing key string to validate
+ * @example
+ * ```typescript
+ * type Valid = RoutingKey<"order.created">; // "order.created"
+ * type Invalid = RoutingKey<"order.*">; // never (contains wildcard)
+ * type Invalid2 = RoutingKey<"">; // never (empty string)
+ * ```
+ */
+export type RoutingKey<S extends string> = S extends ""
+  ? never // Empty string not allowed
+  : S extends `${string}*${string}` | `${string}#${string}`
+    ? never // Wildcards not allowed in routing keys
+    : S; // Accept the routing key as-is
+
+/**
+ * Type-safe binding pattern that validates basic format and wildcards.
+ *
+ * Validates that a binding pattern follows basic AMQP binding pattern rules:
+ * - Can contain wildcards (* for one word, # for zero or more words)
+ * - Must not be empty
+ * - Should contain alphanumeric characters, dots, hyphens, underscores, and wildcards
+ *
+ * Note: Full character-by-character validation is not performed to avoid TypeScript
+ * recursion depth limits. Runtime validation is still recommended.
+ *
+ * @public
+ * @template S - The binding pattern string to validate
+ * @example
+ * ```typescript
+ * type ValidPattern = BindingPattern<"order.*">; // "order.*"
+ * type ValidHash = BindingPattern<"order.#">; // "order.#"
+ * type ValidConcrete = BindingPattern<"order.created">; // "order.created"
+ * type Invalid = BindingPattern<"">; // never (empty string)
+ * ```
+ */
+export type BindingPattern<S extends string> = S extends "" ? never : S;
+
+/**
+ * Helper type for pattern matching with # in the middle
+ * Handles backtracking to match # with zero or more segments
+ * @internal
+ */
+type MatchesAfterHash<Key extends string, PatternRest extends string> =
+  MatchesPattern<Key, PatternRest> extends true
+    ? true // # matches zero segments
+    : Key extends `${string}.${infer KeyRest}`
+      ? MatchesAfterHash<KeyRest, PatternRest> // # matches one or more segments
+      : false;
+
+/**
+ * Check if a routing key matches a binding pattern
+ * Implements AMQP topic exchange pattern matching:
+ * - * matches exactly one word
+ * - # matches zero or more words
+ * @internal
+ */
+type MatchesPattern<
+  Key extends string,
+  Pattern extends string,
+> = Pattern extends `${infer PatternPart}.${infer PatternRest}`
+  ? PatternPart extends "#"
+    ? MatchesAfterHash<Key, PatternRest> // # in the middle: backtrack over all possible segment lengths
+    : Key extends `${infer KeyPart}.${infer KeyRest}`
+      ? PatternPart extends "*"
+        ? MatchesPattern<KeyRest, PatternRest> // * matches one segment
+        : PatternPart extends KeyPart
+          ? MatchesPattern<KeyRest, PatternRest> // Exact match
+          : false
+      : false
+  : Pattern extends "#"
+    ? true // # matches everything (including empty)
+    : Pattern extends "*"
+      ? Key extends `${string}.${string}`
+        ? false // * matches exactly 1 segment, not multiple
+        : true
+      : Pattern extends Key
+        ? true // Exact match
+        : false;
+
+/**
+ * Validate that a routing key matches a binding pattern.
+ *
+ * This is a utility type provided for users who want compile-time validation
+ * that a routing key matches a specific pattern. It's not enforced internally
+ * in the API to avoid TypeScript recursion depth issues with complex routing keys.
+ *
+ * Returns the routing key if it's valid and matches the pattern, `never` otherwise.
+ *
+ * @example
+ * ```typescript
+ * type ValidKey = MatchingRoutingKey<"order.*", "order.created">; // "order.created"
+ * type InvalidKey = MatchingRoutingKey<"order.*", "user.created">; // never
+ * ```
+ *
+ * @template Pattern - The binding pattern (can contain * and # wildcards)
+ * @template Key - The routing key to validate
+ */
+export type MatchingRoutingKey<Pattern extends string, Key extends string> =
+  RoutingKey<Key> extends never
+    ? never // Invalid routing key
+    : BindingPattern<Pattern> extends never
+      ? never // Invalid pattern
+      : MatchesPattern<Key, Pattern> extends true
+        ? Key
+        : never;
+
+/**
+ * Publisher-first builder result for topic exchanges.
+ *
+ * This type represents a publisher with a concrete routing key and provides a method
+ * to create consumers that can use routing key patterns matching the publisher's key.
+ *
+ * @template TMessage - The message definition
+ * @template TPublisher - The publisher definition
+ * @template TRoutingKey - The literal routing key type from the publisher (for documentation purposes)
+ */
+export type PublisherFirstResultWithRoutingKey<
+  TMessage extends MessageDefinition,
+  TPublisher extends PublisherDefinition<TMessage>,
+  TRoutingKey extends string,
+> = {
+  /** The publisher definition */
+  publisher: TPublisher;
+  /**
+   * Create a consumer that receives messages from this publisher.
+   * For topic exchanges, the routing key pattern can be specified for the binding.
+   *
+   * @param queue - The queue that will consume the messages
+   * @param routingKey - Optional routing key pattern for the binding (defaults to publisher's routing key)
+   * @returns An object with the consumer definition and binding
+   */
+  createConsumer: <TConsumerRoutingKey extends string = TRoutingKey>(
+    queue: QueueDefinition,
+    routingKey?: BindingPattern<TConsumerRoutingKey>,
+  ) => {
     consumer: ConsumerDefinition<TMessage>;
     binding: QueueBindingDefinition;
   };
@@ -817,7 +973,7 @@ export function definePublisherFirst<TMessage extends MessageDefinition>(
 >;
 
 /**
- * Define a publisher-first relationship for event-oriented messaging.
+ * Define a publisher-first relationship for event-oriented messaging with direct exchange.
  *
  * This builder enforces consistency by:
  * 1. Ensuring the publisher and consumer use the same message schema
@@ -826,11 +982,78 @@ export function definePublisherFirst<TMessage extends MessageDefinition>(
  * Use this pattern for events where publishers don't need to know about queues.
  * Multiple consumers can be created for different queues, all using the same message schema.
  *
- * @param exchange - The exchange to publish to (direct or topic type)
+ * @param exchange - The exchange to publish to (direct type)
  * @param message - The message definition (schema and metadata)
  * @param options - Binding configuration (routingKey is required)
  * @param options.routingKey - The routing key for message routing
  * @returns A publisher-first result with publisher and consumer factory
+ *
+ * @example
+ * ```typescript
+ * import { z } from 'zod';
+ *
+ * const tasksExchange = defineExchange('tasks', 'direct', { durable: true });
+ * const taskMessage = defineMessage(
+ *   z.object({
+ *     taskId: z.string(),
+ *     payload: z.record(z.unknown()),
+ *   })
+ * );
+ *
+ * // Create publisher-first relationship with routing key
+ * const taskEvent = definePublisherFirst(
+ *   tasksExchange,
+ *   taskMessage,
+ *   { routingKey: 'task.execute' }
+ * );
+ *
+ * // Use in contract - routing key is consistent across publisher and bindings
+ * const taskQueue = defineQueue('task-queue', { durable: true });
+ * const { consumer, binding } = taskEvent.createConsumer(taskQueue);
+ *
+ * const contract = defineContract({
+ *   exchanges: { tasks: tasksExchange },
+ *   queues: { taskQueue },
+ *   bindings: { taskBinding: binding },
+ *   publishers: { executeTask: taskEvent.publisher },
+ *   consumers: { processTask: consumer },
+ * });
+ * ```
+ */
+export function definePublisherFirst<
+  TMessage extends MessageDefinition,
+  TRoutingKey extends string,
+>(
+  exchange: DirectExchangeDefinition,
+  message: TMessage,
+  options: {
+    routingKey: RoutingKey<TRoutingKey>;
+    arguments?: Record<string, unknown>;
+  },
+): PublisherFirstResult<
+  TMessage,
+  Extract<
+    PublisherDefinition<TMessage>,
+    { exchange: DirectExchangeDefinition | TopicExchangeDefinition }
+  >
+>;
+
+/**
+ * Define a publisher-first relationship for event-oriented messaging with topic exchange.
+ *
+ * This builder enforces consistency by:
+ * 1. Ensuring the publisher and consumer use the same message schema
+ * 2. The publisher uses a concrete routing key (e.g., 'order.created')
+ * 3. Consumers can optionally specify routing key patterns (e.g., 'order.*') or use the default
+ *
+ * Use this pattern for events where publishers emit with specific routing keys,
+ * and consumers can subscribe with patterns. This is less common than the consumer-first pattern.
+ *
+ * @param exchange - The exchange to publish to (topic type)
+ * @param message - The message definition (schema and metadata)
+ * @param options - Binding configuration (routingKey is required)
+ * @param options.routingKey - The concrete routing key for the publisher
+ * @returns A publisher-first result with publisher and consumer factory that accepts optional routing key patterns
  *
  * @example
  * ```typescript
@@ -844,52 +1067,55 @@ export function definePublisherFirst<TMessage extends MessageDefinition>(
  *   })
  * );
  *
- * // Create publisher-first relationship with routing key (event pattern)
+ * // Create publisher-first relationship with concrete routing key
  * const orderCreatedEvent = definePublisherFirst(
  *   ordersExchange,
  *   orderMessage,
- *   { routingKey: 'order.created' }
+ *   { routingKey: 'order.created' }  // Concrete key
  * );
  *
- * // Multiple queues can consume the same event
+ * // Consumers can use patterns or specific keys
  * const orderQueue = defineQueue('order-processing', { durable: true });
- * const analyticsQueue = defineQueue('analytics', { durable: true });
+ * const allOrdersQueue = defineQueue('all-orders', { durable: true });
  *
- * // Use in contract - routing key is consistent across publisher and bindings
- * const { consumer: processConsumer, binding: processBinding } = orderCreatedEvent.createConsumer(orderQueue);
- * const { consumer: analyticsConsumer, binding: analyticsBinding } = orderCreatedEvent.createConsumer(analyticsQueue);
+ * // Use in contract
+ * const { consumer: processConsumer, binding: processBinding } =
+ *   orderCreatedEvent.createConsumer(orderQueue);  // Uses 'order.created'
+ * const { consumer: allOrdersConsumer, binding: allOrdersBinding } =
+ *   orderCreatedEvent.createConsumer(allOrdersQueue, 'order.*');  // Uses pattern
  *
  * const contract = defineContract({
  *   exchanges: { orders: ordersExchange },
- *   queues: { orderQueue, analyticsQueue },
+ *   queues: { orderQueue, allOrdersQueue },
  *   bindings: {
  *     orderBinding: processBinding,
- *     analyticsBinding,
+ *     allOrdersBinding,
  *   },
  *   publishers: { orderCreated: orderCreatedEvent.publisher },
  *   consumers: {
  *     processOrder: processConsumer,
- *     trackOrder: analyticsConsumer,
+ *     trackAllOrders: allOrdersConsumer,
  *   },
  * });
  * ```
  */
-export function definePublisherFirst<TMessage extends MessageDefinition>(
-  exchange: DirectExchangeDefinition | TopicExchangeDefinition,
+export function definePublisherFirst<
+  TMessage extends MessageDefinition,
+  TRoutingKey extends string,
+>(
+  exchange: TopicExchangeDefinition,
   message: TMessage,
-  options: Omit<
-    Extract<
-      QueueBindingDefinition,
-      { exchange: DirectExchangeDefinition | TopicExchangeDefinition }
-    >,
-    "type" | "queue" | "exchange"
-  >,
-): PublisherFirstResult<
+  options: {
+    routingKey: RoutingKey<TRoutingKey>;
+    arguments?: Record<string, unknown>;
+  },
+): PublisherFirstResultWithRoutingKey<
   TMessage,
   Extract<
     PublisherDefinition<TMessage>,
     { exchange: DirectExchangeDefinition | TopicExchangeDefinition }
-  >
+  >,
+  TRoutingKey
 >;
 
 /**
@@ -903,11 +1129,31 @@ export function definePublisherFirst<TMessage extends MessageDefinition>(
     routingKey?: string;
     arguments?: Record<string, unknown>;
   },
-): PublisherFirstResult<TMessage, PublisherDefinition<TMessage>> {
+):
+  | PublisherFirstResult<TMessage, PublisherDefinition<TMessage>>
+  | PublisherFirstResultWithRoutingKey<TMessage, PublisherDefinition<TMessage>, string> {
   // Create the publisher
   const publisher = callDefinePublisher(exchange, message, options);
 
-  // Factory function to create a consumer with the same message type
+  // For topic exchanges, allow specifying routing key pattern when creating consumer
+  if (exchange.type === "topic") {
+    const createConsumer = (queue: QueueDefinition, routingKey?: string) => {
+      const bindingOptions = routingKey ? { ...options, routingKey } : options;
+      const binding = callDefineQueueBinding(queue, exchange, bindingOptions);
+      const consumer = defineConsumer(queue, message);
+      return {
+        consumer,
+        binding,
+      };
+    };
+
+    return {
+      publisher,
+      createConsumer,
+    } as PublisherFirstResultWithRoutingKey<TMessage, PublisherDefinition<TMessage>, string>;
+  }
+
+  // For fanout and direct exchanges, use the same routing key from publisher
   const createConsumer = (queue: QueueDefinition) => {
     const binding = callDefineQueueBinding(queue, exchange, options);
     const consumer = defineConsumer(queue, message);
@@ -920,11 +1166,11 @@ export function definePublisherFirst<TMessage extends MessageDefinition>(
   return {
     publisher,
     createConsumer,
-  };
+  } as PublisherFirstResult<TMessage, PublisherDefinition<TMessage>>;
 }
 
 /**
- * Consumer-first builder result.
+ * Consumer-first builder result for fanout and direct exchanges.
  *
  * This type represents a consumer with its binding and provides a method to create
  * a publisher that uses the same message schema and routing key.
@@ -954,6 +1200,40 @@ export type ConsumerFirstResult<
         PublisherDefinition<TMessage>,
         { exchange: DirectExchangeDefinition | TopicExchangeDefinition }
       >;
+};
+
+/**
+ * Consumer-first builder result for topic exchanges.
+ *
+ * This type represents a consumer with its binding (which may use a pattern) and provides
+ * a method to create a publisher with a concrete routing key that matches the pattern.
+ *
+ * @template TMessage - The message definition
+ * @template TConsumer - The consumer definition
+ * @template TBinding - The queue binding definition
+ */
+export type ConsumerFirstResultWithRoutingKey<
+  TMessage extends MessageDefinition,
+  TConsumer extends ConsumerDefinition<TMessage>,
+  TBinding extends QueueBindingDefinition,
+> = {
+  /** The consumer definition */
+  consumer: TConsumer;
+  /** The binding definition connecting the exchange to the queue */
+  binding: TBinding;
+  /**
+   * Create a publisher that sends messages to this consumer.
+   * For topic exchanges, the routing key can be specified to match the binding pattern.
+   *
+   * @param routingKey - The concrete routing key that matches the binding pattern
+   * @returns A publisher definition with the specified routing key
+   */
+  createPublisher: <TPublisherRoutingKey extends string>(
+    routingKey: RoutingKey<TPublisherRoutingKey>,
+  ) => Extract<
+    PublisherDefinition<TMessage>,
+    { exchange: DirectExchangeDefinition | TopicExchangeDefinition }
+  >;
 };
 
 /**
@@ -1029,7 +1309,7 @@ export function defineConsumerFirst<TMessage extends MessageDefinition>(
  * send messages with the correct type and routing key.
  *
  * @param queue - The queue to consume from
- * @param exchange - The exchange that routes to the queue (direct or topic type)
+ * @param exchange - The exchange that routes to the queue (direct type)
  * @param message - The message definition (schema and metadata)
  * @param options - Binding configuration (routingKey is required)
  * @param options.routingKey - The routing key for message routing
@@ -1066,21 +1346,84 @@ export function defineConsumerFirst<TMessage extends MessageDefinition>(
  * });
  * ```
  */
-export function defineConsumerFirst<TMessage extends MessageDefinition>(
+export function defineConsumerFirst<TMessage extends MessageDefinition, TRoutingKey extends string>(
   queue: QueueDefinition,
-  exchange: DirectExchangeDefinition | TopicExchangeDefinition,
+  exchange: DirectExchangeDefinition,
   message: TMessage,
-  options: Omit<
-    Extract<
-      QueueBindingDefinition,
-      { exchange: DirectExchangeDefinition | TopicExchangeDefinition }
-    >,
-    "type" | "queue" | "exchange"
-  >,
+  options: {
+    routingKey: RoutingKey<TRoutingKey>;
+    arguments?: Record<string, unknown>;
+  },
 ): ConsumerFirstResult<
   TMessage,
   ConsumerDefinition<TMessage>,
-  Extract<QueueBindingDefinition, { exchange: DirectExchangeDefinition | TopicExchangeDefinition }>
+  Extract<QueueBindingDefinition, { exchange: DirectExchangeDefinition }>
+>;
+
+/**
+ * Define a consumer-first relationship between a consumer and publisher with topic exchange.
+ *
+ * This builder enforces consistency by:
+ * 1. Ensuring the consumer and publisher use the same message schema
+ * 2. The binding uses a routing key pattern (e.g., 'order.*')
+ * 3. The publisher factory accepts a concrete routing key that matches the pattern (e.g., 'order.created')
+ *
+ * Use this when you want to start with a consumer that uses a routing key pattern,
+ * and allow publishers to specify concrete routing keys that match that pattern.
+ *
+ * @param queue - The queue to consume from
+ * @param exchange - The exchange that routes to the queue (topic type)
+ * @param message - The message definition (schema and metadata)
+ * @param options - Binding configuration (routingKey is required)
+ * @param options.routingKey - The routing key pattern for the binding (can use wildcards)
+ * @returns A consumer-first result with consumer, binding, and publisher factory that accepts a routing key
+ *
+ * @example
+ * ```typescript
+ * import { z } from 'zod';
+ *
+ * const orderQueue = defineQueue('order-processing', { durable: true });
+ * const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+ * const orderMessage = defineMessage(
+ *   z.object({
+ *     orderId: z.string(),
+ *     amount: z.number(),
+ *   })
+ * );
+ *
+ * // Create consumer-first relationship with pattern
+ * const orderConsumerFirst = defineConsumerFirst(
+ *   orderQueue,
+ *   ordersExchange,
+ *   orderMessage,
+ *   { routingKey: 'order.*' }  // Pattern in binding
+ * );
+ *
+ * // Use in contract - publisher can specify concrete routing key
+ * const contract = defineContract({
+ *   exchanges: { orders: ordersExchange },
+ *   queues: { orderQueue },
+ *   bindings: { orderBinding: orderConsumerFirst.binding },
+ *   publishers: {
+ *     orderCreated: orderConsumerFirst.createPublisher('order.created'),  // Concrete key
+ *     orderUpdated: orderConsumerFirst.createPublisher('order.updated'),  // Concrete key
+ *   },
+ *   consumers: { processOrder: orderConsumerFirst.consumer },
+ * });
+ * ```
+ */
+export function defineConsumerFirst<TMessage extends MessageDefinition, TRoutingKey extends string>(
+  queue: QueueDefinition,
+  exchange: TopicExchangeDefinition,
+  message: TMessage,
+  options: {
+    routingKey: BindingPattern<TRoutingKey>;
+    arguments?: Record<string, unknown>;
+  },
+): ConsumerFirstResultWithRoutingKey<
+  TMessage,
+  ConsumerDefinition<TMessage>,
+  Extract<QueueBindingDefinition, { exchange: TopicExchangeDefinition }>
 >;
 
 /**
@@ -1095,14 +1438,45 @@ export function defineConsumerFirst<TMessage extends MessageDefinition>(
     routingKey?: string;
     arguments?: Record<string, unknown>;
   },
-): ConsumerFirstResult<TMessage, ConsumerDefinition<TMessage>, QueueBindingDefinition> {
+):
+  | ConsumerFirstResult<TMessage, ConsumerDefinition<TMessage>, QueueBindingDefinition>
+  | ConsumerFirstResultWithRoutingKey<
+      TMessage,
+      ConsumerDefinition<TMessage>,
+      QueueBindingDefinition
+    > {
   // Create the consumer
   const consumer = defineConsumer(queue, message);
 
   // Create the binding
   const binding = callDefineQueueBinding(queue, exchange, options);
 
-  // Factory function to create a publisher with the same message type and routing key
+  // For topic exchanges, allow specifying routing key when creating publisher
+  if (exchange.type === "topic") {
+    const createPublisher = (
+      routingKey: string,
+    ): Extract<
+      PublisherDefinition<TMessage>,
+      { exchange: DirectExchangeDefinition | TopicExchangeDefinition }
+    > => {
+      return callDefinePublisher(exchange, message, { ...options, routingKey }) as Extract<
+        PublisherDefinition<TMessage>,
+        { exchange: DirectExchangeDefinition | TopicExchangeDefinition }
+      >;
+    };
+
+    return {
+      consumer,
+      binding,
+      createPublisher,
+    } as ConsumerFirstResultWithRoutingKey<
+      TMessage,
+      ConsumerDefinition<TMessage>,
+      QueueBindingDefinition
+    >;
+  }
+
+  // For fanout and direct exchanges, use the same routing key from binding
   const createPublisher = () => {
     return callDefinePublisher(exchange, message, options);
   };

@@ -551,8 +551,17 @@ describe("builder", () => {
       const { binding } = result.createConsumer(queue);
 
       // THEN - Routing key should be the same in both publisher and binding
-      expect(result.publisher.routingKey).toBe("event.created");
-      expect(binding.routingKey).toBe("event.created");
+      expect(result.publisher).toMatchObject({
+        exchange,
+        message,
+        routingKey: "event.created",
+      });
+      expect(binding).toMatchObject({
+        type: "queue",
+        queue,
+        exchange,
+        routingKey: "event.created",
+      });
     });
 
     it("should ensure message consistency between publisher and consumer", () => {
@@ -728,7 +737,7 @@ describe("builder", () => {
       });
     });
 
-    it("should ensure routing key consistency between consumer and publisher", () => {
+    it("should ensure routing key consistency between consumer and publisher for topic exchange", () => {
       // GIVEN
       const message = defineMessage(z.object({ eventId: z.string() }));
       const queue = defineQueue("event-queue");
@@ -738,11 +747,20 @@ describe("builder", () => {
       const result = defineConsumerFirst(queue, exchange, message, {
         routingKey: "event.processed",
       });
-      const publisher = result.createPublisher();
+      const publisher = result.createPublisher("event.processed");
 
-      // THEN - Routing key should be the same in both binding and publisher
-      expect(result.binding.routingKey).toBe("event.processed");
-      expect(publisher.routingKey).toBe("event.processed");
+      // THEN - Routing key should be specified in publisher call
+      expect(result.binding).toMatchObject({
+        type: "queue",
+        queue,
+        exchange,
+        routingKey: "event.processed",
+      });
+      expect(publisher).toMatchObject({
+        exchange,
+        message,
+        routingKey: "event.processed",
+      });
     });
 
     it("should ensure message consistency between consumer and publisher", () => {
@@ -760,7 +778,7 @@ describe("builder", () => {
       expect(publisher.message).toBe(message);
     });
 
-    it("should work in a complete contract with consumer-first pattern", () => {
+    it("should work in a complete contract with consumer-first pattern for topic exchange", () => {
       // GIVEN
       const message = defineMessage(
         z.object({
@@ -787,7 +805,7 @@ describe("builder", () => {
           auditBinding: auditConsumerFirst.binding,
         },
         publishers: {
-          logAudit: auditConsumerFirst.createPublisher(),
+          logAudit: auditConsumerFirst.createPublisher("audit.log"),
         },
         consumers: {
           processAudit: auditConsumerFirst.consumer,
@@ -827,6 +845,253 @@ describe("builder", () => {
     });
   });
 
+  describe("defineConsumerFirst with topic exchange routing keys", () => {
+    it("should allow specifying routing key when creating publisher for topic exchange", () => {
+      // GIVEN
+      const message = defineMessage(
+        z.object({
+          orderId: z.string(),
+          amount: z.number(),
+        }),
+      );
+      const queue = defineQueue("order-processing", { durable: true });
+      const exchange = defineExchange("orders", "topic", { durable: true });
+
+      // WHEN - Consumer bound with pattern, publisher uses concrete key
+      const result = defineConsumerFirst(queue, exchange, message, {
+        routingKey: "order.*", // Pattern in binding
+      });
+      const publisherCreated = result.createPublisher("order.created"); // Concrete key
+      const publisherUpdated = result.createPublisher("order.updated"); // Concrete key
+
+      // THEN
+      expect(result.binding).toMatchObject({
+        routingKey: "order.*",
+      });
+      expect(publisherCreated).toEqual({
+        exchange,
+        message,
+        routingKey: "order.created",
+      });
+      expect(publisherUpdated).toEqual({
+        exchange,
+        message,
+        routingKey: "order.updated",
+      });
+    });
+
+    it("should work with wildcard patterns in consumer binding", () => {
+      // GIVEN
+      const message = defineMessage(z.object({ eventId: z.string() }));
+      const queue = defineQueue("event-queue");
+      const exchange = defineExchange("events", "topic");
+
+      // WHEN - Use # wildcard in binding
+      const result = defineConsumerFirst(queue, exchange, message, {
+        routingKey: "event.#",
+      });
+      const publisher1 = result.createPublisher("event.created");
+      const publisher2 = result.createPublisher("event.order.created");
+      const publisher3 = result.createPublisher("event.user.registered");
+
+      // THEN - All concrete keys should work
+      expect(result.binding).toMatchObject({
+        routingKey: "event.#",
+      });
+      expect(publisher1).toMatchObject({
+        routingKey: "event.created",
+      });
+      expect(publisher2).toMatchObject({
+        routingKey: "event.order.created",
+      });
+      expect(publisher3).toMatchObject({
+        routingKey: "event.user.registered",
+      });
+    });
+
+    it("should work in a complete contract with multiple publishers", () => {
+      // GIVEN
+      const message = defineMessage(
+        z.object({
+          orderId: z.string(),
+          status: z.string(),
+        }),
+      );
+      const orderQueue = defineQueue("order-processing", { durable: true });
+      const ordersExchange = defineExchange("orders", "topic", { durable: true });
+
+      // WHEN - Consumer binds with pattern, multiple publishers with concrete keys
+      const orderConsumerFirst = defineConsumerFirst(orderQueue, ordersExchange, message, {
+        routingKey: "order.*",
+      });
+
+      const contract = defineContract({
+        exchanges: {
+          orders: ordersExchange,
+        },
+        queues: {
+          orderProcessing: orderQueue,
+        },
+        bindings: {
+          orderBinding: orderConsumerFirst.binding,
+        },
+        publishers: {
+          orderCreated: orderConsumerFirst.createPublisher("order.created"),
+          orderUpdated: orderConsumerFirst.createPublisher("order.updated"),
+          orderCancelled: orderConsumerFirst.createPublisher("order.cancelled"),
+        },
+        consumers: {
+          processOrder: orderConsumerFirst.consumer,
+        },
+      });
+
+      // THEN
+      expect(contract).toMatchObject({
+        bindings: {
+          orderBinding: {
+            routingKey: "order.*",
+          },
+        },
+        publishers: {
+          orderCreated: {
+            routingKey: "order.created",
+          },
+          orderUpdated: {
+            routingKey: "order.updated",
+          },
+          orderCancelled: {
+            routingKey: "order.cancelled",
+          },
+        },
+      });
+    });
+  });
+
+  describe("definePublisherFirst with topic exchange routing keys", () => {
+    it("should allow specifying routing key pattern when creating consumer for topic exchange", () => {
+      // GIVEN
+      const message = defineMessage(
+        z.object({
+          orderId: z.string(),
+          amount: z.number(),
+        }),
+      );
+      const exchange = defineExchange("orders", "topic", { durable: true });
+      const queue1 = defineQueue("order-processing", { durable: true });
+      const queue2 = defineQueue("all-orders", { durable: true });
+
+      // WHEN - Publisher with concrete key, consumers with patterns
+      const result = definePublisherFirst(exchange, message, {
+        routingKey: "order.created", // Concrete key
+      });
+      const { consumer: consumer1, binding: binding1 } = result.createConsumer(queue1); // Default
+      const { consumer: consumer2, binding: binding2 } = result.createConsumer(queue2, "order.*"); // Pattern
+
+      // THEN
+      expect(result.publisher).toMatchObject({
+        routingKey: "order.created",
+      });
+      expect(binding1).toMatchObject({
+        routingKey: "order.created", // Uses publisher's key
+      });
+      expect(binding2).toMatchObject({
+        routingKey: "order.*", // Uses specified pattern
+      });
+      expect(consumer1.queue).toBe(queue1);
+      expect(consumer2.queue).toBe(queue2);
+    });
+
+    it("should use publisher routing key as default for consumer binding", () => {
+      // GIVEN
+      const message = defineMessage(z.object({ eventId: z.string() }));
+      const exchange = defineExchange("events", "topic");
+      const queue = defineQueue("event-queue");
+
+      // WHEN - No routing key specified for consumer
+      const result = definePublisherFirst(exchange, message, {
+        routingKey: "event.created",
+      });
+      const { binding } = result.createConsumer(queue);
+
+      // THEN - Should use publisher's routing key
+      expect(binding.routingKey).toBe("event.created");
+    });
+
+    it("should work in a complete contract with multiple consumers", () => {
+      // GIVEN
+      const message = defineMessage(
+        z.object({
+          orderId: z.string(),
+          amount: z.number(),
+        }),
+      );
+      const ordersExchange = defineExchange("orders", "topic", { durable: true });
+      const orderQueue = defineQueue("order-processing", { durable: true });
+      const allOrdersQueue = defineQueue("all-orders", { durable: true });
+      const urgentOrdersQueue = defineQueue("urgent-orders", { durable: true });
+
+      // WHEN - Publisher with concrete key, multiple consumers with different patterns
+      const orderCreatedEvent = definePublisherFirst(ordersExchange, message, {
+        routingKey: "order.created",
+      });
+
+      const { consumer: consumer1, binding: binding1 } =
+        orderCreatedEvent.createConsumer(orderQueue);
+      const { consumer: consumer2, binding: binding2 } = orderCreatedEvent.createConsumer(
+        allOrdersQueue,
+        "order.*",
+      );
+      const { consumer: consumer3, binding: binding3 } = orderCreatedEvent.createConsumer(
+        urgentOrdersQueue,
+        "order.#",
+      );
+
+      const contract = defineContract({
+        exchanges: {
+          orders: ordersExchange,
+        },
+        queues: {
+          orderProcessing: orderQueue,
+          allOrders: allOrdersQueue,
+          urgentOrders: urgentOrdersQueue,
+        },
+        bindings: {
+          orderBinding1: binding1,
+          orderBinding2: binding2,
+          orderBinding3: binding3,
+        },
+        publishers: {
+          orderCreated: orderCreatedEvent.publisher,
+        },
+        consumers: {
+          processOrder: consumer1,
+          trackAllOrders: consumer2,
+          trackUrgentOrders: consumer3,
+        },
+      });
+
+      // THEN
+      expect(contract).toMatchObject({
+        publishers: {
+          orderCreated: {
+            routingKey: "order.created",
+          },
+        },
+        bindings: {
+          orderBinding1: {
+            routingKey: "order.created", // Default
+          },
+          orderBinding2: {
+            routingKey: "order.*", // Custom pattern
+          },
+          orderBinding3: {
+            routingKey: "order.#", // Custom pattern
+          },
+        },
+      });
+    });
+  });
+
   describe("contract consistency with external resources", () => {
     it("should support using external exchange with publisher-first", () => {
       // GIVEN - External exchange from another contract
@@ -841,8 +1106,13 @@ describe("builder", () => {
       const { consumer, binding } = result.createConsumer(localQueue);
 
       // THEN
-      expect(result.publisher.exchange).toBe(externalExchange);
-      expect(binding.exchange).toBe(externalExchange);
+      expect(result.publisher).toMatchObject({
+        exchange: externalExchange,
+        message,
+      });
+      expect(binding).toMatchObject({
+        exchange: externalExchange,
+      });
       expect(consumer.queue).toBe(localQueue);
     });
 

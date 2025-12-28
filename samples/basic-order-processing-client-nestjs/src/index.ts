@@ -38,11 +38,7 @@ async function runDemo(): Promise<void> {
       >,
       errorMessage: string,
     ): Promise<void> => {
-      const result = await future;
-      if (result.isError()) {
-        logger.error(errorMessage, result.error);
-        throw result.error;
-      }
+      await future.tapError((error) => logger.error(errorMessage, error)).resultToPromise();
     };
 
     // 1. Publish a new order (routing key: order.created)

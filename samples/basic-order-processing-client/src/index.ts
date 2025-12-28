@@ -22,17 +22,12 @@ const logger = pino({
 
 async function main() {
   // Create type-safe client
-  const clientResult = await TypedAmqpClient.create({
+  const client = await TypedAmqpClient.create({
     contract: orderContract,
     urls: [env.AMQP_URL],
-  });
-
-  if (clientResult.isError()) {
-    logger.error({ error: clientResult.error }, "Failed to create client");
-    throw clientResult.error;
-  }
-
-  const client = clientResult.get();
+  })
+    .tapError((error) => logger.error({ error }, "Failed to create client"))
+    .resultToPromise();
 
   logger.info("Client ready");
   logger.info("=".repeat(60));
@@ -46,14 +41,11 @@ async function main() {
     publisherName: T,
     message: Parameters<typeof client.publish<T>>[1],
   ): Promise<void> => {
-    const result = await client.publish(publisherName, message);
-    if (result.isError()) {
-      logger.error({ error: result.error }, `Failed to publish: ${publisherName}`);
-      // In a demo, we throw to stop execution. In production, consider
-      // returning the Result to let the caller decide how to handle errors
-      throw result.error;
-    }
-    logger.debug(`Successfully published to ${publisherName}`);
+    await client
+      .publish(publisherName, message)
+      .tapError((error) => logger.error({ error }, `Failed to publish: ${publisherName}`))
+      .tapOk(() => logger.debug(`Successfully published to ${publisherName}`))
+      .resultToPromise();
   };
 
   // 1. Publish a new order (routing key: order.created)

@@ -71,6 +71,42 @@ export const contract = defineContract({
 - ✅ Guaranteed message schema consistency
 - ✅ Automatic routing key synchronization
 
+#### Topic Exchange with Publisher-First
+
+For topic exchanges, consumers can optionally override the routing key with their own binding patterns:
+
+```typescript
+// Publisher uses a concrete routing key
+const orderCreatedEvent = definePublisherFirst(
+  ordersExchange,  // topic exchange
+  orderMessage,
+  { routingKey: 'order.created' }
+);
+
+// Consumers can use different patterns or the default key
+const { consumer: exactConsumer, binding: exactBinding } =
+  orderCreatedEvent.createConsumer(exactMatchQueue);  // Uses 'order.created'
+
+const { consumer: patternConsumer, binding: patternBinding } =
+  orderCreatedEvent.createConsumer(allOrdersQueue, 'order.*');  // Uses pattern 'order.*'
+
+export const contract = defineContract({
+  // ...
+  publishers: {
+    orderCreated: orderCreatedEvent.publisher,
+  },
+  consumers: {
+    processExactOrder: exactConsumer,      // Receives only 'order.created'
+    processAllOrders: patternConsumer,     // Receives any 'order.*' messages
+  },
+});
+```
+
+**Pattern Matching:**
+
+- `*` matches exactly one word (e.g., `order.*` matches `order.created` but not `order.item.shipped`)
+- `#` matches zero or more words (e.g., `order.#` matches `order.created`, `order.item.shipped`, etc.)
+
 ### Consumer-First Pattern (Command-Oriented)
 
 Use this pattern for **commands** where consumers define what they expect:
@@ -109,7 +145,7 @@ export const contract = defineContract({
     taskBinding: taskCommand.binding, // Consistent routing key
   },
   publishers: {
-    executeTask: taskCommand.createPublisher(), // Matching schema & routing key
+    executeTask: taskCommand.createPublisher('task.execute'), // Matching schema & routing key
   },
   consumers: {
     processTask: taskCommand.consumer,
@@ -122,7 +158,39 @@ export const contract = defineContract({
 - ✅ Consumer defines the contract (command pattern)
 - ✅ Publishers automatically match consumer expectations
 - ✅ Guaranteed message schema consistency
-- ✅ Automatic routing key synchronization
+- ✅ Routing key type validation at compile time
+
+#### Topic Exchange with Consumer-First
+
+For topic exchanges, the consumer binding can use patterns with wildcards, and publishers can specify concrete routing keys that match the pattern:
+
+```typescript
+// Consumer binds with a pattern
+const orderEventsCommand = defineConsumerFirst(
+  orderQueue,
+  ordersExchange,  // topic exchange
+  orderMessage,
+  { routingKey: 'order.*' }  // Pattern with wildcard
+);
+
+// Publishers can use concrete keys that match the pattern
+export const contract = defineContract({
+  // ...
+  publishers: {
+    orderCreated: orderEventsCommand.createPublisher('order.created'),  // Matches order.*
+    orderUpdated: orderEventsCommand.createPublisher('order.updated'),  // Matches order.*
+    orderShipped: orderEventsCommand.createPublisher('order.shipped'),  // Matches order.*
+  },
+  consumers: {
+    processOrders: orderEventsCommand.consumer,
+  },
+});
+```
+
+**Pattern Matching:**
+
+- `*` matches exactly one word (e.g., `order.*` matches `order.created` but not `order.item.shipped`)
+- `#` matches zero or more words (e.g., `order.#` matches `order.created`, `order.item.shipped`, etc.)
 
 ## Contract Structure
 
@@ -442,6 +510,47 @@ When using basic definitions, you must manually ensure:
 - Publishers and consumers use the same message schemas
 - Routing keys match between publishers and bindings
   :::
+
+## Type Validation Utilities
+
+amqp-contract exports advanced utility types for validating routing keys and binding patterns at compile time:
+
+```typescript
+import {
+  RoutingKey,
+  BindingPattern,
+  MatchingRoutingKey,
+} from '@amqp-contract/contract';
+
+// Validate routing key format and character set
+type ValidKey = RoutingKey<'order.created'>;  // ✅ 'order.created'
+type InvalidKey = RoutingKey<'order..bad'>;   // ❌ never (empty segment)
+
+// Validate binding pattern with wildcards
+type ValidPattern = BindingPattern<'order.*'>;      // ✅ 'order.*'
+type ValidHashPattern = BindingPattern<'order.#'>;  // ✅ 'order.#'
+type InvalidPattern = BindingPattern<'order.!'>;    // ❌ never (invalid wildcard)
+
+// Validate routing key matches a pattern
+type OrderCreated = MatchingRoutingKey<'order.*', 'order.created'>;  // ✅ 'order.created'
+type OrderShipped = MatchingRoutingKey<'order.*', 'order.shipped'>;  // ✅ 'order.shipped'
+type InvalidMatch = MatchingRoutingKey<'order.*', 'user.created'>;   // ❌ never (doesn't match)
+```
+
+**Validation Rules:**
+
+- **Character Set**: Only alphanumeric characters, hyphens (`-`), and underscores (`_`) allowed
+- **Format**: Dot-separated segments (e.g., `order.created`, `user.login.success`)
+- **Wildcards**:
+  - `*` matches exactly one word
+  - `#` matches zero or more words
+  - Only valid in binding patterns, not routing keys
+
+These types are used internally by `definePublisherFirst` and `defineConsumerFirst` for compile-time validation. You can also use them directly when building advanced routing logic or helper functions.
+
+::: info Note on Validation
+TypeScript's type system has recursion depth limits (~50 levels). For very long routing keys or deeply nested patterns, validation may fall back to `string`. This doesn't affect runtime behavior—it only means some edge cases won't be caught at compile time.
+:::
 
 ## Next Steps
 

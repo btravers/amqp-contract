@@ -159,7 +159,7 @@ export const orderContract = defineContract({
     orderCreated: orderCreatedEvent.publisher,
 
     // Publisher from Consumer-First pattern (command-oriented)
-    orderShipped: shipOrderCommand.createPublisher(),
+    orderShipped: shipOrderCommand.createPublisher("order.shipped"),
 
     // Traditional publishers (for other events)
     orderUpdated: definePublisher(ordersExchange, orderStatusMessage, {

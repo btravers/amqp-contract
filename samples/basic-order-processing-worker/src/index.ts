@@ -22,7 +22,7 @@ const logger = pino({
 
 async function main() {
   // Create type-safe worker with handlers for each consumer
-  const workerResult = await TypedAmqpWorker.create({
+  const worker = await TypedAmqpWorker.create({
     contract: orderContract,
     handlers: {
       // Handler for processing NEW orders (order.created)
@@ -139,14 +139,9 @@ async function main() {
       },
     },
     urls: [env.AMQP_URL],
-  });
-
-  if (workerResult.isError()) {
-    logger.error({ error: workerResult.error }, "Failed to create worker");
-    throw workerResult.error;
-  }
-
-  const worker = workerResult.value;
+  })
+    .tapError((error) => logger.error({ error }, "Failed to create worker"))
+    .resultToPromise();
 
   logger.info("Worker ready, waiting for messages...");
   logger.info("=".repeat(60));
