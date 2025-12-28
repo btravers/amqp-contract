@@ -29,20 +29,48 @@ jobs:
           echo "| Package | CJS | ESM |" >> $GITHUB_STEP_SUMMARY
           echo "|---------|-----|-----|" >> $GITHUB_STEP_SUMMARY
 
+          prev_pkg=""
+          cjs_col=""
+          esm_col=""
+
           for pkg in packages/*/dist/index.{cjs,mjs}; do
             if [ -f "$pkg" ]; then
               size=$(du -h "$pkg" | cut -f1)
               gzip_size=$(gzip -c "$pkg" | wc -c | numfmt --to=iec-i --suffix=B)
               pkg_name=$(echo "$pkg" | cut -d'/' -f2)
               pkg_type=$(echo "$pkg" | grep -o '\(cjs\|mjs\)$')
-              
-              if [ "$pkg_type" = "cjs" ]; then
-                echo -n "| $pkg_name | $size ($gzip_size gzipped) " >> $GITHUB_STEP_SUMMARY
-              else
-                echo "| $size ($gzip_size gzipped) |" >> $GITHUB_STEP_SUMMARY
+
+              if [ "$pkg_name" != "$prev_pkg" ] && [ -n "$prev_pkg" ]; then
+                if [ -z "$cjs_col" ]; then
+                  cjs_col="N/A"
+                fi
+                if [ -z "$esm_col" ]; then
+                  esm_col="N/A"
+                fi
+                echo "| $prev_pkg | $cjs_col | $esm_col |" >> $GITHUB_STEP_SUMMARY
+                cjs_col=""
+                esm_col=""
               fi
+
+              if [ "$pkg_type" = "cjs" ]; then
+                cjs_col="$size ($gzip_size gzipped)"
+              else
+                esm_col="$size ($gzip_size gzipped)"
+              fi
+
+              prev_pkg="$pkg_name"
             fi
           done
+
+          if [ -n "$prev_pkg" ]; then
+            if [ -z "$cjs_col" ]; then
+              cjs_col="N/A"
+            fi
+            if [ -z "$esm_col" ]; then
+              esm_col="N/A"
+            fi
+            echo "| $prev_pkg | $cjs_col | $esm_col |" >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: Comment PR
         uses: actions/github-script@v7
