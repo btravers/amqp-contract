@@ -31,14 +31,23 @@ export async function setupAmqpTopology(
 
   // Setup queues
   const queueResults = await Promise.allSettled(
-    Object.values(contract.queues ?? {}).map((queue) =>
-      channel.assertQueue(queue.name, {
+    Object.values(contract.queues ?? {}).map((queue) => {
+      // Build queue arguments, merging dead letter configuration if present
+      const queueArguments = { ...queue.arguments };
+      if (queue.deadLetter) {
+        queueArguments["x-dead-letter-exchange"] = queue.deadLetter.exchange.name;
+        if (queue.deadLetter.routingKey) {
+          queueArguments["x-dead-letter-routing-key"] = queue.deadLetter.routingKey;
+        }
+      }
+
+      return channel.assertQueue(queue.name, {
         durable: queue.durable,
         exclusive: queue.exclusive,
         autoDelete: queue.autoDelete,
-        arguments: queue.arguments,
-      }),
-    ),
+        arguments: queueArguments,
+      });
+    }),
   );
   const queueErrors = queueResults.filter(
     (result): result is PromiseRejectedResult => result.status === "rejected",

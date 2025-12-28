@@ -62,6 +62,52 @@ describe("builder", () => {
         name: "test-queue",
       });
     });
+
+    it("should create a queue with dead letter exchange", () => {
+      // GIVEN
+      const dlx = defineExchange("test-dlx", "topic", { durable: true });
+
+      // WHEN
+      const queue = defineQueue("test-queue", {
+        durable: true,
+        deadLetter: {
+          exchange: dlx,
+          routingKey: "failed",
+        },
+      });
+
+      // THEN
+      expect(queue).toEqual({
+        name: "test-queue",
+        durable: true,
+        deadLetter: {
+          exchange: dlx,
+          routingKey: "failed",
+        },
+      });
+    });
+
+    it("should create a queue with dead letter exchange without routing key", () => {
+      // GIVEN
+      const dlx = defineExchange("test-dlx", "fanout", { durable: true });
+
+      // WHEN
+      const queue = defineQueue("test-queue", {
+        durable: true,
+        deadLetter: {
+          exchange: dlx,
+        },
+      });
+
+      // THEN
+      expect(queue).toEqual({
+        name: "test-queue",
+        durable: true,
+        deadLetter: {
+          exchange: dlx,
+        },
+      });
+    });
   });
 
   describe("defineQueueBinding", () => {

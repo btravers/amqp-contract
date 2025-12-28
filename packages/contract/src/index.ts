@@ -26,6 +26,7 @@ export type {
   ExchangeBindingDefinition,
   ConsumerDefinition,
   ContractDefinition,
+  DeadLetterConfig,
   ExchangeDefinition,
   FanoutExchangeDefinition,
   DirectExchangeDefinition,
