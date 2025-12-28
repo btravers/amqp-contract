@@ -159,13 +159,26 @@ describe("Dead Letter Exchange Support", () => {
 
     await client.channel.waitForConnect();
 
-    // THEN - All resources should be created
+    // THEN - All resources should be created with correct structure
     const mainQueueInfo = await amqpChannel.checkQueue("test-main-queue");
-    expect(mainQueueInfo.queue).toBe("test-main-queue");
+    expect(mainQueueInfo).toEqual(
+      expect.objectContaining({
+        queue: "test-main-queue",
+        messageCount: 0,
+        consumerCount: 0,
+      }),
+    );
 
     const dlxQueueInfo = await amqpChannel.checkQueue("test-dlx-queue");
-    expect(dlxQueueInfo.queue).toBe("test-dlx-queue");
+    expect(dlxQueueInfo).toEqual(
+      expect.objectContaining({
+        queue: "test-dlx-queue",
+        messageCount: 0,
+        consumerCount: 0,
+      }),
+    );
 
+    // Verify exchanges exist
     const mainExchangeInfo = await amqpChannel.checkExchange("test-main-exchange");
     expect(mainExchangeInfo).toBeDefined();
 

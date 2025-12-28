@@ -5,6 +5,7 @@ Welcome to the amqp-contract API documentation. This documentation is auto-gener
 ## Core Packages
 
 - [@amqp-contract/contract](./contract/) - Core contract definitions
+- [@amqp-contract/core](./core/) - Core utilities for AMQP setup and management
 - [@amqp-contract/client](./client/) - Type-safe AMQP client
 - [@amqp-contract/worker](./worker/) - Type-safe AMQP worker
 - [@amqp-contract/asyncapi](./asyncapi/) - AsyncAPI specification generator
