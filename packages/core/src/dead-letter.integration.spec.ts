@@ -38,12 +38,12 @@ describe("Dead Letter Exchange Support", () => {
 
     // THEN - Check that the queue was created with dead letter configuration
     const queueInfo = await amqpChannel.checkQueue("test-queue-with-dlx");
-    expect(queueInfo).toBeDefined();
-    expect(queueInfo.queue).toBe("test-queue-with-dlx");
-
-    // Verify DLX arguments were set (we can't directly check via amqplib API,
-    // but we can verify the queue exists and was created without errors)
-    expect(queueInfo.messageCount).toBe(0);
+    expect(queueInfo).toEqual(
+      expect.objectContaining({
+        queue: "test-queue-with-dlx",
+        messageCount: 0,
+      }),
+    );
 
     // CLEANUP
     await client.close();
@@ -82,8 +82,11 @@ describe("Dead Letter Exchange Support", () => {
 
     // THEN - Check that the queue was created
     const queueInfo = await amqpChannel.checkQueue("test-queue-dlx-no-key");
-    expect(queueInfo).toBeDefined();
-    expect(queueInfo.queue).toBe("test-queue-dlx-no-key");
+    expect(queueInfo).toEqual(
+      expect.objectContaining({
+        queue: "test-queue-dlx-no-key",
+      }),
+    );
 
     // CLEANUP
     await client.close();
@@ -115,8 +118,11 @@ describe("Dead Letter Exchange Support", () => {
 
     // THEN - Check that the queue was created normally
     const queueInfo = await amqpChannel.checkQueue("test-queue-no-dlx");
-    expect(queueInfo).toBeDefined();
-    expect(queueInfo.queue).toBe("test-queue-no-dlx");
+    expect(queueInfo).toEqual(
+      expect.objectContaining({
+        queue: "test-queue-no-dlx",
+      }),
+    );
 
     // CLEANUP
     await client.close();
@@ -191,5 +197,39 @@ describe("Dead Letter Exchange Support", () => {
     await amqpChannel.deleteQueue("test-dlx-queue");
     await amqpChannel.deleteExchange("test-main-exchange");
     await amqpChannel.deleteExchange("test-complete-dlx");
+  });
+
+  it("should throw error when dead letter exchange is not in contract", async ({
+    amqpConnectionUrl,
+  }) => {
+    // GIVEN - A queue with DLX reference but DLX not in contract
+    const dlx = defineExchange("test-missing-dlx", "topic", { durable: false });
+    const queue = defineQueue("test-queue-bad-dlx", {
+      durable: false,
+      deadLetter: {
+        exchange: dlx,
+        routingKey: "failed",
+      },
+    });
+
+    // Contract doesn't include the DLX in exchanges
+    const contract = defineContract({
+      queues: {
+        testQueue: queue,
+      },
+    });
+
+    // WHEN - Creating client with invalid contract
+    const client = new AmqpClient(contract, {
+      urls: [amqpConnectionUrl],
+    });
+
+    // THEN - Should throw error when channel setup tries to create the queue
+    await expect(client.channel.waitForConnect()).rejects.toThrow(
+      'Queue "test-queue-bad-dlx" references dead letter exchange "test-missing-dlx" which is not declared in the contract',
+    );
+
+    // CLEANUP
+    await client.close();
   });
 });
