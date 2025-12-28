@@ -29,26 +29,30 @@ export async function setupAmqpTopology(
     );
   }
 
+  // Validate dead letter exchanges before setting up queues
+  for (const queue of Object.values(contract.queues ?? {})) {
+    if (queue.deadLetter) {
+      const dlxName = queue.deadLetter.exchange.name;
+      const exchangeExists = Object.values(contract.exchanges ?? {}).some(
+        (exchange) => exchange.name === dlxName,
+      );
+
+      if (!exchangeExists) {
+        throw new Error(
+          `Queue "${queue.name}" references dead letter exchange "${dlxName}" which is not declared in the contract. ` +
+            `Add the exchange to contract.exchanges to ensure it is created before the queue.`,
+        );
+      }
+    }
+  }
+
   // Setup queues
   const queueResults = await Promise.allSettled(
     Object.values(contract.queues ?? {}).map((queue) => {
       // Build queue arguments, merging dead letter configuration if present
       const queueArguments = { ...queue.arguments };
       if (queue.deadLetter) {
-        // Verify that the dead letter exchange exists in the contract
-        const dlxName = queue.deadLetter.exchange.name;
-        const exchangeExists = Object.values(contract.exchanges ?? {}).some(
-          (exchange) => exchange.name === dlxName,
-        );
-
-        if (!exchangeExists) {
-          throw new Error(
-            `Queue "${queue.name}" references dead letter exchange "${dlxName}" which is not declared in the contract. ` +
-              `Add the exchange to contract.exchanges to ensure it is created before the queue.`,
-          );
-        }
-
-        queueArguments["x-dead-letter-exchange"] = dlxName;
+        queueArguments["x-dead-letter-exchange"] = queue.deadLetter.exchange.name;
         if (queue.deadLetter.routingKey) {
           queueArguments["x-dead-letter-routing-key"] = queue.deadLetter.routingKey;
         }

@@ -225,9 +225,22 @@ describe("Dead Letter Exchange Support", () => {
     });
 
     // THEN - Should throw error when channel setup tries to create the queue
-    await expect(client.channel.waitForConnect()).rejects.toThrow(
-      'Queue "test-queue-bad-dlx" references dead letter exchange "test-missing-dlx" which is not declared in the contract',
-    );
+    // Listen for error event on the channel
+    const errorPromise = new Promise((resolve, reject) => {
+      client.channel.on("error", (error) => {
+        resolve(error);
+      });
+      // Also listen for close in case that fires instead
+      client.channel.on("close", () => {
+        reject(new Error("Channel closed without error event"));
+      });
+    });
+
+    await expect(errorPromise).resolves.toMatchObject({
+      message: expect.stringContaining(
+        'Queue "test-queue-bad-dlx" references dead letter exchange "test-missing-dlx" which is not declared in the contract',
+      ),
+    });
 
     // CLEANUP
     await client.close();
