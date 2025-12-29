@@ -11,6 +11,19 @@ updates:
         patterns:
           - "amqplib"
           - "@types/amqplib"
+      orpc:
+        patterns:
+          - "@orpc/*"
+      nestjs:
+        patterns:
+          - "@nestjs/*"
+      commitlint:
+        patterns:
+          - "@commitlint/*"
+      vitest:
+        patterns:
+          - "@vitest/*"
+          - "vitest"
       dev-dependencies:
         dependency-type: "development"
     ignore:
