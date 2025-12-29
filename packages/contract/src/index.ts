@@ -24,6 +24,7 @@ export type {
   BindingDefinition,
   QueueBindingDefinition,
   ExchangeBindingDefinition,
+  CompressionAlgorithm,
   ConsumerDefinition,
   ContractDefinition,
   DeadLetterConfig,

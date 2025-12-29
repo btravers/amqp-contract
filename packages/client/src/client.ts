@@ -1,10 +1,11 @@
 import { AmqpClient, type Logger } from "@amqp-contract/core";
-import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
 import type { ContractDefinition, InferPublisherNames } from "@amqp-contract/contract";
+import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
+import type { Options } from "amqplib";
 import { Future, Result } from "@swan-io/boxed";
+import { compressBuffer, getContentEncoding } from "./compression.js";
 import { MessageValidationError, TechnicalError } from "./errors.js";
 import type { ClientInferPublisherInput } from "./types.js";
-import type { Options } from "amqplib";
 
 /**
  * Options for creating a client
@@ -92,12 +93,57 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     };
 
     const publishMessage = (validatedMessage: unknown): Future<Result<void, TechnicalError>> => {
+      const compressionAlgorithm = publisher.compression;
+      const publishOptions: Options.Publish = { ...options };
+
+      // Apply compression if configured
+      if (compressionAlgorithm) {
+        // For compression, manually serialize and compress the message
+        const messageBuffer = Buffer.from(JSON.stringify(validatedMessage));
+
+        return Future.fromPromise(compressBuffer(messageBuffer, compressionAlgorithm))
+          .mapError((error) => new TechnicalError(`Failed to compress message`, error))
+          .flatMapOk((compressedBuffer) => {
+            // Set content-encoding header to indicate compression
+            publishOptions.contentEncoding = getContentEncoding(compressionAlgorithm);
+
+            return Future.fromPromise(
+              this.amqpClient.channel.publish(
+                publisher.exchange.name,
+                publisher.routingKey ?? "",
+                compressedBuffer,
+                publishOptions,
+              ),
+            )
+              .mapError((error) => new TechnicalError(`Failed to publish message`, error))
+              .mapOkToResult((published) => {
+                if (!published) {
+                  return Result.Error(
+                    new TechnicalError(
+                      `Failed to publish message for publisher "${String(publisherName)}": Channel rejected the message (buffer full or other channel issue)`,
+                    ),
+                  );
+                }
+
+                this.logger?.info("Message published successfully", {
+                  publisherName: String(publisherName),
+                  exchange: publisher.exchange.name,
+                  routingKey: publisher.routingKey,
+                  compressed: true,
+                });
+
+                return Result.Ok(undefined);
+              });
+          });
+      }
+
+      // No compression: use the channel's built-in JSON serialization
       return Future.fromPromise(
         this.amqpClient.channel.publish(
           publisher.exchange.name,
           publisher.routingKey ?? "",
           validatedMessage,
-          options,
+          publishOptions,
         ),
       )
         .mapError((error) => new TechnicalError(`Failed to publish message`, error))
@@ -114,6 +160,7 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
             publisherName: String(publisherName),
             exchange: publisher.exchange.name,
             routingKey: publisher.routingKey,
+            compressed: false,
           });
 
           return Result.Ok(undefined);

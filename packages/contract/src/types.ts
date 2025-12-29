@@ -12,6 +12,27 @@ import type { StandardSchemaV1 } from "@standard-schema/spec";
 export type AnySchema = StandardSchemaV1;
 
 /**
+ * Supported compression algorithms for message payloads.
+ *
+ * - `gzip`: GZIP compression (standard, widely supported, good compression ratio)
+ * - `deflate`: DEFLATE compression (faster than gzip, slightly less compression)
+ * - `none` or `undefined`: No compression
+ *
+ * When compression is enabled, the message payload is compressed before publishing
+ * and automatically decompressed when consuming. The `content-encoding` AMQP
+ * message property is set to indicate the compression algorithm used.
+ *
+ * @example
+ * ```typescript
+ * const publisher = definePublisher(exchange, message, {
+ *   routingKey: 'order.created',
+ *   compression: 'gzip'
+ * });
+ * ```
+ */
+export type CompressionAlgorithm = "gzip" | "deflate";
+
+/**
  * Base definition of an AMQP exchange.
  *
  * An exchange receives messages from publishers and routes them to queues based on the exchange
@@ -352,13 +373,22 @@ export type BindingDefinition = QueueBindingDefinition | ExchangeBindingDefiniti
  * const publisher: PublisherDefinition = {
  *   exchange: ordersExchange,
  *   message: orderMessage,
- *   routingKey: 'order.created'
+ *   routingKey: 'order.created',
+ *   compression: 'gzip' // Optional: compress large messages
  * };
  * ```
  */
 export type PublisherDefinition<TMessage extends MessageDefinition = MessageDefinition> = {
   /** The message definition including the payload schema */
   message: TMessage;
+
+  /**
+   * Optional compression algorithm for message payloads.
+   * When set, messages are automatically compressed before publishing
+   * and the content-encoding header is set accordingly.
+   * @default undefined (no compression)
+   */
+  compression?: CompressionAlgorithm;
 } & (
   | {
       /** Direct or topic exchange requiring a routing key */
@@ -382,6 +412,8 @@ export type PublisherDefinition<TMessage extends MessageDefinition = MessageDefi
  *
  * A consumer receives and processes messages from a queue with automatic schema validation.
  * The message payload is validated against the schema before being passed to your handler.
+ * If the message is compressed (indicated by the content-encoding header), it will be
+ * automatically decompressed before validation.
  *
  * @template TMessage - The message definition with payload schema
  *
