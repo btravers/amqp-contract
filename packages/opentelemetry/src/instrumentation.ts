@@ -74,9 +74,9 @@ export class ClientInstrumentation {
   /**
    * Inject trace context into AMQP message headers
    */
-  injectTraceContext(options?: Record<string, unknown>): Record<string, unknown> {
+  injectTraceContext<T extends Record<string, unknown>>(options?: T): T {
     if (!this.enableTracing) {
-      return options ?? {};
+      return (options ?? {}) as T;
     }
 
     const existingHeaders = options?.["headers"];
@@ -91,7 +91,7 @@ export class ClientInstrumentation {
     return {
       ...options,
       headers,
-    };
+    } as T;
   }
 
   /**

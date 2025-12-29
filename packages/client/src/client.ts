@@ -15,7 +15,7 @@ type ClientInstrumentation = {
     routingKey: string,
     exchangeType?: string,
   ) => Span | undefined;
-  injectTraceContext: (options?: Record<string, unknown>) => Record<string, unknown>;
+  injectTraceContext: <T extends Record<string, unknown>>(options?: T) => T;
   recordValidationError: (span: Span | undefined, error: unknown) => void;
   recordTechnicalError: (span: Span | undefined, error: unknown) => void;
   recordSuccess: (span: Span | undefined) => void;
@@ -146,9 +146,7 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     const publishMessage = (validatedMessage: unknown): Future<Result<void, TechnicalError>> => {
       // Inject trace context into publish options
       const publishOptions: Options.Publish = this.instrumentation
-        ? (this.instrumentation.injectTraceContext(
-            options as Record<string, unknown> | undefined,
-          ) as Options.Publish)
+        ? this.instrumentation.injectTraceContext(options)
         : (options ?? {});
 
       return Future.fromPromise(
@@ -195,15 +193,8 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     // Validate message using schema, then publish, then end span
     return validateMessage()
       .flatMapOk((validatedMessage) => publishMessage(validatedMessage))
-      .tap((result) => {
-        // Set span status based on result
-        if (result.isError()) {
-          // Span is already marked as error in validation/technical error handlers
-          // Just end it here
-          this.instrumentation?.endSpan(span);
-        } else {
-          this.instrumentation?.endSpan(span);
-        }
+      .tap(() => {
+        this.instrumentation?.endSpan(span);
       });
   }
 
