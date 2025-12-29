@@ -1,7 +1,6 @@
 import { ClientInstrumentation, WorkerInstrumentation } from "./instrumentation.js";
-import { SpanKind, SpanStatusCode } from "@opentelemetry/api";
+import { type Span, SpanKind, SpanStatusCode, type Tracer } from "@opentelemetry/api";
 import { describe, expect, it, vi } from "vitest";
-import type { Tracer } from "@opentelemetry/api";
 
 describe("ClientInstrumentation", () => {
   describe("constructor", () => {
@@ -51,7 +50,7 @@ describe("ClientInstrumentation", () => {
 
   describe("recordSuccess", () => {
     it("should set success status", () => {
-      const mockSpan = { setStatus: vi.fn(), setAttribute: vi.fn() };
+      const mockSpan = { setStatus: vi.fn(), setAttribute: vi.fn() } as unknown as Span;
       const instrumentation = new ClientInstrumentation();
 
       instrumentation.recordSuccess(mockSpan);

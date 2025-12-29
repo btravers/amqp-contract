@@ -146,7 +146,7 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     const publishMessage = (validatedMessage: unknown): Future<Result<void, TechnicalError>> => {
       // Inject trace context into publish options
       const publishOptions: Options.Publish = this.instrumentation
-        ? this.instrumentation.injectTraceContext(options)
+        ? this.instrumentation.injectTraceContext(options as Record<string, unknown>)
         : (options ?? {});
 
       return Future.fromPromise(

@@ -15,7 +15,7 @@ describe("ClientMetrics", () => {
         createHistogram: vi.fn().mockReturnValue({ record: vi.fn() }),
       };
 
-      const _metrics = new ClientMetrics({ meter: mockMeter as unknown as Meter });
+      new ClientMetrics({ meter: mockMeter as unknown as Meter });
 
       expect(mockMeter.createCounter).toHaveBeenCalled();
       expect(mockMeter.createHistogram).toHaveBeenCalled();

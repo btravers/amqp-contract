@@ -91,7 +91,7 @@ export class ClientInstrumentation {
     return {
       ...options,
       headers,
-    } as T;
+    } as unknown as T;
   }
 
   /**
