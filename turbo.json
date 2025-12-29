@@ -24,7 +24,7 @@
     },
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**"]
+      "outputs": ["dist/**", "docs/.vitepress/dist/**"]
     },
     "build:docs": {
       "dependsOn": ["^build"],

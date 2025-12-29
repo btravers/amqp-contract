@@ -32,7 +32,7 @@ jobs:
         run: pnpm build
 
       - name: Build documentation
-        run: pnpm docs:build
+        run: pnpm build:docs && pnpm docs:build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4

@@ -6,12 +6,9 @@
   "author": "Benoit TRAVERS",
   "type": "module",
   "scripts": {
-    "build": "tsx scripts/copy-docs.ts && vitepress build .",
-    "build:docs": "turbo run build:docs",
+    "prebuild": "tsx scripts/copy-docs.ts",
+    "build": "vitepress build .",
     "dev": "vitepress dev .",
-    "docs:build": "pnpm build:docs && pnpm build",
-    "docs:dev": "pnpm dev",
-    "docs:preview": "pnpm preview",
     "preview": "vitepress preview .",
     "test": "echo 'No tests for docs package'",
     "test:integration": "echo 'No integration tests for docs package'"
@@ -31,7 +28,6 @@
     "@types/node": "catalog:",
     "mermaid": "catalog:",
     "tsx": "catalog:",
-    "turbo": "catalog:",
     "vitepress": "catalog:",
     "vitepress-plugin-mermaid": "catalog:"
   }
