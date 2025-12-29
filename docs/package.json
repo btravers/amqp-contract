@@ -1,5 +1,5 @@
 {
-  "name": "@amqp-contract/website",
+  "name": "@amqp-contract/docs",
   "private": true,
   "description": "Documentation website for amqp-contract",
   "license": "MIT",
@@ -7,9 +7,9 @@
   "type": "module",
   "scripts": {
     "prebuild": "tsx scripts/copy-docs.ts",
-    "build": "vitepress build docs",
-    "dev": "vitepress dev docs",
-    "preview": "vitepress preview docs"
+    "build": "vitepress build .",
+    "dev": "vitepress dev .",
+    "preview": "vitepress preview ."
   },
   "dependencies": {
     "@amqp-contract/asyncapi": "workspace:*",

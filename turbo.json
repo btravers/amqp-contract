@@ -30,9 +30,9 @@
       "dependsOn": ["^build"],
       "outputs": ["docs/**"]
     },
-    "@amqp-contract/website#build": {
+    "@amqp-contract/docs#build": {
       "dependsOn": ["^build", "^build:docs"],
-      "outputs": ["docs/.vitepress/dist/**"]
+      "outputs": [".vitepress/dist/**"]
     }
   }
 }

@@ -2,7 +2,7 @@ packages:
   - packages/*
   - samples/*
   - tools/*
-  - website
+  - docs
 
 catalog:
   "@asyncapi/parser": 3.4.0
