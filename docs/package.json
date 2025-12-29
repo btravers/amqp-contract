@@ -12,7 +12,9 @@
     "docs:build": "pnpm build:docs && pnpm build",
     "docs:dev": "pnpm dev",
     "docs:preview": "pnpm preview",
-    "preview": "vitepress preview ."
+    "preview": "vitepress preview .",
+    "test": "echo 'No tests for docs package'",
+    "test:integration": "echo 'No integration tests for docs package'"
   },
   "dependencies": {
     "@amqp-contract/asyncapi": "workspace:*",
