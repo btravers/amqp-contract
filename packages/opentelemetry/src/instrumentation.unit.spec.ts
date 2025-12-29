@@ -20,7 +20,12 @@ describe("ClientInstrumentation", () => {
 
   describe("startPublishSpan", () => {
     it("should create span with correct attributes", () => {
-      const mockSpan = { setStatus: vi.fn(), setAttribute: vi.fn(), recordException: vi.fn(), end: vi.fn() };
+      const mockSpan = {
+        setStatus: vi.fn(),
+        setAttribute: vi.fn(),
+        recordException: vi.fn(),
+        end: vi.fn(),
+      };
       const mockTracer = { startSpan: vi.fn().mockReturnValue(mockSpan) };
       const instrumentation = new ClientInstrumentation({
         tracer: mockTracer as unknown as Tracer,

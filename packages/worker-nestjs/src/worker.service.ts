@@ -1,9 +1,11 @@
+/* eslint-disable sort-imports */
 import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
 import type { ContractDefinition } from "@amqp-contract/contract";
 import type { WorkerInstrumentation, WorkerMetrics } from "@amqp-contract/opentelemetry";
 import { TypedAmqpWorker, type WorkerInferConsumerHandlers } from "@amqp-contract/worker";
 import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
 import { MODULE_OPTIONS_TOKEN } from "./worker.module-definition.js";
+/* eslint-enable sort-imports */
 
 /**
  * Configuration options for the AMQP worker NestJS module.

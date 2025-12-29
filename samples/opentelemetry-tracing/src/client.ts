@@ -1,9 +1,11 @@
-import { TypedAmqpClient } from "@amqp-contract/client";
-import { ClientInstrumentation, ClientMetrics } from "@amqp-contract/opentelemetry";
-import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
-import { trace, metrics } from "@opentelemetry/api";
+/* eslint-disable sort-imports */
 import pino from "pino";
 import { initializeTelemetry } from "./telemetry.js";
+import { ClientInstrumentation, ClientMetrics } from "@amqp-contract/opentelemetry";
+import { TypedAmqpClient } from "@amqp-contract/client";
+import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
+import { metrics, trace } from "@opentelemetry/api";
+/* eslint-enable sort-imports */
 
 // Initialize OpenTelemetry SDK before creating clients
 const sdk = initializeTelemetry("order-service-client");
@@ -46,7 +48,7 @@ async function main() {
   // Create the AMQP client with OpenTelemetry
   const clientResult = await TypedAmqpClient.create({
     contract: orderContract,
-    urls: [process.env.AMQP_URL || "amqp://localhost"],
+    urls: [(process.env["AMQP_URL"] as string | undefined) || "amqp://localhost"],
     instrumentation,
     metrics: clientMetrics,
   });
@@ -76,7 +78,7 @@ async function main() {
     try {
       // Publish the order - automatically creates a child span
       // and injects trace context into message headers
-      const result = await client
+      await client
         .publish("orderCreated", {
           orderId,
           customerId: `CUST-${Math.floor(Math.random() * 1000)}`,
@@ -92,14 +94,8 @@ async function main() {
         })
         .resultToPromise();
 
-      if (result.isError()) {
-        logger.error({ error: result.error, orderId }, "❌ Failed to publish order");
-        span.recordException(result.error);
-        span.setStatus({ code: 2, message: result.error.message }); // ERROR
-      } else {
-        logger.info({ orderId }, "✅ Order published successfully");
-        span.setStatus({ code: 1 }); // OK
-      }
+      logger.info({ orderId }, "✅ Order published successfully");
+      span.setStatus({ code: 1 }); // OK
     } catch (error) {
       logger.error({ error, orderId }, "❌ Unexpected error");
       span.recordException(error as Error);

@@ -192,15 +192,15 @@ export class AppModule {}
 
 ## Packages
 
-| Package                                                  | Description                                          |
-| -------------------------------------------------------- | ---------------------------------------------------- |
-| [@amqp-contract/contract](./packages/contract)           | Contract builder and type definitions                |
-| [@amqp-contract/client](./packages/client)               | Type-safe client for publishing messages             |
-| [@amqp-contract/worker](./packages/worker)               | Type-safe worker for consuming messages              |
-| [@amqp-contract/client-nestjs](./packages/client-nestjs) | NestJS integration for client                        |
-| [@amqp-contract/worker-nestjs](./packages/worker-nestjs) | NestJS integration for worker                        |
-| [@amqp-contract/opentelemetry](./packages/opentelemetry) | OpenTelemetry instrumentation for tracing & metrics  |
-| [@amqp-contract/asyncapi](./packages/asyncapi)           | AsyncAPI 3.0 specification generator                 |
+| Package                                                  | Description                                         |
+| -------------------------------------------------------- | --------------------------------------------------- |
+| [@amqp-contract/contract](./packages/contract)           | Contract builder and type definitions               |
+| [@amqp-contract/client](./packages/client)               | Type-safe client for publishing messages            |
+| [@amqp-contract/worker](./packages/worker)               | Type-safe worker for consuming messages             |
+| [@amqp-contract/client-nestjs](./packages/client-nestjs) | NestJS integration for client                       |
+| [@amqp-contract/worker-nestjs](./packages/worker-nestjs) | NestJS integration for worker                       |
+| [@amqp-contract/opentelemetry](./packages/opentelemetry) | OpenTelemetry instrumentation for tracing & metrics |
+| [@amqp-contract/asyncapi](./packages/asyncapi)           | AsyncAPI 3.0 specification generator                |
 
 ## AsyncAPI Generation
 

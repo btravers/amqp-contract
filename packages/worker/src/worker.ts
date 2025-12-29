@@ -20,8 +20,16 @@ import type { Context, Span } from "@opentelemetry/api";
 // Import OpenTelemetry types conditionally
 type WorkerInstrumentation = {
   extractTraceContext: (headers?: Record<string, unknown>) => Context;
-  startConsumeSpan: (consumerName: string, queueName: string, parentContext?: Context) => Span | undefined;
-  startBatchProcessSpan: (consumerName: string, queueName: string, batchSize: number) => Span | undefined;
+  startConsumeSpan: (
+    consumerName: string,
+    queueName: string,
+    parentContext?: Context,
+  ) => Span | undefined;
+  startBatchProcessSpan: (
+    consumerName: string,
+    queueName: string,
+    batchSize: number,
+  ) => Span | undefined;
   recordValidationError: (span: Span | undefined, error: unknown) => void;
   recordProcessingError: (span: Span | undefined, error: unknown) => void;
   recordSuccess: (span: Span | undefined) => void;
@@ -505,7 +513,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         }
 
         const startTime = Date.now();
-        
+
         // Extract trace context from message headers
         const parentContext = this.instrumentation?.extractTraceContext(
           msg.properties.headers as Record<string, unknown> | undefined,

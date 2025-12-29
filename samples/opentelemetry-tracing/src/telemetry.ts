@@ -1,9 +1,11 @@
-import { NodeSDK } from "@opentelemetry/sdk-node";
-import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+/* eslint-disable sort-imports */
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
-import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { Resource } from "@opentelemetry/resources";
+import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
+import { NodeSDK } from "@opentelemetry/sdk-node";
 import { ATTR_SERVICE_NAME } from "@opentelemetry/semantic-conventions";
+/* eslint-enable sort-imports */
 
 /**
  * Initialize OpenTelemetry SDK with OTLP exporters
@@ -23,14 +25,14 @@ export function initializeTelemetry(serviceName: string): NodeSDK {
   const sdk = new NodeSDK({
     resource,
     traceExporter: new OTLPTraceExporter({
-      url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT
-        ? `${process.env.OTEL_EXPORTER_OTLP_ENDPOINT}/v1/traces`
+      url: process.env["OTEL_EXPORTER_OTLP_ENDPOINT"]
+        ? `${process.env["OTEL_EXPORTER_OTLP_ENDPOINT"]}/v1/traces`
         : "http://localhost:4318/v1/traces",
     }),
     metricReader: new PeriodicExportingMetricReader({
       exporter: new OTLPMetricExporter({
-        url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT
-          ? `${process.env.OTEL_EXPORTER_OTLP_ENDPOINT}/v1/metrics`
+        url: process.env["OTEL_EXPORTER_OTLP_ENDPOINT"]
+          ? `${process.env["OTEL_EXPORTER_OTLP_ENDPOINT"]}/v1/metrics`
           : "http://localhost:4318/v1/metrics",
       }),
       exportIntervalMillis: 10000, // Export metrics every 10 seconds

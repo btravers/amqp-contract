@@ -65,6 +65,7 @@
     "@amqp-contract/worker": "workspace:*"
   },
   "devDependencies": {
+    "@amqp-contract/opentelemetry": "workspace:*",
     "@amqp-contract/testing": "workspace:*",
     "@amqp-contract/tsconfig": "workspace:*",
     "@amqp-contract/typedoc": "workspace:*",

@@ -1,8 +1,4 @@
-import {
-  AMQP_ATTRIBUTES,
-  AMQP_OPERATIONS,
-  MESSAGING_SYSTEM_AMQP,
-} from "./constants.js";
+import { AMQP_ATTRIBUTES, AMQP_OPERATIONS, MESSAGING_SYSTEM_AMQP } from "./constants.js";
 import {
   type Context,
   type Span,
@@ -81,9 +77,7 @@ export class ClientInstrumentation {
 
     const existingHeaders = options?.["headers"];
     const headers: Record<string, unknown> =
-      existingHeaders && typeof existingHeaders === "object"
-        ? { ...existingHeaders }
-        : {};
+      existingHeaders && typeof existingHeaders === "object" ? { ...existingHeaders } : {};
 
     // Inject trace context into headers
     propagation.inject(context.active(), headers);

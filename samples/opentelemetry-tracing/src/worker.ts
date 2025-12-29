@@ -1,9 +1,11 @@
-import { TypedAmqpWorker } from "@amqp-contract/worker";
-import { WorkerInstrumentation, WorkerMetrics } from "@amqp-contract/opentelemetry";
-import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
-import { trace, metrics } from "@opentelemetry/api";
+/* eslint-disable sort-imports */
 import pino from "pino";
 import { initializeTelemetry } from "./telemetry.js";
+import { WorkerInstrumentation, WorkerMetrics } from "@amqp-contract/opentelemetry";
+import { TypedAmqpWorker } from "@amqp-contract/worker";
+import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
+import { metrics, trace } from "@opentelemetry/api";
+/* eslint-enable sort-imports */
 
 // Initialize OpenTelemetry SDK before creating workers
 const sdk = initializeTelemetry("order-service-worker");
@@ -53,10 +55,7 @@ async function main() {
       processOrder: async (message) => {
         const { orderId, customerId, totalAmount } = message;
 
-        logger.info(
-          { orderId, customerId, totalAmount },
-          "📦 Processing order..."
-        );
+        logger.info({ orderId, customerId, totalAmount }, "📦 Processing order...");
 
         // Create a custom span for inventory check
         const inventorySpan = tracer.startSpan("check-inventory");
@@ -124,15 +123,42 @@ async function main() {
           // It's an order status update
           logger.info(
             { orderId: message.orderId, status: message.status },
-            "📧 Sending status update email"
+            "📧 Sending status update email",
           );
         }
 
         // Simulate email sending
         await new Promise((resolve) => setTimeout(resolve, 50));
       },
+
+      // Handler for shipping orders
+      shipOrder: async (message) => {
+        logger.info({ orderId: message.orderId }, "📦 Processing shipment");
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      },
+
+      // Handler for urgent orders
+      handleUrgentOrder: async (message) => {
+        logger.info(
+          { orderId: message.orderId, status: message.status },
+          "🚨 Handling urgent order",
+        );
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      },
+
+      // Handler for analytics
+      processAnalytics: async (_message) => {
+        logger.info("📊 Processing analytics");
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      },
+
+      // Handler for failed orders (DLX)
+      handleFailedOrders: async (message) => {
+        logger.error({ orderId: message.orderId }, "💀 Handling failed order from DLX");
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      },
     },
-    urls: [process.env.AMQP_URL || "amqp://localhost"],
+    urls: [(process.env["AMQP_URL"] as string | undefined) || "amqp://localhost"],
     instrumentation,
     metrics: workerMetrics,
   }).resultToPromise();

@@ -159,6 +159,7 @@ handlers: {
 Spans are automatically enriched with semantic attributes following OpenTelemetry conventions:
 
 **Client (Publisher) Spans:**
+
 - `messaging.system`: `"amqp"`
 - `messaging.destination.name`: Exchange name
 - `messaging.operation.type`: `"publish"`
@@ -166,6 +167,7 @@ Spans are automatically enriched with semantic attributes following OpenTelemetr
 - `messaging.message.routing_key`: Routing key
 
 **Worker (Consumer) Spans:**
+
 - `messaging.system`: `"amqp"`
 - `messaging.source.name`: Queue name
 - `messaging.operation.type`: `"process"` or `"process_batch"`
@@ -197,32 +199,39 @@ handlers: {
 ### Client (Publisher) Metrics
 
 **`amqp.client.publish.count`** (Counter)
+
 - Tracks number of publish attempts
 - Attributes: `publisher_name`, `exchange_name`, `routing_key`, `status` (`success`/`error`)
 
 **`amqp.client.publish.duration`** (Histogram)
+
 - Measures publish operation duration in milliseconds
 - Attributes: `publisher_name`, `exchange_name`, `routing_key`
 
 **`amqp.client.validation.error.count`** (Counter)
+
 - Tracks message validation failures
 - Attributes: `publisher_name`, `exchange_name`, `routing_key`
 
 ### Worker (Consumer) Metrics
 
 **`amqp.worker.consume.count`** (Counter)
+
 - Tracks number of messages consumed
 - Attributes: `consumer_name`, `queue_name`, `status` (`success`/`error`)
 
 **`amqp.worker.consume.duration`** (Histogram)
+
 - Measures message processing duration in milliseconds
 - Attributes: `consumer_name`, `queue_name`
 
 **`amqp.worker.validation.error.count`** (Counter)
+
 - Tracks message validation failures
 - Attributes: `consumer_name`, `queue_name`
 
 **`amqp.worker.batch.size`** (Histogram)
+
 - Tracks batch sizes for batch processing
 - Attributes: `consumer_name`, `queue_name`
 
@@ -334,7 +343,7 @@ const worker = await TypedAmqpWorker.create({
       // Creates a child span: "order-processing process"
       // Trace context extracted from headers
       console.log('Reserving inventory for:', message.orderId);
-      
+
       // Any operations here are part of the distributed trace
       await reserveInventory(message);
     }
@@ -346,6 +355,7 @@ const worker = await TypedAmqpWorker.create({
 ```
 
 The resulting trace will show:
+
 1. **Span 1**: `orders publish` (Service A)
    - Publisher: `orderCreated`
    - Exchange: `orders`
@@ -374,16 +384,19 @@ This package follows [OpenTelemetry Semantic Conventions for Messaging](https://
 ## Troubleshooting
 
 **Q: Traces not appearing in backend?**
+
 - Verify OpenTelemetry SDK is properly initialized before creating clients/workers
 - Check exporter configuration and connectivity
 - Ensure `enableTracing: true` is set in instrumentation config
 
 **Q: Metrics not being collected?**
+
 - Verify meter is properly configured with a metric reader
 - Check metric export interval settings
 - Ensure metrics are being scraped/pulled by your backend
 
 **Q: High overhead from instrumentation?**
+
 - Consider using sampling for traces in high-throughput scenarios
 - Adjust metric export intervals to reduce frequency
 - Profile your application to identify specific bottlenecks

@@ -148,7 +148,12 @@ export class WorkerMetrics {
   /**
    * Record batch processing
    */
-  recordBatch(consumerName: string, queueName: string, batchSize: number, durationMs: number): void {
+  recordBatch(
+    consumerName: string,
+    queueName: string,
+    batchSize: number,
+    durationMs: number,
+  ): void {
     this.batchSizeHistogram.record(batchSize, {
       [AMQP_ATTRIBUTES.AMQP_CONTRACT_CONSUMER_NAME]: consumerName,
       [AMQP_ATTRIBUTES.MESSAGING_RABBITMQ_QUEUE_NAME]: queueName,

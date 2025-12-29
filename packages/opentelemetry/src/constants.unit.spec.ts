@@ -12,9 +12,7 @@ describe("Constants", () => {
       expect(AMQP_ATTRIBUTES.MESSAGING_DESTINATION_NAME).toBe("messaging.destination.name");
       expect(AMQP_ATTRIBUTES.MESSAGING_OPERATION).toBe("messaging.operation");
       expect(AMQP_ATTRIBUTES.MESSAGING_SYSTEM).toBe("messaging.system");
-      expect(AMQP_ATTRIBUTES.MESSAGING_RABBITMQ_ROUTING_KEY).toBe(
-        "messaging.rabbitmq.routing_key",
-      );
+      expect(AMQP_ATTRIBUTES.MESSAGING_RABBITMQ_ROUTING_KEY).toBe("messaging.rabbitmq.routing_key");
     });
   });
 

@@ -34,10 +34,13 @@ describe("ClientMetrics", () => {
 
       metrics.recordPublish("testPublisher", "test-exchange", 150);
 
-      expect(mockCounter.add).toHaveBeenCalledWith(1, expect.objectContaining({
-        "amqp_contract.publisher.name": "testPublisher",
-        "messaging.system": "rabbitmq",
-      }));
+      expect(mockCounter.add).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({
+          "amqp_contract.publisher.name": "testPublisher",
+          "messaging.system": "rabbitmq",
+        }),
+      );
       expect(mockHistogram.record).toHaveBeenCalledWith(150, expect.anything());
     });
   });
@@ -63,10 +66,13 @@ describe("WorkerMetrics", () => {
 
       metrics.recordConsume("testConsumer", "test-queue", 200);
 
-      expect(mockCounter.add).toHaveBeenCalledWith(1, expect.objectContaining({
-        "amqp_contract.consumer.name": "testConsumer",
-        "messaging.system": "rabbitmq",
-      }));
+      expect(mockCounter.add).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({
+          "amqp_contract.consumer.name": "testConsumer",
+          "messaging.system": "rabbitmq",
+        }),
+      );
       expect(mockHistogram.record).toHaveBeenCalledWith(200, expect.anything());
     });
   });

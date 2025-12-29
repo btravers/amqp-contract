@@ -39,6 +39,7 @@ pnpm --filter @amqp-contract-samples/opentelemetry-tracing dev:worker
 ```
 
 The worker will:
+
 - Connect to RabbitMQ with OpenTelemetry instrumentation
 - Start consuming messages from the order queues
 - Extract trace context from message headers
@@ -52,6 +53,7 @@ pnpm --filter @amqp-contract-samples/opentelemetry-tracing dev:client
 ```
 
 The client will:
+
 - Connect to RabbitMQ with OpenTelemetry instrumentation
 - Publish 10 orders every 2 seconds
 - Inject trace context into message headers
@@ -68,6 +70,7 @@ Open http://localhost:16686 and:
 3. Click on a trace to see the full distributed trace
 
 You should see traces with spans like:
+
 ```
 create-order (order-service-client)
   └─ orders publish (order-service-client) [AMQP publish span]
@@ -107,11 +110,13 @@ Each published message creates a trace with the following structure:
 The sample records the following metrics:
 
 ### Client Metrics
+
 - **amqp.client.publish.count**: Number of publish attempts (success/error)
 - **amqp.client.publish.duration**: Publish operation duration in ms
 - **amqp.client.validation.error.count**: Message validation failures
 
 ### Worker Metrics
+
 - **amqp.worker.consume.count**: Number of messages consumed (success/error)
 - **amqp.worker.consume.duration**: Message processing duration in ms
 - **amqp.worker.validation.error.count**: Message validation failures
@@ -128,6 +133,7 @@ The sample records the following metrics:
 ### OpenTelemetry Setup
 
 The sample uses the OpenTelemetry Node SDK with:
+
 - **OTLP HTTP exporter** for traces and metrics
 - **Periodic metric reader** with 10-second export interval
 - **Resource attributes** for service identification
