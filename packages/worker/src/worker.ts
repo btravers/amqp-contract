@@ -1,6 +1,7 @@
-import { AmqpClient, type Logger } from "@amqp-contract/core";
+/* eslint-disable eslint/sort-imports */
 import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
 import type { Channel, Message } from "amqplib";
+import { AmqpClient, type Logger } from "@amqp-contract/core";
 import type {
   ConsumerDefinition,
   ContractDefinition,
@@ -14,6 +15,30 @@ import type {
   WorkerInferConsumerHandlers,
   WorkerInferConsumerInput,
 } from "./types.js";
+
+// Import OpenTelemetry types conditionally
+type WorkerInstrumentation = {
+  extractTraceContext: (headers?: Record<string, unknown>) => unknown;
+  startConsumeSpan: (consumerName: string, queueName: string, parentContext?: unknown) => unknown;
+  startBatchProcessSpan: (consumerName: string, queueName: string, batchSize: number) => unknown;
+  recordValidationError: (span: unknown, error: unknown) => void;
+  recordProcessingError: (span: unknown, error: unknown) => void;
+  recordSuccess: (span: unknown) => void;
+  endSpan: (span: unknown) => void;
+  withSpan: <T>(span: unknown, callback: () => T) => T;
+};
+
+type WorkerMetrics = {
+  recordConsume: (consumerName: string, queueName: string, durationMs: number) => void;
+  recordBatch: (
+    consumerName: string,
+    queueName: string,
+    batchSize: number,
+    durationMs: number,
+  ) => void;
+  recordValidationError: (consumerName: string, queueName: string) => void;
+  recordProcessingError: (consumerName: string, queueName: string) => void;
+};
 
 /**
  * Internal type for consumer options extracted from handler tuples.
@@ -84,6 +109,16 @@ export type CreateWorkerOptions<TContract extends ContractDefinition> = {
   connectionOptions?: AmqpConnectionManagerOptions | undefined;
   /** Optional logger for logging message consumption and errors */
   logger?: Logger | undefined;
+  /**
+   * Optional OpenTelemetry instrumentation for tracing
+   * Requires @amqp-contract/opentelemetry package
+   */
+  instrumentation?: WorkerInstrumentation | undefined;
+  /**
+   * Optional OpenTelemetry metrics for monitoring
+   * Requires @amqp-contract/opentelemetry package
+   */
+  metrics?: WorkerMetrics | undefined;
 };
 
 /**
@@ -142,6 +177,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     private readonly amqpClient: AmqpClient,
     handlers: WorkerInferConsumerHandlers<TContract>,
     private readonly logger?: Logger,
+    private readonly instrumentation?: WorkerInstrumentation,
+    private readonly metrics?: WorkerMetrics,
   ) {
     // Extract handlers and options from the handlers object
     this.actualHandlers = {};
@@ -206,6 +243,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     urls,
     connectionOptions,
     logger,
+    instrumentation,
+    metrics,
   }: CreateWorkerOptions<TContract>): Future<Result<TypedAmqpWorker<TContract>, TechnicalError>> {
     const worker = new TypedAmqpWorker(
       contract,
@@ -215,6 +254,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       }),
       handlers,
       logger,
+      instrumentation,
+      metrics,
     );
 
     return worker
@@ -408,6 +449,9 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         error: parseResult.error,
       });
 
+      // Record validation error in metrics
+      this.metrics?.recordValidationError(String(consumerName), consumer.queue.name);
+
       // fixme proper error handling strategy
       // Reject message with no requeue (malformed JSON)
       this.amqpClient.channel.nack(msg, false, false);
@@ -425,6 +469,9 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           queueName: consumer.queue.name,
           error,
         });
+
+        // Record validation error in metrics
+        this.metrics?.recordValidationError(String(consumerName), consumer.queue.name);
 
         // fixme proper error handling strategy
         // Reject message with no requeue (validation failed)
@@ -456,15 +503,37 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           return;
         }
 
+        const startTime = Date.now();
+        
+        // Extract trace context from message headers
+        const parentContext = this.instrumentation?.extractTraceContext(
+          msg.properties.headers as Record<string, unknown> | undefined,
+        );
+
+        // Start span for this message
+        const span = this.instrumentation?.startConsumeSpan(
+          String(consumerName),
+          consumer.queue.name,
+          parentContext,
+        );
+
         // Parse and validate message
         await this.parseAndValidateMessage(msg, consumer, consumerName)
           .flatMapOk((validatedMessage) =>
-            Future.fromPromise(handler(validatedMessage)).tapError((error) => {
+            Future.fromPromise(
+              this.instrumentation
+                ? this.instrumentation.withSpan(span, () => handler(validatedMessage))
+                : handler(validatedMessage),
+            ).tapError((error) => {
               this.logger?.error("Error processing message", {
                 consumerName: String(consumerName),
                 queueName: consumer.queue.name,
                 error,
               });
+
+              // Record error in instrumentation
+              this.instrumentation?.recordProcessingError(span, error);
+              this.metrics?.recordProcessingError(String(consumerName), consumer.queue.name);
 
               // fixme proper error handling strategy
               // Reject message and requeue (handler failed)
@@ -477,8 +546,20 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
               queueName: consumer.queue.name,
             });
 
+            // Record success in instrumentation
+            const duration = Date.now() - startTime;
+            this.instrumentation?.recordSuccess(span);
+            this.metrics?.recordConsume(String(consumerName), consumer.queue.name, duration);
+
             // Acknowledge message
             this.amqpClient.channel.ack(msg);
+          })
+          .tapError(() => {
+            // Validation failed - metrics already recorded in parseAndValidateMessage
+          })
+          .tap(() => {
+            // Always end span
+            this.instrumentation?.endSpan(span);
           })
           .toPromise();
       }),
@@ -532,6 +613,14 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       }
 
       const messages = currentBatch.map((item) => item.message);
+      const startTime = Date.now();
+
+      // Start span for batch processing
+      const span = this.instrumentation?.startBatchProcessSpan(
+        String(consumerName),
+        consumer.queue.name,
+        currentBatch.length,
+      );
 
       this.logger?.info("Processing batch", {
         consumerName: String(consumerName),
@@ -540,7 +629,9 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       });
 
       try {
-        await handler(messages);
+        await (this.instrumentation
+          ? this.instrumentation.withSpan(span, () => handler(messages))
+          : handler(messages));
 
         // Acknowledge all messages in the batch
         for (const item of currentBatch) {
@@ -552,6 +643,16 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           queueName: consumer.queue.name,
           batchSize: currentBatch.length,
         });
+
+        // Record success in instrumentation
+        const duration = Date.now() - startTime;
+        this.instrumentation?.recordSuccess(span);
+        this.metrics?.recordBatch(
+          String(consumerName),
+          consumer.queue.name,
+          currentBatch.length,
+          duration,
+        );
       } catch (error) {
         this.logger?.error("Error processing batch", {
           consumerName: String(consumerName),
@@ -560,12 +661,18 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           error,
         });
 
+        // Record error in instrumentation
+        this.instrumentation?.recordProcessingError(span, error);
+        this.metrics?.recordProcessingError(String(consumerName), consumer.queue.name);
+
         // fixme proper error handling strategy
         // Reject all messages and requeue (handler failed)
         for (const item of currentBatch) {
           this.amqpClient.channel.nack(item.amqpMessage, false, true);
         }
       } finally {
+        // Always end span
+        this.instrumentation?.endSpan(span);
         isProcessing = false;
       }
     };

@@ -1,10 +1,32 @@
-import { AmqpClient, type Logger } from "@amqp-contract/core";
+/* eslint-disable eslint/sort-imports */
 import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
+import type { Options } from "amqplib";
+import { AmqpClient, type Logger } from "@amqp-contract/core";
 import type { ContractDefinition, InferPublisherNames } from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
 import { MessageValidationError, TechnicalError } from "./errors.js";
 import type { ClientInferPublisherInput } from "./types.js";
-import type { Options } from "amqplib";
+
+// Import OpenTelemetry types conditionally
+type ClientInstrumentation = {
+  startPublishSpan: (
+    publisherName: string,
+    exchangeName: string,
+    routingKey: string,
+    exchangeType?: string,
+  ) => unknown;
+  injectTraceContext: (options?: Record<string, unknown>) => Record<string, unknown>;
+  recordValidationError: (span: unknown, error: unknown) => void;
+  recordTechnicalError: (span: unknown, error: unknown) => void;
+  recordSuccess: (span: unknown) => void;
+  endSpan: (span: unknown) => void;
+};
+
+type ClientMetrics = {
+  recordPublish: (publisherName: string, exchangeName: string, durationMs: number) => void;
+  recordValidationError: (publisherName: string, exchangeName: string) => void;
+  recordPublishError: (publisherName: string, exchangeName: string) => void;
+};
 
 /**
  * Options for creating a client
@@ -14,6 +36,16 @@ export type CreateClientOptions<TContract extends ContractDefinition> = {
   urls: ConnectionUrl[];
   connectionOptions?: AmqpConnectionManagerOptions | undefined;
   logger?: Logger | undefined;
+  /**
+   * Optional OpenTelemetry instrumentation for tracing
+   * Requires @amqp-contract/opentelemetry package
+   */
+  instrumentation?: ClientInstrumentation | undefined;
+  /**
+   * Optional OpenTelemetry metrics for monitoring
+   * Requires @amqp-contract/opentelemetry package
+   */
+  metrics?: ClientMetrics | undefined;
 };
 
 /**
@@ -24,6 +56,8 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     private readonly contract: TContract,
     private readonly amqpClient: AmqpClient,
     private readonly logger?: Logger,
+    private readonly instrumentation?: ClientInstrumentation,
+    private readonly metrics?: ClientMetrics,
   ) {}
 
   /**
@@ -41,11 +75,15 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     urls,
     connectionOptions,
     logger,
+    instrumentation,
+    metrics,
   }: CreateClientOptions<TContract>): Future<Result<TypedAmqpClient<TContract>, TechnicalError>> {
     const client = new TypedAmqpClient(
       contract,
       new AmqpClient(contract, { urls, connectionOptions }),
       logger,
+      instrumentation,
+      metrics,
     );
 
     return client.waitForConnectionReady().mapOk(() => client);
@@ -74,6 +112,15 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
       );
     }
 
+    // Start span if instrumentation is enabled
+    const startTime = Date.now();
+    const span = this.instrumentation?.startPublishSpan(
+      String(publisherName),
+      publisher.exchange.name,
+      publisher.routingKey ?? "",
+      publisher.exchange.type,
+    );
+
     const validateMessage = () => {
       const validationResult = publisher.message.payload["~standard"].validate(message);
       return Future.fromPromise(
@@ -82,9 +129,14 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
         .mapError((error) => new TechnicalError(`Validation failed`, error))
         .mapOkToResult((validation) => {
           if (validation.issues) {
-            return Result.Error(
-              new MessageValidationError(String(publisherName), validation.issues),
+            const validationError = new MessageValidationError(
+              String(publisherName),
+              validation.issues,
             );
+            // Record validation error in instrumentation
+            this.instrumentation?.recordValidationError(span, validationError);
+            this.metrics?.recordValidationError(String(publisherName), publisher.exchange.name);
+            return Result.Error(validationError);
           }
 
           return Result.Ok(validation.value);
@@ -92,22 +144,35 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     };
 
     const publishMessage = (validatedMessage: unknown): Future<Result<void, TechnicalError>> => {
+      // Inject trace context into publish options
+      const publishOptions = this.instrumentation
+        ? this.instrumentation.injectTraceContext(options as Record<string, unknown> | undefined)
+        : options;
+
       return Future.fromPromise(
         this.amqpClient.channel.publish(
           publisher.exchange.name,
           publisher.routingKey ?? "",
           validatedMessage,
-          options,
+          publishOptions as Options.Publish,
         ),
       )
-        .mapError((error) => new TechnicalError(`Failed to publish message`, error))
+        .mapError((error) => {
+          const technicalError = new TechnicalError(`Failed to publish message`, error);
+          // Record technical error in instrumentation
+          this.instrumentation?.recordTechnicalError(span, technicalError);
+          this.metrics?.recordPublishError(String(publisherName), publisher.exchange.name);
+          return technicalError;
+        })
         .mapOkToResult((published) => {
           if (!published) {
-            return Result.Error(
-              new TechnicalError(
-                `Failed to publish message for publisher "${String(publisherName)}": Channel rejected the message (buffer full or other channel issue)`,
-              ),
+            const technicalError = new TechnicalError(
+              `Failed to publish message for publisher "${String(publisherName)}": Channel rejected the message (buffer full or other channel issue)`,
             );
+            // Record technical error in instrumentation
+            this.instrumentation?.recordTechnicalError(span, technicalError);
+            this.metrics?.recordPublishError(String(publisherName), publisher.exchange.name);
+            return Result.Error(technicalError);
           }
 
           this.logger?.info("Message published successfully", {
@@ -116,12 +181,24 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
             routingKey: publisher.routingKey,
           });
 
+          // Record success in instrumentation
+          const duration = Date.now() - startTime;
+          this.instrumentation?.recordSuccess(span);
+          this.metrics?.recordPublish(String(publisherName), publisher.exchange.name, duration);
+
           return Result.Ok(undefined);
         });
     };
 
-    // Validate message using schema
-    return validateMessage().flatMapOk((validatedMessage) => publishMessage(validatedMessage));
+    // Validate message using schema, then publish, then end span
+    return validateMessage()
+      .flatMapOk((validatedMessage) => publishMessage(validatedMessage))
+      .tapOk(() => {
+        this.instrumentation?.endSpan(span);
+      })
+      .tapError(() => {
+        this.instrumentation?.endSpan(span);
+      });
   }
 
   /**
