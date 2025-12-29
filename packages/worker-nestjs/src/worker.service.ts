@@ -1,7 +1,8 @@
 import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
-import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
-import { TypedAmqpWorker, type WorkerInferConsumerHandlers } from "@amqp-contract/worker";
 import type { ContractDefinition } from "@amqp-contract/contract";
+import type { WorkerInstrumentation, WorkerMetrics } from "@amqp-contract/opentelemetry";
+import { TypedAmqpWorker, type WorkerInferConsumerHandlers } from "@amqp-contract/worker";
+import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
 import { MODULE_OPTIONS_TOKEN } from "./worker.module-definition.js";
 
 /**
@@ -24,6 +25,23 @@ import { MODULE_OPTIONS_TOKEN } from "./worker.module-definition.js";
  *   }
  * };
  * ```
+ *
+ * @example With OpenTelemetry instrumentation
+ * ```typescript
+ * import { WorkerInstrumentation, WorkerMetrics } from '@amqp-contract/opentelemetry';
+ *
+ * const options: AmqpWorkerModuleOptions<typeof contract> = {
+ *   contract: myContract,
+ *   handlers: {
+ *     processOrder: async (message) => {
+ *       console.log('Processing order:', message.orderId);
+ *     }
+ *   },
+ *   urls: ['amqp://localhost'],
+ *   instrumentation: new WorkerInstrumentation(),
+ *   metrics: new WorkerMetrics()
+ * };
+ * ```
  */
 export type AmqpWorkerModuleOptions<TContract extends ContractDefinition> = {
   /** The AMQP contract definition specifying consumers and their message schemas */
@@ -34,6 +52,10 @@ export type AmqpWorkerModuleOptions<TContract extends ContractDefinition> = {
   urls: ConnectionUrl[];
   /** Optional connection configuration (heartbeat, reconnect settings, etc.) */
   connectionOptions?: AmqpConnectionManagerOptions | undefined;
+  /** Optional OpenTelemetry instrumentation for distributed tracing */
+  instrumentation?: WorkerInstrumentation | undefined;
+  /** Optional OpenTelemetry metrics collection */
+  metrics?: WorkerMetrics | undefined;
 };
 
 /**

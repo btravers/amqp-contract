@@ -1,4 +1,5 @@
 import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
+import type { Options } from "amqplib";
 import {
   type ClientInferPublisherInput,
   MessageValidationError,
@@ -6,10 +7,10 @@ import {
   TypedAmqpClient,
 } from "@amqp-contract/client";
 import type { ContractDefinition, InferPublisherNames } from "@amqp-contract/contract";
-import { Future, Result } from "@swan-io/boxed";
+import type { ClientInstrumentation, ClientMetrics } from "@amqp-contract/opentelemetry";
 import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
+import { Future, Result } from "@swan-io/boxed";
 import { MODULE_OPTIONS_TOKEN } from "./client.module-definition.js";
-import type { Options } from "amqplib";
 
 /**
  * Configuration options for the AMQP client NestJS module.
@@ -26,6 +27,18 @@ import type { Options } from "amqplib";
  *   }
  * };
  * ```
+ *
+ * @example With OpenTelemetry instrumentation
+ * ```typescript
+ * import { ClientInstrumentation, ClientMetrics } from '@amqp-contract/opentelemetry';
+ *
+ * const options: AmqpClientModuleOptions<typeof contract> = {
+ *   contract: myContract,
+ *   urls: ['amqp://localhost'],
+ *   instrumentation: new ClientInstrumentation({ enableTracing: true }),
+ *   metrics: new ClientMetrics()
+ * };
+ * ```
  */
 export type AmqpClientModuleOptions<TContract extends ContractDefinition> = {
   /** The AMQP contract definition specifying publishers and their message schemas */
@@ -34,6 +47,10 @@ export type AmqpClientModuleOptions<TContract extends ContractDefinition> = {
   urls: ConnectionUrl[];
   /** Optional connection configuration (heartbeat, reconnect settings, etc.) */
   connectionOptions?: AmqpConnectionManagerOptions | undefined;
+  /** Optional OpenTelemetry instrumentation for distributed tracing */
+  instrumentation?: ClientInstrumentation | undefined;
+  /** Optional OpenTelemetry metrics collection */
+  metrics?: ClientMetrics | undefined;
 };
 
 /**

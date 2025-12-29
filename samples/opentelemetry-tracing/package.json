@@ -1,0 +1,35 @@
+{
+  "name": "@amqp-contract-samples/opentelemetry-tracing",
+  "private": true,
+  "description": "Sample demonstrating OpenTelemetry distributed tracing with AMQP",
+  "type": "module",
+  "scripts": {
+    "dev:client": "tsx src/client.ts",
+    "dev:worker": "tsx src/worker.ts",
+    "test:integration": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@amqp-contract-samples/basic-order-processing-contract": "workspace:*",
+    "@amqp-contract/client": "workspace:*",
+    "@amqp-contract/opentelemetry": "workspace:*",
+    "@amqp-contract/worker": "workspace:*",
+    "@opentelemetry/api": "catalog:",
+    "@opentelemetry/exporter-metrics-otlp-http": "catalog:",
+    "@opentelemetry/exporter-trace-otlp-http": "catalog:",
+    "@opentelemetry/sdk-metrics": "catalog:",
+    "@opentelemetry/sdk-node": "catalog:",
+    "pino": "catalog:",
+    "pino-pretty": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@amqp-contract/testing": "workspace:*",
+    "@amqp-contract/tsconfig": "workspace:*",
+    "@swan-io/boxed": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

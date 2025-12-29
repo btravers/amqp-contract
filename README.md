@@ -22,6 +22,7 @@ Build reliable message-driven applications with end-to-end type safety and autom
 - ✅ **Automatic validation** — Runtime schema validation with [Zod](https://zod.dev/), [Valibot](https://valibot.dev/), or [ArkType](https://arktype.io/)
 - ✅ **Compile-time checks** — TypeScript catches missing or incorrect message handler implementations before deployment
 - ✅ **NestJS integration** — First-class [NestJS](https://nestjs.com/) support with dependency injection and automatic lifecycle management
+- ✅ **OpenTelemetry support** — Built-in distributed tracing and metrics for complete observability
 - ✅ **AsyncAPI generation** — Generate AsyncAPI 3.0 specifications from contracts for API documentation
 - ✅ **Better DX** — IntelliSense autocomplete, safe refactoring, and inline documentation for Node.js development
 
@@ -127,6 +128,9 @@ pnpm add @amqp-contract/contract @amqp-contract/client @amqp-contract/worker
 
 # For NestJS applications
 pnpm add @amqp-contract/client-nestjs @amqp-contract/worker-nestjs
+
+# For OpenTelemetry observability (optional)
+pnpm add @amqp-contract/opentelemetry @opentelemetry/api
 ```
 
 ## NestJS Integration
@@ -174,6 +178,7 @@ export class AppModule {}
 - [Core Concepts](https://btravers.github.io/amqp-contract/guide/core-concepts)
 - [NestJS Client Usage](https://btravers.github.io/amqp-contract/guide/client-nestjs-usage)
 - [NestJS Worker Usage](https://btravers.github.io/amqp-contract/guide/worker-nestjs-usage)
+- [OpenTelemetry Integration](https://btravers.github.io/amqp-contract/guide/opentelemetry)
 - [AsyncAPI Generation](https://btravers.github.io/amqp-contract/guide/asyncapi-generation)
 - [API Reference](https://btravers.github.io/amqp-contract/api/)
 - [Examples](https://btravers.github.io/amqp-contract/examples/)
@@ -187,14 +192,15 @@ export class AppModule {}
 
 ## Packages
 
-| Package                                                  | Description                              |
-| -------------------------------------------------------- | ---------------------------------------- |
-| [@amqp-contract/contract](./packages/contract)           | Contract builder and type definitions    |
-| [@amqp-contract/client](./packages/client)               | Type-safe client for publishing messages |
-| [@amqp-contract/worker](./packages/worker)               | Type-safe worker for consuming messages  |
-| [@amqp-contract/client-nestjs](./packages/client-nestjs) | NestJS integration for client            |
-| [@amqp-contract/worker-nestjs](./packages/worker-nestjs) | NestJS integration for worker            |
-| [@amqp-contract/asyncapi](./packages/asyncapi)           | AsyncAPI 3.0 specification generator     |
+| Package                                                  | Description                                          |
+| -------------------------------------------------------- | ---------------------------------------------------- |
+| [@amqp-contract/contract](./packages/contract)           | Contract builder and type definitions                |
+| [@amqp-contract/client](./packages/client)               | Type-safe client for publishing messages             |
+| [@amqp-contract/worker](./packages/worker)               | Type-safe worker for consuming messages              |
+| [@amqp-contract/client-nestjs](./packages/client-nestjs) | NestJS integration for client                        |
+| [@amqp-contract/worker-nestjs](./packages/worker-nestjs) | NestJS integration for worker                        |
+| [@amqp-contract/opentelemetry](./packages/opentelemetry) | OpenTelemetry instrumentation for tracing & metrics  |
+| [@amqp-contract/asyncapi](./packages/asyncapi)           | AsyncAPI 3.0 specification generator                 |
 
 ## AsyncAPI Generation
 
