@@ -2,9 +2,9 @@
 
 # amqp-contract
 
-**Type-safe contracts for [AMQP](https://www.amqp.org/)/[RabbitMQ](https://www.rabbitmq.com/)**
+**Type-safe contracts for [AMQP](https://www.amqp.org/)/[RabbitMQ](https://www.rabbitmq.com/) messaging with [TypeScript](https://www.typescriptlang.org/)**
 
-End-to-end type safety and automatic validation for AMQP messaging
+Build reliable message-driven applications with end-to-end type safety and automatic schema validation for [Node.js](https://nodejs.org/) and [NestJS](https://nestjs.com/)
 
 [![CI](https://github.com/btravers/amqp-contract/actions/workflows/ci.yml/badge.svg)](https://github.com/btravers/amqp-contract/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/@amqp-contract/contract.svg?logo=npm)](https://www.npmjs.com/package/@amqp-contract/contract)
@@ -18,12 +18,12 @@ End-to-end type safety and automatic validation for AMQP messaging
 
 ## Features
 
-- ✅ **End-to-end type safety** — From contract to client and worker
-- ✅ **Automatic validation** — Schema validation with [Zod](https://zod.dev/), [Valibot](https://valibot.dev/), or [ArkType](https://arktype.io/)
-- ✅ **Compile-time checks** — TypeScript catches missing or incorrect implementations
-- ✅ **NestJS integration** — First-class [NestJS](https://nestjs.com/) support with automatic lifecycle management
-- ✅ **AsyncAPI generation** — Generate AsyncAPI 3.0 specs from contracts
-- ✅ **Better DX** — Autocomplete, refactoring support, inline documentation
+- ✅ **End-to-end type safety** — Full TypeScript type inference from contract definition to client and worker implementation
+- ✅ **Automatic validation** — Runtime schema validation with [Zod](https://zod.dev/), [Valibot](https://valibot.dev/), or [ArkType](https://arktype.io/)
+- ✅ **Compile-time checks** — TypeScript catches missing or incorrect message handler implementations before deployment
+- ✅ **NestJS integration** — First-class [NestJS](https://nestjs.com/) support with dependency injection and automatic lifecycle management
+- ✅ **AsyncAPI generation** — Generate AsyncAPI 3.0 specifications from contracts for API documentation
+- ✅ **Better DX** — IntelliSense autocomplete, safe refactoring, and inline documentation for Node.js development
 
 ## Quick Example
 
@@ -218,6 +218,10 @@ const spec = generateAsyncAPI(contract, {
 ## Inspiration
 
 This project was inspired by the contract-first approach of [tRPC](https://trpc.io/), [oRPC](https://orpc.dev/), and [ts-rest](https://ts-rest.com/). We've adapted their excellent ideas of end-to-end type safety and schema-driven development to the world of [RabbitMQ](https://www.rabbitmq.com/) and AMQP messaging.
+
+## Topics
+
+`amqp` · `rabbitmq` · `typescript` · `nodejs` · `nestjs` · `messaging` · `message-queue` · `message-broker` · `type-safe` · `schema-validation` · `contract-first` · `asyncapi` · `event-driven` · `microservices` · `amqplib`
 
 ## Contributing
 

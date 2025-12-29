@@ -1,3 +1,8 @@
+---
+title: AsyncAPI Generation - Generate API Documentation from AMQP Contracts
+description: Learn how to generate AsyncAPI 3.0 specifications from your type-safe AMQP contracts for automatic API documentation and tooling integration.
+---
+
 # AsyncAPI Generation
 
 Generate AsyncAPI 3.0 specifications from your contracts for documentation and tooling.

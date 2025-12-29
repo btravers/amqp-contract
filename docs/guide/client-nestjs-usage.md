@@ -1,3 +1,8 @@
+---
+title: NestJS Client Usage - Type-safe AMQP Publishing with Dependency Injection
+description: Integrate type-safe AMQP message publishing in your NestJS applications. Learn about automatic lifecycle management, dependency injection, and TypeScript type safety with RabbitMQ.
+---
+
 # NestJS Client Usage
 
 Learn how to integrate the type-safe AMQP client with [NestJS](https://nestjs.com/) applications for publishing messages with automatic lifecycle management.
