@@ -30,6 +30,24 @@ catalogs:
     '@nestjs/testing':
       specifier: 11.1.10
       version: 11.1.10
+    '@opentelemetry/api':
+      specifier: 1.9.0
+      version: 1.9.0
+    '@opentelemetry/core':
+      specifier: 1.29.0
+      version: 1.29.0
+    '@opentelemetry/resources':
+      specifier: 1.29.0
+      version: 1.29.0
+    '@opentelemetry/sdk-metrics':
+      specifier: 1.29.0
+      version: 1.29.0
+    '@opentelemetry/sdk-trace-base':
+      specifier: 1.29.0
+      version: 1.29.0
+    '@opentelemetry/semantic-conventions':
+      specifier: 1.29.0
+      version: 1.29.0
     '@orpc/arktype':
       specifier: 1.13.1
       version: 1.13.1
@@ -218,7 +236,7 @@ importers:
         version: link:../contract
       '@orpc/openapi':
         specifier: 'catalog:'
-        version: 1.13.1
+        version: 1.13.1(@opentelemetry/api@1.9.0)
       '@standard-schema/spec':
         specifier: 'catalog:'
         version: 1.1.0
@@ -234,19 +252,19 @@ importers:
         version: 3.4.0
       '@orpc/arktype':
         specifier: 'catalog:'
-        version: 1.13.1(@ark/schema@0.56.0)(@orpc/contract@1.13.1)(arktype@2.1.29)
+        version: 1.13.1(@ark/schema@0.56.0)(@opentelemetry/api@1.9.0)(@orpc/contract@1.13.1(@opentelemetry/api@1.9.0))(arktype@2.1.29)
       '@orpc/valibot':
         specifier: 'catalog:'
-        version: 1.13.1(@orpc/contract@1.13.1)(@orpc/server@1.13.1)(valibot@1.2.0(typescript@5.9.3))
+        version: 1.13.1(@opentelemetry/api@1.9.0)(@orpc/contract@1.13.1(@opentelemetry/api@1.9.0))(@orpc/server@1.13.1(@opentelemetry/api@1.9.0))(valibot@1.2.0(typescript@5.9.3))
       '@orpc/zod':
         specifier: 'catalog:'
-        version: 1.13.1(@orpc/contract@1.13.1)(@orpc/server@1.13.1)(zod@4.2.1)
+        version: 1.13.1(@opentelemetry/api@1.9.0)(@orpc/contract@1.13.1(@opentelemetry/api@1.9.0))(@orpc/server@1.13.1(@opentelemetry/api@1.9.0))(zod@4.2.1)
       '@types/node':
         specifier: 'catalog:'
         version: 25.0.3
       '@vitest/coverage-v8':
         specifier: 'catalog:'
-        version: 4.0.16(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+        version: 4.0.16(vitest@4.0.16(@opentelemetry/api@1.9.0)(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
       arktype:
         specifier: 'catalog:'
         version: 2.1.29
@@ -267,7 +285,7 @@ importers:
         version: 1.2.0(typescript@5.9.3)
       vitest:
         specifier: 'catalog:'
-        version: 4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
+        version: 4.0.16(@opentelemetry/api@1.9.0)(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
       zod:
         specifier: 'catalog:'
         version: 4.2.1
@@ -304,7 +322,7 @@ importers:
         version: 25.0.3
       '@vitest/coverage-v8':
         specifier: 'catalog:'
-        version: 4.0.16(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+        version: 4.0.16(vitest@4.0.16(@opentelemetry/api@1.9.0)(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
       amqp-connection-manager:
         specifier: 'catalog:'
         version: 5.0.0(amqplib@0.10.9)
@@ -325,7 +343,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
+        version: 4.0.16(@opentelemetry/api@1.9.0)(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
       zod:
         specifier: 'catalog:'
         version: 4.2.1
@@ -368,7 +386,7 @@ importers:
         version: 25.0.3
       '@vitest/coverage-v8':
         specifier: 'catalog:'
-        version: 4.0.16(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+        version: 4.0.16(vitest@4.0.16(@opentelemetry/api@1.9.0)(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
       amqp-connection-manager:
         specifier: 'catalog:'
         version: 5.0.0(amqplib@0.10.9)
@@ -395,7 +413,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
+        version: 4.0.16(@opentelemetry/api@1.9.0)(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
       zod:
         specifier: 'catalog:'
         version: 4.2.1
@@ -414,7 +432,7 @@ importers:
         version: link:../../tools/typedoc
       '@vitest/coverage-v8':
         specifier: 'catalog:'
-        version: 4.0.16(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+        version: 4.0.16(vitest@4.0.16(@opentelemetry/api@1.9.0)(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
       tsdown:
         specifier: 'catalog:'
         version: 0.18.3(oxc-resolver@11.16.2)(typescript@5.9.3)
@@ -429,7 +447,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
+        version: 4.0.16(@opentelemetry/api@1.9.0)(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
       zod:
         specifier: 'catalog:'
         version: 4.2.1
@@ -460,7 +478,7 @@ importers:
         version: 0.10.8
       '@vitest/coverage-v8':
         specifier: 'catalog:'
-        version: 4.0.16(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+        version: 4.0.16(vitest@4.0.16(@opentelemetry/api@1.9.0)(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
       tsdown:
         specifier: 'catalog:'
         version: 0.18.3(oxc-resolver@11.16.2)(typescript@5.9.3)
@@ -472,7 +490,53 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
+        version: 4.0.16(@opentelemetry/api@1.9.0)(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
+
+  packages/opentelemetry:
+    dependencies:
+      '@opentelemetry/api':
+        specifier: 'catalog:'
+        version: 1.9.0
+      '@opentelemetry/core':
+        specifier: 'catalog:'
+        version: 1.29.0(@opentelemetry/api@1.9.0)
+      '@opentelemetry/resources':
+        specifier: 'catalog:'
+        version: 1.29.0(@opentelemetry/api@1.9.0)
+      '@opentelemetry/sdk-metrics':
+        specifier: 'catalog:'
+        version: 1.29.0(@opentelemetry/api@1.9.0)
+      '@opentelemetry/sdk-trace-base':
+        specifier: 'catalog:'
+        version: 1.29.0(@opentelemetry/api@1.9.0)
+      '@opentelemetry/semantic-conventions':
+        specifier: 'catalog:'
+        version: 1.29.0
+    devDependencies:
+      '@amqp-contract/tsconfig':
+        specifier: workspace:*
+        version: link:../../tools/tsconfig
+      '@amqp-contract/typedoc':
+        specifier: workspace:*
+        version: link:../../tools/typedoc
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.0.3
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 4.0.16(vitest@4.0.16(@opentelemetry/api@1.9.0)(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+      tsdown:
+        specifier: 'catalog:'
+        version: 0.18.3(oxc-resolver@11.16.2)(typescript@5.9.3)
+      typedoc:
+        specifier: 'catalog:'
+        version: 0.28.15(typescript@5.9.3)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.16(@opentelemetry/api@1.9.0)(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
 
   packages/testing:
     dependencies:
@@ -506,7 +570,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
+        version: 4.0.16(@opentelemetry/api@1.9.0)(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
 
   packages/worker:
     dependencies:
@@ -540,7 +604,7 @@ importers:
         version: 25.0.3
       '@vitest/coverage-v8':
         specifier: 'catalog:'
-        version: 4.0.16(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+        version: 4.0.16(vitest@4.0.16(@opentelemetry/api@1.9.0)(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
       amqp-connection-manager:
         specifier: 'catalog:'
         version: 5.0.0(amqplib@0.10.9)
@@ -561,7 +625,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
+        version: 4.0.16(@opentelemetry/api@1.9.0)(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
       zod:
         specifier: 'catalog:'
         version: 4.2.1
@@ -601,7 +665,7 @@ importers:
         version: 25.0.3
       '@vitest/coverage-v8':
         specifier: 'catalog:'
-        version: 4.0.16(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+        version: 4.0.16(vitest@4.0.16(@opentelemetry/api@1.9.0)(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
       amqp-connection-manager:
         specifier: 'catalog:'
         version: 5.0.0(amqplib@0.10.9)
@@ -628,7 +692,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
+        version: 4.0.16(@opentelemetry/api@1.9.0)(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
       zod:
         specifier: 'catalog:'
         version: 4.2.1
@@ -643,7 +707,7 @@ importers:
         version: link:../../packages/contract
       '@orpc/zod':
         specifier: 'catalog:'
-        version: 1.13.1(@orpc/contract@1.13.1)(@orpc/server@1.13.1)(zod@4.2.1)
+        version: 1.13.1(@opentelemetry/api@1.9.0)(@orpc/contract@1.13.1(@opentelemetry/api@1.9.0))(@orpc/server@1.13.1(@opentelemetry/api@1.9.0))(zod@4.2.1)
       zod:
         specifier: 'catalog:'
         version: 4.2.1
@@ -690,7 +754,7 @@ importers:
         version: 3.2.1(typescript@5.9.3)
       '@vitest/coverage-v8':
         specifier: 'catalog:'
-        version: 4.0.16(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+        version: 4.0.16(vitest@4.0.16(@opentelemetry/api@1.9.0)(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
       tsx:
         specifier: 'catalog:'
         version: 4.21.0
@@ -699,7 +763,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
+        version: 4.0.16(@opentelemetry/api@1.9.0)(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
 
   samples/basic-order-processing-client-nestjs:
     dependencies:
@@ -742,7 +806,7 @@ importers:
         version: 3.2.1(typescript@5.9.3)
       '@vitest/coverage-v8':
         specifier: 'catalog:'
-        version: 4.0.16(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+        version: 4.0.16(vitest@4.0.16(@opentelemetry/api@1.9.0)(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
       tsx:
         specifier: 'catalog:'
         version: 4.21.0
@@ -751,7 +815,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
+        version: 4.0.16(@opentelemetry/api@1.9.0)(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
 
   samples/basic-order-processing-contract:
     dependencies:
@@ -798,7 +862,7 @@ importers:
         version: link:../../tools/tsconfig
       '@vitest/coverage-v8':
         specifier: 'catalog:'
-        version: 4.0.16(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+        version: 4.0.16(vitest@4.0.16(@opentelemetry/api@1.9.0)(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
       tsx:
         specifier: 'catalog:'
         version: 4.21.0
@@ -807,7 +871,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
+        version: 4.0.16(@opentelemetry/api@1.9.0)(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
 
   samples/basic-order-processing-worker-nestjs:
     dependencies:
@@ -850,7 +914,7 @@ importers:
         version: link:../../tools/tsconfig
       '@vitest/coverage-v8':
         specifier: 'catalog:'
-        version: 4.0.16(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+        version: 4.0.16(vitest@4.0.16(@opentelemetry/api@1.9.0)(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
       tsx:
         specifier: 'catalog:'
         version: 4.21.0
@@ -859,7 +923,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
+        version: 4.0.16(@opentelemetry/api@1.9.0)(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
 
   tools/tsconfig: {}
 
@@ -1629,6 +1693,42 @@ packages:
 
   '@openapi-contrib/openapi-schema-to-json-schema@3.2.0':
     resolution: {integrity: sha512-Gj6C0JwCr8arj0sYuslWXUBSP/KnUlEGnPW4qxlXvAl543oaNQgMgIgkQUA6vs5BCCvwTEiL8m/wdWzfl4UvSw==}
+
+  '@opentelemetry/api@1.9.0':
+    resolution: {integrity: sha512-3giAOQvZiH5F9bMlMiv8+GSPMeqg0dbaeo58/0SlA9sxSqZhnUtxzX9/2FzyhS9sWQf5S0GJE0AKBrFqjpeYcg==}
+    engines: {node: '>=8.0.0'}
+
+  '@opentelemetry/core@1.29.0':
+    resolution: {integrity: sha512-gmT7vAreXl0DTHD2rVZcw3+l2g84+5XiHIqdBUxXbExymPCvSsGOpiwMmn8nkiJur28STV31wnhIDrzWDPzjfA==}
+    engines: {node: '>=14'}
+    peerDependencies:
+      '@opentelemetry/api': '>=1.0.0 <1.10.0'
+
+  '@opentelemetry/resources@1.29.0':
+    resolution: {integrity: sha512-s7mLXuHZE7RQr1wwweGcaRp3Q4UJJ0wazeGlc/N5/XSe6UyXfsh1UQGMADYeg7YwD+cEdMtU1yJAUXdnFzYzyQ==}
+    engines: {node: '>=14'}
+    peerDependencies:
+      '@opentelemetry/api': '>=1.0.0 <1.10.0'
+
+  '@opentelemetry/sdk-metrics@1.29.0':
+    resolution: {integrity: sha512-MkVtuzDjXZaUJSuJlHn6BSXjcQlMvHcsDV7LjY4P6AJeffMa4+kIGDjzsCf6DkAh6Vqlwag5EWEam3KZOX5Drw==}
+    engines: {node: '>=14'}
+    peerDependencies:
+      '@opentelemetry/api': '>=1.3.0 <1.10.0'
+
+  '@opentelemetry/sdk-trace-base@1.29.0':
+    resolution: {integrity: sha512-hEOpAYLKXF3wGJpXOtWsxEtqBgde0SCv+w+jvr3/UusR4ll3QrENEGnSl1WDCyRrpqOQ5NCNOvZch9UFVa7MnQ==}
+    engines: {node: '>=14'}
+    peerDependencies:
+      '@opentelemetry/api': '>=1.0.0 <1.10.0'
+
+  '@opentelemetry/semantic-conventions@1.28.0':
+    resolution: {integrity: sha512-lp4qAiMTD4sNWW4DbKLBkfiMZ4jbAboJIGOQr5DvciMRI494OapieI9qiODpOt0XBr1LjIDy1xAGAnVs5supTA==}
+    engines: {node: '>=14'}
+
+  '@opentelemetry/semantic-conventions@1.29.0':
+    resolution: {integrity: sha512-KZ1JsXcP2pqunfsJBNk+py6AJ5R6ZJ3yvM5Lhhf93rHPHvdDzgfMYPS4F7GNO3j/MVDCtfbttrkcpu7sl0Wu/Q==}
+    engines: {node: '>=14'}
 
   '@orpc/arktype@1.13.1':
     resolution: {integrity: sha512-mWFxB1StbCsMguk94gaPJ1VQg7uYTcAAGkY4UzEJnQydPSVyXzdATDjDG9IGIXq6aYKSDPoRdZISAZFQDtzC0g==}
@@ -6060,11 +6160,41 @@ snapshots:
     dependencies:
       fast-deep-equal: 3.1.3
 
-  '@orpc/arktype@1.13.1(@ark/schema@0.56.0)(@orpc/contract@1.13.1)(arktype@2.1.29)':
+  '@opentelemetry/api@1.9.0': {}
+
+  '@opentelemetry/core@1.29.0(@opentelemetry/api@1.9.0)':
+    dependencies:
+      '@opentelemetry/api': 1.9.0
+      '@opentelemetry/semantic-conventions': 1.28.0
+
+  '@opentelemetry/resources@1.29.0(@opentelemetry/api@1.9.0)':
+    dependencies:
+      '@opentelemetry/api': 1.9.0
+      '@opentelemetry/core': 1.29.0(@opentelemetry/api@1.9.0)
+      '@opentelemetry/semantic-conventions': 1.28.0
+
+  '@opentelemetry/sdk-metrics@1.29.0(@opentelemetry/api@1.9.0)':
+    dependencies:
+      '@opentelemetry/api': 1.9.0
+      '@opentelemetry/core': 1.29.0(@opentelemetry/api@1.9.0)
+      '@opentelemetry/resources': 1.29.0(@opentelemetry/api@1.9.0)
+
+  '@opentelemetry/sdk-trace-base@1.29.0(@opentelemetry/api@1.9.0)':
+    dependencies:
+      '@opentelemetry/api': 1.9.0
+      '@opentelemetry/core': 1.29.0(@opentelemetry/api@1.9.0)
+      '@opentelemetry/resources': 1.29.0(@opentelemetry/api@1.9.0)
+      '@opentelemetry/semantic-conventions': 1.28.0
+
+  '@opentelemetry/semantic-conventions@1.28.0': {}
+
+  '@opentelemetry/semantic-conventions@1.29.0': {}
+
+  '@orpc/arktype@1.13.1(@ark/schema@0.56.0)(@opentelemetry/api@1.9.0)(@orpc/contract@1.13.1(@opentelemetry/api@1.9.0))(arktype@2.1.29)':
     dependencies:
       '@ark/schema': 0.56.0
-      '@orpc/contract': 1.13.1
-      '@orpc/openapi': 1.13.1
+      '@orpc/contract': 1.13.1(@opentelemetry/api@1.9.0)
+      '@orpc/openapi': 1.13.1(@opentelemetry/api@1.9.0)
       arktype: 2.1.29
     transitivePeerDependencies:
       - '@opentelemetry/api'
@@ -6072,19 +6202,19 @@ snapshots:
       - fastify
       - ws
 
-  '@orpc/client@1.13.1':
+  '@orpc/client@1.13.1(@opentelemetry/api@1.9.0)':
     dependencies:
-      '@orpc/shared': 1.13.1
-      '@orpc/standard-server': 1.13.1
-      '@orpc/standard-server-fetch': 1.13.1
-      '@orpc/standard-server-peer': 1.13.1
+      '@orpc/shared': 1.13.1(@opentelemetry/api@1.9.0)
+      '@orpc/standard-server': 1.13.1(@opentelemetry/api@1.9.0)
+      '@orpc/standard-server-fetch': 1.13.1(@opentelemetry/api@1.9.0)
+      '@orpc/standard-server-peer': 1.13.1(@opentelemetry/api@1.9.0)
     transitivePeerDependencies:
       - '@opentelemetry/api'
 
-  '@orpc/contract@1.13.1':
+  '@orpc/contract@1.13.1(@opentelemetry/api@1.9.0)':
     dependencies:
-      '@orpc/client': 1.13.1
-      '@orpc/shared': 1.13.1
+      '@orpc/client': 1.13.1(@opentelemetry/api@1.9.0)
+      '@orpc/shared': 1.13.1(@opentelemetry/api@1.9.0)
       '@standard-schema/spec': 1.1.0
       openapi-types: 12.1.3
     transitivePeerDependencies:
@@ -6092,13 +6222,13 @@ snapshots:
 
   '@orpc/interop@1.13.1': {}
 
-  '@orpc/json-schema@1.13.1':
+  '@orpc/json-schema@1.13.1(@opentelemetry/api@1.9.0)':
     dependencies:
-      '@orpc/contract': 1.13.1
+      '@orpc/contract': 1.13.1(@opentelemetry/api@1.9.0)
       '@orpc/interop': 1.13.1
-      '@orpc/openapi': 1.13.1
-      '@orpc/server': 1.13.1
-      '@orpc/shared': 1.13.1
+      '@orpc/openapi': 1.13.1(@opentelemetry/api@1.9.0)
+      '@orpc/server': 1.13.1(@opentelemetry/api@1.9.0)
+      '@orpc/shared': 1.13.1(@opentelemetry/api@1.9.0)
       json-schema-typed: 8.0.2
     transitivePeerDependencies:
       - '@opentelemetry/api'
@@ -6106,24 +6236,24 @@ snapshots:
       - fastify
       - ws
 
-  '@orpc/openapi-client@1.13.1':
+  '@orpc/openapi-client@1.13.1(@opentelemetry/api@1.9.0)':
     dependencies:
-      '@orpc/client': 1.13.1
-      '@orpc/contract': 1.13.1
-      '@orpc/shared': 1.13.1
-      '@orpc/standard-server': 1.13.1
+      '@orpc/client': 1.13.1(@opentelemetry/api@1.9.0)
+      '@orpc/contract': 1.13.1(@opentelemetry/api@1.9.0)
+      '@orpc/shared': 1.13.1(@opentelemetry/api@1.9.0)
+      '@orpc/standard-server': 1.13.1(@opentelemetry/api@1.9.0)
     transitivePeerDependencies:
       - '@opentelemetry/api'
 
-  '@orpc/openapi@1.13.1':
+  '@orpc/openapi@1.13.1(@opentelemetry/api@1.9.0)':
     dependencies:
-      '@orpc/client': 1.13.1
-      '@orpc/contract': 1.13.1
+      '@orpc/client': 1.13.1(@opentelemetry/api@1.9.0)
+      '@orpc/contract': 1.13.1(@opentelemetry/api@1.9.0)
       '@orpc/interop': 1.13.1
-      '@orpc/openapi-client': 1.13.1
-      '@orpc/server': 1.13.1
-      '@orpc/shared': 1.13.1
-      '@orpc/standard-server': 1.13.1
+      '@orpc/openapi-client': 1.13.1(@opentelemetry/api@1.9.0)
+      '@orpc/server': 1.13.1(@opentelemetry/api@1.9.0)
+      '@orpc/shared': 1.13.1(@opentelemetry/api@1.9.0)
+      '@orpc/standard-server': 1.13.1(@opentelemetry/api@1.9.0)
       json-schema-typed: 8.0.2
       rou3: 0.7.12
     transitivePeerDependencies:
@@ -6132,78 +6262,80 @@ snapshots:
       - fastify
       - ws
 
-  '@orpc/server@1.13.1':
+  '@orpc/server@1.13.1(@opentelemetry/api@1.9.0)':
     dependencies:
-      '@orpc/client': 1.13.1
-      '@orpc/contract': 1.13.1
+      '@orpc/client': 1.13.1(@opentelemetry/api@1.9.0)
+      '@orpc/contract': 1.13.1(@opentelemetry/api@1.9.0)
       '@orpc/interop': 1.13.1
-      '@orpc/shared': 1.13.1
-      '@orpc/standard-server': 1.13.1
-      '@orpc/standard-server-aws-lambda': 1.13.1
-      '@orpc/standard-server-fastify': 1.13.1
-      '@orpc/standard-server-fetch': 1.13.1
-      '@orpc/standard-server-node': 1.13.1
-      '@orpc/standard-server-peer': 1.13.1
+      '@orpc/shared': 1.13.1(@opentelemetry/api@1.9.0)
+      '@orpc/standard-server': 1.13.1(@opentelemetry/api@1.9.0)
+      '@orpc/standard-server-aws-lambda': 1.13.1(@opentelemetry/api@1.9.0)
+      '@orpc/standard-server-fastify': 1.13.1(@opentelemetry/api@1.9.0)
+      '@orpc/standard-server-fetch': 1.13.1(@opentelemetry/api@1.9.0)
+      '@orpc/standard-server-node': 1.13.1(@opentelemetry/api@1.9.0)
+      '@orpc/standard-server-peer': 1.13.1(@opentelemetry/api@1.9.0)
       cookie: 1.1.1
     transitivePeerDependencies:
       - '@opentelemetry/api'
       - fastify
 
-  '@orpc/shared@1.13.1':
+  '@orpc/shared@1.13.1(@opentelemetry/api@1.9.0)':
     dependencies:
       radash: 12.1.1
       type-fest: 5.3.1
+    optionalDependencies:
+      '@opentelemetry/api': 1.9.0
 
-  '@orpc/standard-server-aws-lambda@1.13.1':
+  '@orpc/standard-server-aws-lambda@1.13.1(@opentelemetry/api@1.9.0)':
     dependencies:
-      '@orpc/shared': 1.13.1
-      '@orpc/standard-server': 1.13.1
-      '@orpc/standard-server-fetch': 1.13.1
-      '@orpc/standard-server-node': 1.13.1
+      '@orpc/shared': 1.13.1(@opentelemetry/api@1.9.0)
+      '@orpc/standard-server': 1.13.1(@opentelemetry/api@1.9.0)
+      '@orpc/standard-server-fetch': 1.13.1(@opentelemetry/api@1.9.0)
+      '@orpc/standard-server-node': 1.13.1(@opentelemetry/api@1.9.0)
     transitivePeerDependencies:
       - '@opentelemetry/api'
 
-  '@orpc/standard-server-fastify@1.13.1':
+  '@orpc/standard-server-fastify@1.13.1(@opentelemetry/api@1.9.0)':
     dependencies:
-      '@orpc/shared': 1.13.1
-      '@orpc/standard-server': 1.13.1
-      '@orpc/standard-server-node': 1.13.1
+      '@orpc/shared': 1.13.1(@opentelemetry/api@1.9.0)
+      '@orpc/standard-server': 1.13.1(@opentelemetry/api@1.9.0)
+      '@orpc/standard-server-node': 1.13.1(@opentelemetry/api@1.9.0)
     transitivePeerDependencies:
       - '@opentelemetry/api'
 
-  '@orpc/standard-server-fetch@1.13.1':
+  '@orpc/standard-server-fetch@1.13.1(@opentelemetry/api@1.9.0)':
     dependencies:
-      '@orpc/shared': 1.13.1
-      '@orpc/standard-server': 1.13.1
+      '@orpc/shared': 1.13.1(@opentelemetry/api@1.9.0)
+      '@orpc/standard-server': 1.13.1(@opentelemetry/api@1.9.0)
     transitivePeerDependencies:
       - '@opentelemetry/api'
 
-  '@orpc/standard-server-node@1.13.1':
+  '@orpc/standard-server-node@1.13.1(@opentelemetry/api@1.9.0)':
     dependencies:
-      '@orpc/shared': 1.13.1
-      '@orpc/standard-server': 1.13.1
-      '@orpc/standard-server-fetch': 1.13.1
+      '@orpc/shared': 1.13.1(@opentelemetry/api@1.9.0)
+      '@orpc/standard-server': 1.13.1(@opentelemetry/api@1.9.0)
+      '@orpc/standard-server-fetch': 1.13.1(@opentelemetry/api@1.9.0)
     transitivePeerDependencies:
       - '@opentelemetry/api'
 
-  '@orpc/standard-server-peer@1.13.1':
+  '@orpc/standard-server-peer@1.13.1(@opentelemetry/api@1.9.0)':
     dependencies:
-      '@orpc/shared': 1.13.1
-      '@orpc/standard-server': 1.13.1
+      '@orpc/shared': 1.13.1(@opentelemetry/api@1.9.0)
+      '@orpc/standard-server': 1.13.1(@opentelemetry/api@1.9.0)
     transitivePeerDependencies:
       - '@opentelemetry/api'
 
-  '@orpc/standard-server@1.13.1':
+  '@orpc/standard-server@1.13.1(@opentelemetry/api@1.9.0)':
     dependencies:
-      '@orpc/shared': 1.13.1
+      '@orpc/shared': 1.13.1(@opentelemetry/api@1.9.0)
     transitivePeerDependencies:
       - '@opentelemetry/api'
 
-  '@orpc/valibot@1.13.1(@orpc/contract@1.13.1)(@orpc/server@1.13.1)(valibot@1.2.0(typescript@5.9.3))':
+  '@orpc/valibot@1.13.1(@opentelemetry/api@1.9.0)(@orpc/contract@1.13.1(@opentelemetry/api@1.9.0))(@orpc/server@1.13.1(@opentelemetry/api@1.9.0))(valibot@1.2.0(typescript@5.9.3))':
     dependencies:
-      '@orpc/contract': 1.13.1
-      '@orpc/openapi': 1.13.1
-      '@orpc/server': 1.13.1
+      '@orpc/contract': 1.13.1(@opentelemetry/api@1.9.0)
+      '@orpc/openapi': 1.13.1(@opentelemetry/api@1.9.0)
+      '@orpc/server': 1.13.1(@opentelemetry/api@1.9.0)
       '@valibot/to-json-schema': 1.5.0(valibot@1.2.0(typescript@5.9.3))
       valibot: 1.2.0(typescript@5.9.3)
     transitivePeerDependencies:
@@ -6212,13 +6344,13 @@ snapshots:
       - fastify
       - ws
 
-  '@orpc/zod@1.13.1(@orpc/contract@1.13.1)(@orpc/server@1.13.1)(zod@4.2.1)':
+  '@orpc/zod@1.13.1(@opentelemetry/api@1.9.0)(@orpc/contract@1.13.1(@opentelemetry/api@1.9.0))(@orpc/server@1.13.1(@opentelemetry/api@1.9.0))(zod@4.2.1)':
     dependencies:
-      '@orpc/contract': 1.13.1
-      '@orpc/json-schema': 1.13.1
-      '@orpc/openapi': 1.13.1
-      '@orpc/server': 1.13.1
-      '@orpc/shared': 1.13.1
+      '@orpc/contract': 1.13.1(@opentelemetry/api@1.9.0)
+      '@orpc/json-schema': 1.13.1(@opentelemetry/api@1.9.0)
+      '@orpc/openapi': 1.13.1(@opentelemetry/api@1.9.0)
+      '@orpc/server': 1.13.1(@opentelemetry/api@1.9.0)
+      '@orpc/shared': 1.13.1(@opentelemetry/api@1.9.0)
       escape-string-regexp: 5.0.0
       wildcard-match: 5.1.4
       zod: 4.2.1
@@ -6915,7 +7047,7 @@ snapshots:
       vite: 5.4.21(@types/node@25.0.3)
       vue: 3.5.26(typescript@5.9.3)
 
-  '@vitest/coverage-v8@4.0.16(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))':
+  '@vitest/coverage-v8@4.0.16(vitest@4.0.16(@opentelemetry/api@1.9.0)(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))':
     dependencies:
       '@bcoe/v8-coverage': 1.0.2
       '@vitest/utils': 4.0.16
@@ -6928,7 +7060,7 @@ snapshots:
       obug: 2.1.1
       std-env: 3.10.0
       tinyrainbow: 3.0.3
-      vitest: 4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
+      vitest: 4.0.16(@opentelemetry/api@1.9.0)(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
     transitivePeerDependencies:
       - supports-color
 
@@ -9840,7 +9972,7 @@ snapshots:
       - typescript
       - universal-cookie
 
-  vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2):
+  vitest@4.0.16(@opentelemetry/api@1.9.0)(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2):
     dependencies:
       '@vitest/expect': 4.0.16
       '@vitest/mocker': 4.0.16(vite@7.3.0(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
@@ -9863,6 +9995,7 @@ snapshots:
       vite: 7.3.0(@types/node@25.0.3)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
       why-is-node-running: 2.3.0
     optionalDependencies:
+      '@opentelemetry/api': 1.9.0
       '@types/node': 25.0.3
     transitivePeerDependencies:
       - jiti
