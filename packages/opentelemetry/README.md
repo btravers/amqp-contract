@@ -26,7 +26,6 @@ import { ClientInstrumentation, ClientMetrics } from '@amqp-contract/opentelemet
 // Create instrumentation
 const instrumentation = new ClientInstrumentation({
   enableTracing: true,
-  enableMetrics: true,
 });
 
 const metrics = new ClientMetrics();
@@ -43,7 +42,6 @@ import { WorkerInstrumentation, WorkerMetrics } from '@amqp-contract/opentelemet
 // Create instrumentation
 const instrumentation = new WorkerInstrumentation({
   enableTracing: true,
-  enableMetrics: true,
 });
 
 const metrics = new WorkerMetrics();
