@@ -1,3 +1,8 @@
+---
+title: NestJS Worker Usage - Type-safe AMQP Message Consuming with NestJS
+description: Build type-safe AMQP message consumers in NestJS applications. Learn about automatic lifecycle management, dependency injection, and schema validation with RabbitMQ workers.
+---
+
 # NestJS Worker Usage
 
 Learn how to integrate the type-safe AMQP worker with [NestJS](https://nestjs.com/) applications for consuming messages with automatic lifecycle management.

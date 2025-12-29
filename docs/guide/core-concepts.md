@@ -1,3 +1,8 @@
+---
+title: Core Concepts - Understanding Type-safe AMQP Messaging Contracts
+description: Learn the fundamental concepts of amqp-contract including contract-first design, exchanges, queues, publishers, consumers, and schema validation for AMQP/RabbitMQ applications.
+---
+
 # Core Concepts
 
 Understanding these core concepts will help you use amqp-contract effectively.
