@@ -196,7 +196,7 @@ export default withMermaid(
         {
           name: "keywords",
           content:
-            "AMQP, RabbitMQ, TypeScript, Node.js, NestJS, messaging, message queue, message broker, type-safe, schema validation, type safety, contract-first, AsyncAPI, amqplib, type-safe messaging, schema-based messaging, event-driven architecture, microservices, distributed systems",
+            "AMQP, RabbitMQ, TypeScript, Node.js, NestJS, messaging, message queue, message broker, type-safe, schema validation, contract-first, AsyncAPI, amqplib, type-safe messaging, schema-based messaging, event-driven architecture, microservices, distributed systems",
         },
       ],
       // Open Graph meta tags for better social sharing and SEO

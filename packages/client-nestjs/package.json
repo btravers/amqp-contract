@@ -10,7 +10,6 @@
     "rabbitmq",
     "typescript",
     "nodejs",
-    "node.js",
     "messaging",
     "type-safe",
     "schema",
@@ -18,7 +17,6 @@
     "message-broker",
     "message-queue",
     "publisher",
-    "type-safety",
     "nest"
   ],
   "homepage": "https://github.com/btravers/amqp-contract#readme",

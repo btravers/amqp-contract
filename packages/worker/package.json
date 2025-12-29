@@ -9,15 +9,13 @@
     "typescript",
     "worker",
     "nodejs",
-    "node.js",
     "messaging",
     "type-safe",
     "schema",
     "validation",
     "message-broker",
     "message-queue",
-    "consumer",
-    "type-safety"
+    "consumer"
   ],
   "homepage": "https://github.com/btravers/amqp-contract#readme",
   "bugs": {

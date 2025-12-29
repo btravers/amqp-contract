@@ -10,7 +10,6 @@
     "testing",
     "testcontainers",
     "nodejs",
-    "node.js",
     "type-safe",
     "vitest"
   ],
