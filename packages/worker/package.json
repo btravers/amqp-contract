@@ -65,9 +65,11 @@
     "@swan-io/boxed": "catalog:"
   },
   "devDependencies": {
+    "@amqp-contract/opentelemetry": "workspace:*",
     "@amqp-contract/testing": "workspace:*",
     "@amqp-contract/tsconfig": "workspace:*",
     "@amqp-contract/typedoc": "workspace:*",
+    "@opentelemetry/api": "catalog:",
     "@types/amqplib": "catalog:",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
@@ -79,5 +81,13 @@
     "typescript": "catalog:",
     "vitest": "catalog:",
     "zod": "catalog:"
+  },
+  "peerDependencies": {
+    "@amqp-contract/opentelemetry": "^0.6.0"
+  },
+  "peerDependenciesMeta": {
+    "@amqp-contract/opentelemetry": {
+      "optional": true
+    }
   }
 }

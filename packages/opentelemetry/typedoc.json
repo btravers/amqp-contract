@@ -1,0 +1,5 @@
+{
+  "extends": ["@amqp-contract/typedoc"],
+  "entryPoints": ["./src/index.ts"],
+  "out": "./docs"
+}

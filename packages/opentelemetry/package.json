@@ -1,21 +1,15 @@
 {
-  "name": "@amqp-contract/client",
+  "name": "@amqp-contract/opentelemetry",
   "version": "0.6.0",
-  "description": "Client utilities for publishing messages using amqp-contract",
+  "description": "OpenTelemetry integration for observability in amqp-contract",
   "keywords": [
     "amqp",
-    "client",
     "contract",
+    "observability",
+    "opentelemetry",
     "rabbitmq",
-    "typescript",
-    "nodejs",
-    "messaging",
-    "type-safe",
-    "schema",
-    "validation",
-    "message-broker",
-    "message-queue",
-    "publisher"
+    "tracing",
+    "typescript"
   ],
   "homepage": "https://github.com/btravers/amqp-contract#readme",
   "bugs": {
@@ -24,7 +18,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/btravers/amqp-contract.git",
-    "directory": "packages/client"
+    "directory": "packages/opentelemetry"
   },
   "license": "MIT",
   "author": "Benoit TRAVERS <benoit.travers.fr@gmail.com>",
@@ -53,41 +47,30 @@
     "build": "tsdown src/index.ts --format cjs,esm --dts --clean",
     "build:docs": "typedoc",
     "dev": "tsdown src/index.ts --format cjs,esm --dts --watch",
-    "test": "vitest run --project integration",
-    "test:integration": "vitest run --project integration",
-    "test:watch": "vitest --project integration",
+    "test": "vitest run --project unit",
+    "test:unit": "vitest run --project unit",
+    "test:watch": "vitest --project unit",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@amqp-contract/contract": "workspace:*",
-    "@amqp-contract/core": "workspace:*",
-    "@standard-schema/spec": "catalog:",
-    "@swan-io/boxed": "catalog:"
+    "@opentelemetry/api": "catalog:",
+    "@opentelemetry/core": "catalog:",
+    "@opentelemetry/resources": "catalog:",
+    "@opentelemetry/sdk-metrics": "catalog:",
+    "@opentelemetry/sdk-trace-base": "catalog:",
+    "@opentelemetry/semantic-conventions": "catalog:"
   },
   "devDependencies": {
-    "@amqp-contract/opentelemetry": "workspace:*",
-    "@amqp-contract/testing": "workspace:*",
     "@amqp-contract/tsconfig": "workspace:*",
     "@amqp-contract/typedoc": "workspace:*",
-    "@opentelemetry/api": "catalog:",
-    "@types/amqplib": "catalog:",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
-    "amqp-connection-manager": "catalog:",
-    "amqplib": "catalog:",
     "tsdown": "catalog:",
     "typedoc": "catalog:",
-    "typedoc-plugin-markdown": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:",
-    "zod": "catalog:"
+    "vitest": "catalog:"
   },
   "peerDependencies": {
-    "@amqp-contract/opentelemetry": "^0.6.0"
-  },
-  "peerDependenciesMeta": {
-    "@amqp-contract/opentelemetry": {
-      "optional": true
-    }
+    "@opentelemetry/api": "^1.9.0"
   }
 }
