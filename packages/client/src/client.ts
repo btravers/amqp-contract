@@ -5,6 +5,7 @@ import { Future, Result } from "@swan-io/boxed";
 import { MessageValidationError, TechnicalError } from "./errors.js";
 import type { ClientInferPublisherInput } from "./types.js";
 import type { Options } from "amqplib";
+import type { Span } from "@opentelemetry/api";
 
 // Import OpenTelemetry types conditionally
 type ClientInstrumentation = {
@@ -13,12 +14,12 @@ type ClientInstrumentation = {
     exchangeName: string,
     routingKey: string,
     exchangeType?: string,
-  ) => unknown;
+  ) => Span | undefined;
   injectTraceContext: (options?: Record<string, unknown>) => Record<string, unknown>;
-  recordValidationError: (span: unknown, error: unknown) => void;
-  recordTechnicalError: (span: unknown, error: unknown) => void;
-  recordSuccess: (span: unknown) => void;
-  endSpan: (span: unknown) => void;
+  recordValidationError: (span: Span | undefined, error: unknown) => void;
+  recordTechnicalError: (span: Span | undefined, error: unknown) => void;
+  recordSuccess: (span: Span | undefined) => void;
+  endSpan: (span: Span | undefined) => void;
 };
 
 type ClientMetrics = {
@@ -194,11 +195,15 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     // Validate message using schema, then publish, then end span
     return validateMessage()
       .flatMapOk((validatedMessage) => publishMessage(validatedMessage))
-      .tapOk(() => {
-        this.instrumentation?.endSpan(span);
-      })
-      .tapError(() => {
-        this.instrumentation?.endSpan(span);
+      .tap((result) => {
+        // Set span status based on result
+        if (result.isError()) {
+          // Span is already marked as error in validation/technical error handlers
+          // Just end it here
+          this.instrumentation?.endSpan(span);
+        } else {
+          this.instrumentation?.endSpan(span);
+        }
       });
   }
 

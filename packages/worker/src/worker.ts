@@ -15,17 +15,18 @@ import type {
   WorkerInferConsumerHandlers,
   WorkerInferConsumerInput,
 } from "./types.js";
+import type { Context, Span } from "@opentelemetry/api";
 
 // Import OpenTelemetry types conditionally
 type WorkerInstrumentation = {
-  extractTraceContext: (headers?: Record<string, unknown>) => unknown;
-  startConsumeSpan: (consumerName: string, queueName: string, parentContext?: unknown) => unknown;
-  startBatchProcessSpan: (consumerName: string, queueName: string, batchSize: number) => unknown;
-  recordValidationError: (span: unknown, error: unknown) => void;
-  recordProcessingError: (span: unknown, error: unknown) => void;
-  recordSuccess: (span: unknown) => void;
-  endSpan: (span: unknown) => void;
-  withSpan: <T>(span: unknown, callback: () => T) => T;
+  extractTraceContext: (headers?: Record<string, unknown>) => Context;
+  startConsumeSpan: (consumerName: string, queueName: string, parentContext?: Context) => Span | undefined;
+  startBatchProcessSpan: (consumerName: string, queueName: string, batchSize: number) => Span | undefined;
+  recordValidationError: (span: Span | undefined, error: unknown) => void;
+  recordProcessingError: (span: Span | undefined, error: unknown) => void;
+  recordSuccess: (span: Span | undefined) => void;
+  endSpan: (span: Span | undefined) => void;
+  withSpan: <T>(span: Span | undefined, callback: () => T) => T;
 };
 
 type WorkerMetrics = {

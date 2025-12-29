@@ -1,6 +1,14 @@
 # @amqp-contract/opentelemetry
 
-OpenTelemetry integration for observability in amqp-contract. This package provides automatic tracing and metrics collection for AMQP message publishing and consumption.
+**OpenTelemetry integration for distributed tracing and metrics in amqp-contract.**
+
+[![CI](https://github.com/btravers/amqp-contract/actions/workflows/ci.yml/badge.svg)](https://github.com/btravers/amqp-contract/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/@amqp-contract/opentelemetry.svg?logo=npm)](https://www.npmjs.com/package/@amqp-contract/opentelemetry)
+[![npm downloads](https://img.shields.io/npm/dm/@amqp-contract/opentelemetry.svg)](https://www.npmjs.com/package/@amqp-contract/opentelemetry)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?logo=typescript)](https://www.typescriptlang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+📖 **[Full documentation →](https://btravers.github.io/amqp-contract/guides/observability)**
 
 ## Features
 
@@ -15,7 +23,7 @@ OpenTelemetry integration for observability in amqp-contract. This package provi
 pnpm add @amqp-contract/opentelemetry @opentelemetry/api
 ```
 
-## Usage
+## Quick Start
 
 ### Client Instrumentation
 
@@ -23,14 +31,15 @@ pnpm add @amqp-contract/opentelemetry @opentelemetry/api
 import { TypedAmqpClient } from '@amqp-contract/client';
 import { ClientInstrumentation, ClientMetrics } from '@amqp-contract/opentelemetry';
 
-// Create instrumentation
-const instrumentation = new ClientInstrumentation({
-  enableTracing: true,
-});
-
+const instrumentation = new ClientInstrumentation({ enableTracing: true });
 const metrics = new ClientMetrics();
 
-// Use with client (integration shown in @amqp-contract/client)
+const client = await TypedAmqpClient.create({
+  contract,
+  urls: ['amqp://localhost'],
+  instrumentation,
+  metrics,
+}).resultToPromise();
 ```
 
 ### Worker Instrumentation
@@ -39,55 +48,22 @@ const metrics = new ClientMetrics();
 import { TypedAmqpWorker } from '@amqp-contract/worker';
 import { WorkerInstrumentation, WorkerMetrics } from '@amqp-contract/opentelemetry';
 
-// Create instrumentation
-const instrumentation = new WorkerInstrumentation({
-  enableTracing: true,
-});
-
+const instrumentation = new WorkerInstrumentation({ enableTracing: true });
 const metrics = new WorkerMetrics();
 
-// Use with worker (integration shown in @amqp-contract/worker)
+const worker = await TypedAmqpWorker.create({
+  contract,
+  handlers: { /* ... */ },
+  urls: ['amqp://localhost'],
+  instrumentation,
+  metrics,
+}).resultToPromise();
 ```
 
-## Metrics
+## Documentation
 
-### Client Metrics
-
-- `amqp_contract.client.publish` - Counter for published messages
-- `amqp_contract.client.publish.duration` - Histogram of publishing durations
-- `amqp_contract.client.publish.errors` - Counter for publishing errors
-- `amqp_contract.client.validation.errors` - Counter for validation errors
-
-### Worker Metrics
-
-- `amqp_contract.worker.consume` - Counter for consumed messages
-- `amqp_contract.worker.consume.duration` - Histogram of processing durations
-- `amqp_contract.worker.consume.errors` - Counter for processing errors
-- `amqp_contract.worker.validation.errors` - Counter for validation errors
-- `amqp_contract.worker.batch.size` - Histogram of batch sizes
-
-## Trace Attributes
-
-All spans include semantic attributes following OpenTelemetry conventions:
-
-- `messaging.system` - Always "rabbitmq"
-- `messaging.operation` - "publish", "receive", or "process"
-- `messaging.destination.name` - Exchange or queue name
-- `messaging.rabbitmq.routing_key` - Routing key used
-- `messaging.rabbitmq.queue_name` - Queue name for consumers
-- `amqp_contract.publisher.name` - Publisher name from contract
-- `amqp_contract.consumer.name` - Consumer name from contract
-- `amqp_contract.validation.success` - Whether message passed validation
-
-## Context Propagation
-
-Trace context is automatically propagated through AMQP message headers using the W3C Trace Context format:
-
-- `traceparent` - Trace ID, span ID, and trace flags
-- `tracestate` - Vendor-specific trace information
-
-This ensures distributed traces flow correctly across service boundaries.
+For detailed usage, configuration options, and best practices, see the [full documentation](https://btravers.github.io/amqp-contract/guides/observability).
 
 ## License
 
-MIT
+MIT © [Benjamin Travers](https://github.com/btravers)
