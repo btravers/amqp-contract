@@ -204,9 +204,6 @@ importers:
       tsx:
         specifier: 'catalog:'
         version: 4.21.0
-      turbo:
-        specifier: 'catalog:'
-        version: 2.7.2
       vitepress:
         specifier: 'catalog:'
         version: 1.6.4(@algolia/client-search@5.46.1)(@types/node@25.0.3)(postcss@8.5.6)(typescript@5.9.3)
