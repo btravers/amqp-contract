@@ -26,9 +26,47 @@ export type InstrumentationConfig = {
 };
 
 /**
+ * Interface for client instrumentation operations
+ */
+export interface IClientInstrumentation {
+  startPublishSpan(
+    publisherName: string,
+    exchangeName: string,
+    routingKey: string,
+    exchangeType?: string,
+  ): Span | undefined;
+  injectTraceContext<T extends Record<string, unknown>>(options?: T): T;
+  recordValidationError(span: Span | undefined, error: unknown): void;
+  recordTechnicalError(span: Span | undefined, error: unknown): void;
+  recordSuccess(span: Span | undefined): void;
+  endSpan(span: Span | undefined): void;
+}
+
+/**
+ * Interface for worker instrumentation operations
+ */
+export interface IWorkerInstrumentation {
+  extractTraceContext(headers?: Record<string, unknown>): Context;
+  startConsumeSpan(
+    consumerName: string,
+    queueName: string,
+    parentContext?: Context,
+  ): Span | undefined;
+  startBatchProcessSpan(
+    consumerName: string,
+    queueName: string,
+    batchSize: number,
+  ): Span | undefined;
+  recordValidationError(span: Span | undefined, error: unknown): void;
+  recordProcessingError(span: Span | undefined, error: unknown): void;
+  recordSuccess(span: Span | undefined): void;
+  endSpan(span: Span | undefined): void;
+}
+
+/**
  * Instrumentation utilities for AMQP client operations
  */
-export class ClientInstrumentation {
+export class ClientInstrumentation implements IClientInstrumentation {
   private readonly tracer: Tracer;
   private readonly enableTracing: boolean;
 
@@ -146,7 +184,7 @@ export class ClientInstrumentation {
 /**
  * Instrumentation utilities for AMQP worker operations
  */
-export class WorkerInstrumentation {
+export class WorkerInstrumentation implements IWorkerInstrumentation {
   private readonly tracer: Tracer;
   private readonly enableTracing: boolean;
 

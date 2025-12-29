@@ -5,21 +5,21 @@ import { Future, Result } from "@swan-io/boxed";
 import { MessageValidationError, TechnicalError } from "./errors.js";
 import type { ClientInferPublisherInput } from "./types.js";
 import type { Options } from "amqplib";
-import type { Span } from "@opentelemetry/api";
 
-// Import OpenTelemetry types conditionally
+// Import OpenTelemetry types conditionally - these will match the actual implementations
+// when @amqp-contract/opentelemetry is installed
 type ClientInstrumentation = {
   startPublishSpan: (
     publisherName: string,
     exchangeName: string,
     routingKey: string,
     exchangeType?: string,
-  ) => Span | undefined;
+  ) => unknown;
   injectTraceContext: <T extends Record<string, unknown>>(options?: T) => T;
-  recordValidationError: (span: Span | undefined, error: unknown) => void;
-  recordTechnicalError: (span: Span | undefined, error: unknown) => void;
-  recordSuccess: (span: Span | undefined) => void;
-  endSpan: (span: Span | undefined) => void;
+  recordValidationError: (span: unknown, error: unknown) => void;
+  recordTechnicalError: (span: unknown, error: unknown) => void;
+  recordSuccess: (span: unknown) => void;
+  endSpan: (span: unknown) => void;
 };
 
 type ClientMetrics = {

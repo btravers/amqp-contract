@@ -17,9 +17,28 @@ export type MetricsConfig = {
 };
 
 /**
+ * Interface for client metrics operations
+ */
+export interface IClientMetrics {
+  recordPublish(publisherName: string, exchangeName: string, durationMs: number): void;
+  recordValidationError(publisherName: string, exchangeName: string): void;
+  recordPublishError(publisherName: string, exchangeName: string): void;
+}
+
+/**
+ * Interface for worker metrics operations
+ */
+export interface IWorkerMetrics {
+  recordConsume(consumerName: string, queueName: string, durationMs: number): void;
+  recordBatchProcess(consumerName: string, queueName: string, batchSize: number, durationMs: number): void;
+  recordValidationError(consumerName: string, queueName: string): void;
+  recordProcessingError(consumerName: string, queueName: string): void;
+}
+
+/**
  * Metrics collector for AMQP client operations
  */
-export class ClientMetrics {
+export class ClientMetrics implements IClientMetrics {
   private readonly publishCounter: Counter;
   private readonly publishDuration: Histogram;
   private readonly publishErrorCounter: Counter;
@@ -92,7 +111,7 @@ export class ClientMetrics {
 /**
  * Metrics collector for AMQP worker operations
  */
-export class WorkerMetrics {
+export class WorkerMetrics implements IWorkerMetrics {
   private readonly consumeCounter: Counter;
   private readonly consumeDuration: Histogram;
   private readonly consumeErrorCounter: Counter;

@@ -1,4 +1,4 @@
-/* eslint-disable eslint/sort-imports */
+/* eslint-disable sort-imports */
 import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
 import type { Channel, Message } from "amqplib";
 import { AmqpClient, type Logger } from "@amqp-contract/core";
@@ -15,26 +15,26 @@ import type {
   WorkerInferConsumerHandlers,
   WorkerInferConsumerInput,
 } from "./types.js";
-import type { Context, Span } from "@opentelemetry/api";
 
-// Import OpenTelemetry types conditionally
+// Import OpenTelemetry types conditionally - these will match the actual implementations
+// when @amqp-contract/opentelemetry is installed
 type WorkerInstrumentation = {
-  extractTraceContext: (headers?: Record<string, unknown>) => Context;
+  extractTraceContext: (headers?: Record<string, unknown>) => unknown;
   startConsumeSpan: (
     consumerName: string,
     queueName: string,
-    parentContext?: Context,
-  ) => Span | undefined;
+    parentContext?: unknown,
+  ) => unknown;
   startBatchProcessSpan: (
     consumerName: string,
     queueName: string,
     batchSize: number,
-  ) => Span | undefined;
-  recordValidationError: (span: Span | undefined, error: unknown) => void;
-  recordProcessingError: (span: Span | undefined, error: unknown) => void;
-  recordSuccess: (span: Span | undefined) => void;
-  endSpan: (span: Span | undefined) => void;
-  withSpan: <T>(span: Span | undefined, callback: () => T) => T;
+  ) => unknown;
+  recordValidationError: (span: unknown, error: unknown) => void;
+  recordProcessingError: (span: unknown, error: unknown) => void;
+  recordSuccess: (span: unknown) => void;
+  endSpan: (span: unknown) => void;
+  withSpan: <T>(span: unknown, callback: () => T) => T;
 };
 
 type WorkerMetrics = {
@@ -564,7 +564,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
             this.amqpClient.channel.ack(msg);
           })
           .tapError(() => {
-            // Validation failed - metrics already recorded in parseAndValidateMessage
+            // Intentionally no-op: validation errors are already handled and metrics are
+            // recorded in parseAndValidateMessage.
           })
           .tap(() => {
             // Always end span

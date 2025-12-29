@@ -42,7 +42,7 @@ const client = await TypedAmqpClient.create({
   contract,
   urls: ['amqp://localhost'],
   instrumentation,
-  metrics: clientMetrics
+  metrics,
 }).resultToPromise();
 
 // Publish messages - automatically instrumented
