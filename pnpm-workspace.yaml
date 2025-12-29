@@ -15,7 +15,7 @@ catalog:
   "@nestjs/testing": 11.1.10
   "@orpc/arktype": 1.13.1
   "@orpc/openapi": 1.13.1
-  "@orpc/valibot": 1.13.1
+  "@orpc/valibot": 1.13.2
   "@orpc/zod": 1.13.1
   "@standard-schema/spec": 1.1.0
   "@swan-io/boxed": 3.2.1
