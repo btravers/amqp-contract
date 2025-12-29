@@ -24,11 +24,15 @@
     },
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", "docs/.vitepress/dist/**"]
+      "outputs": ["dist/**"]
     },
     "build:docs": {
       "dependsOn": ["^build"],
       "outputs": ["docs/**"]
+    },
+    "@amqp-contract/docs#build": {
+      "dependsOn": ["^build", "^build:docs"],
+      "outputs": [".vitepress/dist/**"]
     }
   }
 }
