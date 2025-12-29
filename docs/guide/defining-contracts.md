@@ -1,3 +1,8 @@
+---
+title: Defining Contracts - Type-safe AMQP Message Schema Definitions
+description: Master contract definition patterns for AMQP messaging. Learn publisher-first and consumer-first approaches for building type-safe RabbitMQ applications with schema validation.
+---
+
 # Defining Contracts
 
 Learn how to define AMQP contracts with full type safety.

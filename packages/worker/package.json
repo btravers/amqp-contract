@@ -7,7 +7,15 @@
     "contract",
     "rabbitmq",
     "typescript",
-    "worker"
+    "worker",
+    "nodejs",
+    "messaging",
+    "type-safe",
+    "schema",
+    "validation",
+    "message-broker",
+    "message-queue",
+    "consumer"
   ],
   "homepage": "https://github.com/btravers/amqp-contract#readme",
   "bugs": {

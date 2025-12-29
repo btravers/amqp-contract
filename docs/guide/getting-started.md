@@ -1,3 +1,8 @@
+---
+title: Getting Started with amqp-contract - Type-safe AMQP/RabbitMQ for TypeScript
+description: Learn how to build type-safe AMQP messaging applications with amqp-contract. Step-by-step guide for Node.js and NestJS developers using TypeScript and RabbitMQ.
+---
+
 # Getting Started
 
 Welcome to **amqp-contract**! This guide will help you build type-safe AMQP messaging in minutes.

@@ -1,10 +1,12 @@
 ---
 layout: home
+title: amqp-contract - Type-safe AMQP/RabbitMQ messaging for TypeScript and Node.js
+description: Build reliable message-driven applications with end-to-end type safety, automatic schema validation, and AsyncAPI generation for AMQP/RabbitMQ in TypeScript, Node.js, and NestJS
 
 hero:
   name: "amqp-contract"
   text: "Type-safe contracts for AMQP/RabbitMQ"
-  tagline: End-to-end type safety and automatic validation for AMQP messaging with AsyncAPI generation
+  tagline: End-to-end type safety and automatic validation for AMQP messaging with AsyncAPI generation for TypeScript, Node.js, and NestJS applications
   image:
     src: /logo.svg
     alt: amqp-contract
