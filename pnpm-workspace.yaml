@@ -9,10 +9,10 @@ catalog:
   "@changesets/cli": 2.29.8
   "@commitlint/cli": 20.2.0
   "@commitlint/config-conventional": 20.2.0
-  "@nestjs/common": 11.1.10
+  "@nestjs/common": 11.1.11
   "@nestjs/config": 4.0.2
-  "@nestjs/core": 11.1.10
-  "@nestjs/testing": 11.1.10
+  "@nestjs/core": 11.1.11
+  "@nestjs/testing": 11.1.11
   "@orpc/arktype": 1.13.1
   "@orpc/openapi": 1.13.1
   "@orpc/valibot": 1.13.1
