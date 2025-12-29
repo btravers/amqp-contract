@@ -13,9 +13,6 @@ export default withMermaid(
       hostname: "https://btravers.github.io/amqp-contract/",
     },
 
-    // Ignore dead links to API documentation that will be generated later
-    ignoreDeadLinks: true,
-
     // Inject canonical URLs and dynamic meta tags for each page to prevent duplicate content issues
     transformPageData(pageData) {
       // Only process markdown files

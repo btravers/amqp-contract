@@ -29,10 +29,10 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Build
-        run: pnpm build
+        run: pnpm build && pnpm build:docs
 
       - name: Build documentation
-        run: pnpm build:docs && pnpm docs:build
+        run: pnpm --filter ./docs build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4
