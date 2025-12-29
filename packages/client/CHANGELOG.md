@@ -1,5 +1,23 @@
 # @amqp-contract/client
 
+## 0.6.0
+
+### Minor Changes
+
+- Restructure repository to follow vitest pattern with docs as workspace package
+
+  This release includes a major refactoring of the repository structure:
+  - Move documentation to workspace package for better integration
+  - Simplify docs build workflow
+  - Remove orchestration scripts in favor of turbo
+  - Improve overall project organization following vitest pattern
+
+### Patch Changes
+
+- Updated dependencies
+  - @amqp-contract/contract@0.6.0
+  - @amqp-contract/core@0.6.0
+
 ## 0.5.0
 
 ### Minor Changes
