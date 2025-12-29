@@ -9,9 +9,7 @@
     "prebuild": "tsx scripts/copy-docs.ts",
     "build": "vitepress build .",
     "dev": "vitepress dev .",
-    "preview": "vitepress preview .",
-    "test": "echo 'No tests for docs package'",
-    "test:integration": "echo 'No integration tests for docs package'"
+    "preview": "vitepress preview ."
   },
   "dependencies": {
     "@amqp-contract/asyncapi": "workspace:*",
