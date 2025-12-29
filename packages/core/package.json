@@ -7,7 +7,13 @@
     "contract",
     "core",
     "rabbitmq",
-    "typescript"
+    "typescript",
+    "nodejs",
+    "node.js",
+    "messaging",
+    "type-safe",
+    "message-broker",
+    "message-queue"
   ],
   "homepage": "https://github.com/btravers/amqp-contract#readme",
   "bugs": {

@@ -190,6 +190,15 @@ export default withMermaid(
           content: "u6ZPW5bWbP9G1yF5Sv7B4fSOJm5rLbZWeH858tmisTc",
         },
       ],
+      // SEO keywords meta tags
+      [
+        "meta",
+        {
+          name: "keywords",
+          content:
+            "AMQP, RabbitMQ, TypeScript, Node.js, NestJS, messaging, message queue, message broker, type-safe, schema validation, type safety, contract-first, AsyncAPI, amqplib, type-safe messaging, schema-based messaging, event-driven architecture, microservices, distributed systems",
+        },
+      ],
       // Open Graph meta tags for better social sharing and SEO
       ["meta", { property: "og:type", content: "website" }],
       ["meta", { property: "og:site_name", content: "amqp-contract" }],
@@ -209,6 +218,44 @@ export default withMermaid(
       // Additional SEO meta tags
       ["meta", { name: "author", content: "Benoit TRAVERS" }],
       ["meta", { name: "robots", content: "index, follow" }],
+      [
+        "meta",
+        {
+          name: "application-name",
+          content: "amqp-contract",
+        },
+      ],
+      // JSON-LD structured data for better SEO
+      [
+        "script",
+        { type: "application/ld+json" },
+        JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "SoftwareApplication",
+          name: "amqp-contract",
+          description:
+            "Type-safe contracts for AMQP/RabbitMQ messaging with TypeScript. End-to-end type safety and automatic schema validation for Node.js and NestJS applications.",
+          applicationCategory: "DeveloperApplication",
+          operatingSystem: "Cross-platform",
+          offers: {
+            "@type": "Offer",
+            price: "0",
+            priceCurrency: "USD",
+          },
+          url: "https://btravers.github.io/amqp-contract/",
+          author: {
+            "@type": "Person",
+            name: "Benoit TRAVERS",
+          },
+          programmingLanguage: {
+            "@type": "ComputerLanguage",
+            name: "TypeScript",
+            url: "https://www.typescriptlang.org/",
+          },
+          keywords:
+            "AMQP, RabbitMQ, TypeScript, Node.js, NestJS, messaging, type-safe, schema validation",
+        }),
+      ],
     ],
   }),
 );

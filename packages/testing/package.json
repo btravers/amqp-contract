@@ -2,6 +2,18 @@
   "name": "@amqp-contract/testing",
   "version": "0.6.0",
   "description": "Testing utilities for AMQP contracts with testcontainers",
+  "keywords": [
+    "amqp",
+    "contract",
+    "rabbitmq",
+    "typescript",
+    "testing",
+    "testcontainers",
+    "nodejs",
+    "node.js",
+    "type-safe",
+    "vitest"
+  ],
   "license": "MIT",
   "type": "module",
   "exports": {
