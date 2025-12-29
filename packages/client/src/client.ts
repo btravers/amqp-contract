@@ -1,11 +1,10 @@
-/* eslint-disable eslint/sort-imports */
-import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
-import type { Options } from "amqplib";
 import { AmqpClient, type Logger } from "@amqp-contract/core";
+import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
 import type { ContractDefinition, InferPublisherNames } from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
 import { MessageValidationError, TechnicalError } from "./errors.js";
 import type { ClientInferPublisherInput } from "./types.js";
+import type { Options } from "amqplib";
 
 // Import OpenTelemetry types conditionally
 type ClientInstrumentation = {
@@ -145,16 +144,18 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
 
     const publishMessage = (validatedMessage: unknown): Future<Result<void, TechnicalError>> => {
       // Inject trace context into publish options
-      const publishOptions = this.instrumentation
-        ? this.instrumentation.injectTraceContext(options as Record<string, unknown> | undefined)
-        : options;
+      const publishOptions: Options.Publish = this.instrumentation
+        ? (this.instrumentation.injectTraceContext(
+            options as Record<string, unknown> | undefined,
+          ) as Options.Publish)
+        : (options ?? {});
 
       return Future.fromPromise(
         this.amqpClient.channel.publish(
           publisher.exchange.name,
           publisher.routingKey ?? "",
           validatedMessage,
-          publishOptions as Options.Publish,
+          publishOptions,
         ),
       )
         .mapError((error) => {
