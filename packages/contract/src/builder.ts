@@ -454,6 +454,7 @@ export function defineExchangeBinding(
  * @param exchange - The fanout exchange definition to publish to
  * @param message - The message definition with payload schema
  * @param options - Optional publisher configuration
+ * @param options.compression - Optional compression algorithm ('gzip' or 'deflate')
  * @returns A publisher definition with inferred message types
  *
  * @example
@@ -469,7 +470,9 @@ export function defineExchangeBinding(
  *   })
  * );
  *
- * const logPublisher = definePublisher(logsExchange, logMessage);
+ * const logPublisher = definePublisher(logsExchange, logMessage, {
+ *   compression: 'gzip' // Optional: compress large log messages
+ * });
  * ```
  */
 export function definePublisher<TMessage extends MessageDefinition>(
@@ -493,6 +496,7 @@ export function definePublisher<TMessage extends MessageDefinition>(
  * @param message - The message definition with payload schema
  * @param options - Publisher configuration (routingKey is required)
  * @param options.routingKey - The routing key for message routing
+ * @param options.compression - Optional compression algorithm ('gzip' or 'deflate')
  * @returns A publisher definition with inferred message types
  *
  * @example
@@ -512,7 +516,8 @@ export function definePublisher<TMessage extends MessageDefinition>(
  * );
  *
  * const orderCreatedPublisher = definePublisher(ordersExchange, orderMessage, {
- *   routingKey: 'order.created'
+ *   routingKey: 'order.created',
+ *   compression: 'gzip' // Optional: compress large order payloads
  * });
  * ```
  */
@@ -545,12 +550,13 @@ export function definePublisher<TMessage extends MessageDefinition>(
 export function definePublisher<TMessage extends MessageDefinition>(
   exchange: ExchangeDefinition,
   message: TMessage,
-  options?: { routingKey?: string },
+  options?: { routingKey?: string; compression?: import("./types.js").CompressionAlgorithm },
 ): PublisherDefinition<TMessage> {
   if (exchange.type === "fanout") {
     return {
       exchange,
       message,
+      ...(options?.compression && { compression: options.compression }),
     } as PublisherDefinition<TMessage>;
   }
 
@@ -558,6 +564,7 @@ export function definePublisher<TMessage extends MessageDefinition>(
     exchange,
     message,
     routingKey: options?.routingKey ?? "",
+    ...(options?.compression && { compression: options.compression }),
   } as PublisherDefinition<TMessage>;
 }
 
@@ -701,6 +708,7 @@ function callDefinePublisher<TMessage extends MessageDefinition>(
   options?: {
     routingKey?: string;
     arguments?: Record<string, unknown>;
+    compression?: import("./types.js").CompressionAlgorithm;
   },
 ): PublisherDefinition<TMessage> {
   // Type assertion is safe because overloaded signatures enforce routingKey requirement
