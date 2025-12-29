@@ -83,7 +83,7 @@
     "zod": "catalog:"
   },
   "peerDependencies": {
-    "@amqp-contract/opentelemetry": "^0.6.0"
+    "@amqp-contract/opentelemetry": "^0.6"
   },
   "peerDependenciesMeta": {
     "@amqp-contract/opentelemetry": {
