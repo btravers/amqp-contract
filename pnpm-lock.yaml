@@ -99,6 +99,9 @@ catalogs:
     testcontainers:
       specifier: 11.11.0
       version: 11.11.0
+    ts-pattern:
+      specifier: 5.6.0
+      version: 5.6.0
     tsdown:
       specifier: 0.18.3
       version: 0.18.3
@@ -286,6 +289,9 @@ importers:
       '@swan-io/boxed':
         specifier: 'catalog:'
         version: 3.2.1(typescript@5.9.3)
+      ts-pattern:
+        specifier: 'catalog:'
+        version: 5.6.0
     devDependencies:
       '@amqp-contract/testing':
         specifier: workspace:*
@@ -4788,6 +4794,9 @@ packages:
   ts-dedent@2.2.0:
     resolution: {integrity: sha512-q5W7tVM71e2xjHZTlgfTDoPF/SmqKG5hddq9SzR49CH2hayqRKJtQ4mtRlSxKaJlR/+9rEM+mnBHf7I2/BQcpQ==}
     engines: {node: '>=6.10'}
+
+  ts-pattern@5.6.0:
+    resolution: {integrity: sha512-SL8u60X5+LoEy9tmQHWCdPc2hhb2pKI6I1tU5Jue3v8+iRqZdcT3mWPwKKJy1fMfky6uha82c8ByHAE8PMhKHw==}
 
   tsdown@0.18.3:
     resolution: {integrity: sha512-OVFzktKDTglFAUh/WO8WamBUbZoBlJ9m7NgZZrVyIKe32BfXBeRZ+soFFpuOGVP8g8OU4tOLOpTyPTELWvcTFw==}
@@ -9554,6 +9563,8 @@ snapshots:
   trim-lines@3.0.1: {}
 
   ts-dedent@2.2.0: {}
+
+  ts-pattern@5.6.0: {}
 
   tsdown@0.18.3(oxc-resolver@11.16.2)(typescript@5.9.3):
     dependencies:
