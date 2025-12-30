@@ -1,7 +1,7 @@
-import type { CompressionAlgorithm } from "@amqp-contract/contract";
 import { deflate, gzip } from "node:zlib";
 import { promisify } from "node:util";
 import { match } from "ts-pattern";
+import type { CompressionAlgorithm } from "@amqp-contract/contract";
 
 const gzipAsync = promisify(gzip);
 const deflateAsync = promisify(deflate);
