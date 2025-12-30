@@ -42,12 +42,12 @@ describe("Decompression utilities", () => {
       expect(decompressed).toEqual(testData);
     });
 
-    it("should return buffer as-is for unknown content-encoding", async () => {
+    it("should throw error for unknown content-encoding", async () => {
       const testData = Buffer.from(JSON.stringify({ message: "Hello, World!" }));
 
-      const result = await decompressBuffer(testData, "unknown-encoding");
-
-      expect(result).toEqual(testData);
+      await expect(decompressBuffer(testData, "unknown-encoding")).rejects.toThrow(
+        "Unsupported content-encoding: unknown-encoding",
+      );
     });
 
     it("should decompress large data correctly", async () => {
