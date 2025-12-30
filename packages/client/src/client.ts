@@ -8,6 +8,18 @@ import { compressBuffer } from "./compression.js";
 import type { ClientInferPublisherInput } from "./types.js";
 
 /**
+ * Publish options that extend amqplib's Options.Publish with optional compression support.
+ */
+export interface PublishOptions extends Options.Publish {
+  /**
+   * Optional compression algorithm to use for the message payload.
+   * When specified, the message will be compressed using the chosen algorithm
+   * and the contentEncoding header will be set automatically.
+   */
+  compression?: CompressionAlgorithm;
+}
+
+/**
  * Options for creating a client
  */
 export type CreateClientOptions<TContract extends ContractDefinition> = {
@@ -57,21 +69,19 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
    *
    * @param publisherName - The name of the publisher to use
    * @param message - The message to publish
-   * @param options - Optional publish options (e.g., headers, priority)
-   * @param compression - Optional compression algorithm (gzip or deflate)
+   * @param options - Optional publish options including compression, headers, priority, etc.
    *
    * @remarks
-   * If compression is specified, the message will be compressed before publishing
+   * If `options.compression` is specified, the message will be compressed before publishing
    * and the `contentEncoding` property will be set automatically. Any `contentEncoding`
-   * value provided in options will be overwritten.
+   * value already in options will be overwritten by the compression algorithm.
    *
    * @returns Result.Ok(void) on success, or Result.Error with specific error on failure
    */
   publish<TName extends InferPublisherNames<TContract>>(
     publisherName: TName,
     message: ClientInferPublisherInput<TContract, TName>,
-    options?: Options.Publish,
-    compression?: CompressionAlgorithm,
+    options?: PublishOptions,
   ): Future<Result<void, TechnicalError | MessageValidationError>> {
     const publishers = this.contract.publishers;
     if (!publishers) {
@@ -105,7 +115,9 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     };
 
     const publishMessage = (validatedMessage: unknown): Future<Result<void, TechnicalError>> => {
-      const publishOptions: Options.Publish = { ...options };
+      // Extract compression from options and create publish options without it
+      const { compression, ...restOptions } = options || {};
+      const publishOptions: Options.Publish = { ...restOptions };
 
       // Prepare payload and options based on compression configuration
       const preparePayload = (): Future<Result<Buffer | unknown, TechnicalError>> => {
