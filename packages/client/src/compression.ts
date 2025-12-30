@@ -25,15 +25,3 @@ export async function compressBuffer(
     .with("deflate", () => deflateAsync(buffer))
     .exhaustive();
 }
-
-/**
- * Get the content-encoding value for the specified compression algorithm.
- *
- * @param algorithm - The compression algorithm
- * @returns The content-encoding header value
- *
- * @internal
- */
-export function getContentEncoding(algorithm: CompressionAlgorithm): string {
-  return algorithm;
-}

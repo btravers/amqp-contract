@@ -16,11 +16,12 @@ export type AnySchema = StandardSchemaV1;
  *
  * - `gzip`: GZIP compression (standard, widely supported, good compression ratio)
  * - `deflate`: DEFLATE compression (faster than gzip, slightly less compression)
- * - `none` or `undefined`: No compression
  *
  * When compression is enabled, the message payload is compressed before publishing
  * and automatically decompressed when consuming. The `content-encoding` AMQP
  * message property is set to indicate the compression algorithm used.
+ *
+ * To disable compression, simply omit the `compression` option (it's optional).
  *
  * @example
  * ```typescript
