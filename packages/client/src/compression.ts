@@ -1,6 +1,7 @@
 import type { CompressionAlgorithm } from "@amqp-contract/contract";
 import { deflate, gzip } from "node:zlib";
 import { promisify } from "node:util";
+import { match } from "ts-pattern";
 
 const gzipAsync = promisify(gzip);
 const deflateAsync = promisify(deflate);
@@ -19,16 +20,10 @@ export async function compressBuffer(
   buffer: Buffer,
   algorithm: CompressionAlgorithm,
 ): Promise<Buffer> {
-  switch (algorithm) {
-    case "gzip":
-      return gzipAsync(buffer);
-    case "deflate":
-      return deflateAsync(buffer);
-    default:
-      // TypeScript exhaustiveness check
-      const _exhaustive: never = algorithm;
-      throw new Error(`Unsupported compression algorithm: ${String(_exhaustive)}`);
-  }
+  return match(algorithm)
+    .with("gzip", () => gzipAsync(buffer))
+    .with("deflate", () => deflateAsync(buffer))
+    .exhaustive();
 }
 
 /**

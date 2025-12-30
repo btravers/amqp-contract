@@ -102,6 +102,9 @@ catalogs:
     testcontainers:
       specifier: 11.11.0
       version: 11.11.0
+    ts-pattern:
+      specifier: 5.6.0
+      version: 5.6.0
     tsdown:
       specifier: 0.18.4
       version: 0.18.4
@@ -289,6 +292,9 @@ importers:
       '@swan-io/boxed':
         specifier: 'catalog:'
         version: 3.2.1(typescript@5.9.3)
+      ts-pattern:
+        specifier: 'catalog:'
+        version: 5.6.0
     devDependencies:
       '@amqp-contract/testing':
         specifier: workspace:*
@@ -8677,6 +8683,9 @@ packages:
         optional: true
       '@swc/wasm':
         optional: true
+
+  ts-pattern@5.6.0:
+    resolution: {integrity: sha512-SL8u60X5+LoEy9tmQHWCdPc2hhb2pKI6I1tU5Jue3v8+iRqZdcT3mWPwKKJy1fMfky6uha82c8ByHAE8PMhKHw==}
 
   tsdown@0.18.4:
     resolution: {integrity: sha512-J/tRS6hsZTkvqmt4+xdELUCkQYDuUCXgBv0fw3ImV09WPGbEKfsPD65E+WUjSu3E7Z6tji9XZ1iWs8rbGqB/ZA==}
@@ -19000,6 +19009,8 @@ snapshots:
       v8-compile-cache-lib: 3.0.1
       yn: 3.1.1
     optional: true
+
+  ts-pattern@5.6.0: {}
 
   tsdown@0.18.4(oxc-resolver@11.16.2)(typescript@5.9.3):
     dependencies:
