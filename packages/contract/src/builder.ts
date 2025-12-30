@@ -1,5 +1,6 @@
 import type {
   BaseExchangeDefinition,
+  CompressionAlgorithm,
   ConsumerDefinition,
   ContractDefinition,
   DirectExchangeDefinition,
@@ -578,7 +579,7 @@ export function definePublisher<TMessage extends MessageDefinition>(
 export function definePublisher<TMessage extends MessageDefinition>(
   exchange: ExchangeDefinition,
   message: TMessage,
-  options?: { routingKey?: string; compression?: import("./types.js").CompressionAlgorithm },
+  options?: { routingKey?: string; compression?: CompressionAlgorithm },
 ): PublisherDefinition<TMessage> {
   if (exchange.type === "fanout") {
     return {
@@ -736,7 +737,7 @@ function callDefinePublisher<TMessage extends MessageDefinition>(
   options?: {
     routingKey?: string;
     arguments?: Record<string, unknown>;
-    compression?: import("./types.js").CompressionAlgorithm;
+    compression?: CompressionAlgorithm;
   },
 ): PublisherDefinition<TMessage> {
   // Type assertion is safe because overloaded signatures enforce routingKey requirement
