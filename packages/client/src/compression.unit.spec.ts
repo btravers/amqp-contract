@@ -1,5 +1,5 @@
-import { compressBuffer } from "./compression.js";
 import { describe, expect, it } from "vitest";
+import { compressBuffer } from "./compression.js";
 
 describe("Compression utilities", () => {
   describe("compressBuffer", () => {
@@ -7,11 +7,11 @@ describe("Compression utilities", () => {
       const { gunzip } = await import("node:zlib");
       const { promisify } = await import("node:util");
       const gunzipAsync = promisify(gunzip);
-      
+
       const testData = Buffer.from(JSON.stringify({ message: "Hello, World!" }));
       const compressed = await compressBuffer(testData, "gzip");
       const decompressed = await gunzipAsync(compressed);
-      
+
       expect(decompressed).toEqual(testData);
     });
 
@@ -19,11 +19,11 @@ describe("Compression utilities", () => {
       const { inflate } = await import("node:zlib");
       const { promisify } = await import("node:util");
       const inflateAsync = promisify(inflate);
-      
+
       const testData = Buffer.from(JSON.stringify({ message: "Hello, World!" }));
       const compressed = await compressBuffer(testData, "deflate");
       const decompressed = await inflateAsync(compressed);
-      
+
       expect(decompressed).toEqual(testData);
     });
 
