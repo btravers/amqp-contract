@@ -96,75 +96,52 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
       const compressionAlgorithm = publisher.compression;
       const publishOptions: Options.Publish = { ...options };
 
-      // Apply compression if configured
-      if (compressionAlgorithm) {
-        // For compression, manually serialize and compress the message
-        const messageBuffer = Buffer.from(JSON.stringify(validatedMessage));
+      // Prepare payload and options based on compression configuration
+      const preparePayload = (): Future<Result<Buffer | unknown, TechnicalError>> => {
+        if (compressionAlgorithm) {
+          // Compress the message payload
+          const messageBuffer = Buffer.from(JSON.stringify(validatedMessage));
+          publishOptions.contentEncoding = getContentEncoding(compressionAlgorithm);
 
-        return Future.fromPromise(compressBuffer(messageBuffer, compressionAlgorithm))
-          .mapError((error) => new TechnicalError(`Failed to compress message`, error))
-          .flatMapOk((compressedBuffer) => {
-            // Set content-encoding header to indicate compression
-            publishOptions.contentEncoding = getContentEncoding(compressionAlgorithm);
+          return Future.fromPromise(compressBuffer(messageBuffer, compressionAlgorithm))
+            .mapError((error) => new TechnicalError(`Failed to compress message`, error))
+            .map((compressedBuffer) => Result.Ok(compressedBuffer));
+        }
 
-            return Future.fromPromise(
-              this.amqpClient.channel.publish(
-                publisher.exchange.name,
-                publisher.routingKey ?? "",
-                compressedBuffer,
-                publishOptions,
-              ),
-            )
-              .mapError((error) => new TechnicalError(`Failed to publish message`, error))
-              .mapOkToResult((published) => {
-                if (!published) {
-                  return Result.Error(
-                    new TechnicalError(
-                      `Failed to publish message for publisher "${String(publisherName)}": Channel rejected the message (buffer full or other channel issue)`,
-                    ),
-                  );
-                }
+        // No compression: use the channel's built-in JSON serialization
+        return Future.value(Result.Ok(validatedMessage));
+      };
 
-                this.logger?.info("Message published successfully", {
-                  publisherName: String(publisherName),
-                  exchange: publisher.exchange.name,
-                  routingKey: publisher.routingKey,
-                  compressed: true,
-                });
+      // Publish the prepared payload
+      return preparePayload().flatMapOk((payload) =>
+        Future.fromPromise(
+          this.amqpClient.channel.publish(
+            publisher.exchange.name,
+            publisher.routingKey ?? "",
+            payload,
+            publishOptions,
+          ),
+        )
+          .mapError((error) => new TechnicalError(`Failed to publish message`, error))
+          .mapOkToResult((published) => {
+            if (!published) {
+              return Result.Error(
+                new TechnicalError(
+                  `Failed to publish message for publisher "${String(publisherName)}": Channel rejected the message (buffer full or other channel issue)`,
+                ),
+              );
+            }
 
-                return Result.Ok(undefined);
-              });
-          });
-      }
+            this.logger?.info("Message published successfully", {
+              publisherName: String(publisherName),
+              exchange: publisher.exchange.name,
+              routingKey: publisher.routingKey,
+              compressed: !!compressionAlgorithm,
+            });
 
-      // No compression: use the channel's built-in JSON serialization
-      return Future.fromPromise(
-        this.amqpClient.channel.publish(
-          publisher.exchange.name,
-          publisher.routingKey ?? "",
-          validatedMessage,
-          publishOptions,
-        ),
-      )
-        .mapError((error) => new TechnicalError(`Failed to publish message`, error))
-        .mapOkToResult((published) => {
-          if (!published) {
-            return Result.Error(
-              new TechnicalError(
-                `Failed to publish message for publisher "${String(publisherName)}": Channel rejected the message (buffer full or other channel issue)`,
-              ),
-            );
-          }
-
-          this.logger?.info("Message published successfully", {
-            publisherName: String(publisherName),
-            exchange: publisher.exchange.name,
-            routingKey: publisher.routingKey,
-            compressed: false,
-          });
-
-          return Result.Ok(undefined);
-        });
+            return Result.Ok(undefined);
+          }),
+      );
     };
 
     // Validate message using schema
