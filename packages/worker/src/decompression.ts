@@ -10,8 +10,7 @@ const inflateAsync = promisify(inflate);
  * @param buffer - The buffer to decompress
  * @param contentEncoding - The content-encoding header value (e.g., 'gzip', 'deflate')
  * @returns A promise that resolves to the decompressed buffer
- * @throws Error if decompression fails
- * @remarks For unknown or unsupported encodings, the original buffer is returned unchanged.
+ * @throws Error if decompression fails or if the encoding is unsupported
  *
  * @internal
  */
@@ -29,8 +28,6 @@ export async function decompressBuffer(
     case "deflate":
       return inflateAsync(buffer);
     default:
-      // If we encounter an unknown encoding, return the buffer as-is
-      // This maintains backward compatibility
-      return buffer;
+      throw new Error(`Unsupported content-encoding: ${contentEncoding}`);
   }
 }
