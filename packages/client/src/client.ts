@@ -1,10 +1,10 @@
 import { AmqpClient, type Logger } from "@amqp-contract/core";
-import { Future, Result } from "@swan-io/boxed";
-import { compressBuffer } from "./compression.js";
-import { MessageValidationError, TechnicalError } from "./errors.js";
-import type { CompressionAlgorithm, ContractDefinition, InferPublisherNames } from "@amqp-contract/contract";
 import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
+import type { CompressionAlgorithm, ContractDefinition, InferPublisherNames } from "@amqp-contract/contract";
 import type { Options } from "amqplib";
+import { Future, Result } from "@swan-io/boxed";
+import { MessageValidationError, TechnicalError } from "./errors.js";
+import { compressBuffer } from "./compression.js";
 import type { ClientInferPublisherInput } from "./types.js";
 
 /**
