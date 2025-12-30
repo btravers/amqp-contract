@@ -367,6 +367,9 @@ export type BindingDefinition = QueueBindingDefinition | ExchangeBindingDefiniti
  * A publisher sends messages to an exchange with automatic schema validation.
  * The message payload is validated against the schema before being sent to RabbitMQ.
  *
+ * Compression can be optionally applied at publish time by specifying a compression
+ * algorithm when calling the publish method.
+ *
  * @template TMessage - The message definition with payload schema
  *
  * @example
@@ -374,22 +377,13 @@ export type BindingDefinition = QueueBindingDefinition | ExchangeBindingDefiniti
  * const publisher: PublisherDefinition = {
  *   exchange: ordersExchange,
  *   message: orderMessage,
- *   routingKey: 'order.created',
- *   compression: 'gzip' // Optional: compress large messages
+ *   routingKey: 'order.created'
  * };
  * ```
  */
 export type PublisherDefinition<TMessage extends MessageDefinition = MessageDefinition> = {
   /** The message definition including the payload schema */
   message: TMessage;
-
-  /**
-   * Optional compression algorithm for message payloads.
-   * When set, messages are automatically compressed before publishing
-   * and the content-encoding header is set accordingly.
-   * @default undefined (no compression)
-   */
-  compression?: CompressionAlgorithm;
 } & (
   | {
       /** Direct or topic exchange requiring a routing key */

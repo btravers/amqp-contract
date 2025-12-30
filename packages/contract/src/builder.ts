@@ -1,6 +1,5 @@
 import type {
   BaseExchangeDefinition,
-  CompressionAlgorithm,
   ConsumerDefinition,
   ContractDefinition,
   DirectExchangeDefinition,
@@ -545,8 +544,7 @@ export function definePublisher<TMessage extends MessageDefinition>(
  * );
  *
  * const orderCreatedPublisher = definePublisher(ordersExchange, orderMessage, {
- *   routingKey: 'order.created',
- *   compression: 'gzip' // Optional: compress large order payloads
+ *   routingKey: 'order.created'
  * });
  * ```
  */
@@ -579,13 +577,12 @@ export function definePublisher<TMessage extends MessageDefinition>(
 export function definePublisher<TMessage extends MessageDefinition>(
   exchange: ExchangeDefinition,
   message: TMessage,
-  options?: { routingKey?: string; compression?: CompressionAlgorithm },
+  options?: { routingKey?: string },
 ): PublisherDefinition<TMessage> {
   if (exchange.type === "fanout") {
     return {
       exchange,
       message,
-      ...(options?.compression && { compression: options.compression }),
     } as PublisherDefinition<TMessage>;
   }
 
@@ -593,7 +590,6 @@ export function definePublisher<TMessage extends MessageDefinition>(
     exchange,
     message,
     routingKey: options?.routingKey ?? "",
-    ...(options?.compression && { compression: options.compression }),
   } as PublisherDefinition<TMessage>;
 }
 
@@ -737,7 +733,6 @@ function callDefinePublisher<TMessage extends MessageDefinition>(
   options?: {
     routingKey?: string;
     arguments?: Record<string, unknown>;
-    compression?: CompressionAlgorithm;
   },
 ): PublisherDefinition<TMessage> {
   // Type assertion is safe because overloaded signatures enforce routingKey requirement
