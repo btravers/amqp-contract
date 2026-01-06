@@ -1,5 +1,25 @@
 # @amqp-contract/asyncapi
 
+## 0.7.0
+
+### Minor Changes
+
+- Release version 0.7.0 with runtime message compression support for AMQP payloads.
+
+  This release adds the ability to compress messages at runtime using gzip or deflate algorithms. Key features include:
+  - Added `CompressionAlgorithm` type supporting 'gzip' and 'deflate'
+  - Added optional `compression` parameter to the `publish()` method for runtime compression
+  - Automatic decompression in workers based on content-encoding header
+  - Backward compatible - no compression by default
+  - New sample demonstrating compression usage
+
+  See PR #225 for complete details.
+
+### Patch Changes
+
+- Updated dependencies
+  - @amqp-contract/contract@0.7.0
+
 ## 0.6.0
 
 ### Minor Changes
