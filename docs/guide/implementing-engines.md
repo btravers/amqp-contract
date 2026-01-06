@@ -595,4 +595,4 @@ For questions or issues:
 
 ## Contributing
 
-We welcome engine implementations for new protocols! See [CONTRIBUTING.md](../../CONTRIBUTING.md) for guidelines.
+We welcome engine implementations for new protocols! See the contributing guidelines in the repository for details.
