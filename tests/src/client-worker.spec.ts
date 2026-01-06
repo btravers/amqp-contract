@@ -8,10 +8,10 @@ import {
   defineQueue,
   defineQueueBinding,
 } from "@amqp-contract/contract";
+import { TypedAmqpWorker, type WorkerInferConsumerHandlers } from "@amqp-contract/worker";
 import { describe, expect, vi } from "vitest";
 import { Result } from "@swan-io/boxed";
 import { TypedAmqpClient } from "@amqp-contract/client";
-import { TypedAmqpWorker } from "@amqp-contract/worker";
 import { it as baseIt } from "@amqp-contract/testing/extension";
 import { z } from "zod";
 
@@ -24,51 +24,66 @@ const it = baseIt.extend<{
     handlers: Parameters<typeof TypedAmqpWorker.create<TContract>>[0]["handlers"],
   ) => Promise<TypedAmqpWorker<TContract>>;
 }>({
-  clientFactory: async ({ amqpConnectionUrl, onTestFinished }, use) => {
-    await use(async <TContract extends ContractDefinition>(contract: TContract) => {
-      const client = await TypedAmqpClient.create({
-        contract,
-        urls: [amqpConnectionUrl],
-      }).resultToPromise();
+  clientFactory: async ({ amqpConnectionUrl }, use) => {
+    const clients: Array<TypedAmqpClient<ContractDefinition>> = [];
 
-      onTestFinished(async () => {
-        try {
-          await client.close().resultToPromise();
-        } catch (error) {
-          // Avoid unhandled promise rejections during test teardown
-          // eslint-disable-next-line no-console
-          console.error("Failed to close AMQP client in test teardown:", error);
-        }
-      });
-
-      return client;
-    });
-  },
-  workerFactory: async ({ amqpConnectionUrl, onTestFinished }, use) => {
-    await use(
-      async <TContract extends ContractDefinition>(
-        contract: TContract,
-        handlers: Parameters<typeof TypedAmqpWorker.create<TContract>>[0]["handlers"],
-      ) => {
-        const worker = await TypedAmqpWorker.create({
+    try {
+      await use(async <TContract extends ContractDefinition>(contract: TContract) => {
+        const client = await TypedAmqpClient.create({
           contract,
           urls: [amqpConnectionUrl],
-          handlers,
         }).resultToPromise();
 
-        onTestFinished(async () => {
+        clients.push(client);
+        return client;
+      });
+    } finally {
+      // Clean up all clients before fixture cleanup (which deletes the vhost)
+      await Promise.all(
+        clients.map(async (client) => {
+          try {
+            await client.close().resultToPromise();
+          } catch (error) {
+            // Swallow errors during cleanup to avoid unhandled rejections
+            // eslint-disable-next-line no-console
+            console.error("Failed to close AMQP client during fixture cleanup:", error);
+          }
+        }),
+      );
+    }
+  },
+  workerFactory: async ({ amqpConnectionUrl }, use) => {
+    const workers: Array<TypedAmqpWorker<ContractDefinition>> = [];
+    try {
+      await use(
+        async <TContract extends ContractDefinition>(
+          contract: TContract,
+          handlers: WorkerInferConsumerHandlers<TContract>,
+        ) => {
+          const worker = await TypedAmqpWorker.create({
+            contract,
+            handlers,
+            urls: [amqpConnectionUrl],
+          }).resultToPromise();
+
+          workers.push(worker);
+          return worker;
+        },
+      );
+    } finally {
+      // Clean up all workers before fixture cleanup (which deletes the vhost)
+      await Promise.all(
+        workers.map(async (worker) => {
           try {
             await worker.close().resultToPromise();
           } catch (error) {
-            // Avoid unhandled promise rejections during test teardown
+            // Swallow errors during cleanup to avoid unhandled rejections
             // eslint-disable-next-line no-console
-            console.error("Failed to close TypedAmqpWorker in onTestFinished:", error);
+            console.error("Failed to close worker during fixture cleanup:", error);
           }
-        });
-
-        return worker;
-      },
-    );
+        }),
+      );
+    }
   },
 });
 
