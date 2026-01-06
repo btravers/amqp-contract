@@ -130,10 +130,10 @@ export class AmqpClientService<TContract extends ContractDefinition>
    *
    * @param publisherName - The name of the publisher from the contract
    * @param message - The message payload (type-checked against the contract)
-   * @param options - Optional AMQP publish options (e.g., persistence, headers)
+   * @param options - Optional AMQP publish options including compression support
    * @returns A Future that resolves to a Result indicating success or failure
    *
-   * @example
+   * @example Basic publishing
    * ```typescript
    * const result = await this.amqpClient.publish('orderCreated', {
    *   orderId: '123',
@@ -144,11 +144,21 @@ export class AmqpClientService<TContract extends ContractDefinition>
    *   console.error('Publish failed:', result.error);
    * }
    * ```
+   *
+   * @example Publishing with compression
+   * ```typescript
+   * const result = await this.amqpClient.publish('orderCreated', {
+   *   orderId: '123',
+   *   amount: 99.99
+   * }, {
+   *   compression: 'gzip'
+   * }).resultToPromise();
+   * ```
    */
   publish<TName extends InferPublisherNames<TContract>>(
     publisherName: TName,
     message: ClientInferPublisherInput<TContract, TName>,
-    options?: Options.Publish,
+    options?: Options.Publish & { compression?: "gzip" | "deflate" },
   ): Future<Result<void, TechnicalError | MessageValidationError>> {
     if (!this.client) {
       return Future.value(

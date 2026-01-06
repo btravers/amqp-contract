@@ -1,0 +1,25 @@
+{
+  "name": "@amqp-contract-samples/message-compression-example",
+  "private": true,
+  "description": "Sample demonstrating message compression for AMQP payloads",
+  "type": "module",
+  "scripts": {
+    "dev:publisher": "tsx src/publisher.ts",
+    "dev:consumer": "tsx src/consumer.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@amqp-contract/client": "workspace:*",
+    "@amqp-contract/contract": "workspace:*",
+    "@amqp-contract/worker": "workspace:*",
+    "pino": "catalog:",
+    "pino-pretty": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@amqp-contract/tsconfig": "workspace:*",
+    "@swan-io/boxed": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:"
+  }
+}

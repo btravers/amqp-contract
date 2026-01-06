@@ -1,0 +1,7 @@
+{
+  "extends": "@amqp-contract/tsconfig/node",
+  "compilerOptions": {
+    "outDir": "dist"
+  },
+  "include": ["src"]
+}
