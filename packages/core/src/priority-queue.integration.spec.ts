@@ -147,9 +147,9 @@ describe("Priority Queue", () => {
 
     // Verify messages were consumed in priority order (high to low)
     expect(consumedMessages).toHaveLength(3);
-    expect(consumedMessages[0].id).toBe("msg-high");
-    expect(consumedMessages[1].id).toBe("msg-medium");
-    expect(consumedMessages[2].id).toBe("msg-low");
+    expect(consumedMessages[0]?.id).toBe("msg-high");
+    expect(consumedMessages[1]?.id).toBe("msg-medium");
+    expect(consumedMessages[2]?.id).toBe("msg-low");
 
     // CLEANUP
     await client.close();
@@ -241,8 +241,8 @@ describe("Priority Queue", () => {
 
     // Verify priority message was consumed first
     expect(consumedMessages).toHaveLength(2);
-    expect(consumedMessages[0].id).toBe("msg-priority");
-    expect(consumedMessages[1].id).toBe("msg-default");
+    expect(consumedMessages[0]?.id).toBe("msg-priority");
+    expect(consumedMessages[1]?.id).toBe("msg-default");
 
     // CLEANUP
     await client.close();
