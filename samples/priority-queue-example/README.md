@@ -34,6 +34,7 @@ pnpm --filter @amqp-contract-samples/priority-queue-example start:worker
 ```
 
 The worker will:
+
 - Connect to RabbitMQ
 - Create the priority queue with max priority of 10
 - Wait for tasks to process
@@ -47,6 +48,7 @@ pnpm --filter @amqp-contract-samples/priority-queue-example start:client
 ```
 
 The client will publish 5 tasks in this order:
+
 1. Low priority backup (priority: 1)
 2. Critical security patch (priority: 10)
 3. Medium priority update (priority: 5)

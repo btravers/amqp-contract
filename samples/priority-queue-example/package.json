@@ -5,7 +5,6 @@
   "description": "Example demonstrating priority queue usage with amqp-contract",
   "type": "module",
   "scripts": {
-    "build": "echo 'No build step needed'",
     "start:client": "tsx src/client.ts",
     "start:worker": "tsx src/worker.ts",
     "typecheck": "tsc --noEmit"

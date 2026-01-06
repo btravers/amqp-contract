@@ -68,9 +68,7 @@ async function main() {
       )
       .tapError((error) => logger.error({ error, task }, "Failed to publish task"))
       .tapOk(() =>
-        logger.info(
-          `📤 Published: ${task.taskId} - "${task.title}" (priority: ${task.priority})`,
-        ),
+        logger.info(`📤 Published: ${task.taskId} - "${task.title}" (priority: ${task.priority})`),
       )
       .resultToPromise();
 

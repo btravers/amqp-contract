@@ -33,9 +33,7 @@ async function main() {
     handlers: {
       processTask: async (task) => {
         // Simulate task processing
-        logger.info(
-          `📥 Processing: ${task.taskId} - "${task.title}" (priority: ${task.priority})`,
-        );
+        logger.info(`📥 Processing: ${task.taskId} - "${task.title}" (priority: ${task.priority})`);
 
         // Simulate some work
         await new Promise((resolve) => setTimeout(resolve, 500));
