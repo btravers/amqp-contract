@@ -21,7 +21,7 @@ export type PublishOptions = Options.Publish & {
    * When specified, the message will be compressed using the chosen algorithm
    * and the contentEncoding header will be set automatically.
    */
-  compression?: CompressionAlgorithm;
+  compression?: CompressionAlgorithm | undefined;
 };
 
 /**

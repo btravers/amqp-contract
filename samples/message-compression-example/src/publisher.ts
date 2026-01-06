@@ -56,14 +56,6 @@ function generateLargePayload(id: string, itemCount: number) {
   };
 }
 
-/**
- * Calculate size reduction percentage
- */
-function calculateReduction(original: number, compressed: number): string {
-  const reduction = ((original - compressed) / original) * 100;
-  return reduction.toFixed(1);
-}
-
 async function main() {
   // Create type-safe client
   const client = await TypedAmqpClient.create({

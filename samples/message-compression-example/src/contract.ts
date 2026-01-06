@@ -32,12 +32,12 @@ const largeDataMessage = defineMessage(
   z.object({
     id: z.string(),
     timestamp: z.string(),
-    metadata: z.record(z.string()),
+    metadata: z.record(z.string(), z.string()),
     items: z.array(
       z.object({
         name: z.string(),
         description: z.string(),
-        properties: z.record(z.unknown()),
+        properties: z.record(z.string(), z.unknown()),
       }),
     ),
   }),

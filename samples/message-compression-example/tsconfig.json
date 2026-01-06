@@ -1,5 +1,5 @@
 {
-  "extends": "@amqp-contract/tsconfig/node",
+  "extends": "@amqp-contract/tsconfig/base.json",
   "compilerOptions": {
     "outDir": "dist"
   },
