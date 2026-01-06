@@ -5,7 +5,8 @@ import { withMermaid } from "vitepress-plugin-mermaid";
 export default withMermaid(
   defineConfig({
     title: "amqp-contract",
-    description: "Type-safe contracts for AMQP/RabbitMQ messaging with AsyncAPI generation",
+    description:
+      "Build reliable message-driven applications with end-to-end type safety, automatic schema validation, and AsyncAPI generation for AMQP/RabbitMQ in TypeScript",
     base: "/amqp-contract/",
     lang: "en-US",
 
@@ -39,7 +40,7 @@ export default withMermaid(
       const pageDescription =
         pageData.description ||
         pageData.frontmatter.description ||
-        "Type-safe contracts for AMQP/RabbitMQ messaging with AsyncAPI generation";
+        "Build reliable message-driven applications with end-to-end type safety, automatic schema validation, and AsyncAPI generation for AMQP/RabbitMQ in TypeScript";
 
       pageData.frontmatter.head.push(
         ["meta", { property: "og:url", content: canonicalUrl }],
