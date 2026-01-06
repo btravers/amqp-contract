@@ -10,7 +10,7 @@ runs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version-file: ".npmrc"
+        node-version-file: ".node-version"
         cache: "pnpm"
 
     - name: Setup Turbo Cache
