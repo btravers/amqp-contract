@@ -11,25 +11,25 @@ For NestJS applications, see the [NestJS Worker Usage](/guide/worker-nestjs-usag
 Create a worker with type-safe message handlers:
 
 ```typescript
-import { TypedAmqpWorker } from '@amqp-contract/worker';
-import { contract } from './contract';
+import { TypedAmqpWorker } from "@amqp-contract/worker";
+import { contract } from "./contract";
 
 const workerResult = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => {
-      console.log('Processing:', message.orderId);
+      console.log("Processing:", message.orderId);
       // Your business logic here
     },
     notifyOrder: async (message) => {
-      console.log('Notifying:', message.orderId);
+      console.log("Notifying:", message.orderId);
     },
   },
-  urls: ['amqp://localhost'],
+  urls: ["amqp://localhost"],
 });
 
 workerResult.match({
-  Ok: (worker) => console.log('✅ Worker ready!'),
+  Ok: (worker) => console.log("✅ Worker ready!"),
   Error: (error) => {
     throw error;
   },
@@ -48,9 +48,9 @@ const workerResult = await TypedAmqpWorker.create({
   handlers: {
     processOrder: async (message) => {
       // Message is fully typed!
-      console.log(message.orderId);   // ✅ string
-      console.log(message.amount);    // ✅ number
-      console.log(message.items);     // ✅ array
+      console.log(message.orderId); // ✅ string
+      console.log(message.amount); // ✅ number
+      console.log(message.items); // ✅ array
 
       for (const item of message.items) {
         console.log(`${item.productId}: ${item.quantity}`);
@@ -105,32 +105,28 @@ For better organization, define handlers separately:
 ### Single Handler
 
 ```typescript
-import { defineHandler } from '@amqp-contract/worker';
-import { contract } from './contract';
+import { defineHandler } from "@amqp-contract/worker";
+import { contract } from "./contract";
 
-const processOrderHandler = defineHandler(
-  contract,
-  'processOrder',
-  async (message) => {
-    console.log('Processing:', message.orderId);
-    await saveToDatabase(message);
-  }
-);
+const processOrderHandler = defineHandler(contract, "processOrder", async (message) => {
+  console.log("Processing:", message.orderId);
+  await saveToDatabase(message);
+});
 
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: processOrderHandler,
   },
-  urls: ['amqp://localhost'],
+  urls: ["amqp://localhost"],
 });
 ```
 
 ### Multiple Handlers
 
 ```typescript
-import { defineHandlers } from '@amqp-contract/worker';
-import { contract } from './contract';
+import { defineHandlers } from "@amqp-contract/worker";
+import { contract } from "./contract";
 
 const handlers = defineHandlers(contract, {
   processOrder: async (message) => {
@@ -144,7 +140,7 @@ const handlers = defineHandlers(contract, {
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers,
-  urls: ['amqp://localhost'],
+  urls: ["amqp://localhost"],
 });
 ```
 
@@ -164,26 +160,18 @@ Create a dedicated module for handlers:
 
 ```typescript
 // handlers/order-handlers.ts
-import { defineHandler, defineHandlers } from '@amqp-contract/worker';
-import { orderContract } from '../contract';
-import { processPayment } from '../services/payment';
-import { sendEmail } from '../services/email';
+import { defineHandler, defineHandlers } from "@amqp-contract/worker";
+import { orderContract } from "../contract";
+import { processPayment } from "../services/payment";
+import { sendEmail } from "../services/email";
 
-export const processOrderHandler = defineHandler(
-  orderContract,
-  'processOrder',
-  async (message) => {
-    await processPayment(message);
-  }
-);
+export const processOrderHandler = defineHandler(orderContract, "processOrder", async (message) => {
+  await processPayment(message);
+});
 
-export const notifyOrderHandler = defineHandler(
-  orderContract,
-  'notifyOrder',
-  async (message) => {
-    await sendEmail(message);
-  }
-);
+export const notifyOrderHandler = defineHandler(orderContract, "notifyOrder", async (message) => {
+  await sendEmail(message);
+});
 
 // Export all handlers together
 export const orderHandlers = defineHandlers(orderContract, {
@@ -194,14 +182,14 @@ export const orderHandlers = defineHandlers(orderContract, {
 
 ```typescript
 // worker.ts
-import { TypedAmqpWorker } from '@amqp-contract/worker';
-import { orderContract } from './contract';
-import { orderHandlers } from './handlers/order-handlers';
+import { TypedAmqpWorker } from "@amqp-contract/worker";
+import { orderContract } from "./contract";
+import { orderHandlers } from "./handlers/order-handlers";
 
 const worker = await TypedAmqpWorker.create({
   contract: orderContract,
   handlers: orderHandlers,
-  urls: ['amqp://localhost'],
+  urls: ["amqp://localhost"],
 });
 ```
 
@@ -256,7 +244,7 @@ const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => {
-      console.log('Processing:', message.orderId);
+      console.log("Processing:", message.orderId);
       // Message is automatically acked after this handler completes
     },
   },
@@ -275,13 +263,13 @@ const workerResult = await TypedAmqpWorker.create({
     processOrder: async (message, { ack, nack, reject }) => {
       try {
         await processOrder(message);
-        ack();  // Acknowledge success
+        ack(); // Acknowledge success
       } catch (error) {
-        nack({ requeue: true });  // Requeue for retry
+        nack({ requeue: true }); // Requeue for retry
       }
     },
   },
-  urls: ['amqp://localhost'],
+  urls: ["amqp://localhost"],
 });
 ```
 
@@ -298,20 +286,20 @@ Properly close the worker on shutdown:
 
 ```typescript
 async function shutdown() {
-  console.log('Shutting down...');
+  console.log("Shutting down...");
   await worker.close();
   process.exit(0);
 }
 
-process.on('SIGTERM', shutdown);
-process.on('SIGINT', shutdown);
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
 ```
 
 ## Complete Example
 
 ```typescript
-import { TypedAmqpWorker } from '@amqp-contract/worker';
-import { contract } from './contract';
+import { TypedAmqpWorker } from "@amqp-contract/worker";
+import { contract } from "./contract";
 
 async function main() {
   const worker = await TypedAmqpWorker.create({
@@ -326,7 +314,7 @@ async function main() {
 
           ack();
         } catch (error) {
-          console.error('Processing failed:', error);
+          console.error("Processing failed:", error);
           nack({ requeue: true });
         }
       },
@@ -336,20 +324,20 @@ async function main() {
         await sendEmail(message);
       },
     },
-    urls: ['amqp://localhost'],
+    urls: ["amqp://localhost"],
   });
 
-  console.log('✅ Worker ready!');
+  console.log("✅ Worker ready!");
 
   // Graceful shutdown
   const shutdown = async () => {
-    console.log('Shutting down...');
+    console.log("Shutting down...");
     await worker.close();
     process.exit(0);
   };
 
-  process.on('SIGTERM', shutdown);
-  process.on('SIGINT', shutdown);
+  process.on("SIGTERM", shutdown);
+  process.on("SIGINT", shutdown);
 }
 
 main().catch(console.error);
@@ -370,13 +358,13 @@ const worker = await TypedAmqpWorker.create({
     processOrder: [
       async (message) => {
         // Process one message at a time
-        console.log('Order:', message.orderId);
+        console.log("Order:", message.orderId);
         await saveToDatabase(message);
       },
-      { prefetch: 10 } // Process up to 10 messages concurrently
+      { prefetch: 10 }, // Process up to 10 messages concurrently
     ],
   },
-  urls: ['amqp://localhost'],
+  urls: ["amqp://localhost"],
 });
 ```
 
@@ -400,22 +388,24 @@ const worker = await TypedAmqpWorker.create({
         console.log(`Processing ${messages.length} orders`);
 
         // Batch insert to database
-        await db.orders.insertMany(messages.map(msg => ({
-          id: msg.orderId,
-          amount: msg.amount,
-        })));
+        await db.orders.insertMany(
+          messages.map((msg) => ({
+            id: msg.orderId,
+            amount: msg.amount,
+          })),
+        );
 
         // All messages are acked together on success
         // Or nacked together on error
       },
       {
-        batchSize: 5,        // Process messages in batches of 5
-        batchTimeout: 1000,  // Wait max 1 second to fill batch
-        prefetch: 10,        // Optional: fetch more messages than batch size
-      }
+        batchSize: 5, // Process messages in batches of 5
+        batchTimeout: 1000, // Wait max 1 second to fill batch
+        prefetch: 10, // Optional: fetch more messages than batch size
+      },
     ],
   },
-  urls: ['amqp://localhost'],
+  urls: ["amqp://localhost"],
 });
 ```
 
@@ -449,7 +439,7 @@ Three configuration patterns are supported:
 handlers: {
   processOrder: async (message) => {
     // Single message processing
-  }
+  };
 }
 ```
 
@@ -461,8 +451,8 @@ handlers: {
     async (message) => {
       // Single message processing with prefetch
     },
-    { prefetch: 10 }
-  ]
+    { prefetch: 10 },
+  ];
 }
 ```
 
@@ -474,8 +464,8 @@ handlers: {
     async (messages) => {
       // Batch processing
     },
-    { batchSize: 5, batchTimeout: 1000 }
-  ]
+    { batchSize: 5, batchTimeout: 1000 },
+  ];
 }
 ```
 

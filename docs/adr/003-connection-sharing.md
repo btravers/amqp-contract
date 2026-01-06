@@ -115,20 +115,20 @@ const worker = await TypedAmqpWorker.create({
 Test connection caching and reuse:
 
 ```typescript
-describe('ConnectionManagerSingleton', () => {
+describe("ConnectionManagerSingleton", () => {
   beforeEach(async () => {
     await AmqpClient._resetConnectionCacheForTesting();
   });
 
-  it('should reuse connection when URLs match', async () => {
+  it("should reuse connection when URLs match", async () => {
     const client1 = await TypedAmqpClient.create({
       contract,
-      urls: ['amqp://localhost'],
+      urls: ["amqp://localhost"],
     });
 
     const client2 = await TypedAmqpClient.create({
       contract,
-      urls: ['amqp://localhost'],
+      urls: ["amqp://localhost"],
     });
 
     // Both should use the same underlying connection
@@ -136,15 +136,15 @@ describe('ConnectionManagerSingleton', () => {
     expect(client2).toBeDefined();
   });
 
-  it('should create separate connections for different URLs', async () => {
+  it("should create separate connections for different URLs", async () => {
     const client1 = await TypedAmqpClient.create({
       contract,
-      urls: ['amqp://localhost:5672'],
+      urls: ["amqp://localhost:5672"],
     });
 
     const client2 = await TypedAmqpClient.create({
       contract,
-      urls: ['amqp://localhost:5673'],
+      urls: ["amqp://localhost:5673"],
     });
 
     // Different URLs = different connections
@@ -159,14 +159,14 @@ describe('ConnectionManagerSingleton', () => {
 Test with real RabbitMQ:
 
 ```typescript
-describe('Automatic Connection Sharing Integration', () => {
+describe("Automatic Connection Sharing Integration", () => {
   beforeEach(async () => {
     await AmqpClient._resetConnectionCacheForTesting();
   });
 
-  it('should publish and consume using shared connection', async () => {
+  it("should publish and consume using shared connection", async () => {
     const messages: any[] = [];
-    const urls = ['amqp://localhost'];
+    const urls = ["amqp://localhost"];
 
     // Create client
     const clientResult = await TypedAmqpClient.create({
@@ -196,10 +196,12 @@ describe('Automatic Connection Sharing Integration', () => {
     const worker = workerResult.value;
 
     // Publish message
-    const publishResult = await client.publish('orderCreated', {
-      orderId: 'TEST-123',
-      amount: 99.99,
-    }).resultToPromise();
+    const publishResult = await client
+      .publish("orderCreated", {
+        orderId: "TEST-123",
+        amount: 99.99,
+      })
+      .resultToPromise();
 
     if (publishResult.isError()) {
       throw publishResult.error;
@@ -208,7 +210,7 @@ describe('Automatic Connection Sharing Integration', () => {
     await waitFor(() => messages.length > 0);
 
     expect(messages[0]).toMatchObject({
-      orderId: 'TEST-123',
+      orderId: "TEST-123",
       amount: 99.99,
     });
 
@@ -265,20 +267,20 @@ Need to publish messages?
 Test connection caching and reuse:
 
 ```typescript
-describe('ConnectionManagerSingleton', () => {
+describe("ConnectionManagerSingleton", () => {
   beforeEach(async () => {
     await AmqpClient._resetConnectionCacheForTesting();
   });
 
-  it('should reuse connection when URLs match', async () => {
+  it("should reuse connection when URLs match", async () => {
     const client1 = await TypedAmqpClient.create({
       contract,
-      urls: ['amqp://localhost'],
+      urls: ["amqp://localhost"],
     });
 
     const client2 = await TypedAmqpClient.create({
       contract,
-      urls: ['amqp://localhost'],
+      urls: ["amqp://localhost"],
     });
 
     // Both should use the same underlying connection
@@ -286,15 +288,15 @@ describe('ConnectionManagerSingleton', () => {
     expect(client2).toBeDefined();
   });
 
-  it('should create separate connections for different URLs', async () => {
+  it("should create separate connections for different URLs", async () => {
     const client1 = await TypedAmqpClient.create({
       contract,
-      urls: ['amqp://localhost:5672'],
+      urls: ["amqp://localhost:5672"],
     });
 
     const client2 = await TypedAmqpClient.create({
       contract,
-      urls: ['amqp://localhost:5673'],
+      urls: ["amqp://localhost:5673"],
     });
 
     // Different URLs = different connections
@@ -309,14 +311,14 @@ describe('ConnectionManagerSingleton', () => {
 Test with real RabbitMQ:
 
 ```typescript
-describe('Automatic Connection Sharing Integration', () => {
+describe("Automatic Connection Sharing Integration", () => {
   beforeEach(async () => {
     await AmqpClient._resetConnectionCacheForTesting();
   });
 
-  it('should publish and consume using shared connection', async () => {
+  it("should publish and consume using shared connection", async () => {
     const messages: any[] = [];
-    const urls = ['amqp://localhost'];
+    const urls = ["amqp://localhost"];
 
     // Create client
     const clientResult = await TypedAmqpClient.create({
@@ -346,10 +348,12 @@ describe('Automatic Connection Sharing Integration', () => {
     const worker = workerResult.value;
 
     // Publish message
-    const publishResult = await client.publish('orderCreated', {
-      orderId: 'TEST-123',
-      amount: 99.99,
-    }).resultToPromise();
+    const publishResult = await client
+      .publish("orderCreated", {
+        orderId: "TEST-123",
+        amount: 99.99,
+      })
+      .resultToPromise();
 
     if (publishResult.isError()) {
       throw publishResult.error;
@@ -358,7 +362,7 @@ describe('Automatic Connection Sharing Integration', () => {
     await waitFor(() => messages.length > 0);
 
     expect(messages[0]).toMatchObject({
-      orderId: 'TEST-123',
+      orderId: "TEST-123",
       amount: 99.99,
     });
 
@@ -441,10 +445,10 @@ Update READMEs to mention automatic connection sharing:
 Add health check support:
 
 ```typescript
-const client = await TypedAmqpClient.create({ contract, urls: ['amqp://localhost'] });
+const client = await TypedAmqpClient.create({ contract, urls: ["amqp://localhost"] });
 
 // Health check endpoint
-app.get('/health', async (req, res) => {
+app.get("/health", async (req, res) => {
   const healthy = await client.isHealthy();
   res.status(healthy ? 200 : 503).json({ healthy });
 });
@@ -455,12 +459,12 @@ app.get('/health', async (req, res) => {
 Add observability for connection usage:
 
 ```typescript
-import { getConnectionMetrics } from '@amqp-contract/core';
+import { getConnectionMetrics } from "@amqp-contract/core";
 
 // Get metrics for monitoring
 const metrics = getConnectionMetrics();
-console.log('Active connections:', metrics.activeConnections);
-console.log('Shared connections:', metrics.sharedConnections);
+console.log("Active connections:", metrics.activeConnections);
+console.log("Shared connections:", metrics.sharedConnections);
 ```
 
 ## Implementation Status

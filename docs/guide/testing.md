@@ -75,7 +75,7 @@ describe("Message Processing", () => {
   it("should publish and consume messages", async ({
     amqpChannel,
     publishMessage,
-    initConsumer
+    initConsumer,
   }) => {
     // Declare exchange
     await amqpChannel.assertExchange("test-exchange", "topic", { durable: false });
@@ -116,7 +116,7 @@ import { contract } from "./contract.js";
 describe("Order Processing Contract", () => {
   it("should process orders through the contract", async ({
     amqpConnection,
-    amqpConnectionUrl
+    amqpConnectionUrl,
   }) => {
     // Create client
     const client = await createClient(contract, {
@@ -135,16 +135,18 @@ describe("Order Processing Contract", () => {
     });
 
     // Publish message
-    const result = await client.publish("orderCreated", {
-      orderId: "123",
-      customerId: "456",
-      amount: 99.99,
-    }).resultToPromise();
+    const result = await client
+      .publish("orderCreated", {
+        orderId: "123",
+        customerId: "456",
+        amount: 99.99,
+      })
+      .resultToPromise();
 
     expect(result.isOk()).toBe(true);
 
     // Wait for message to be processed
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     expect(receivedOrders).toHaveLength(1);
     expect(receivedOrders[0]).toMatchObject({
@@ -290,7 +292,7 @@ Test scenarios with multiple consumers:
 it("should route messages to multiple consumers", async ({
   amqpChannel,
   publishMessage,
-  initConsumer
+  initConsumer,
 }) => {
   await amqpChannel.assertExchange("orders", "topic", { durable: false });
 
@@ -322,7 +324,7 @@ Adjust timeout for slow operations:
 it("should handle slow message processing", async ({
   amqpChannel,
   initConsumer,
-  publishMessage
+  publishMessage,
 }) => {
   await amqpChannel.assertExchange("exchange", "topic", { durable: false });
 
@@ -333,7 +335,7 @@ it("should handle slow message processing", async ({
   // Wait up to 30 seconds
   const messages = await waitForMessages({
     nbEvents: 1,
-    timeout: 30000
+    timeout: 30000,
   });
 
   expect(messages).toHaveLength(1);
@@ -379,7 +381,7 @@ it("should handle message failures", async ({ amqpChannel }) => {
      const port = inject("__TESTCONTAINERS_RABBITMQ_PORT_15672__");
      console.log(`Management: http://${ip}:${port}`);
      // Add a long timeout to inspect the state
-     await new Promise(resolve => setTimeout(resolve, 60000));
+     await new Promise((resolve) => setTimeout(resolve, 60000));
    });
    ```
 

@@ -93,8 +93,8 @@ In the AMQP/RabbitMQ ecosystem, the standard terms are:
 - ✅ Document the mapping: client = publisher, worker = consumer
 - ✅ Consider adding type aliases in a future minor version:
   ```typescript
-  export { TypedAmqpClient as TypedAmqpPublisher } from './client.js';
-  export { TypedAmqpWorker as TypedAmqpConsumer } from './worker.js';
+  export { TypedAmqpClient as TypedAmqpPublisher } from "./client.js";
+  export { TypedAmqpWorker as TypedAmqpConsumer } from "./worker.js";
   ```
 - ✅ Evaluate community feedback for potential v1.0 rename
 
@@ -264,13 +264,15 @@ When an application uses both `TypedAmqpClient` and `TypedAmqpWorker` with the s
 // Application that both publishes and consumes
 const client = await TypedAmqpClient.create({
   contract,
-  urls: ['amqp://localhost'],
+  urls: ["amqp://localhost"],
 });
 
 const worker = await TypedAmqpWorker.create({
   contract,
-  handlers: { /* ... */ },
-  urls: ['amqp://localhost'],
+  handlers: {
+    /* ... */
+  },
+  urls: ["amqp://localhost"],
 });
 
 // Original concern: 2 connections, 2 channels
@@ -298,13 +300,15 @@ According to [RabbitMQ documentation](https://www.rabbitmq.com/connections.html)
 // Application that both publishes and consumes
 const client = await TypedAmqpClient.create({
   contract,
-  urls: ['amqp://localhost'],
+  urls: ["amqp://localhost"],
 });
 
 const worker = await TypedAmqpWorker.create({
   contract,
-  handlers: { /* ... */ },
-  urls: ['amqp://localhost'],
+  handlers: {
+    /* ... */
+  },
+  urls: ["amqp://localhost"],
 });
 
 // Result: 1 connection (shared automatically), 2 channels ✅
@@ -422,8 +426,8 @@ The project has successfully implemented automatic connection sharing using a si
 
 ```typescript
 // Type inference works perfectly:
-const result = await client.publish('orderCreated', {
-  orderId: 'ORD-123',  // ✅ TypeScript knows the exact type
+const result = await client.publish("orderCreated", {
+  orderId: "ORD-123", // ✅ TypeScript knows the exact type
   amount: 99.99,
   // invalid: true     // ❌ TypeScript catches this
 });
@@ -438,7 +442,7 @@ const result = await client.publish('orderCreated', {
 
 ```typescript
 result.match({
-  Ok: (value) => console.log('Success'),
+  Ok: (value) => console.log("Success"),
   Error: (error) => {
     // error is TechnicalError | MessageValidationError
     console.error(error.message);
@@ -619,11 +623,11 @@ result.match({
 **Recommended Production Setup:**
 
 ```typescript
-import { TypedAmqpClient } from '@amqp-contract/client';
-import { TypedAmqpWorker } from '@amqp-contract/worker';
+import { TypedAmqpClient } from "@amqp-contract/client";
+import { TypedAmqpWorker } from "@amqp-contract/worker";
 
 // Use environment variables
-const urls = process.env.AMQP_URLS?.split(',') ?? ['amqp://localhost'];
+const urls = process.env.AMQP_URLS?.split(",") ?? ["amqp://localhost"];
 
 // Connection options for production
 const connectionOptions = {
@@ -651,7 +655,9 @@ const worker = await TypedAmqpWorker.create({
   contract,
   urls, // Same URLs = automatic connection sharing ✅
   connectionOptions,
-  handlers: { /* ... */ },
+  handlers: {
+    /* ... */
+  },
   logger,
 });
 ```

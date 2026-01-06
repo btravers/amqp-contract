@@ -34,32 +34,26 @@ import {
   defineQueue,
   definePublisherFirst,
   defineMessage,
-} from '@amqp-contract/contract';
-import { TypedAmqpClient } from '@amqp-contract/client';
-import { TypedAmqpWorker } from '@amqp-contract/worker';
-import { z } from 'zod';
+} from "@amqp-contract/contract";
+import { TypedAmqpClient } from "@amqp-contract/client";
+import { TypedAmqpWorker } from "@amqp-contract/worker";
+import { z } from "zod";
 
 // 1. Define resources
-const ordersExchange = defineExchange('orders', 'topic', { durable: true });
-const orderProcessingQueue = defineQueue('order-processing', { durable: true });
+const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const orderProcessingQueue = defineQueue("order-processing", { durable: true });
 
 // 2. Define message with schema
 const orderMessage = defineMessage(
   z.object({
     orderId: z.string(),
     amount: z.number(),
-  })
+  }),
 );
 
 // 3. Publisher-first pattern ensures consistency
-const {
-  publisher: orderCreatedPublisher,
-  createConsumer: createOrderCreatedConsumer,
-} = definePublisherFirst(
-  ordersExchange,
-  orderMessage,
-  { routingKey: 'order.created' }
-);
+const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } =
+  definePublisherFirst(ordersExchange, orderMessage, { routingKey: "order.created" });
 
 // 4. Create consumer from event
 const { consumer: processOrderConsumer, binding: orderBinding } =
@@ -91,16 +85,16 @@ if (clientResult.isError()) {
 }
 const client = clientResult.get();
 
-const result = await client.publish('orderCreated', {
-  orderId: 'ORD-123',  // ✅ TypeScript knows!
+const result = await client.publish("orderCreated", {
+  orderId: "ORD-123", // ✅ TypeScript knows!
   amount: 99.99,
 });
 
 // Handle errors explicitly using match pattern
 result.match({
-  Ok: (value) => console.log('Published successfully'),
+  Ok: (value) => console.log("Published successfully"),
   Error: (error) => {
-    console.error('Failed to publish:', error);
+    console.error("Failed to publish:", error);
     // error is TechnicalError or MessageValidationError
   },
 });
@@ -110,7 +104,7 @@ const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => {
-      console.log(message.orderId);  // ✅ TypeScript knows!
+      console.log(message.orderId); // ✅ TypeScript knows!
     },
   },
   connection,
@@ -135,10 +129,10 @@ Use the dedicated [NestJS](https://nestjs.com/) packages for automatic lifecycle
 
 ```typescript
 // app.module.ts
-import { Module } from '@nestjs/common';
-import { AmqpWorkerModule } from '@amqp-contract/worker-nestjs';
-import { AmqpClientModule } from '@amqp-contract/client-nestjs';
-import { contract } from './contract';
+import { Module } from "@nestjs/common";
+import { AmqpWorkerModule } from "@amqp-contract/worker-nestjs";
+import { AmqpClientModule } from "@amqp-contract/client-nestjs";
+import { contract } from "./contract";
 
 @Module({
   imports: [
@@ -147,15 +141,15 @@ import { contract } from './contract';
       contract,
       handlers: {
         processOrder: async (message) => {
-          console.log('Processing:', message.orderId);
+          console.log("Processing:", message.orderId);
         },
       },
-      connection: 'amqp://localhost',
+      connection: "amqp://localhost",
     }),
     // Client for publishing messages
     AmqpClientModule.forRoot({
       contract,
-      connection: 'amqp://localhost',
+      connection: "amqp://localhost",
     }),
   ],
 })
@@ -199,17 +193,17 @@ export class AppModule {}
 ## AsyncAPI Generation
 
 ```typescript
-import { generateAsyncAPI } from '@amqp-contract/asyncapi';
+import { generateAsyncAPI } from "@amqp-contract/asyncapi";
 
 const spec = generateAsyncAPI(contract, {
   info: {
-    title: 'My AMQP API',
-    version: '1.0.0',
+    title: "My AMQP API",
+    version: "1.0.0",
   },
   servers: {
     production: {
-      host: 'rabbitmq.example.com:5672',
-      protocol: 'amqp',
+      host: "rabbitmq.example.com:5672",
+      protocol: "amqp",
     },
   },
 });

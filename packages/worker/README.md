@@ -29,9 +29,9 @@ pnpm add @amqp-contract/worker
 ### Basic Usage
 
 ```typescript
-import { TypedAmqpWorker } from '@amqp-contract/worker';
-import type { Logger } from '@amqp-contract/core';
-import { contract } from './contract';
+import { TypedAmqpWorker } from "@amqp-contract/worker";
+import type { Logger } from "@amqp-contract/core";
+import { contract } from "./contract";
 
 // Optional: Create a logger implementation
 const logger: Logger = {
@@ -46,7 +46,7 @@ const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => {
-      console.log('Processing order:', message.orderId);
+      console.log("Processing order:", message.orderId);
 
       // Your business logic here
       await processPayment(message);
@@ -55,7 +55,7 @@ const worker = await TypedAmqpWorker.create({
       // If an exception is thrown, the message is automatically requeued
     },
   },
-  urls: ['amqp://localhost'],
+  urls: ["amqp://localhost"],
   logger, // Optional: logs message consumption and errors
 });
 
@@ -89,7 +89,7 @@ handlers: {
       // Message is requeued for retry
       throw error;
     }
-  }
+  };
 }
 ```
 

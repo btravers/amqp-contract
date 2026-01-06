@@ -16,9 +16,9 @@ pnpm add @amqp-contract/asyncapi
 ## Basic Usage
 
 ```typescript
-import { AsyncAPIGenerator } from '@amqp-contract/asyncapi';
-import { ZodToJsonSchemaConverter } from '@orpc/zod/zod4';
-import { contract } from './contract';
+import { AsyncAPIGenerator } from "@amqp-contract/asyncapi";
+import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
+import { contract } from "./contract";
 
 const generator = new AsyncAPIGenerator({
   schemaConverters: [new ZodToJsonSchemaConverter()],
@@ -26,20 +26,20 @@ const generator = new AsyncAPIGenerator({
 
 const spec = await generator.generate(contract, {
   info: {
-    title: 'Order Processing API',
-    version: '1.0.0',
-    description: 'Type-safe AMQP messaging for order processing',
+    title: "Order Processing API",
+    version: "1.0.0",
+    description: "Type-safe AMQP messaging for order processing",
   },
   servers: {
     production: {
-      host: 'rabbitmq.example.com:5671',
-      protocol: 'amqps',
-      description: 'Production server (TLS)',
+      host: "rabbitmq.example.com:5671",
+      protocol: "amqps",
+      description: "Production server (TLS)",
     },
     development: {
-      host: 'localhost:5672',
-      protocol: 'amqp',
-      description: 'Local development',
+      host: "localhost:5672",
+      protocol: "amqp",
+      description: "Local development",
     },
   },
 });
@@ -68,17 +68,17 @@ const generator = new AsyncAPIGenerator({
 });
 
 const spec = await generator.generate(contract, {
-  info: { title: 'My API', version: '1.0.0' },
+  info: { title: "My API", version: "1.0.0" },
   servers: {
     production: {
-      host: 'prod.rabbitmq.com:5672',
-      protocol: 'amqp',
-      description: 'Production server',
+      host: "prod.rabbitmq.com:5672",
+      protocol: "amqp",
+      description: "Production server",
     },
     staging: {
-      host: 'staging.rabbitmq.com:5672',
-      protocol: 'amqp',
-      description: 'Staging server',
+      host: "staging.rabbitmq.com:5672",
+      protocol: "amqp",
+      description: "Staging server",
     },
   },
 });
@@ -173,12 +173,12 @@ asyncapi validate asyncapi.json
 ## Complete Example
 
 ```typescript
-import { AsyncAPIGenerator } from '@amqp-contract/asyncapi';
-import { ZodToJsonSchemaConverter } from '@orpc/zod/zod4';
-import { writeFileSync } from 'fs';
-import YAML from 'yaml';
+import { AsyncAPIGenerator } from "@amqp-contract/asyncapi";
+import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
+import { writeFileSync } from "fs";
+import YAML from "yaml";
 
-import { contract } from './contract';
+import { contract } from "./contract";
 
 const generator = new AsyncAPIGenerator({
   schemaConverters: [new ZodToJsonSchemaConverter()],
@@ -186,30 +186,30 @@ const generator = new AsyncAPIGenerator({
 
 const spec = await generator.generate(contract, {
   info: {
-    title: 'Order Processing API',
-    version: '1.0.0',
-    description: 'Type-safe AMQP messaging',
+    title: "Order Processing API",
+    version: "1.0.0",
+    description: "Type-safe AMQP messaging",
     contact: {
-      name: 'API Team',
-      email: 'api@example.com',
+      name: "API Team",
+      email: "api@example.com",
     },
   },
   servers: {
     production: {
-      host: 'prod.rabbitmq.com:5672',
-      protocol: 'amqp',
-      description: 'Production server',
+      host: "prod.rabbitmq.com:5672",
+      protocol: "amqp",
+      description: "Production server",
     },
   },
 });
 
 // Export
-writeFileSync('asyncapi.json', JSON.stringify(spec, null, 2));
-writeFileSync('asyncapi.yaml', YAML.stringify(spec));
+writeFileSync("asyncapi.json", JSON.stringify(spec, null, 2));
+writeFileSync("asyncapi.yaml", YAML.stringify(spec));
 
-console.log('✅ Generated AsyncAPI specs');
-console.log('   Channels:', Object.keys(spec.channels).length);
-console.log('   Operations:', Object.keys(spec.operations).length);
+console.log("✅ Generated AsyncAPI specs");
+console.log("   Channels:", Object.keys(spec.channels).length);
+console.log("   Operations:", Object.keys(spec.operations).length);
 ```
 
 ## Best Practices

@@ -59,12 +59,10 @@ Services inject `AmqpClientService` directly:
 ```typescript
 @Injectable()
 export class OrderService {
-  constructor(
-    private readonly amqpClient: AmqpClientService<typeof orderContract>
-  ) {}
+  constructor(private readonly amqpClient: AmqpClientService<typeof orderContract>) {}
 
   async createOrder(order: Order) {
-    const result = await this.amqpClient.publish('orderCreated', {
+    const result = await this.amqpClient.publish("orderCreated", {
       ...order,
       createdAt: new Date().toISOString(),
     });
@@ -87,10 +85,10 @@ AmqpClientModule.forRootAsync({
   imports: [ConfigModule],
   useFactory: (configService: ConfigService) => ({
     contract: orderContract,
-    urls: configService.get('AMQP_URLS'),
+    urls: configService.get("AMQP_URLS"),
   }),
   inject: [ConfigService],
-})
+});
 ```
 
 ## Environment Variables

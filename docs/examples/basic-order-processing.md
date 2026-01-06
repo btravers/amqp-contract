@@ -217,11 +217,13 @@ The contract is defined in a separate package (`@amqp-contract-samples/basic-ord
 const orderSchema = z.object({
   orderId: z.string(),
   customerId: z.string(),
-  items: z.array(z.object({
-    productId: z.string(),
-    quantity: z.number().int().positive(),
-    price: z.number().positive(),
-  })),
+  items: z.array(
+    z.object({
+      productId: z.string(),
+      quantity: z.number().int().positive(),
+      price: z.number().positive(),
+    }),
+  ),
   totalAmount: z.number().positive(),
   createdAt: z.string().datetime(),
 });
@@ -232,7 +234,7 @@ const orderSchema = z.object({
 ```typescript
 const orderStatusSchema = z.object({
   orderId: z.string(),
-  status: z.enum(['processing', 'shipped', 'delivered', 'cancelled']),
+  status: z.enum(["processing", "shipped", "delivered", "cancelled"]),
   updatedAt: z.string().datetime(),
 });
 ```
@@ -241,16 +243,16 @@ const orderStatusSchema = z.object({
 
 ```typescript
 // 1. Define resources first
-const ordersExchange = defineExchange('orders', 'topic', { durable: true });
-const orderProcessingQueue = defineQueue('order-processing', { durable: true });
-const orderNotificationsQueue = defineQueue('order-notifications', { durable: true });
-const orderShippingQueue = defineQueue('order-shipping', { durable: true });
-const orderUrgentQueue = defineQueue('order-urgent', { durable: true });
+const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const orderProcessingQueue = defineQueue("order-processing", { durable: true });
+const orderNotificationsQueue = defineQueue("order-notifications", { durable: true });
+const orderShippingQueue = defineQueue("order-shipping", { durable: true });
+const orderUrgentQueue = defineQueue("order-urgent", { durable: true });
 
 // 2. Define messages
 const orderMessage = defineMessage(orderSchema, {
-  summary: 'Order created event',
-  description: 'Emitted when a new order is created',
+  summary: "Order created event",
+  description: "Emitted when a new order is created",
 });
 const orderStatusMessage = defineMessage(orderStatusSchema);
 const orderUnionMessage = defineMessage(z.union([orderSchema, orderStatusSchema]));
@@ -268,30 +270,30 @@ export const orderContract = defineContract({
   },
   bindings: {
     orderProcessingBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
-      routingKey: 'order.created',
+      routingKey: "order.created",
     }),
     orderNotificationsBinding: defineQueueBinding(orderNotificationsQueue, ordersExchange, {
-      routingKey: 'order.#',
+      routingKey: "order.#",
     }),
     orderShippingBinding: defineQueueBinding(orderShippingQueue, ordersExchange, {
-      routingKey: 'order.shipped',
+      routingKey: "order.shipped",
     }),
     orderUrgentBinding: defineQueueBinding(orderUrgentQueue, ordersExchange, {
-      routingKey: 'order.*.urgent',
+      routingKey: "order.*.urgent",
     }),
   },
   publishers: {
     orderCreated: definePublisher(ordersExchange, orderMessage, {
-      routingKey: 'order.created',
+      routingKey: "order.created",
     }),
     orderUpdated: definePublisher(ordersExchange, orderStatusMessage, {
-      routingKey: 'order.updated',
+      routingKey: "order.updated",
     }),
     orderShipped: definePublisher(ordersExchange, orderStatusMessage, {
-      routingKey: 'order.shipped',
+      routingKey: "order.shipped",
     }),
     orderUrgentUpdate: definePublisher(ordersExchange, orderStatusMessage, {
-      routingKey: 'order.updated.urgent',
+      routingKey: "order.updated.urgent",
     }),
   },
   consumers: {
@@ -308,50 +310,48 @@ export const orderContract = defineContract({
 The client is in a separate package (`@amqp-contract-samples/basic-order-processing-client`) that imports the contract:
 
 ```typescript
-import { TypedAmqpClient } from '@amqp-contract/client';
-import { orderContract } from '@amqp-contract-samples/basic-order-processing-contract';
+import { TypedAmqpClient } from "@amqp-contract/client";
+import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
 
 const clientResult = await TypedAmqpClient.create({
   contract: orderContract,
-  urls: ['amqp://localhost']
+  urls: ["amqp://localhost"],
 });
 
 if (clientResult.isError()) {
-  console.error('Failed to create client:', clientResult.error);
+  console.error("Failed to create client:", clientResult.error);
   throw clientResult.error;
 }
 
 const client = clientResult.get();
 
 // Publish new order with explicit error handling
-const result = await client.publish('orderCreated', {
-  orderId: 'ORD-001',
-  customerId: 'CUST-123',
-  items: [
-    { productId: 'PROD-A', quantity: 2, price: 29.99 },
-  ],
+const result = await client.publish("orderCreated", {
+  orderId: "ORD-001",
+  customerId: "CUST-123",
+  items: [{ productId: "PROD-A", quantity: 2, price: 29.99 }],
   totalAmount: 59.98,
   createdAt: new Date().toISOString(),
 });
 
 result.match({
-  Ok: () => console.log('Order published successfully'),
+  Ok: () => console.log("Order published successfully"),
   Error: (error) => {
-    console.error('Failed to publish:', error.message);
+    console.error("Failed to publish:", error.message);
     // Handle error appropriately
   },
 });
 
 // Publish status update
-const updateResult = await client.publish('orderUpdated', {
-  orderId: 'ORD-001',
-  status: 'processing',
+const updateResult = await client.publish("orderUpdated", {
+  orderId: "ORD-001",
+  status: "processing",
   updatedAt: new Date().toISOString(),
 });
 
 updateResult.match({
-  Ok: () => console.log('Status update published'),
-  Error: (error) => console.error('Failed:', error),
+  Ok: () => console.log("Status update published"),
+  Error: (error) => console.error("Failed:", error),
 });
 ```
 
@@ -360,11 +360,11 @@ updateResult.match({
 The worker is in a separate package (`@amqp-contract-samples/basic-order-processing-worker`) that imports the contract:
 
 ```typescript
-import { TypedAmqpWorker } from '@amqp-contract/worker';
-import { connect } from 'amqplib';
-import { orderContract } from '@amqp-contract-samples/basic-order-processing-contract';
+import { TypedAmqpWorker } from "@amqp-contract/worker";
+import { connect } from "amqplib";
+import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
 
-const connection = await connect('amqp://localhost');
+const connection = await connect("amqp://localhost");
 
 const worker = await TypedAmqpWorker.create({
   contract: orderContract,

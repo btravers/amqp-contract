@@ -48,11 +48,11 @@ Separate packages allow applications to import only what they need:
 
 ```typescript
 // Microservice that only publishes
-import { TypedAmqpClient } from '@amqp-contract/client';
+import { TypedAmqpClient } from "@amqp-contract/client";
 // Does NOT include worker code in bundle ✅
 
 // Microservice that only consumes
-import { TypedAmqpWorker } from '@amqp-contract/worker';
+import { TypedAmqpWorker } from "@amqp-contract/worker";
 // Does NOT include client code in bundle ✅
 ```
 
@@ -174,8 +174,8 @@ To address the drawbacks:
 
 ```typescript
 // @amqp-contract/amqp (single package)
-export { TypedAmqpClient } from './client';
-export { TypedAmqpWorker } from './worker';
+export { TypedAmqpClient } from "./client";
+export { TypedAmqpWorker } from "./worker";
 ```
 
 **Pros:**
@@ -200,8 +200,8 @@ export { TypedAmqpWorker } from './worker';
 
 ```typescript
 // @amqp-contract/amqp (single package)
-export { TypedAmqpClient } from './client/index';
-export { TypedAmqpWorker } from './worker/index';
+export { TypedAmqpClient } from "./client/index";
+export { TypedAmqpWorker } from "./worker/index";
 ```
 
 With separate entry points for tree shaking.
@@ -228,13 +228,13 @@ With separate entry points for tree shaking.
 
 ```typescript
 // @amqp-contract/core (base)
-export { AmqpConnection } from './connection';
+export { AmqpConnection } from "./connection";
 
 // @amqp-contract/client-plugin
-export { ClientPlugin } from './plugin';
+export { ClientPlugin } from "./plugin";
 
 // @amqp-contract/worker-plugin
-export { WorkerPlugin } from './plugin';
+export { WorkerPlugin } from "./plugin";
 ```
 
 **Pros:**
@@ -328,8 +328,8 @@ const worker = await TypedAmqpWorker.create({
 ### Pattern 3: Hybrid Service (Both Packages)
 
 ```typescript
-import { TypedAmqpClient } from '@amqp-contract/client';
-import { TypedAmqpWorker } from '@amqp-contract/worker';
+import { TypedAmqpClient } from "@amqp-contract/client";
+import { TypedAmqpWorker } from "@amqp-contract/worker";
 
 const client = await TypedAmqpClient.create({ contract, urls });
 const worker = await TypedAmqpWorker.create({ contract, handlers, urls });

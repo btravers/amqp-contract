@@ -20,17 +20,17 @@ Channel configuration allows you to:
 By default, `AmqpClient` creates channels with JSON serialization enabled:
 
 ```typescript
-import { AmqpClient } from '@amqp-contract/core';
-import { defineContract, defineExchange } from '@amqp-contract/contract';
+import { AmqpClient } from "@amqp-contract/core";
+import { defineContract, defineExchange } from "@amqp-contract/contract";
 
-const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+const ordersExchange = defineExchange("orders", "topic", { durable: true });
 const contract = defineContract({
   exchanges: { orders: ordersExchange },
 });
 
 // Default: JSON serialization enabled
 const client = new AmqpClient(contract, {
-  urls: ['amqp://localhost'],
+  urls: ["amqp://localhost"],
 });
 ```
 
@@ -39,17 +39,17 @@ const client = new AmqpClient(contract, {
 Use the `channelOptions` parameter to customize channel behavior:
 
 ```typescript
-import { AmqpClient } from '@amqp-contract/core';
-import type { Channel } from 'amqplib';
+import { AmqpClient } from "@amqp-contract/core";
+import type { Channel } from "amqplib";
 
 const client = new AmqpClient(contract, {
-  urls: ['amqp://localhost'],
+  urls: ["amqp://localhost"],
   channelOptions: {
     // Override JSON serialization (default: true)
     json: false,
 
     // Set a custom channel name for debugging
-    name: 'my-custom-channel',
+    name: "my-custom-channel",
 
     // Enable confirm channel for publisher confirms
     confirm: true,
@@ -60,7 +60,7 @@ const client = new AmqpClient(contract, {
       await channel.prefetch(10);
 
       // Add additional AMQP resources not in the contract
-      await channel.assertQueue('custom-queue', { durable: true });
+      await channel.assertQueue("custom-queue", { durable: true });
     },
   },
 });
@@ -74,7 +74,7 @@ Control whether messages are automatically serialized to JSON:
 
 ```typescript
 const client = new AmqpClient(contract, {
-  urls: ['amqp://localhost'],
+  urls: ["amqp://localhost"],
   channelOptions: {
     json: false, // Disable automatic JSON serialization
   },
@@ -95,9 +95,9 @@ Set custom channel names for easier debugging:
 
 ```typescript
 const client = new AmqpClient(contract, {
-  urls: ['amqp://localhost'],
+  urls: ["amqp://localhost"],
   channelOptions: {
-    name: 'order-publisher-channel', // Appears in RabbitMQ management UI
+    name: "order-publisher-channel", // Appears in RabbitMQ management UI
   },
 });
 ```
@@ -114,7 +114,7 @@ Enable publisher confirms to receive acknowledgments when messages are routed:
 
 ```typescript
 const client = new AmqpClient(contract, {
-  urls: ['amqp://localhost'],
+  urls: ["amqp://localhost"],
   channelOptions: {
     confirm: true, // Enable publisher confirms
   },
@@ -135,19 +135,19 @@ The `setup` function allows you to run custom initialization logic after the con
 
 ```typescript
 const client = new AmqpClient(contract, {
-  urls: ['amqp://localhost'],
+  urls: ["amqp://localhost"],
   channelOptions: {
     setup: async (channel: Channel) => {
       // Configure Quality of Service (QoS)
       await channel.prefetch(10); // Process max 10 messages concurrently
 
       // Create additional resources not in contract
-      await channel.assertQueue('dead-letter-queue', {
+      await channel.assertQueue("dead-letter-queue", {
         durable: true,
       });
 
       // Configure channel-level settings
-      await channel.assertExchange('retry-exchange', 'topic', {
+      await channel.assertExchange("retry-exchange", "topic", {
         durable: true,
       });
     },
@@ -165,7 +165,7 @@ Configure prefetch to control message flow and load distribution:
 
 ```typescript
 const client = new AmqpClient(contract, {
-  urls: ['amqp://localhost'],
+  urls: ["amqp://localhost"],
   channelOptions: {
     setup: async (channel: Channel) => {
       // Limit to 10 unacknowledged messages per channel
@@ -187,19 +187,19 @@ Set up dead letter queues for failed message handling:
 
 ```typescript
 const client = new AmqpClient(contract, {
-  urls: ['amqp://localhost'],
+  urls: ["amqp://localhost"],
   channelOptions: {
     setup: async (channel: Channel) => {
       // Create dead letter exchange
-      await channel.assertExchange('dlx', 'topic', { durable: true });
+      await channel.assertExchange("dlx", "topic", { durable: true });
 
       // Create dead letter queue
-      await channel.assertQueue('dead-letters', {
+      await channel.assertQueue("dead-letters", {
         durable: true,
       });
 
       // Bind dead letter queue to exchange
-      await channel.bindQueue('dead-letters', 'dlx', '#');
+      await channel.bindQueue("dead-letters", "dlx", "#");
     },
   },
 });
@@ -210,23 +210,24 @@ const client = new AmqpClient(contract, {
 Use environment-specific configurations:
 
 ```typescript
-const channelOptions = process.env.NODE_ENV === 'production'
-  ? {
-      confirm: true, // Publisher confirms in production
-      name: `${process.env.SERVICE_NAME}-channel`,
-      setup: async (channel: Channel) => {
-        await channel.prefetch(50); // Higher throughput
-      },
-    }
-  : {
-      name: 'dev-channel',
-      setup: async (channel: Channel) => {
-        await channel.prefetch(1); // Fair distribution for testing
-      },
-    };
+const channelOptions =
+  process.env.NODE_ENV === "production"
+    ? {
+        confirm: true, // Publisher confirms in production
+        name: `${process.env.SERVICE_NAME}-channel`,
+        setup: async (channel: Channel) => {
+          await channel.prefetch(50); // Higher throughput
+        },
+      }
+    : {
+        name: "dev-channel",
+        setup: async (channel: Channel) => {
+          await channel.prefetch(1); // Fair distribution for testing
+        },
+      };
 
 const client = new AmqpClient(contract, {
-  urls: [process.env.AMQP_URL ?? 'amqp://localhost'],
+  urls: [process.env.AMQP_URL ?? "amqp://localhost"],
   channelOptions,
 });
 ```
@@ -239,7 +240,7 @@ The setup function supports both Promise-based and callback-based signatures:
 
 ```typescript
 const client = new AmqpClient(contract, {
-  urls: ['amqp://localhost'],
+  urls: ["amqp://localhost"],
   channelOptions: {
     setup: async (channel: Channel) => {
       await channel.prefetch(10);
@@ -253,10 +254,11 @@ const client = new AmqpClient(contract, {
 
 ```typescript
 const client = new AmqpClient(contract, {
-  urls: ['amqp://localhost'],
+  urls: ["amqp://localhost"],
   channelOptions: {
     setup: (channel: Channel, callback: (error?: Error) => void) => {
-      channel.prefetch(10)
+      channel
+        .prefetch(10)
         .then(() => callback())
         .catch((err) => callback(err));
     },
@@ -302,7 +304,7 @@ channelOptions: {
 
 ```typescript
 const client = new AmqpClient(contract, {
-  urls: ['amqp://localhost'],
+  urls: ["amqp://localhost"],
   channelOptions: {
     setup: async (channel: Channel) => {
       // Prefetch of 10 ensures fair distribution across workers
@@ -316,12 +318,12 @@ const client = new AmqpClient(contract, {
 ### 3. Test Custom Configuration
 
 ```typescript
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from "vitest";
 
-describe('Channel Configuration', () => {
-  it('should apply custom prefetch setting', async () => {
+describe("Channel Configuration", () => {
+  it("should apply custom prefetch setting", async () => {
     const client = new AmqpClient(contract, {
-      urls: ['amqp://localhost'],
+      urls: ["amqp://localhost"],
       channelOptions: {
         setup: async (channel: Channel) => {
           await channel.prefetch(10);
@@ -341,14 +343,14 @@ describe('Channel Configuration', () => {
 
 ```typescript
 const client = new AmqpClient(contract, {
-  urls: ['amqp://localhost'],
+  urls: ["amqp://localhost"],
   channelOptions: {
     setup: async (channel: Channel) => {
       try {
         await channel.prefetch(10);
-        await channel.assertQueue('custom-queue', { durable: true });
+        await channel.assertQueue("custom-queue", { durable: true });
       } catch (error) {
-        console.error('Channel setup failed:', error);
+        console.error("Channel setup failed:", error);
         throw error; // Re-throw to trigger reconnection
       }
     },
@@ -382,12 +384,12 @@ Custom setup runs **after** contract topology. You cannot override or prevent co
 ```typescript
 const contract = defineContract({
   exchanges: {
-    orders: defineExchange('orders', 'topic', { durable: true }),
+    orders: defineExchange("orders", "topic", { durable: true }),
   },
 });
 
 const client = new AmqpClient(contract, {
-  urls: ['amqp://localhost'],
+  urls: ["amqp://localhost"],
   channelOptions: {
     setup: async (channel: Channel) => {
       // ❌ This won't prevent 'orders' exchange from being created
@@ -403,7 +405,7 @@ Channel options only affect the individual channel. Connection-level configurati
 
 ```typescript
 const client = new AmqpClient(contract, {
-  urls: ['amqp://localhost'],
+  urls: ["amqp://localhost"],
   connectionOptions: {
     heartbeatIntervalInSeconds: 30, // Connection-level
   },

@@ -94,12 +94,12 @@ import {
   defineQueue,
   definePublisherFirst,
   defineMessage,
-} from '@amqp-contract/contract';
-import { z } from 'zod';
+} from "@amqp-contract/contract";
+import { z } from "zod";
 
 // Define resources
-const ordersExchange = defineExchange('orders', 'topic', { durable: true });
-const orderProcessingQueue = defineQueue('order-processing', { durable: true });
+const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const orderProcessingQueue = defineQueue("order-processing", { durable: true });
 
 // Define message schema
 const orderMessage = defineMessage(
@@ -107,22 +107,18 @@ const orderMessage = defineMessage(
     orderId: z.string(),
     customerId: z.string(),
     amount: z.number().positive(),
-    items: z.array(z.object({
-      productId: z.string(),
-      quantity: z.number().int().positive(),
-    })),
-  })
+    items: z.array(
+      z.object({
+        productId: z.string(),
+        quantity: z.number().int().positive(),
+      }),
+    ),
+  }),
 );
 
 // Publisher-first pattern ensures consistency
-const {
-  publisher: orderCreatedPublisher,
-  createConsumer: createOrderCreatedConsumer,
-} = definePublisherFirst(
-  ordersExchange,
-  orderMessage,
-  { routingKey: 'order.created' }
-);
+const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } =
+  definePublisherFirst(ordersExchange, orderMessage, { routingKey: "order.created" });
 
 // Create consumer from event
 const { consumer: processOrderConsumer, binding: orderBinding } =
@@ -144,52 +140,52 @@ export const contract = defineContract({
 ## Generation Code
 
 ```typescript
-import { writeFileSync } from 'fs';
-import { generateAsyncAPI } from '@amqp-contract/asyncapi';
-import { contract } from './contract';
-import YAML from 'yaml';
+import { writeFileSync } from "fs";
+import { generateAsyncAPI } from "@amqp-contract/asyncapi";
+import { contract } from "./contract";
+import YAML from "yaml";
 
 // Generate AsyncAPI specification
 const spec = generateAsyncAPI(contract, {
   info: {
-    title: 'Order Processing API',
-    version: '1.0.0',
-    description: 'Type-safe AMQP messaging API for order processing',
+    title: "Order Processing API",
+    version: "1.0.0",
+    description: "Type-safe AMQP messaging API for order processing",
     contact: {
-      name: 'API Team',
-      email: 'api@example.com',
+      name: "API Team",
+      email: "api@example.com",
     },
     license: {
-      name: 'MIT',
+      name: "MIT",
     },
   },
   servers: {
     production: {
-      host: 'prod.rabbitmq.com:5671',
-      protocol: 'amqps',
-      description: 'Production RabbitMQ server (TLS)',
+      host: "prod.rabbitmq.com:5671",
+      protocol: "amqps",
+      description: "Production RabbitMQ server (TLS)",
     },
     staging: {
-      host: 'staging.rabbitmq.com:5671',
-      protocol: 'amqps',
-      description: 'Staging environment (TLS)',
+      host: "staging.rabbitmq.com:5671",
+      protocol: "amqps",
+      description: "Staging environment (TLS)",
     },
     development: {
-      host: 'localhost:5672',
-      protocol: 'amqp',
-      description: 'Local development server (plaintext, not for production use)',
+      host: "localhost:5672",
+      protocol: "amqp",
+      description: "Local development server (plaintext, not for production use)",
     },
   },
 });
 
 // Export as JSON
-writeFileSync('asyncapi.json', JSON.stringify(spec, null, 2));
-console.log('✓ Generated asyncapi.json');
+writeFileSync("asyncapi.json", JSON.stringify(spec, null, 2));
+console.log("✓ Generated asyncapi.json");
 
 // Export as YAML
 const yaml = YAML.stringify(spec);
-writeFileSync('asyncapi.yaml', yaml);
-console.log('✓ Generated asyncapi.yaml');
+writeFileSync("asyncapi.yaml", yaml);
+console.log("✓ Generated asyncapi.yaml");
 ```
 
 ## Generated Specification
@@ -404,8 +400,8 @@ Add descriptions to your schemas for better documentation:
 
 ```typescript
 const orderSchema = z.object({
-  orderId: z.string().describe('Unique order identifier'),
-  amount: z.number().positive().describe('Total order amount in USD'),
+  orderId: z.string().describe("Unique order identifier"),
+  amount: z.number().positive().describe("Total order amount in USD"),
 });
 ```
 
