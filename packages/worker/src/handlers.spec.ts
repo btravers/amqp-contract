@@ -142,9 +142,10 @@ describe("handlers", () => {
       const result = defineHandlers(testContract, handlers);
 
       // THEN
-      expect(result).toBe(handlers);
-      expect(result.testConsumer).toBe(handler1);
-      expect(result.anotherConsumer).toEqual([handler2, { prefetch: 5 }]);
+      expect(result).toEqual({
+        testConsumer: handler1,
+        anotherConsumer: [handler2, { prefetch: 5 }],
+      });
     });
 
     it("should throw error if handler references non-existent consumer", () => {
