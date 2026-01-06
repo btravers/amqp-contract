@@ -20,25 +20,33 @@ const it = baseIt.extend<{
     contract: TContract,
   ) => Promise<TypedAmqpClient<TContract>>;
 }>({
-  clientFactory: async ({ amqpConnectionUrl, onTestFinished }, use) => {
-    await use(async <TContract extends ContractDefinition>(contract: TContract) => {
-      const client = await TypedAmqpClient.create({
-        contract,
-        urls: [amqpConnectionUrl],
-      }).resultToPromise();
+  clientFactory: async ({ amqpConnectionUrl }, use) => {
+    const clients: Array<TypedAmqpClient<ContractDefinition>> = [];
+    
+    try {
+      await use(async <TContract extends ContractDefinition>(contract: TContract) => {
+        const client = await TypedAmqpClient.create({
+          contract,
+          urls: [amqpConnectionUrl],
+        }).resultToPromise();
 
-      onTestFinished(async () => {
-        try {
-          await client.close().resultToPromise();
-        } catch (error) {
-          // Avoid unhandled promise rejections during test teardown
-          // eslint-disable-next-line no-console
-          console.error("Failed to close AMQP client in test teardown:", error);
-        }
+        clients.push(client);
+        return client;
       });
-
-      return client;
-    });
+    } finally {
+      // Clean up all clients before fixture cleanup (which deletes the vhost)
+      await Promise.all(
+        clients.map(async (client) => {
+          try {
+            await client.close().resultToPromise();
+          } catch (error) {
+            // Swallow errors during cleanup to avoid unhandled rejections
+            // eslint-disable-next-line no-console
+            console.error("Failed to close AMQP client during fixture cleanup:", error);
+          }
+        }),
+      );
+    }
   },
 });
 

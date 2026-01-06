@@ -21,31 +21,39 @@ const it = baseIt.extend<{
     handlers: WorkerInferConsumerHandlers<TContract>,
   ) => Promise<TypedAmqpWorker<TContract>>;
 }>({
-  workerFactory: async ({ amqpConnectionUrl, onTestFinished }, use) => {
-    await use(
-      async <TContract extends ContractDefinition>(
-        contract: TContract,
-        handlers: WorkerInferConsumerHandlers<TContract>,
-      ) => {
-        const worker = await TypedAmqpWorker.create({
-          contract,
-          handlers,
-          urls: [amqpConnectionUrl],
-        }).resultToPromise();
+  workerFactory: async ({ amqpConnectionUrl }, use) => {
+    const workers: Array<TypedAmqpWorker<ContractDefinition>> = [];
+    
+    try {
+      await use(
+        async <TContract extends ContractDefinition>(
+          contract: TContract,
+          handlers: WorkerInferConsumerHandlers<TContract>,
+        ) => {
+          const worker = await TypedAmqpWorker.create({
+            contract,
+            handlers,
+            urls: [amqpConnectionUrl],
+          }).resultToPromise();
 
-        onTestFinished(async () => {
+          workers.push(worker);
+          return worker;
+        },
+      );
+    } finally {
+      // Clean up all workers before fixture cleanup (which deletes the vhost)
+      await Promise.all(
+        workers.map(async (worker) => {
           try {
             await worker.close().resultToPromise();
           } catch (error) {
-            // Avoid unhandled promise rejections during test teardown
+            // Swallow errors during cleanup to avoid unhandled rejections
             // eslint-disable-next-line no-console
-            console.error("Failed to close worker in onTestFinished:", error);
+            console.error("Failed to close worker during fixture cleanup:", error);
           }
-        });
-
-        return worker;
-      },
-    );
+        }),
+      );
+    }
   },
 });
 
