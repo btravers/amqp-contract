@@ -24,34 +24,49 @@ const it = baseIt.extend<{
     handlers: Parameters<typeof TypedAmqpWorker.create<TContract>>[0]["handlers"],
   ) => Promise<TypedAmqpWorker<TContract>>;
 }>({
-  clientFactory: async ({ amqpConnectionUrl }, use) => {
-    const clients: TypedAmqpClient<ContractDefinition>[] = [];
+  clientFactory: async ({ amqpConnectionUrl, onTestFinished }, use) => {
     await use(async <TContract extends ContractDefinition>(contract: TContract) => {
-      const clientResult = await TypedAmqpClient.create({
+      const client = await TypedAmqpClient.create({
         contract,
         urls: [amqpConnectionUrl],
       }).resultToPromise();
 
-      clients.push(clientResult);
-      return clientResult;
+      onTestFinished(async () => {
+        try {
+          await client.close().resultToPromise();
+        } catch (error) {
+          // Avoid unhandled promise rejections during test teardown
+          // eslint-disable-next-line no-console
+          console.error("Failed to close AMQP client in test teardown:", error);
+        }
+      });
+
+      return client;
     });
-    await Promise.all(clients.map((client) => client.close().resultToPromise()));
   },
-  workerFactory: async ({ amqpConnectionUrl }, use) => {
-    const workers: TypedAmqpWorker<ContractDefinition>[] = [];
+  workerFactory: async ({ amqpConnectionUrl, onTestFinished }, use) => {
     await use(
       async <TContract extends ContractDefinition>(
         contract: TContract,
         handlers: Parameters<typeof TypedAmqpWorker.create<TContract>>[0]["handlers"],
       ) => {
-        const workerResult = await TypedAmqpWorker.create({
+        const worker = await TypedAmqpWorker.create({
           contract,
           urls: [amqpConnectionUrl],
           handlers,
         }).resultToPromise();
 
-        workers.push(workerResult);
-        return workerResult;
+        onTestFinished(async () => {
+          try {
+            await worker.close().resultToPromise();
+          } catch (error) {
+            // Avoid unhandled promise rejections during test teardown
+            // eslint-disable-next-line no-console
+            console.error("Failed to close TypedAmqpWorker in onTestFinished:", error);
+          }
+        });
+
+        return worker;
       },
     );
     await Promise.all(workers.map((worker) => worker.close().resultToPromise()));
@@ -108,7 +123,7 @@ describe("Client and Worker Integration", () => {
 
       // GIVEN
       const mockHandler = vi.fn().mockResolvedValue(undefined);
-      const _worker = await workerFactory(contract, {
+      await workerFactory(contract, {
         processOrder: mockHandler,
       });
       const client = await clientFactory(contract);
@@ -177,7 +192,7 @@ describe("Client and Worker Integration", () => {
       const mockHandler = vi.fn().mockImplementation(async (message: unknown) => {
         receivedMessages.push(message);
       });
-      const _worker = await workerFactory(contract, {
+      await workerFactory(contract, {
         processEvent: mockHandler,
       });
       const client = await clientFactory(contract);
@@ -243,7 +258,7 @@ describe("Client and Worker Integration", () => {
       });
 
       const mockHandler = vi.fn().mockResolvedValue(undefined);
-      const _worker = await workerFactory(contract, {
+      await workerFactory(contract, {
         processStrict: mockHandler,
       });
       const client = await clientFactory(contract);
@@ -327,7 +342,7 @@ describe("Client and Worker Integration", () => {
       const emailHandler = vi.fn().mockResolvedValue(undefined);
       const smsHandler = vi.fn().mockResolvedValue(undefined);
 
-      const _worker = await workerFactory(contract, {
+      await workerFactory(contract, {
         processEmail: emailHandler,
         processSms: smsHandler,
       });
