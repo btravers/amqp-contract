@@ -99,7 +99,7 @@ describe("AsyncAPIGenerator", () => {
                   },
                 },
               },
-              "description": "AMQP Queue: order-processing",
+              "description": "AMQP Queue: order-processing (bound to exchange 'orders' with routing key 'order.created')",
               "messages": {
                 "processOrderMessage": {
                   "contentType": "application/json",
@@ -281,7 +281,6 @@ describe("AsyncAPIGenerator", () => {
               "action": "receive",
               "bindings": {
                 "amqp": {
-                  "ack": true,
                   "bindingVersion": "0.3.0",
                 },
               },
@@ -726,7 +725,6 @@ describe("AsyncAPIGenerator", () => {
               "action": "receive",
               "bindings": {
                 "amqp": {
-                  "ack": true,
                   "bindingVersion": "0.3.0",
                 },
               },
@@ -1066,7 +1064,6 @@ describe("AsyncAPIGenerator", () => {
               "action": "receive",
               "bindings": {
                 "amqp": {
-                  "ack": true,
                   "bindingVersion": "0.3.0",
                 },
               },
@@ -1815,7 +1812,7 @@ describe("AsyncAPIGenerator", () => {
                   },
                 },
               },
-              "description": "AMQP Queue: fanout-queue",
+              "description": "AMQP Queue: fanout-queue (bound to exchange 'fanout-exchange')",
               "title": "fanout-queue",
             },
           },

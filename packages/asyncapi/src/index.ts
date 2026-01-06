@@ -11,6 +11,7 @@ import type {
   ContractDefinition,
   ExchangeDefinition,
   MessageDefinition,
+  QueueBindingDefinition,
   QueueDefinition,
 } from "@amqp-contract/contract";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
@@ -171,8 +172,10 @@ export class AsyncAPIGenerator {
           }
         }
 
+        // Find bindings for this queue
+        const queueBindings = this.getQueueBindings(queue, contract);
         const channel: ChannelObject = {
-          ...this.queueToChannel(queue),
+          ...this.queueToChannel(queue, queueBindings),
         };
 
         if (Object.keys(channelMessages).length > 0) {
@@ -224,17 +227,17 @@ export class AsyncAPIGenerator {
 
         // Add operation-level AMQP bindings
         if (publisher.routingKey) {
-          operation.bindings = {
+          operation["bindings"] = {
             amqp: {
               cc: [publisher.routingKey],
               deliveryMode: 2, // Persistent by default
               bindingVersion: "0.3.0",
             },
           };
-          operation.description = `Routing key: ${publisher.routingKey}`;
+          operation["description"] = `Routing key: ${publisher.routingKey}`;
         }
 
-        convertedOperations[publisherName] = operation;
+        convertedOperations[publisherName] = operation as OperationsObject[string];
       }
     }
 
@@ -251,9 +254,8 @@ export class AsyncAPIGenerator {
           summary: `Consume from ${consumer.queue.name}`,
           bindings: {
             amqp: {
-              ack: true, // Auto-acknowledge by default
               bindingVersion: "0.3.0",
-            },
+            } as unknown as ChannelObject["bindings"],
           },
         };
       }
@@ -307,11 +309,29 @@ export class AsyncAPIGenerator {
   /**
    * Convert a queue definition to AsyncAPI ChannelObject
    */
-  private queueToChannel(queue: QueueDefinition): ChannelObject {
+  private queueToChannel(
+    queue: QueueDefinition,
+    bindings: QueueBindingDefinition[] = [],
+  ): ChannelObject {
+    // Build description with binding information
+    let description = `AMQP Queue: ${queue.name}`;
+    if (bindings.length > 0) {
+      const bindingDescriptions = bindings
+        .map((binding) => {
+          const exchangeName = binding.exchange.name;
+          const routingKey = "routingKey" in binding ? binding.routingKey : undefined;
+          return routingKey
+            ? `bound to exchange '${exchangeName}' with routing key '${routingKey}'`
+            : `bound to exchange '${exchangeName}'`;
+        })
+        .join(", ");
+      description += ` (${bindingDescriptions})`;
+    }
+
     const result: Record<string, unknown> = {
       address: queue.name,
       title: queue.name,
-      description: `AMQP Queue: ${queue.name}`,
+      description,
       bindings: {
         amqp: {
           is: "queue",
@@ -382,6 +402,26 @@ export class AsyncAPIGenerator {
       }
     }
     return queue.name;
+  }
+
+  /**
+   * Get all bindings for a queue from the contract
+   */
+  private getQueueBindings(
+    queue: QueueDefinition,
+    contract: ContractDefinition,
+  ): QueueBindingDefinition[] {
+    const result: QueueBindingDefinition[] = [];
+
+    if (contract.bindings) {
+      for (const binding of Object.values(contract.bindings)) {
+        if (binding.type === "queue" && binding.queue.name === queue.name) {
+          result.push(binding);
+        }
+      }
+    }
+
+    return result;
   }
 
   /**
