@@ -1,0 +1,33 @@
+{
+  "name": "@amqp-contract/tests",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Integration tests for amqp-contract library",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:integration": "vitest run",
+    "test:watch": "vitest watch"
+  },
+  "dependencies": {
+    "@amqp-contract/client": "workspace:*",
+    "@amqp-contract/client-nestjs": "workspace:*",
+    "@amqp-contract/contract": "workspace:*",
+    "@amqp-contract/core": "workspace:*",
+    "@amqp-contract/testing": "workspace:*",
+    "@amqp-contract/worker": "workspace:*",
+    "@amqp-contract/worker-nestjs": "workspace:*",
+    "@swan-io/boxed": "catalog:"
+  },
+  "devDependencies": {
+    "@nestjs/common": "catalog:",
+    "@nestjs/core": "catalog:",
+    "@nestjs/testing": "catalog:",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "zod": "catalog:"
+  }
+}

@@ -1,0 +1,375 @@
+import {
+  ContractDefinition,
+  defineConsumer,
+  defineContract,
+  defineExchange,
+  defineMessage,
+  definePublisher,
+  defineQueue,
+  defineQueueBinding,
+} from "@amqp-contract/contract";
+import { describe, expect, vi } from "vitest";
+import { Result } from "@swan-io/boxed";
+import { TypedAmqpClient } from "@amqp-contract/client";
+import { TypedAmqpWorker } from "@amqp-contract/worker";
+import { it as baseIt } from "@amqp-contract/testing/extension";
+import { z } from "zod";
+
+const it = baseIt.extend<{
+  clientFactory: <TContract extends ContractDefinition>(
+    contract: TContract,
+  ) => Promise<TypedAmqpClient<TContract>>;
+  workerFactory: <TContract extends ContractDefinition>(
+    contract: TContract,
+    handlers: Parameters<typeof TypedAmqpWorker.create<TContract>>[0]["handlers"],
+  ) => Promise<TypedAmqpWorker<TContract>>;
+}>({
+  clientFactory: async ({ amqpConnectionUrl }, use) => {
+    const clients: TypedAmqpClient<ContractDefinition>[] = [];
+    await use(async <TContract extends ContractDefinition>(contract: TContract) => {
+      const clientResult = await TypedAmqpClient.create({
+        contract,
+        urls: [amqpConnectionUrl],
+      }).resultToPromise();
+
+      clients.push(clientResult);
+      return clientResult;
+    });
+    await Promise.all(clients.map((client) => client.close().resultToPromise()));
+  },
+  workerFactory: async ({ amqpConnectionUrl }, use) => {
+    const workers: TypedAmqpWorker<ContractDefinition>[] = [];
+    await use(
+      async <TContract extends ContractDefinition>(
+        contract: TContract,
+        handlers: Parameters<typeof TypedAmqpWorker.create<TContract>>[0]["handlers"],
+      ) => {
+        const workerResult = await TypedAmqpWorker.create({
+          contract,
+          urls: [amqpConnectionUrl],
+          handlers,
+        }).resultToPromise();
+
+        workers.push(workerResult);
+        return workerResult;
+      },
+    );
+    await Promise.all(workers.map((worker) => worker.close().resultToPromise()));
+  },
+});
+
+describe("Client and Worker Integration", () => {
+  describe("end-to-end message flow", () => {
+    it("should successfully publish and consume messages between client and worker", async ({
+      clientFactory,
+      workerFactory,
+    }) => {
+      // GIVEN - Define contract
+      const exchange = defineExchange("orders", "topic", { durable: false });
+      const queue = defineQueue("order-processing", { durable: false });
+      const orderMessage = defineMessage(
+        z.object({
+          orderId: z.string(),
+          amount: z.number().positive(),
+          customerId: z.string(),
+        }),
+        {
+          summary: "Order created event",
+          description: "Emitted when a new order is created",
+        },
+      );
+
+      const contract = defineContract({
+        exchanges: { orders: exchange },
+        queues: { orderProcessing: queue },
+        bindings: {
+          orderBinding: defineQueueBinding(queue, exchange, {
+            routingKey: "order.created",
+          }),
+        },
+        publishers: {
+          orderCreated: definePublisher(exchange, orderMessage, {
+            routingKey: "order.created",
+          }),
+        },
+        consumers: {
+          processOrder: defineConsumer(queue, orderMessage),
+        },
+      });
+
+      // GIVEN - Create mock handler
+      const mockHandler = vi.fn().mockResolvedValue(undefined);
+
+      // GIVEN - Create worker and client
+      const _worker = await workerFactory(contract, {
+        processOrder: mockHandler,
+      });
+      const client = await clientFactory(contract);
+
+      // Wait for worker to be ready
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // WHEN - Publish message
+      const publishResult = await client.publish("orderCreated", {
+        orderId: "ORD-123",
+        amount: 99.99,
+        customerId: "CUST-456",
+      });
+
+      // THEN - Publish should succeed
+      expect(publishResult).toEqual(Result.Ok(undefined));
+
+      // THEN - Wait for message to be consumed
+      await vi.waitFor(
+        () => {
+          expect(mockHandler).toHaveBeenCalledTimes(1);
+        },
+        { timeout: 5000 },
+      );
+
+      // THEN - Verify handler was called with correct data
+      expect(mockHandler).toHaveBeenCalledWith(
+        expect.objectContaining({
+          orderId: "ORD-123",
+          amount: 99.99,
+          customerId: "CUST-456",
+        }),
+      );
+    });
+
+    it("should handle multiple messages in sequence", async ({ clientFactory, workerFactory }) => {
+      // GIVEN - Define contract
+      const exchange = defineExchange("events", "topic", { durable: false });
+      const queue = defineQueue("event-processing", { durable: false });
+      const eventMessage = defineMessage(
+        z.object({
+          eventId: z.string(),
+          type: z.enum(["created", "updated", "deleted"]),
+          data: z.record(z.string(), z.any()),
+        }),
+      );
+
+      const contract = defineContract({
+        exchanges: { events: exchange },
+        queues: { eventProcessing: queue },
+        bindings: {
+          eventBinding: defineQueueBinding(queue, exchange, {
+            routingKey: "event.#",
+          }),
+        },
+        publishers: {
+          eventPublisher: definePublisher(exchange, eventMessage, {
+            routingKey: "event.general",
+          }),
+        },
+        consumers: {
+          processEvent: defineConsumer(queue, eventMessage),
+        },
+      });
+
+      // GIVEN - Track all received messages
+      const receivedMessages: unknown[] = [];
+      const mockHandler = vi.fn().mockImplementation(async (message: unknown) => {
+        receivedMessages.push(message);
+      });
+
+      // GIVEN - Create worker and client
+      const _worker = await workerFactory(contract, {
+        processEvent: mockHandler,
+      });
+      const client = await clientFactory(contract);
+
+      // Wait for worker to be ready
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // WHEN - Publish multiple messages
+      const messages = [
+        { eventId: "EVT-1", type: "created" as const, data: { name: "Test 1" } },
+        { eventId: "EVT-2", type: "updated" as const, data: { name: "Test 2" } },
+        { eventId: "EVT-3", type: "deleted" as const, data: { id: "123" } },
+      ];
+
+      for (const message of messages) {
+        const result = await client.publish("eventPublisher", message);
+        expect(result).toEqual(Result.Ok(undefined));
+      }
+
+      // THEN - All messages should be consumed
+      await vi.waitFor(
+        () => {
+          expect(mockHandler).toHaveBeenCalledTimes(3);
+        },
+        { timeout: 5000 },
+      );
+
+      // THEN - Verify all messages were received in order
+      expect(receivedMessages).toHaveLength(3);
+      expect(receivedMessages).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ eventId: "EVT-1", type: "created" }),
+          expect.objectContaining({ eventId: "EVT-2", type: "updated" }),
+          expect.objectContaining({ eventId: "EVT-3", type: "deleted" }),
+        ]),
+      );
+    });
+
+    it("should handle validation errors gracefully", async ({ clientFactory, workerFactory }) => {
+      // GIVEN - Define contract with strict validation
+      const exchange = defineExchange("strict", "topic", { durable: false });
+      const queue = defineQueue("strict-processing", { durable: false });
+      const strictMessage = defineMessage(
+        z.object({
+          id: z.string().uuid(),
+          value: z.number().int().positive(),
+        }),
+      );
+
+      const contract = defineContract({
+        exchanges: { strict: exchange },
+        queues: { strictProcessing: queue },
+        bindings: {
+          strictBinding: defineQueueBinding(queue, exchange, {
+            routingKey: "strict.message",
+          }),
+        },
+        publishers: {
+          strictPublisher: definePublisher(exchange, strictMessage, {
+            routingKey: "strict.message",
+          }),
+        },
+        consumers: {
+          processStrict: defineConsumer(queue, strictMessage),
+        },
+      });
+
+      const mockHandler = vi.fn().mockResolvedValue(undefined);
+      const _worker = await workerFactory(contract, {
+        processStrict: mockHandler,
+      });
+      const client = await clientFactory(contract);
+
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // WHEN - Try to publish invalid message (invalid UUID)
+      const invalidResult = await client.publish("strictPublisher", {
+        id: "not-a-uuid",
+        value: 42,
+      } as never);
+
+      // THEN - Should fail validation
+      expect(invalidResult.isError()).toBe(true);
+
+      // WHEN - Publish valid message
+      const validResult = await client.publish("strictPublisher", {
+        id: "123e4567-e89b-12d3-a456-426614174000",
+        value: 42,
+      });
+
+      // THEN - Valid message should be processed
+      expect(validResult).toEqual(Result.Ok(undefined));
+
+      await vi.waitFor(
+        () => {
+          expect(mockHandler).toHaveBeenCalled();
+        },
+        { timeout: 5000 },
+      );
+    });
+  });
+
+  describe("routing patterns", () => {
+    it("should route messages based on routing keys with topic exchange", async ({
+      clientFactory,
+      workerFactory,
+    }) => {
+      // GIVEN - Define contract with topic routing
+      const exchange = defineExchange("notifications", "topic", { durable: false });
+      const emailQueue = defineQueue("email-queue", { durable: false });
+      const smsQueue = defineQueue("sms-queue", { durable: false });
+
+      const notificationMessage = defineMessage(
+        z.object({
+          recipient: z.string(),
+          message: z.string(),
+        }),
+      );
+
+      const contract = defineContract({
+        exchanges: { notifications: exchange },
+        queues: {
+          emailQueue,
+          smsQueue,
+        },
+        bindings: {
+          emailBinding: defineQueueBinding(emailQueue, exchange, {
+            routingKey: "notification.email.*",
+          }),
+          smsBinding: defineQueueBinding(smsQueue, exchange, {
+            routingKey: "notification.sms.*",
+          }),
+        },
+        publishers: {
+          emailNotification: definePublisher(exchange, notificationMessage, {
+            routingKey: "notification.email.send",
+          }),
+          smsNotification: definePublisher(exchange, notificationMessage, {
+            routingKey: "notification.sms.send",
+          }),
+        },
+        consumers: {
+          processEmail: defineConsumer(emailQueue, notificationMessage),
+          processSms: defineConsumer(smsQueue, notificationMessage),
+        },
+      });
+
+      // GIVEN - Create handlers
+      const emailHandler = vi.fn().mockResolvedValue(undefined);
+      const smsHandler = vi.fn().mockResolvedValue(undefined);
+
+      const _worker = await workerFactory(contract, {
+        processEmail: emailHandler,
+        processSms: smsHandler,
+      });
+      const client = await clientFactory(contract);
+
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // WHEN - Publish email notification
+      const emailResult = await client.publish("emailNotification", {
+        recipient: "user@example.com",
+        message: "Test email",
+      });
+      expect(emailResult).toEqual(Result.Ok(undefined));
+
+      // WHEN - Publish SMS notification
+      const smsResult = await client.publish("smsNotification", {
+        recipient: "+1234567890",
+        message: "Test SMS",
+      });
+      expect(smsResult).toEqual(Result.Ok(undefined));
+
+      // THEN - Each handler should receive only its messages
+      await vi.waitFor(
+        () => {
+          expect(emailHandler).toHaveBeenCalledTimes(1);
+          expect(smsHandler).toHaveBeenCalledTimes(1);
+        },
+        { timeout: 5000 },
+      );
+
+      expect(emailHandler).toHaveBeenCalledWith(
+        expect.objectContaining({
+          recipient: "user@example.com",
+          message: "Test email",
+        }),
+      );
+
+      expect(smsHandler).toHaveBeenCalledWith(
+        expect.objectContaining({
+          recipient: "+1234567890",
+          message: "Test SMS",
+        }),
+      );
+    });
+  });
+});
