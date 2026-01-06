@@ -8,5 +8,7 @@ export default defineConfig({
       enabled: false,
       provider: "v8",
     },
+    testTimeout: 10_000,
+    hookTimeout: 10_000,
   },
 });

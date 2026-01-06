@@ -9,5 +9,7 @@ export default defineConfig({
       reporter: ["text", "json", "json-summary", "html"],
       include: ["src/**", "!src/__tests__/**"],
     },
+    testTimeout: 10_000,
+    hookTimeout: 10_000,
   },
 });
