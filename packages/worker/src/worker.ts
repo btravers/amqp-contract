@@ -136,7 +136,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   >;
   private readonly consumerOptions: Partial<Record<InferConsumerNames<TContract>, ConsumerOptions>>;
   private readonly batchTimers: Map<string, NodeJS.Timeout> = new Map();
-  private readonly consumerTags: string[] = [];
+  private readonly consumerTags: Set<string> = new Set();
 
   private constructor(
     private readonly contract: TContract,
@@ -248,7 +248,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     this.batchTimers.clear();
 
     // Cancel all consumers before closing the channel
-    const cancelPromises = this.consumerTags.map(async (consumerTag) => {
+    const cancelPromises = Array.from(this.consumerTags).map(async (consumerTag) => {
       try {
         await this.amqpClient.channel.cancel(consumerTag);
       } catch (error) {
@@ -258,6 +258,10 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     });
 
     return Future.fromPromise(Promise.all(cancelPromises))
+      .tapOk(() => {
+        // Clear consumer tags after successful cancellation
+        this.consumerTags.clear();
+      })
       .flatMapOk(() => Future.fromPromise(this.amqpClient.close()))
       .mapError((error) => new TechnicalError("Failed to close AMQP connection", error))
       .mapOk(() => undefined);
@@ -497,7 +501,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     )
       .tapOk((reply) => {
         // Store consumer tag for later cancellation
-        this.consumerTags.push(reply.consumerTag);
+        this.consumerTags.add(reply.consumerTag);
       })
       .mapError(
         (error) =>
@@ -661,7 +665,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     )
       .tapOk((reply) => {
         // Store consumer tag for later cancellation
-        this.consumerTags.push(reply.consumerTag);
+        this.consumerTags.add(reply.consumerTag);
       })
       .mapError(
         (error) =>
