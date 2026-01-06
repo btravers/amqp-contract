@@ -17,6 +17,9 @@ export type AnySchema = StandardSchemaV1;
  * - `gzip`: GZIP compression (standard, widely supported, good compression ratio)
  * - `deflate`: DEFLATE compression (faster than gzip, slightly less compression)
  *
+ * Compression is configured at runtime via PublishOptions when calling
+ * AmqpClient.publish, not at publisher definition time.
+ *
  * When compression is enabled, the message payload is compressed before publishing
  * and automatically decompressed when consuming. The `content-encoding` AMQP
  * message property is set to indicate the compression algorithm used.
@@ -25,9 +28,14 @@ export type AnySchema = StandardSchemaV1;
  *
  * @example
  * ```typescript
- * const publisher = definePublisher(exchange, message, {
- *   routingKey: 'order.created',
- *   compression: 'gzip'
+ * // Define a publisher without compression configuration
+ * const orderCreatedPublisher = definePublisher(exchange, message, {
+ *   routingKey: "order.created",
+ * });
+ *
+ * // Later, choose whether to compress at publish time
+ * await client.publish("orderCreated", payload, {
+ *   compression: "gzip",
  * });
  * ```
  */

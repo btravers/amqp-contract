@@ -482,7 +482,6 @@ export function defineExchangeBinding(
  * @param exchange - The fanout exchange definition to publish to
  * @param message - The message definition with payload schema
  * @param options - Optional publisher configuration
- * @param options.compression - Optional compression algorithm ('gzip' or 'deflate')
  * @returns A publisher definition with inferred message types
  *
  * @example
@@ -498,9 +497,7 @@ export function defineExchangeBinding(
  *   })
  * );
  *
- * const logPublisher = definePublisher(logsExchange, logMessage, {
- *   compression: 'gzip' // Optional: compress large log messages
- * });
+ * const logPublisher = definePublisher(logsExchange, logMessage);
  * ```
  */
 export function definePublisher<TMessage extends MessageDefinition>(
@@ -524,7 +521,6 @@ export function definePublisher<TMessage extends MessageDefinition>(
  * @param message - The message definition with payload schema
  * @param options - Publisher configuration (routingKey is required)
  * @param options.routingKey - The routing key for message routing
- * @param options.compression - Optional compression algorithm ('gzip' or 'deflate')
  * @returns A publisher definition with inferred message types
  *
  * @example
