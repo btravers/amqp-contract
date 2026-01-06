@@ -39,6 +39,7 @@ We use the following format for ADRs:
 - [ADR-001: Client and Worker Terminology](001-client-worker-terminology.md)
 - [ADR-002: Separate Client and Worker Packages](002-separate-packages.md)
 - [ADR-003: Connection Sharing Strategy](003-connection-sharing.md)
+- [ADR-004: Engine Abstraction Layer](004-engine-abstraction.md)
 
 ## Status Definitions
 

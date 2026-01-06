@@ -181,14 +181,30 @@ export class AppModule {}
 
 ## Packages
 
-| Package                                                  | Description                              |
-| -------------------------------------------------------- | ---------------------------------------- |
-| [@amqp-contract/contract](./packages/contract)           | Contract builder and type definitions    |
-| [@amqp-contract/client](./packages/client)               | Type-safe client for publishing messages |
-| [@amqp-contract/worker](./packages/worker)               | Type-safe worker for consuming messages  |
-| [@amqp-contract/client-nestjs](./packages/client-nestjs) | NestJS integration for client            |
-| [@amqp-contract/worker-nestjs](./packages/worker-nestjs) | NestJS integration for worker            |
-| [@amqp-contract/asyncapi](./packages/asyncapi)           | AsyncAPI 3.0 specification generator     |
+| Package                                                  | Description                                    |
+| -------------------------------------------------------- | ---------------------------------------------- |
+| [@amqp-contract/contract](./packages/contract)           | Contract builder and type definitions          |
+| [@amqp-contract/engine](./packages/engine)               | Core engine abstraction for multiple protocols |
+| [@amqp-contract/core](./packages/core)                   | Core utilities for AMQP setup and management   |
+| [@amqp-contract/client](./packages/client)               | Type-safe client for publishing messages       |
+| [@amqp-contract/worker](./packages/worker)               | Type-safe worker for consuming messages        |
+| [@amqp-contract/client-nestjs](./packages/client-nestjs) | NestJS integration for client                  |
+| [@amqp-contract/worker-nestjs](./packages/worker-nestjs) | NestJS integration for worker                  |
+| [@amqp-contract/asyncapi](./packages/asyncapi)           | AsyncAPI 3.0 specification generator           |
+| [@amqp-contract/testing](./packages/testing)             | Testing utilities                              |
+
+## Multi-Protocol Support
+
+While amqp-contract focuses on AMQP/RabbitMQ, the library now includes an **engine abstraction layer** that enables support for other messaging protocols:
+
+- **Apache Kafka** - Event streaming
+- **BullMQ** - Redis-based job queues
+- **Redis Pub/Sub** - Simple messaging
+- **Custom protocols** - Implement your own
+
+See the [Engine Implementation Guide](./docs/guide/implementing-engines.md) and [ADR-004](./docs/adr/004-engine-abstraction.md) for details on creating engines for other protocols.
+
+**Current Status**: The engine abstraction is available in `@amqp-contract/engine`. AMQP remains the primary and fully supported protocol. Additional protocol engines are planned for future releases.
 
 ## AsyncAPI Generation
 
