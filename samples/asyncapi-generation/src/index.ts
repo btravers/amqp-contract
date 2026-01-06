@@ -8,7 +8,7 @@ import {
   defineQueueBinding,
 } from "@amqp-contract/contract";
 import { AsyncAPIGenerator } from "@amqp-contract/asyncapi";
-import { ZodToJsonSchemaConverter } from "@orpc/zod";
+import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { writeFileSync } from "fs";
 import { z } from "zod";
 

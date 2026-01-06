@@ -58,6 +58,15 @@ console.log(JSON.stringify(asyncAPISpec, null, 2));
 writeFileSync("asyncapi.json", JSON.stringify(asyncAPISpec, null, 2));
 ```
 
+## Features
+
+- ✅ **AsyncAPI 3.0 compliant** with proper AMQP bindings (v0.3.0)
+- ✅ **Schema validation** - Converts Zod, Valibot, and ArkType schemas to JSON Schema
+- ✅ **Queue-exchange binding documentation** in channel descriptions
+- ✅ **Type-safe** with full TypeScript support
+
+For examples and detailed guides, see the [documentation](https://btravers.github.io/amqp-contract/api/asyncapi).
+
 ## API
 
 For complete API documentation, see the [AsyncAPI API Reference](https://btravers.github.io/amqp-contract/api/asyncapi).

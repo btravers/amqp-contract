@@ -11,6 +11,7 @@ import type {
   ContractDefinition,
   ExchangeDefinition,
   MessageDefinition,
+  QueueBindingDefinition,
   QueueDefinition,
 } from "@amqp-contract/contract";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
@@ -171,8 +172,10 @@ export class AsyncAPIGenerator {
           }
         }
 
+        // Find bindings for this queue
+        const queueBindings = this.getQueueBindings(queue, contract);
         const channel: ChannelObject = {
-          ...this.queueToChannel(queue),
+          ...this.queueToChannel(queue, queueBindings),
         };
 
         if (Object.keys(channelMessages).length > 0) {
@@ -215,15 +218,30 @@ export class AsyncAPIGenerator {
         const exchangeName = this.getExchangeName(publisher.exchange, contract);
         const messageName = `${publisherName}Message`;
 
-        convertedOperations[publisherName] = {
-          action: "send",
-          channel: { $ref: `#/channels/${exchangeName}` },
-          messages: [{ $ref: `#/channels/${exchangeName}/messages/${messageName}` }],
-          summary: `Publish to ${publisher.exchange.name}`,
-          ...(publisher.routingKey && {
+        // Build operation without type assertion
+        if (publisher.routingKey) {
+          convertedOperations[publisherName] = {
+            action: "send",
+            channel: { $ref: `#/channels/${exchangeName}` },
+            messages: [{ $ref: `#/channels/${exchangeName}/messages/${messageName}` }],
+            summary: `Publish to ${publisher.exchange.name}`,
             description: `Routing key: ${publisher.routingKey}`,
-          }),
-        };
+            bindings: {
+              amqp: {
+                cc: [publisher.routingKey],
+                deliveryMode: 2, // Persistent by default
+                bindingVersion: "0.3.0",
+              } as Record<string, unknown>,
+            },
+          };
+        } else {
+          convertedOperations[publisherName] = {
+            action: "send",
+            channel: { $ref: `#/channels/${exchangeName}` },
+            messages: [{ $ref: `#/channels/${exchangeName}/messages/${messageName}` }],
+            summary: `Publish to ${publisher.exchange.name}`,
+          };
+        }
       }
     }
 
@@ -238,6 +256,11 @@ export class AsyncAPIGenerator {
           channel: { $ref: `#/channels/${queueName}` },
           messages: [{ $ref: `#/channels/${queueName}/messages/${messageName}` }],
           summary: `Consume from ${consumer.queue.name}`,
+          bindings: {
+            amqp: {
+              bindingVersion: "0.3.0",
+            } as Record<string, unknown>,
+          },
         };
       }
     }
@@ -290,11 +313,29 @@ export class AsyncAPIGenerator {
   /**
    * Convert a queue definition to AsyncAPI ChannelObject
    */
-  private queueToChannel(queue: QueueDefinition): ChannelObject {
+  private queueToChannel(
+    queue: QueueDefinition,
+    bindings: QueueBindingDefinition[] = [],
+  ): ChannelObject {
+    // Build description with binding information
+    let description = `AMQP Queue: ${queue.name}`;
+    if (bindings.length > 0) {
+      const bindingDescriptions = bindings
+        .map((binding) => {
+          const exchangeName = binding.exchange.name;
+          const routingKey = "routingKey" in binding ? binding.routingKey : undefined;
+          return routingKey
+            ? `bound to exchange '${exchangeName}' with routing key '${routingKey}'`
+            : `bound to exchange '${exchangeName}'`;
+        })
+        .join(", ");
+      description += ` (${bindingDescriptions})`;
+    }
+
     const result: Record<string, unknown> = {
       address: queue.name,
       title: queue.name,
-      description: `AMQP Queue: ${queue.name}`,
+      description,
       bindings: {
         amqp: {
           is: "queue",
@@ -303,8 +344,9 @@ export class AsyncAPIGenerator {
             durable: queue.durable ?? false,
             exclusive: queue.exclusive ?? false,
             autoDelete: queue.autoDelete ?? false,
-            ...(queue.arguments && { vhost: "/" }),
+            vhost: "/",
           },
+          bindingVersion: "0.3.0",
         },
       },
     };
@@ -328,8 +370,9 @@ export class AsyncAPIGenerator {
             type: exchange.type,
             durable: exchange.durable ?? false,
             autoDelete: exchange.autoDelete ?? false,
-            ...(exchange.arguments && { vhost: "/" }),
+            vhost: "/",
           },
+          bindingVersion: "0.3.0",
         },
       },
     };
@@ -363,6 +406,26 @@ export class AsyncAPIGenerator {
       }
     }
     return queue.name;
+  }
+
+  /**
+   * Get all bindings for a queue from the contract
+   */
+  private getQueueBindings(
+    queue: QueueDefinition,
+    contract: ContractDefinition,
+  ): QueueBindingDefinition[] {
+    const result: QueueBindingDefinition[] = [];
+
+    if (contract.bindings) {
+      for (const binding of Object.values(contract.bindings)) {
+        if (binding.type === "queue" && binding.queue.name === queue.name) {
+          result.push(binding);
+        }
+      }
+    }
+
+    return result;
   }
 
   /**

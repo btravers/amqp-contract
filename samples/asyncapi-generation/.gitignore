@@ -1,3 +1,5 @@
 # Generated AsyncAPI files
 asyncapi.json
 asyncapi.yaml
+asyncapi-bundle.json
+.asyncapi-cli
