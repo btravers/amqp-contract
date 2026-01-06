@@ -170,7 +170,7 @@ export const it = vitestIt.extend<{
    * });
    * ```
    */
-  initConsumer: async ({ amqpChannel }, use) => {
+  initConsumer: async ({ amqpChannel, onTestFinished }, use) => {
     async function initConsumer(
       exchange: string,
       routingKey: string,
@@ -183,7 +183,7 @@ export const it = vitestIt.extend<{
       await amqpChannel.bindQueue(queue, exchange, routingKey);
 
       const messages: amqpLib.ConsumeMessage[] = [];
-      await amqpChannel.consume(
+      const consumer = await amqpChannel.consume(
         queue,
         (msg) => {
           if (msg) {
@@ -192,6 +192,10 @@ export const it = vitestIt.extend<{
         },
         { noAck: true },
       );
+
+      onTestFinished(async () => {
+        await amqpChannel.cancel(consumer.consumerTag)
+      });
 
       return async (options = {}) => {
         const { nbEvents = 1, timeout = 5000 } = options;

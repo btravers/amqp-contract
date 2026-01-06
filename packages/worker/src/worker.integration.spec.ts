@@ -21,8 +21,7 @@ const it = baseIt.extend<{
     handlers: WorkerInferConsumerHandlers<TContract>,
   ) => Promise<TypedAmqpWorker<TContract>>;
 }>({
-  workerFactory: async ({ amqpConnectionUrl }, use) => {
-    const workers: TypedAmqpWorker<ContractDefinition>[] = [];
+  workerFactory: async ({ amqpConnectionUrl, onTestFinished }, use) => {
     await use(
       async <TContract extends ContractDefinition>(
         contract: TContract,
@@ -33,11 +32,12 @@ const it = baseIt.extend<{
           handlers,
           urls: [amqpConnectionUrl],
         }).resultToPromise();
-        workers.push(worker);
+
+        onTestFinished(() => worker.close().resultToPromise());
+
         return worker;
       },
     );
-    await Promise.all(workers.map((worker) => worker.close().resultToPromise()));
   },
 });
 
