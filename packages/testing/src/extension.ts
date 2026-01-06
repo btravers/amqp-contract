@@ -170,7 +170,9 @@ export const it = vitestIt.extend<{
    * });
    * ```
    */
-  initConsumer: async ({ amqpChannel, onTestFinished }, use) => {
+  initConsumer: async ({ amqpChannel }, use) => {
+    const consumerTags: string[] = [];
+    
     async function initConsumer(
       exchange: string,
       routingKey: string,
@@ -193,15 +195,7 @@ export const it = vitestIt.extend<{
         { noAck: true },
       );
 
-      onTestFinished(async () => {
-        try {
-          await amqpChannel.cancel(consumer.consumerTag);
-        } catch (error) {
-          // Swallow cancellation errors to avoid unhandled promise rejections during test teardown
-          // eslint-disable-next-line no-console
-          console.error("Failed to cancel AMQP consumer during test teardown:", error);
-        }
-      });
+      consumerTags.push(consumer.consumerTag);
 
       return async (options = {}) => {
         const { nbEvents = 1, timeout = 5000 } = options;
@@ -218,7 +212,23 @@ export const it = vitestIt.extend<{
         return messages.splice(0, nbEvents);
       };
     }
-    await use(initConsumer);
+    
+    try {
+      await use(initConsumer);
+    } finally {
+      // Cancel all consumers before fixture cleanup (which deletes the vhost)
+      await Promise.all(
+        consumerTags.map(async (consumerTag) => {
+          try {
+            await amqpChannel.cancel(consumerTag);
+          } catch (error) {
+            // Swallow cancellation errors during cleanup
+            // eslint-disable-next-line no-console
+            console.error("Failed to cancel AMQP consumer during fixture cleanup:", error);
+          }
+        }),
+      );
+    }
   },
 });
 
