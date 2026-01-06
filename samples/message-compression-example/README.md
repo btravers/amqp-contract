@@ -5,6 +5,7 @@ This example demonstrates how to use message compression with `@amqp-contract` t
 ## Overview
 
 This sample shows:
+
 - Publishing messages with and without compression
 - Comparing GZIP vs DEFLATE compression algorithms
 - Conditional compression based on message size
@@ -37,6 +38,7 @@ pnpm dev:consumer
 ```
 
 The consumer will:
+
 - Connect to RabbitMQ
 - Wait for messages
 - Automatically decompress compressed payloads
@@ -52,6 +54,7 @@ pnpm dev:publisher
 ```
 
 The publisher will send 5 examples:
+
 1. **Small message without compression** - Shows that small messages don't benefit from compression
 2. **Large message without compression** - Baseline for comparison
 3. **Large message with GZIP** - Demonstrates GZIP compression (better ratio)
@@ -63,6 +66,7 @@ The publisher will send 5 examples:
 ### In the Publisher Output
 
 You'll see:
+
 - Original message sizes in bytes
 - Publishing duration for each message
 - Compression algorithm used (if any)
@@ -71,6 +75,7 @@ You'll see:
 ### In the Consumer Output
 
 You'll see:
+
 - Received messages are automatically decompressed
 - No compression-specific configuration needed
 - All messages arrive with the same data structure
@@ -87,12 +92,12 @@ await client.publish("largeData", payload);
 
 // With GZIP compression
 await client.publish("largeData", payload, {
-  compression: "gzip"
+  compression: "gzip",
 });
 
 // With DEFLATE compression
 await client.publish("largeData", payload, {
-  compression: "deflate"
+  compression: "deflate",
 });
 ```
 
@@ -116,12 +121,14 @@ const worker = await TypedAmqpWorker.create({
 ### When to Use Compression
 
 ✅ Use compression for:
+
 - Large messages (>1KB)
 - Text-heavy payloads (JSON, XML)
 - High-volume messaging
 - Bandwidth-constrained environments
 
 ❌ Skip compression for:
+
 - Small messages (<500 bytes)
 - Already compressed data (images, videos)
 - CPU-constrained systems
@@ -130,11 +137,13 @@ const worker = await TypedAmqpWorker.create({
 ### Choosing an Algorithm
 
 **GZIP** (recommended):
+
 - Better compression ratio (~70-80% for text)
 - Slightly slower
 - Best for bandwidth optimization
 
 **DEFLATE**:
+
 - Faster compression
 - Good compression ratio (~65-75% for text)
 - Best for CPU-constrained environments
@@ -199,6 +208,7 @@ const payload = generateLargePayload("id", 200); // ~200KB
 ### Messages Not Received
 
 Ensure:
+
 - RabbitMQ is running
 - Consumer started before publisher
 - AMQP_URL is correct for both publisher and consumer

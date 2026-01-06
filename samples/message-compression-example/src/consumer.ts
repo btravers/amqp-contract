@@ -32,7 +32,7 @@ async function main() {
         // Message is automatically decompressed by the worker
         // You receive the original, validated data structure
         const messageSize = JSON.stringify(message).length;
-        
+
         logger.info("📨 Received message:");
         logger.info(`   ID: ${message.id}`);
         logger.info(`   Timestamp: ${message.timestamp}`);

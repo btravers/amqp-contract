@@ -2,7 +2,7 @@ import { TypedAmqpClient } from "@amqp-contract/client";
 import { contract } from "./contract.js";
 import pino from "pino";
 import { z } from "zod";
-import crypto from "crypto";
+import * as crypto from "node:crypto";
 
 const env = z
   .object({
@@ -84,12 +84,12 @@ async function main() {
     value: 42,
   };
   const smallPayloadSize = JSON.stringify(smallPayload).length;
-  
+
   await client
     .publish("smallData", smallPayload)
     .tapError((error) => logger.error({ error }, "Failed to publish"))
     .resultToPromise();
-  
+
   logger.info(`   ✓ Published ${smallPayloadSize} bytes`);
   logger.info(`   → Small messages don't benefit from compression overhead`);
   logger.info("");
@@ -99,14 +99,14 @@ async function main() {
   logger.info("📦 Example 2: Publishing large message WITHOUT compression (baseline)");
   const largePayload1 = generateLargePayload("large-001", 50);
   const largePayloadSize1 = JSON.stringify(largePayload1).length;
-  
+
   const start1 = Date.now();
   await client
     .publish("largeData", largePayload1)
     .tapError((error) => logger.error({ error }, "Failed to publish"))
     .resultToPromise();
   const duration1 = Date.now() - start1;
-  
+
   logger.info(`   ✓ Published ${largePayloadSize1} bytes in ${duration1}ms`);
   logger.info(`   → No compression applied`);
   logger.info("");
@@ -116,7 +116,7 @@ async function main() {
   logger.info("📦 Example 3: Publishing large message WITH GZIP compression");
   const largePayload2 = generateLargePayload("large-002", 50);
   const largePayloadSize2 = JSON.stringify(largePayload2).length;
-  
+
   const start2 = Date.now();
   await client
     .publish("largeData", largePayload2, {
@@ -126,7 +126,7 @@ async function main() {
     .tapError((error) => logger.error({ error }, "Failed to publish"))
     .resultToPromise();
   const duration2 = Date.now() - start2;
-  
+
   logger.info(`   ✓ Published ${largePayloadSize2} bytes in ${duration2}ms`);
   logger.info(`   → GZIP compression applied`);
   logger.info(`   → Estimated reduction: ~70-80% for text-heavy content`);
@@ -137,7 +137,7 @@ async function main() {
   logger.info("📦 Example 4: Publishing large message WITH DEFLATE compression");
   const largePayload3 = generateLargePayload("large-003", 50);
   const largePayloadSize3 = JSON.stringify(largePayload3).length;
-  
+
   const start3 = Date.now();
   await client
     .publish("largeData", largePayload3, {
@@ -147,7 +147,7 @@ async function main() {
     .tapError((error) => logger.error({ error }, "Failed to publish"))
     .resultToPromise();
   const duration3 = Date.now() - start3;
-  
+
   logger.info(`   ✓ Published ${largePayloadSize3} bytes in ${duration3}ms`);
   logger.info(`   → DEFLATE compression applied (faster than gzip)`);
   logger.info(`   → Estimated reduction: ~65-75% for text-heavy content`);
@@ -158,11 +158,11 @@ async function main() {
   logger.info("📦 Example 5: Conditional compression based on message size");
   const conditionalPayload = generateLargePayload("large-004", 100);
   const conditionalPayloadSize = JSON.stringify(conditionalPayload).length;
-  
+
   // Compress if message is larger than 1KB
   const SIZE_THRESHOLD = 1024;
   const shouldCompress = conditionalPayloadSize > SIZE_THRESHOLD;
-  
+
   const start4 = Date.now();
   await client
     .publish("largeData", conditionalPayload, {
@@ -172,7 +172,7 @@ async function main() {
     .tapError((error) => logger.error({ error }, "Failed to publish"))
     .resultToPromise();
   const duration4 = Date.now() - start4;
-  
+
   logger.info(`   ✓ Published ${conditionalPayloadSize} bytes in ${duration4}ms`);
   logger.info(`   → Threshold: ${SIZE_THRESHOLD} bytes`);
   logger.info(`   → Compression: ${shouldCompress ? "ENABLED (gzip)" : "DISABLED"}`);

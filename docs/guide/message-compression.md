@@ -91,6 +91,7 @@ const workerResult = await TypedAmqpWorker.create({
 ```
 
 The worker automatically:
+
 1. Reads the `contentEncoding` header
 2. Decompresses the payload if needed
 3. Validates and passes the decompressed message to your handler
@@ -106,20 +107,24 @@ import type { contract } from "./contract";
 
 @Injectable()
 export class OrderService {
-  constructor(
-    private readonly amqpClient: AmqpClientService<typeof contract>
-  ) {}
+  constructor(private readonly amqpClient: AmqpClientService<typeof contract>) {}
 
   async publishLargeOrder(order: Order) {
     // Compress large messages
-    const result = await this.amqpClient.publish("orderCreated", {
-      orderId: order.id,
-      items: order.items, // Large array
-      metadata: order.metadata, // Large object
-    }, {
-      compression: "gzip", // Enable compression
-      persistent: true,
-    }).resultToPromise();
+    const result = await this.amqpClient
+      .publish(
+        "orderCreated",
+        {
+          orderId: order.id,
+          items: order.items, // Large array
+          metadata: order.metadata, // Large object
+        },
+        {
+          compression: "gzip", // Enable compression
+          persistent: true,
+        },
+      )
+      .resultToPromise();
 
     if (result.isError()) {
       throw new Error(`Failed to publish: ${result.error.message}`);
@@ -128,10 +133,12 @@ export class OrderService {
 
   async publishSmallOrder(order: Order) {
     // Skip compression for small messages
-    const result = await this.amqpClient.publish("orderCreated", {
-      orderId: order.id,
-      items: [], // Empty or small
-    }).resultToPromise(); // No compression
+    const result = await this.amqpClient
+      .publish("orderCreated", {
+        orderId: order.id,
+        items: [], // Empty or small
+      })
+      .resultToPromise(); // No compression
 
     if (result.isError()) {
       throw new Error(`Failed to publish: ${result.error.message}`);
@@ -177,14 +184,16 @@ class OrderPublisher {
   async publishOrder(order: Order) {
     // Calculate message size
     const messageSize = JSON.stringify(order).length;
-    
+
     // Compress if message is larger than 1KB
     const shouldCompress = messageSize > 1024;
 
-    await this.client.publish("orderCreated", order, {
-      compression: shouldCompress ? "gzip" : undefined,
-      persistent: true,
-    }).resultToPromise();
+    await this.client
+      .publish("orderCreated", order, {
+        compression: shouldCompress ? "gzip" : undefined,
+        persistent: true,
+      })
+      .resultToPromise();
   }
 }
 ```
@@ -239,9 +248,11 @@ client.publish("event", data, { compression: "deflate" });
 Compression errors are returned in the Result type:
 
 ```typescript
-const result = await client.publish("event", data, {
-  compression: "gzip"
-}).resultToPromise();
+const result = await client
+  .publish("event", data, {
+    compression: "gzip",
+  })
+  .resultToPromise();
 
 if (result.isError()) {
   console.error("Failed to publish:", result.error);
@@ -265,7 +276,9 @@ Unsupported encodings throw errors during consumption:
 Test compression with your actual data:
 
 ```typescript
-const testData = { /* your typical message */ };
+const testData = {
+  /* your typical message */
+};
 const json = JSON.stringify(testData);
 console.log("Original size:", json.length, "bytes");
 
@@ -303,9 +316,11 @@ Track compression ratios and performance:
 const startTime = Date.now();
 const originalSize = JSON.stringify(data).length;
 
-await client.publish("event", data, {
-  compression: "gzip",
-}).resultToPromise();
+await client
+  .publish("event", data, {
+    compression: "gzip",
+  })
+  .resultToPromise();
 
 const duration = Date.now() - startTime;
 console.log("Published in", duration, "ms");
@@ -334,7 +349,7 @@ Document which messages use compression in your contract comments:
 ```typescript
 /**
  * Order created event
- * 
+ *
  * @remarks
  * Consider using gzip compression for large orders with many items
  */
