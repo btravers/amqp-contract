@@ -12,6 +12,9 @@
     "tools/*": {
       "entry": ["*.json"]
     },
+    "tests": {
+      "entry": ["src/**/*.spec.ts", "vitest.config.ts"]
+    },
     "docs": {
       "entry": [".vitepress/config.ts", ".vitepress/theme/index.ts"],
       "ignoreDependencies": [

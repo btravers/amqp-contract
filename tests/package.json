@@ -11,20 +11,13 @@
   },
   "dependencies": {
     "@amqp-contract/client": "workspace:*",
-    "@amqp-contract/client-nestjs": "workspace:*",
     "@amqp-contract/contract": "workspace:*",
-    "@amqp-contract/core": "workspace:*",
     "@amqp-contract/testing": "workspace:*",
     "@amqp-contract/worker": "workspace:*",
-    "@amqp-contract/worker-nestjs": "workspace:*",
     "@swan-io/boxed": "catalog:"
   },
   "devDependencies": {
-    "@nestjs/common": "catalog:",
-    "@nestjs/core": "catalog:",
-    "@nestjs/testing": "catalog:",
     "@types/node": "catalog:",
-    "@vitest/coverage-v8": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
     "zod": "catalog:"
