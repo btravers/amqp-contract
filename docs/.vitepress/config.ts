@@ -1,11 +1,14 @@
 import { defineConfig } from "vitepress";
 import { withMermaid } from "vitepress-plugin-mermaid";
 
+const SITE_DESCRIPTION =
+  "Build reliable message-driven applications with end-to-end type safety, automatic schema validation, and AsyncAPI generation for AMQP/RabbitMQ in TypeScript";
+
 // https://vitepress.dev/reference/site-config
 export default withMermaid(
   defineConfig({
     title: "amqp-contract",
-    description: "Type-safe contracts for AMQP/RabbitMQ messaging with AsyncAPI generation",
+    description: SITE_DESCRIPTION,
     base: "/amqp-contract/",
     lang: "en-US",
 
@@ -37,9 +40,7 @@ export default withMermaid(
       // Add dynamic Open Graph tags
       const pageTitle = pageData.title || pageData.frontmatter.title || "amqp-contract";
       const pageDescription =
-        pageData.description ||
-        pageData.frontmatter.description ||
-        "Type-safe contracts for AMQP/RabbitMQ messaging with AsyncAPI generation";
+        pageData.description || pageData.frontmatter.description || SITE_DESCRIPTION;
 
       pageData.frontmatter.head.push(
         ["meta", { property: "og:url", content: canonicalUrl }],
@@ -233,8 +234,7 @@ export default withMermaid(
           "@context": "https://schema.org",
           "@type": "SoftwareApplication",
           name: "amqp-contract",
-          description:
-            "Type-safe contracts for AMQP/RabbitMQ messaging with TypeScript. End-to-end type safety and automatic schema validation for Node.js and NestJS applications.",
+          description: SITE_DESCRIPTION,
           applicationCategory: "DeveloperApplication",
           operatingSystem: "Cross-platform",
           offers: {
