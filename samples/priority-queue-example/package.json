@@ -1,6 +1,6 @@
 {
   "name": "@amqp-contract-samples/priority-queue-example",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "private": true,
   "description": "Example demonstrating priority queue usage with amqp-contract",
   "type": "module",
