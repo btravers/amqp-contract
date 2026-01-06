@@ -4,8 +4,10 @@
   "description": "AsyncAPI generation sample using amqp-contract",
   "type": "module",
   "scripts": {
+    "bundle": "asyncapi bundle asyncapi.json -o asyncapi-bundle.json",
     "generate": "tsx src/index.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "validate": "asyncapi validate asyncapi.json"
   },
   "dependencies": {
     "@amqp-contract/asyncapi": "workspace:*",
@@ -15,6 +17,7 @@
   },
   "devDependencies": {
     "@amqp-contract/tsconfig": "workspace:*",
+    "@asyncapi/cli": "catalog:",
     "@types/node": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:"
