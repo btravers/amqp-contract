@@ -23,33 +23,37 @@ pnpm add @amqp-contract/contract
 For robust contract definitions with guaranteed consistency, use `definePublisherFirst` (for events) or `defineConsumerFirst` (for commands):
 
 ```typescript
-import { definePublisherFirst, defineContract, defineExchange, defineQueue, defineMessage } from '@amqp-contract/contract';
-import { z } from 'zod';
+import {
+  definePublisherFirst,
+  defineContract,
+  defineExchange,
+  defineQueue,
+  defineMessage,
+} from "@amqp-contract/contract";
+import { z } from "zod";
 
 // Event-oriented pattern: publisher doesn't need to know about queues
-const ordersExchange = defineExchange('orders', 'topic', { durable: true });
-const orderMessage = defineMessage(z.object({
-  orderId: z.string(),
-  amount: z.number(),
-}));
-
-const {
-  publisher: orderCreatedPublisher,
-  createConsumer: createOrderCreatedConsumer,
-} = definePublisherFirst(
-  ordersExchange,
-  orderMessage,
-  { routingKey: 'order.created' }
+const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const orderMessage = defineMessage(
+  z.object({
+    orderId: z.string(),
+    amount: z.number(),
+  }),
 );
 
+const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } =
+  definePublisherFirst(ordersExchange, orderMessage, { routingKey: "order.created" });
+
 // Multiple queues can consume the same event
-const orderQueue = defineQueue('order-processing', { durable: true });
+const orderQueue = defineQueue("order-processing", { durable: true });
 const { consumer, binding } = createOrderCreatedConsumer(orderQueue);
 
 // For topic exchanges, consumers can override with their own pattern
-const analyticsQueue = defineQueue('analytics', { durable: true });
-const { consumer: analyticsConsumer, binding: analyticsBinding } =
-  createOrderCreatedConsumer(analyticsQueue, 'order.*');  // Subscribe to all order events
+const analyticsQueue = defineQueue("analytics", { durable: true });
+const { consumer: analyticsConsumer, binding: analyticsBinding } = createOrderCreatedConsumer(
+  analyticsQueue,
+  "order.*",
+); // Subscribe to all order events
 
 const contract = defineContract({
   exchanges: { orders: ordersExchange },

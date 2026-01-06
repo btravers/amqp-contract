@@ -18,22 +18,24 @@ Let's start with a typical scenario. You're building a microservices architectur
 
 ```typescript
 // ❌ Traditional approach - no type safety
-import amqp from 'amqplib';
+import amqp from "amqplib";
 
-const connection = await amqp.connect('amqp://localhost');
+const connection = await amqp.connect("amqp://localhost");
 const channel = await connection.createChannel();
 
-await channel.assertExchange('orders', 'topic', { durable: true });
+await channel.assertExchange("orders", "topic", { durable: true });
 
 // What fields should this have? What types?
 channel.publish(
-  'orders',
-  'order.created',
-  Buffer.from(JSON.stringify({
-    orderId: 'ORD-123',
-    amount: 99.99,
-    // Did I forget any required fields?
-  }))
+  "orders",
+  "order.created",
+  Buffer.from(
+    JSON.stringify({
+      orderId: "ORD-123",
+      amount: 99.99,
+      // Did I forget any required fields?
+    }),
+  ),
 );
 ```
 
@@ -41,7 +43,7 @@ And your consumer:
 
 ```typescript
 // ❌ No type information
-channel.consume('order-processing', (msg) => {
+channel.consume("order-processing", (msg) => {
   const data = JSON.parse(msg.content.toString()); // unknown type
   console.log(data.orderId); // No autocomplete, no validation
   // Is this the right field name? Who knows!
@@ -73,12 +75,12 @@ import {
   defineQueue,
   definePublisherFirst,
   defineMessage,
-} from '@amqp-contract/contract';
-import { z } from 'zod';
+} from "@amqp-contract/contract";
+import { z } from "zod";
 
 // Define your AMQP resources
-const ordersExchange = defineExchange('orders', 'topic', { durable: true });
-const orderProcessingQueue = defineQueue('order-processing', { durable: true });
+const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const orderProcessingQueue = defineQueue("order-processing", { durable: true });
 
 // Define your message schema
 const orderMessage = defineMessage(
@@ -90,22 +92,16 @@ const orderMessage = defineMessage(
         productId: z.string(),
         quantity: z.number().int().positive(),
         price: z.number().positive(),
-      })
+      }),
     ),
     totalAmount: z.number().positive(),
-    status: z.enum(['pending', 'processing', 'completed']),
-  })
+    status: z.enum(["pending", "processing", "completed"]),
+  }),
 );
 
 // Publisher-first pattern ensures consistency
-const {
-  publisher: orderCreatedPublisher,
-  createConsumer: createOrderCreatedConsumer,
-} = definePublisherFirst(
-  ordersExchange,
-  orderMessage,
-  { routingKey: 'order.created' }
-);
+const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } =
+  definePublisherFirst(ordersExchange, orderMessage, { routingKey: "order.created" });
 
 // Create consumer from event
 const { consumer: processOrderConsumer, binding: orderBinding } =
@@ -136,12 +132,12 @@ export const contract = defineContract({
 Now use the contract to create a type-safe client:
 
 ```typescript
-import { TypedAmqpClient } from '@amqp-contract/client';
-import { contract } from './contract';
+import { TypedAmqpClient } from "@amqp-contract/client";
+import { contract } from "./contract";
 
 const clientResult = await TypedAmqpClient.create({
   contract,
-  urls: ['amqp://localhost'],
+  urls: ["amqp://localhost"],
 });
 
 if (clientResult.isError()) {
@@ -151,18 +147,18 @@ if (clientResult.isError()) {
 const client = clientResult.value;
 
 // ✅ Fully typed! TypeScript knows exactly what fields are required
-const result = await client.publish('orderCreated', {
-  orderId: 'ORD-123',
-  customerId: 'CUST-456',
+const result = await client.publish("orderCreated", {
+  orderId: "ORD-123",
+  customerId: "CUST-456",
   items: [
     {
-      productId: 'PROD-789',
+      productId: "PROD-789",
       quantity: 2,
       price: 49.99,
     },
   ],
   totalAmount: 99.98,
-  status: 'pending',
+  status: "pending",
   // ✅ TypeScript will error if you forget a required field
   // ✅ TypeScript will error if you use the wrong type
   // ✅ Autocomplete shows you all available fields
@@ -170,9 +166,9 @@ const result = await client.publish('orderCreated', {
 
 // Explicit error handling with Result type
 result.match({
-  Ok: () => console.log('✅ Order published successfully'),
+  Ok: () => console.log("✅ Order published successfully"),
   Error: (error) => {
-    console.error('❌ Failed to publish order:', error);
+    console.error("❌ Failed to publish order:", error);
     // error is either TechnicalError or MessageValidationError
   },
 });
@@ -183,8 +179,8 @@ result.match({
 And create a type-safe worker for consuming messages:
 
 ```typescript
-import { TypedAmqpWorker } from '@amqp-contract/worker';
-import { contract } from './contract';
+import { TypedAmqpWorker } from "@amqp-contract/worker";
+import { contract } from "./contract";
 
 const workerResult = await TypedAmqpWorker.create({
   contract,
@@ -204,11 +200,11 @@ const workerResult = await TypedAmqpWorker.create({
       // console.log(message.ordreId); // ❌ TypeScript error!
     },
   },
-  urls: ['amqp://localhost'],
+  urls: ["amqp://localhost"],
 });
 
 workerResult.match({
-  Ok: (worker) => console.log('✅ Worker ready'),
+  Ok: (worker) => console.log("✅ Worker ready"),
   Error: (error) => {
     throw error;
   },
@@ -227,19 +223,19 @@ Messages are automatically validated at network boundaries using [Standard Schem
 
 ```typescript
 // If you try to publish invalid data, you get immediate feedback
-const result = await client.publish('orderCreated', {
-  orderId: 'ORD-123',
-  customerId: 'CUST-456',
+const result = await client.publish("orderCreated", {
+  orderId: "ORD-123",
+  customerId: "CUST-456",
   items: [],
   totalAmount: -50, // ❌ Validation error - must be positive
-  status: 'invalid', // ❌ Validation error - must be pending/processing/completed
+  status: "invalid", // ❌ Validation error - must be pending/processing/completed
 });
 
 result.match({
   Ok: () => {},
   Error: (error) => {
     if (error instanceof MessageValidationError) {
-      console.log('Validation issues:', error.issues);
+      console.log("Validation issues:", error.issues);
     }
   },
 });
@@ -251,7 +247,7 @@ TypeScript catches errors before runtime:
 
 ```typescript
 // ❌ TypeScript error - "orderDeleted" doesn't exist in contract
-await client.publish('orderDeleted', { orderId: '123' });
+await client.publish("orderDeleted", { orderId: "123" });
 
 // ❌ TypeScript error - missing handler for "processOrder"
 await TypedAmqpWorker.create({
@@ -259,7 +255,7 @@ await TypedAmqpWorker.create({
   handlers: {
     // forgot processOrder!
   },
-  urls: ['amqp://localhost'],
+  urls: ["amqp://localhost"],
 });
 ```
 
@@ -268,9 +264,9 @@ await TypedAmqpWorker.create({
 Automatically generate [AsyncAPI](https://www.asyncapi.com/) specifications from your contracts for documentation and tooling:
 
 ```typescript
-import { AsyncAPIGenerator } from '@amqp-contract/asyncapi';
-import { ZodToJsonSchemaConverter } from '@orpc/zod/zod4';
-import { contract } from './contract';
+import { AsyncAPIGenerator } from "@amqp-contract/asyncapi";
+import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
+import { contract } from "./contract";
 
 const generator = new AsyncAPIGenerator({
   schemaConverters: [new ZodToJsonSchemaConverter()],
@@ -278,20 +274,20 @@ const generator = new AsyncAPIGenerator({
 
 const spec = await generator.generate(contract, {
   info: {
-    title: 'Order Processing API',
-    version: '1.0.0',
-    description: 'AMQP API for order processing',
+    title: "Order Processing API",
+    version: "1.0.0",
+    description: "AMQP API for order processing",
   },
   servers: {
     production: {
-      host: 'rabbitmq.example.com:5672',
-      protocol: 'amqp',
-      description: 'Production RabbitMQ server',
+      host: "rabbitmq.example.com:5672",
+      protocol: "amqp",
+      description: "Production RabbitMQ server",
     },
     development: {
-      host: 'localhost:5672',
-      protocol: 'amqp',
-      description: 'Local development server',
+      host: "localhost:5672",
+      protocol: "amqp",
+      description: "Local development server",
     },
   },
 });
@@ -305,10 +301,10 @@ console.log(JSON.stringify(spec, null, 2));
 If you're using [NestJS](https://nestjs.com/), amqp-contract provides dedicated integration packages with automatic lifecycle management:
 
 ```typescript
-import { Module } from '@nestjs/common';
-import { AmqpWorkerModule } from '@amqp-contract/worker-nestjs';
-import { AmqpClientModule } from '@amqp-contract/client-nestjs';
-import { contract } from './contract';
+import { Module } from "@nestjs/common";
+import { AmqpWorkerModule } from "@amqp-contract/worker-nestjs";
+import { AmqpClientModule } from "@amqp-contract/client-nestjs";
+import { contract } from "./contract";
 
 @Module({
   imports: [
@@ -317,7 +313,7 @@ import { contract } from './contract';
       contract,
       handlers: {
         processOrder: async (message) => {
-          console.log('Processing:', message.orderId);
+          console.log("Processing:", message.orderId);
         },
       },
       connection: process.env.RABBITMQ_URL,
@@ -345,42 +341,52 @@ The NestJS integration handles:
 
 ```typescript
 // Define multiple message types for order lifecycle
-const orderCreatedMessage = defineMessage(z.object({
-  orderId: z.string(),
-  customerId: z.string(),
-  items: z.array(z.object({
-    productId: z.string(),
-    quantity: z.number(),
-    price: z.number(),
-  })),
-}));
+const orderCreatedMessage = defineMessage(
+  z.object({
+    orderId: z.string(),
+    customerId: z.string(),
+    items: z.array(
+      z.object({
+        productId: z.string(),
+        quantity: z.number(),
+        price: z.number(),
+      }),
+    ),
+  }),
+);
 
-const orderShippedMessage = defineMessage(z.object({
-  orderId: z.string(),
-  trackingNumber: z.string(),
-  carrier: z.enum(['fedex', 'ups', 'usps']),
-}));
+const orderShippedMessage = defineMessage(
+  z.object({
+    orderId: z.string(),
+    trackingNumber: z.string(),
+    carrier: z.enum(["fedex", "ups", "usps"]),
+  }),
+);
 
-const orderCompletedMessage = defineMessage(z.object({
-  orderId: z.string(),
-  completedAt: z.date(),
-}));
+const orderCompletedMessage = defineMessage(
+  z.object({
+    orderId: z.string(),
+    completedAt: z.date(),
+  }),
+);
 ```
 
 ### Notification System
 
 ```typescript
 // Type-safe notification routing
-const emailQueue = defineQueue('notifications.email', { durable: true });
-const smsQueue = defineQueue('notifications.sms', { durable: true });
-const pushQueue = defineQueue('notifications.push', { durable: true });
+const emailQueue = defineQueue("notifications.email", { durable: true });
+const smsQueue = defineQueue("notifications.sms", { durable: true });
+const pushQueue = defineQueue("notifications.push", { durable: true });
 
-const notificationMessage = defineMessage(z.object({
-  userId: z.string(),
-  title: z.string(),
-  body: z.string(),
-  priority: z.enum(['low', 'medium', 'high']),
-}));
+const notificationMessage = defineMessage(
+  z.object({
+    userId: z.string(),
+    title: z.string(),
+    body: z.string(),
+    priority: z.enum(["low", "medium", "high"]),
+  }),
+);
 
 // Each queue gets its own typed consumer
 const contract = defineContract({
@@ -400,12 +406,14 @@ const contract = defineContract({
 // with full type safety across service boundaries
 
 // User Service publishes
-const userCreatedMessage = defineMessage(z.object({
-  userId: z.string(),
-  email: z.string().email(),
-  name: z.string(),
-  createdAt: z.date(),
-}));
+const userCreatedMessage = defineMessage(
+  z.object({
+    userId: z.string(),
+    email: z.string().email(),
+    name: z.string(),
+    createdAt: z.date(),
+  }),
+);
 
 // Email Service, Analytics Service, etc. consume
 // All with the same type-safe contract

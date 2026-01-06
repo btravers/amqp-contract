@@ -49,7 +49,7 @@
   const consumer = defineConsumerFirst(
     topicExchange,
     "order.*", // Pattern with wildcard
-    orderSchema
+    orderSchema,
   );
 
   // Publishers can specify concrete keys matching the pattern
@@ -59,7 +59,7 @@
   const publisher2 = definePublisherFirst(
     topicExchange,
     "order.updated", // Concrete routing key
-    orderSchema
+    orderSchema,
   );
 
   // Consumers can subscribe with any pattern

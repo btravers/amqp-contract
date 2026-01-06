@@ -19,9 +19,9 @@ pnpm add @amqp-contract/worker-nestjs @amqp-contract/worker @amqp-contract/contr
 ## Usage
 
 ```typescript
-import { Module } from '@nestjs/common';
-import { AmqpWorkerModule } from '@amqp-contract/worker-nestjs';
-import { contract } from './contract';
+import { Module } from "@nestjs/common";
+import { AmqpWorkerModule } from "@amqp-contract/worker-nestjs";
+import { contract } from "./contract";
 
 @Module({
   imports: [
@@ -29,10 +29,10 @@ import { contract } from './contract';
       contract,
       handlers: {
         processOrder: async (message) => {
-          console.log('Processing order:', message.orderId);
+          console.log("Processing order:", message.orderId);
         },
       },
-      connection: 'amqp://localhost',
+      connection: "amqp://localhost",
     }),
   ],
 })

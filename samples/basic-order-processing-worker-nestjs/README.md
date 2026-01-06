@@ -71,20 +71,16 @@ Handlers are defined using `defineHandler` in separate files:
 
 ```typescript
 // handlers/process-order.handler.ts
-import { defineHandler } from '@amqp-contract/worker';
-import { orderContract } from '@amqp-contract-samples/basic-order-processing-contract';
-import { Logger } from '@nestjs/common';
+import { defineHandler } from "@amqp-contract/worker";
+import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
+import { Logger } from "@nestjs/common";
 
-const logger = new Logger('ProcessOrderHandler');
+const logger = new Logger("ProcessOrderHandler");
 
-export const processOrderHandler = defineHandler(
-  orderContract,
-  'processOrder',
-  async (message) => {
-    logger.log(`Processing order: ${message.orderId}`);
-    // Handler logic here
-  }
-);
+export const processOrderHandler = defineHandler(orderContract, "processOrder", async (message) => {
+  logger.log(`Processing order: ${message.orderId}`);
+  // Handler logic here
+});
 ```
 
 ### Async Configuration
@@ -100,10 +96,10 @@ AmqpWorkerModule.forRootAsync({
       processOrder: processOrderHandler,
       // ... other handlers
     },
-    urls: configService.get('AMQP_URLS'),
+    urls: configService.get("AMQP_URLS"),
   }),
   inject: [ConfigService],
-})
+});
 ```
 
 ## Handler Organization

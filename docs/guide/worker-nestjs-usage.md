@@ -51,33 +51,36 @@ import {
   defineQueue,
   defineConsumerFirst,
   defineMessage,
-} from '@amqp-contract/contract';
-import { z } from 'zod';
+} from "@amqp-contract/contract";
+import { z } from "zod";
 
 // Define resources and messages
-const ordersExchange = defineExchange('orders', 'topic', { durable: true });
-const orderProcessingQueue = defineQueue('order-processing', { durable: true });
+const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const orderProcessingQueue = defineQueue("order-processing", { durable: true });
 
 const orderMessage = defineMessage(
   z.object({
     orderId: z.string(),
     customerId: z.string(),
     amount: z.number(),
-    items: z.array(z.object({
-      productId: z.string(),
-      quantity: z.number(),
-      price: z.number(),
-    })),
-  })
+    items: z.array(
+      z.object({
+        productId: z.string(),
+        quantity: z.number(),
+        price: z.number(),
+      }),
+    ),
+  }),
 );
 
 // Consumer-first pattern
-const { consumer: processOrderConsumer, binding: orderBinding, createPublisher: createOrderPublisher } = defineConsumerFirst(
-  orderProcessingQueue,
-  ordersExchange,
-  orderMessage,
-  { routingKey: 'order.created' }
-);
+const {
+  consumer: processOrderConsumer,
+  binding: orderBinding,
+  createPublisher: createOrderPublisher,
+} = defineConsumerFirst(orderProcessingQueue, ordersExchange, orderMessage, {
+  routingKey: "order.created",
+});
 
 export const contract = defineContract({
   exchanges: { orders: ordersExchange },
@@ -97,9 +100,9 @@ Import and configure the worker module:
 
 ```typescript
 // app.module.ts
-import { Module } from '@nestjs/common';
-import { AmqpWorkerModule } from '@amqp-contract/worker-nestjs';
-import { contract } from './contract';
+import { Module } from "@nestjs/common";
+import { AmqpWorkerModule } from "@amqp-contract/worker-nestjs";
+import { contract } from "./contract";
 
 @Module({
   imports: [
@@ -114,7 +117,7 @@ import { contract } from './contract';
           // Your business logic here
         },
       },
-      connection: 'amqp://localhost',
+      connection: "amqp://localhost",
     }),
   ],
 })
@@ -125,8 +128,8 @@ export class AppModule {}
 
 ```typescript
 // main.ts
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
+import { NestFactory } from "@nestjs/core";
+import { AppModule } from "./app.module";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -135,7 +138,7 @@ async function bootstrap() {
   app.enableShutdownHooks();
 
   await app.listen(3000);
-  console.log('Worker is consuming messages');
+  console.log("Worker is consuming messages");
 }
 
 bootstrap();
@@ -149,17 +152,17 @@ To use NestJS services in your handlers, use `forRootAsync` with dependency inje
 
 ```typescript
 // order.service.ts
-import { Injectable } from '@nestjs/common';
+import { Injectable } from "@nestjs/common";
 
 @Injectable()
 export class OrderService {
   async saveOrder(order: any) {
-    console.log('Saving order to database:', order.orderId);
+    console.log("Saving order to database:", order.orderId);
     // Save to database
   }
 
   async sendConfirmation(customerId: string) {
-    console.log('Sending confirmation to:', customerId);
+    console.log("Sending confirmation to:", customerId);
     // Send email
   }
 }
@@ -167,10 +170,10 @@ export class OrderService {
 
 ```typescript
 // app.module.ts
-import { Module } from '@nestjs/common';
-import { AmqpWorkerModule } from '@amqp-contract/worker-nestjs';
-import { contract } from './contract';
-import { OrderService } from './order.service';
+import { Module } from "@nestjs/common";
+import { AmqpWorkerModule } from "@amqp-contract/worker-nestjs";
+import { contract } from "./contract";
+import { OrderService } from "./order.service";
 
 @Module({
   imports: [
@@ -184,12 +187,12 @@ import { OrderService } from './order.service';
               await orderService.sendConfirmation(message.customerId);
               ack();
             } catch (error) {
-              console.error('Processing failed:', error);
+              console.error("Processing failed:", error);
               nack({ requeue: true });
             }
           },
         },
-        connection: 'amqp://localhost',
+        connection: "amqp://localhost",
       }),
       inject: [OrderService],
     }),
@@ -204,21 +207,18 @@ export class AppModule {}
 Use `@nestjs/config` for environment-based configuration:
 
 ```typescript
-import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { AmqpWorkerModule } from '@amqp-contract/worker-nestjs';
-import { contract } from './contract';
-import { OrderService } from './order.service';
+import { Module } from "@nestjs/common";
+import { ConfigModule, ConfigService } from "@nestjs/config";
+import { AmqpWorkerModule } from "@amqp-contract/worker-nestjs";
+import { contract } from "./contract";
+import { OrderService } from "./order.service";
 
 @Module({
   imports: [
     ConfigModule.forRoot(),
     AmqpWorkerModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (
-        configService: ConfigService,
-        orderService: OrderService,
-      ) => ({
+      useFactory: (configService: ConfigService, orderService: OrderService) => ({
         contract,
         handlers: {
           processOrder: async (message, { ack, nack }) => {
@@ -230,7 +230,7 @@ import { OrderService } from './order.service';
             }
           },
         },
-        connection: configService.get('RABBITMQ_URL') || 'amqp://localhost',
+        connection: configService.get("RABBITMQ_URL") || "amqp://localhost",
       }),
       inject: [ConfigService, OrderService],
     }),
@@ -257,12 +257,12 @@ AmqpWorkerModule.forRoot({
   contract,
   handlers: {
     processOrder: async (message) => {
-      console.log('Processing:', message.orderId);
+      console.log("Processing:", message.orderId);
       // Message is automatically acked if no error is thrown
     },
   },
-  connection: 'amqp://localhost',
-})
+  connection: "amqp://localhost",
+});
 ```
 
 ### Manual Acknowledgment
@@ -286,8 +286,8 @@ AmqpWorkerModule.forRoot({
       }
     },
   },
-  connection: 'amqp://localhost',
-})
+  connection: "amqp://localhost",
+});
 ```
 
 ## Error Handling
@@ -305,7 +305,7 @@ export class OrderService {
       await this.saveOrder(order);
       await this.notifyCustomer(order.customerId);
     } catch (error) {
-      console.error('Order processing failed:', error);
+      console.error("Order processing failed:", error);
       throw error; // Let handler decide what to do
     }
   }
@@ -324,7 +324,7 @@ AmqpWorkerModule.forRootAsync({
           await orderService.processOrder(message);
           ack();
         } catch (error) {
-          console.error('Handler error:', error);
+          console.error("Handler error:", error);
 
           if (error instanceof ValidationError) {
             // Don't retry validation errors
@@ -339,10 +339,10 @@ AmqpWorkerModule.forRootAsync({
         }
       },
     },
-    connection: 'amqp://localhost',
+    connection: "amqp://localhost",
   }),
   inject: [OrderService],
-})
+});
 ```
 
 ## Structured Logging
@@ -350,7 +350,7 @@ AmqpWorkerModule.forRootAsync({
 Use NestJS's built-in logger:
 
 ```typescript
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from "@nestjs/common";
 
 @Injectable()
 export class OrderService {
@@ -385,7 +385,7 @@ Create separate modules for different domains:
           // Handle order processing
         },
       },
-      connection: 'amqp://localhost',
+      connection: "amqp://localhost",
     }),
   ],
 })
@@ -401,7 +401,7 @@ export class OrderWorkerModule {}
           // Handle payment processing
         },
       },
-      connection: 'amqp://localhost',
+      connection: "amqp://localhost",
     }),
   ],
 })
@@ -409,10 +409,7 @@ export class PaymentWorkerModule {}
 
 // app.module.ts
 @Module({
-  imports: [
-    OrderWorkerModule,
-    PaymentWorkerModule,
-  ],
+  imports: [OrderWorkerModule, PaymentWorkerModule],
 })
 export class AppModule {}
 ```
@@ -425,10 +422,10 @@ Test your handler logic by testing the services they use:
 
 ```typescript
 // order.service.spec.ts
-import { Test, TestingModule } from '@nestjs/testing';
-import { OrderService } from './order.service';
+import { Test, TestingModule } from "@nestjs/testing";
+import { OrderService } from "./order.service";
 
-describe('OrderService', () => {
+describe("OrderService", () => {
   let service: OrderService;
 
   beforeEach(async () => {
@@ -439,10 +436,10 @@ describe('OrderService', () => {
     service = module.get<OrderService>(OrderService);
   });
 
-  it('should process order successfully', async () => {
+  it("should process order successfully", async () => {
     const order = {
-      orderId: 'ORD-123',
-      customerId: 'CUST-456',
+      orderId: "ORD-123",
+      customerId: "CUST-456",
       amount: 99.99,
       items: [],
     };
@@ -458,17 +455,17 @@ Test the full worker integration:
 
 ```typescript
 // app.e2e-spec.ts
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
-import { connect, Connection } from 'amqplib';
-import { AppModule } from '../src/app.module';
+import { Test, TestingModule } from "@nestjs/testing";
+import { INestApplication } from "@nestjs/common";
+import { connect, Connection } from "amqplib";
+import { AppModule } from "../src/app.module";
 
-describe('AMQP Worker (e2e)', () => {
+describe("AMQP Worker (e2e)", () => {
   let app: INestApplication;
   let connection: Connection;
 
   beforeAll(async () => {
-    connection = await connect('amqp://localhost');
+    connection = await connect("amqp://localhost");
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -483,22 +480,24 @@ describe('AMQP Worker (e2e)', () => {
     await connection.close();
   });
 
-  it('should consume and process messages', async () => {
+  it("should consume and process messages", async () => {
     // Send a test message
     const channel = await connection.createChannel();
     await channel.publish(
-      'orders',
-      'order.created',
-      Buffer.from(JSON.stringify({
-        orderId: 'ORD-TEST-123',
-        customerId: 'CUST-TEST-456',
-        amount: 99.99,
-        items: [],
-      }))
+      "orders",
+      "order.created",
+      Buffer.from(
+        JSON.stringify({
+          orderId: "ORD-TEST-123",
+          customerId: "CUST-TEST-456",
+          amount: 99.99,
+          items: [],
+        }),
+      ),
     );
 
     // Wait for processing
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     // Verify processing (check database, logs, etc.)
     // ...
@@ -533,14 +532,14 @@ import {
   defineQueueBinding,
   defineConsumer,
   defineMessage,
-} from '@amqp-contract/contract';
-import { z } from 'zod';
+} from "@amqp-contract/contract";
+import { z } from "zod";
 
-const ordersExchange = defineExchange('orders', 'topic', { durable: true });
-const orderProcessingQueue = defineQueue('order-processing', {
+const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const orderProcessingQueue = defineQueue("order-processing", {
   durable: true,
   arguments: {
-    'x-dead-letter-exchange': 'orders-dlx',
+    "x-dead-letter-exchange": "orders-dlx",
   },
 });
 
@@ -549,12 +548,14 @@ const orderMessage = defineMessage(
     orderId: z.string(),
     customerId: z.string(),
     amount: z.number().positive(),
-    items: z.array(z.object({
-      productId: z.string(),
-      quantity: z.number().int().positive(),
-      price: z.number().positive(),
-    })),
-  })
+    items: z.array(
+      z.object({
+        productId: z.string(),
+        quantity: z.number().int().positive(),
+        price: z.number().positive(),
+      }),
+    ),
+  }),
 );
 
 export const contract = defineContract({
@@ -562,7 +563,7 @@ export const contract = defineContract({
   queues: { orderProcessing: orderProcessingQueue },
   bindings: {
     orderBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
-      routingKey: 'order.created',
+      routingKey: "order.created",
     }),
   },
   consumers: {
@@ -572,20 +573,20 @@ export const contract = defineContract({
 ```
 
 ```typescript [order.service.ts]
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from "@nestjs/common";
 
 // Define custom error classes for type-safe error handling
 export class BusinessRuleError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'BusinessRuleError';
+    this.name = "BusinessRuleError";
   }
 }
 
 export class TemporaryError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'TemporaryError';
+    this.name = "TemporaryError";
   }
 }
 
@@ -609,20 +610,17 @@ export class OrderService {
       this.logger.log(`Order ${order.orderId} processed successfully`);
     } catch (error) {
       const stack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(
-        `Failed to process order ${order.orderId}`,
-        stack
-      );
+      this.logger.error(`Failed to process order ${order.orderId}`, stack);
       throw error;
     }
   }
 
   private validateOrder(order: any) {
     if (order.amount <= 0) {
-      throw new BusinessRuleError('Amount must be positive');
+      throw new BusinessRuleError("Amount must be positive");
     }
     if (order.items.length === 0) {
-      throw new BusinessRuleError('Order must have at least one item');
+      throw new BusinessRuleError("Order must have at least one item");
     }
   }
 
@@ -639,21 +637,18 @@ export class OrderService {
 ```
 
 ```typescript [app.module.ts]
-import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { AmqpWorkerModule } from '@amqp-contract/worker-nestjs';
-import { contract } from './contract';
-import { OrderService, BusinessRuleError, TemporaryError } from './order.service';
+import { Module } from "@nestjs/common";
+import { ConfigModule, ConfigService } from "@nestjs/config";
+import { AmqpWorkerModule } from "@amqp-contract/worker-nestjs";
+import { contract } from "./contract";
+import { OrderService, BusinessRuleError, TemporaryError } from "./order.service";
 
 @Module({
   imports: [
     ConfigModule.forRoot(),
     AmqpWorkerModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (
-        configService: ConfigService,
-        orderService: OrderService,
-      ) => ({
+      useFactory: (configService: ConfigService, orderService: OrderService) => ({
         contract,
         handlers: {
           processOrder: async (message, { ack, nack }) => {
@@ -676,7 +671,7 @@ import { OrderService, BusinessRuleError, TemporaryError } from './order.service
             }
           },
         },
-        connection: configService.get('RABBITMQ_URL') || 'amqp://localhost',
+        connection: configService.get("RABBITMQ_URL") || "amqp://localhost",
       }),
       inject: [ConfigService, OrderService],
     }),
@@ -687,12 +682,12 @@ export class AppModule {}
 ```
 
 ```typescript [main.ts]
-import { NestFactory } from '@nestjs/core';
-import { Logger } from '@nestjs/common';
-import { AppModule } from './app.module';
+import { NestFactory } from "@nestjs/core";
+import { Logger } from "@nestjs/common";
+import { AppModule } from "./app.module";
 
 async function bootstrap() {
-  const logger = new Logger('Bootstrap');
+  const logger = new Logger("Bootstrap");
 
   const app = await NestFactory.create(AppModule);
 
@@ -701,8 +696,8 @@ async function bootstrap() {
 
   await app.listen(3000);
 
-  logger.log('Application is running on: http://localhost:3000');
-  logger.log('Worker is consuming messages from RabbitMQ');
+  logger.log("Application is running on: http://localhost:3000");
+  logger.log("Worker is consuming messages from RabbitMQ");
 }
 
 bootstrap();

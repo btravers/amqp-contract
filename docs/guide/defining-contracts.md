@@ -24,26 +24,25 @@ import {
   defineExchange,
   defineQueue,
   defineMessage,
-} from '@amqp-contract/contract';
-import { z } from 'zod';
+} from "@amqp-contract/contract";
+import { z } from "zod";
 
 // Define exchange and message
-const ordersExchange = defineExchange('orders', 'topic', { durable: true });
-const orderMessage = defineMessage(z.object({
-  orderId: z.string().uuid(),
-  amount: z.number().positive(),
-}));
-
-// Publisher-first: creates publisher without knowing about queues
-const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } = definePublisherFirst(
-  ordersExchange,
-  orderMessage,
-  { routingKey: 'order.created' }
+const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const orderMessage = defineMessage(
+  z.object({
+    orderId: z.string().uuid(),
+    amount: z.number().positive(),
+  }),
 );
 
+// Publisher-first: creates publisher without knowing about queues
+const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } =
+  definePublisherFirst(ordersExchange, orderMessage, { routingKey: "order.created" });
+
 // Multiple queues can consume the same event
-const orderQueue = defineQueue('order-processing', { durable: true });
-const analyticsQueue = defineQueue('analytics', { durable: true });
+const orderQueue = defineQueue("order-processing", { durable: true });
+const analyticsQueue = defineQueue("analytics", { durable: true });
 
 // Create consumers for each queue
 const { consumer: processConsumer, binding: processBinding } =
@@ -56,15 +55,15 @@ export const contract = defineContract({
   exchanges: { orders: ordersExchange },
   queues: { orderQueue, analyticsQueue },
   bindings: {
-    orderBinding: processBinding,      // Same routing key
+    orderBinding: processBinding, // Same routing key
     analyticsBinding: analyticsBinding, // Same routing key
   },
   publishers: {
     orderCreated: orderCreatedPublisher,
   },
   consumers: {
-    processOrder: processConsumer,      // Same message schema
-    trackOrder: analyticsConsumer,      // Same message schema
+    processOrder: processConsumer, // Same message schema
+    trackOrder: analyticsConsumer, // Same message schema
   },
 });
 ```
@@ -82,18 +81,21 @@ For topic exchanges, consumers can optionally override the routing key with thei
 
 ```typescript
 // Publisher uses a concrete routing key
-const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } = definePublisherFirst(
-  ordersExchange,  // topic exchange
-  orderMessage,
-  { routingKey: 'order.created' }
-);
+const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } =
+  definePublisherFirst(
+    ordersExchange, // topic exchange
+    orderMessage,
+    { routingKey: "order.created" },
+  );
 
 // Consumers can use different patterns or the default key
 const { consumer: exactConsumer, binding: exactBinding } =
-  createOrderCreatedConsumer(exactMatchQueue);  // Uses 'order.created'
+  createOrderCreatedConsumer(exactMatchQueue); // Uses 'order.created'
 
-const { consumer: patternConsumer, binding: patternBinding } =
-  createOrderCreatedConsumer(allOrdersQueue, 'order.*');  // Uses pattern 'order.*'
+const { consumer: patternConsumer, binding: patternBinding } = createOrderCreatedConsumer(
+  allOrdersQueue,
+  "order.*",
+); // Uses pattern 'order.*'
 
 export const contract = defineContract({
   // ...
@@ -101,8 +103,8 @@ export const contract = defineContract({
     orderCreated: orderCreatedPublisher,
   },
   consumers: {
-    processExactOrder: exactConsumer,      // Receives only 'order.created'
-    processAllOrders: patternConsumer,     // Receives any 'order.*' messages
+    processExactOrder: exactConsumer, // Receives only 'order.created'
+    processAllOrders: patternConsumer, // Receives any 'order.*' messages
   },
 });
 ```
@@ -123,24 +125,25 @@ import {
   defineQueue,
   defineExchange,
   defineMessage,
-} from '@amqp-contract/contract';
-import { z } from 'zod';
+} from "@amqp-contract/contract";
+import { z } from "zod";
 
 // Define queue, exchange, and message
-const taskQueue = defineQueue('tasks', { durable: true });
-const tasksExchange = defineExchange('tasks', 'direct', { durable: true });
-const taskMessage = defineMessage(z.object({
-  taskId: z.string(),
-  action: z.string(),
-}));
+const taskQueue = defineQueue("tasks", { durable: true });
+const tasksExchange = defineExchange("tasks", "direct", { durable: true });
+const taskMessage = defineMessage(
+  z.object({
+    taskId: z.string(),
+    action: z.string(),
+  }),
+);
 
 // Consumer-first: defines consumer expectations
-const { consumer: taskConsumer, binding: taskBinding, createPublisher: createTaskPublisher } = defineConsumerFirst(
-  taskQueue,
-  tasksExchange,
-  taskMessage,
-  { routingKey: 'task.execute' }
-);
+const {
+  consumer: taskConsumer,
+  binding: taskBinding,
+  createPublisher: createTaskPublisher,
+} = defineConsumerFirst(taskQueue, tasksExchange, taskMessage, { routingKey: "task.execute" });
 
 // Compose contract
 export const contract = defineContract({
@@ -150,7 +153,7 @@ export const contract = defineContract({
     taskBinding: taskBinding, // Consistent routing key
   },
   publishers: {
-    executeTask: createTaskPublisher('task.execute'), // Matching schema & routing key
+    executeTask: createTaskPublisher("task.execute"), // Matching schema & routing key
   },
   consumers: {
     processTask: taskConsumer,
@@ -171,20 +174,24 @@ For topic exchanges, the consumer binding can use patterns with wildcards, and p
 
 ```typescript
 // Consumer binds with a pattern
-const { consumer: orderEventsConsumer, binding: orderEventsBinding, createPublisher: createOrderEventsPublisher } = defineConsumerFirst(
+const {
+  consumer: orderEventsConsumer,
+  binding: orderEventsBinding,
+  createPublisher: createOrderEventsPublisher,
+} = defineConsumerFirst(
   orderQueue,
-  ordersExchange,  // topic exchange
+  ordersExchange, // topic exchange
   orderMessage,
-  { routingKey: 'order.*' }  // Pattern with wildcard
+  { routingKey: "order.*" }, // Pattern with wildcard
 );
 
 // Publishers can use concrete keys that match the pattern
 export const contract = defineContract({
   // ...
   publishers: {
-    orderCreated: createOrderEventsPublisher('order.created'),  // Matches order.*
-    orderUpdated: createOrderEventsPublisher('order.updated'),  // Matches order.*
-    orderShipped: createOrderEventsPublisher('order.shipped'),  // Matches order.*
+    orderCreated: createOrderEventsPublisher("order.created"), // Matches order.*
+    orderUpdated: createOrderEventsPublisher("order.updated"), // Matches order.*
+    orderShipped: createOrderEventsPublisher("order.shipped"), // Matches order.*
   },
   consumers: {
     processOrders: orderEventsConsumer,
@@ -203,11 +210,21 @@ A contract has five main parts:
 
 ```typescript
 const contract = defineContract({
-  exchanges: { /* ... */ },
-  queues: { /* ... */ },
-  bindings: { /* ... */ },
-  publishers: { /* ... */ },
-  consumers: { /* ... */ },
+  exchanges: {
+    /* ... */
+  },
+  queues: {
+    /* ... */
+  },
+  bindings: {
+    /* ... */
+  },
+  publishers: {
+    /* ... */
+  },
+  consumers: {
+    /* ... */
+  },
 });
 ```
 
@@ -230,15 +247,15 @@ amqp-contract uses a **composition pattern**:
 Exchanges route messages to queues:
 
 ```typescript
-import { defineExchange } from '@amqp-contract/contract';
+import { defineExchange } from "@amqp-contract/contract";
 
 // Define exchanges as variables
-const ordersExchange = defineExchange('orders', 'topic', {
+const ordersExchange = defineExchange("orders", "topic", {
   durable: true,
   autoDelete: false,
 });
 
-const notificationsExchange = defineExchange('notifications', 'fanout', {
+const notificationsExchange = defineExchange("notifications", "fanout", {
   durable: true,
 });
 
@@ -261,12 +278,12 @@ const contract = defineContract({
 Queues store messages:
 
 ```typescript
-import { defineQueue } from '@amqp-contract/contract';
+import { defineQueue } from "@amqp-contract/contract";
 
-const orderProcessingQueue = defineQueue('order-processing', {
-  durable: true,       // Survives broker restart
-  exclusive: false,    // Can be accessed by other connections
-  autoDelete: false,   // Stays after last consumer disconnects
+const orderProcessingQueue = defineQueue("order-processing", {
+  durable: true, // Survives broker restart
+  exclusive: false, // Can be accessed by other connections
+  autoDelete: false, // Stays after last consumer disconnects
 });
 
 const contract = defineContract({
@@ -281,8 +298,8 @@ const contract = defineContract({
 Messages wrap schemas with optional metadata:
 
 ```typescript
-import { defineMessage } from '@amqp-contract/contract';
-import { z } from 'zod';
+import { defineMessage } from "@amqp-contract/contract";
+import { z } from "zod";
 
 const orderMessage = defineMessage(
   z.object({
@@ -291,9 +308,9 @@ const orderMessage = defineMessage(
     amount: z.number().positive(),
   }),
   {
-    summary: 'Order created event',
-    description: 'Emitted when a new order is created',
-  }
+    summary: "Order created event",
+    description: "Emitted when a new order is created",
+  },
 );
 ```
 
@@ -314,11 +331,11 @@ Learn more about schema libraries:
 Bindings connect queues to exchanges:
 
 ```typescript
-import { defineQueueBinding } from '@amqp-contract/contract';
+import { defineQueueBinding } from "@amqp-contract/contract";
 
-const ordersExchange = defineExchange('orders', 'topic', { durable: true });
-const orderProcessingQueue = defineQueue('order-processing', { durable: true });
-const allOrdersQueue = defineQueue('all-orders', { durable: true });
+const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const orderProcessingQueue = defineQueue("order-processing", { durable: true });
+const allOrdersQueue = defineQueue("all-orders", { durable: true });
 
 const contract = defineContract({
   exchanges: { orders: ordersExchange },
@@ -329,11 +346,11 @@ const contract = defineContract({
   bindings: {
     // Exact routing key
     orderBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
-      routingKey: 'order.created',
+      routingKey: "order.created",
     }),
     // Wildcard pattern
     allOrdersBinding: defineQueueBinding(allOrdersQueue, ordersExchange, {
-      routingKey: 'order.*',
+      routingKey: "order.*",
     }),
   },
 });
@@ -351,10 +368,10 @@ TypeScript enforces these rules at compile time!
 Publishers define message schemas for publishing:
 
 ```typescript
-import { definePublisher, defineMessage } from '@amqp-contract/contract';
-import { z } from 'zod';
+import { definePublisher, defineMessage } from "@amqp-contract/contract";
+import { z } from "zod";
 
-const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+const ordersExchange = defineExchange("orders", "topic", { durable: true });
 
 const orderMessage = defineMessage(
   z.object({
@@ -362,14 +379,14 @@ const orderMessage = defineMessage(
     customerId: z.string().uuid(),
     amount: z.number().positive(),
     createdAt: z.string().datetime(),
-  })
+  }),
 );
 
 const contract = defineContract({
   exchanges: { orders: ordersExchange },
   publishers: {
     orderCreated: definePublisher(ordersExchange, orderMessage, {
-      routingKey: 'order.created',
+      routingKey: "order.created",
     }),
   },
 });
@@ -385,10 +402,10 @@ const contract = defineContract({
 Consumers define message schemas for consuming:
 
 ```typescript
-import { defineConsumer, defineMessage } from '@amqp-contract/contract';
-import { z } from 'zod';
+import { defineConsumer, defineMessage } from "@amqp-contract/contract";
+import { z } from "zod";
 
-const orderProcessingQueue = defineQueue('order-processing', { durable: true });
+const orderProcessingQueue = defineQueue("order-processing", { durable: true });
 
 const orderMessage = defineMessage(
   z.object({
@@ -396,7 +413,7 @@ const orderMessage = defineMessage(
     customerId: z.string().uuid(),
     amount: z.number().positive(),
     createdAt: z.string().datetime(),
-  })
+  }),
 );
 
 const contract = defineContract({
@@ -418,15 +435,15 @@ import {
   definePublisher,
   defineConsumer,
   defineMessage,
-} from '@amqp-contract/contract';
-import { z } from 'zod';
+} from "@amqp-contract/contract";
+import { z } from "zod";
 
 // 1. Define exchanges
-const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+const ordersExchange = defineExchange("orders", "topic", { durable: true });
 
 // 2. Define queues
-const orderProcessingQueue = defineQueue('order-processing', { durable: true });
-const orderNotificationsQueue = defineQueue('order-notifications', { durable: true });
+const orderProcessingQueue = defineQueue("order-processing", { durable: true });
+const orderNotificationsQueue = defineQueue("order-notifications", { durable: true });
 
 // 3. Define messages
 const orderMessage = defineMessage(
@@ -434,7 +451,7 @@ const orderMessage = defineMessage(
     orderId: z.string(),
     customerId: z.string(),
     amount: z.number(),
-  })
+  }),
 );
 
 // 4. Compose contract
@@ -448,15 +465,15 @@ export const contract = defineContract({
   },
   bindings: {
     processingBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
-      routingKey: 'order.created',
+      routingKey: "order.created",
     }),
     notificationBinding: defineQueueBinding(orderNotificationsQueue, ordersExchange, {
-      routingKey: 'order.created',
+      routingKey: "order.created",
     }),
   },
   publishers: {
     orderCreated: definePublisher(ordersExchange, orderMessage, {
-      routingKey: 'order.created',
+      routingKey: "order.created",
     }),
   },
   consumers: {
@@ -471,10 +488,10 @@ export const contract = defineContract({
 Bind exchanges together for advanced routing:
 
 ```typescript
-import { defineExchangeBinding } from '@amqp-contract/contract';
+import { defineExchangeBinding } from "@amqp-contract/contract";
 
-const sourceExchange = defineExchange('source', 'topic', { durable: true });
-const destExchange = defineExchange('destination', 'topic', { durable: true });
+const sourceExchange = defineExchange("source", "topic", { durable: true });
+const destExchange = defineExchange("destination", "topic", { durable: true });
 
 const contract = defineContract({
   exchanges: {
@@ -484,7 +501,7 @@ const contract = defineContract({
   bindings: {
     // Messages from source flow to destination
     crossExchange: defineExchangeBinding(destExchange, sourceExchange, {
-      routingKey: 'order.#',
+      routingKey: "order.#",
     }),
   },
 });
@@ -521,25 +538,21 @@ When using basic definitions, you must manually ensure:
 amqp-contract exports advanced utility types for validating routing keys and binding patterns at compile time:
 
 ```typescript
-import {
-  RoutingKey,
-  BindingPattern,
-  MatchingRoutingKey,
-} from '@amqp-contract/contract';
+import { RoutingKey, BindingPattern, MatchingRoutingKey } from "@amqp-contract/contract";
 
 // Validate routing key format and character set
-type ValidKey = RoutingKey<'order.created'>;  // ✅ 'order.created'
-type InvalidKey = RoutingKey<'order..bad'>;   // ❌ never (empty segment)
+type ValidKey = RoutingKey<"order.created">; // ✅ 'order.created'
+type InvalidKey = RoutingKey<"order..bad">; // ❌ never (empty segment)
 
 // Validate binding pattern with wildcards
-type ValidPattern = BindingPattern<'order.*'>;      // ✅ 'order.*'
-type ValidHashPattern = BindingPattern<'order.#'>;  // ✅ 'order.#'
-type InvalidPattern = BindingPattern<'order.!'>;    // ❌ never (invalid wildcard)
+type ValidPattern = BindingPattern<"order.*">; // ✅ 'order.*'
+type ValidHashPattern = BindingPattern<"order.#">; // ✅ 'order.#'
+type InvalidPattern = BindingPattern<"order.!">; // ❌ never (invalid wildcard)
 
 // Validate routing key matches a pattern
-type OrderCreated = MatchingRoutingKey<'order.*', 'order.created'>;  // ✅ 'order.created'
-type OrderShipped = MatchingRoutingKey<'order.*', 'order.shipped'>;  // ✅ 'order.shipped'
-type InvalidMatch = MatchingRoutingKey<'order.*', 'user.created'>;   // ❌ never (doesn't match)
+type OrderCreated = MatchingRoutingKey<"order.*", "order.created">; // ✅ 'order.created'
+type OrderShipped = MatchingRoutingKey<"order.*", "order.shipped">; // ✅ 'order.shipped'
+type InvalidMatch = MatchingRoutingKey<"order.*", "user.created">; // ❌ never (doesn't match)
 ```
 
 **Validation Rules:**
@@ -569,26 +582,26 @@ import {
   defineQueue,
   defineQueueBinding,
   defineContract,
-} from '@amqp-contract/contract';
+} from "@amqp-contract/contract";
 
 // 1. Define the dead letter exchange
-const ordersDlx = defineExchange('orders-dlx', 'topic', { durable: true });
+const ordersDlx = defineExchange("orders-dlx", "topic", { durable: true });
 
 // 2. Define the main queue with dead letter configuration
-const orderProcessingQueue = defineQueue('order-processing', {
+const orderProcessingQueue = defineQueue("order-processing", {
   durable: true,
   deadLetter: {
     exchange: ordersDlx,
-    routingKey: 'order.failed', // Optional: routing key for DLX
+    routingKey: "order.failed", // Optional: routing key for DLX
   },
   // Optional: Add message TTL to automatically move old messages to DLX
   arguments: {
-    'x-message-ttl': 86400000, // 24 hours in milliseconds
+    "x-message-ttl": 86400000, // 24 hours in milliseconds
   },
 });
 
 // 3. Define a queue to collect dead-lettered messages
-const ordersDlxQueue = defineQueue('orders-dlx-queue', { durable: true });
+const ordersDlxQueue = defineQueue("orders-dlx-queue", { durable: true });
 
 // 4. Compose the contract
 export const contract = defineContract({
@@ -602,7 +615,7 @@ export const contract = defineContract({
   bindings: {
     // Bind the DLX queue to receive failed messages
     dlxBinding: defineQueueBinding(ordersDlxQueue, ordersDlx, {
-      routingKey: 'order.failed',
+      routingKey: "order.failed",
     }),
   },
 });
@@ -639,34 +652,34 @@ import {
   definePublisher,
   defineConsumer,
   defineMessage,
-} from '@amqp-contract/contract';
-import { z } from 'zod';
+} from "@amqp-contract/contract";
+import { z } from "zod";
 
 // Define exchanges
-const ordersExchange = defineExchange('orders', 'topic', { durable: true });
-const ordersDlx = defineExchange('orders-dlx', 'topic', { durable: true });
+const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const ordersDlx = defineExchange("orders-dlx", "topic", { durable: true });
 
 // Define message schema
 const orderMessage = defineMessage(
   z.object({
     orderId: z.string(),
     amount: z.number(),
-  })
+  }),
 );
 
 // Define queues with DLX configuration
-const orderProcessingQueue = defineQueue('order-processing', {
+const orderProcessingQueue = defineQueue("order-processing", {
   durable: true,
   deadLetter: {
     exchange: ordersDlx,
-    routingKey: 'order.failed',
+    routingKey: "order.failed",
   },
   arguments: {
-    'x-message-ttl': 86400000, // 24 hours
+    "x-message-ttl": 86400000, // 24 hours
   },
 });
 
-const ordersDlxQueue = defineQueue('orders-dlx-queue', { durable: true });
+const ordersDlxQueue = defineQueue("orders-dlx-queue", { durable: true });
 
 // Compose contract
 export const contract = defineContract({
@@ -681,16 +694,16 @@ export const contract = defineContract({
   bindings: {
     // Main queue binding
     orderBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
-      routingKey: 'order.created',
+      routingKey: "order.created",
     }),
     // DLX queue binding
     dlxBinding: defineQueueBinding(ordersDlxQueue, ordersDlx, {
-      routingKey: 'order.failed',
+      routingKey: "order.failed",
     }),
   },
   publishers: {
     orderCreated: definePublisher(ordersExchange, orderMessage, {
-      routingKey: 'order.created',
+      routingKey: "order.created",
     }),
   },
   consumers: {

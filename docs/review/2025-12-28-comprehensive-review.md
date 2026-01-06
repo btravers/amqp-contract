@@ -359,10 +359,10 @@ Based on the review, here are valuable additions:
 **Implementation:**
 
 ```typescript
-const queue = defineQueue('orders', {
+const queue = defineQueue("orders", {
   durable: true,
-  deadLetterExchange: 'dlx',
-  deadLetterRoutingKey: 'orders.failed'
+  deadLetterExchange: "dlx",
+  deadLetterRoutingKey: "orders.failed",
 });
 ```
 
@@ -382,11 +382,7 @@ const queue = defineQueue('orders', {
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers,
-  middleware: [
-    loggingMiddleware,
-    tracingMiddleware,
-    metricsMiddleware,
-  ]
+  middleware: [loggingMiddleware, tracingMiddleware, metricsMiddleware],
 });
 ```
 

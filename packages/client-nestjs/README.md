@@ -19,15 +19,15 @@ pnpm add @amqp-contract/client-nestjs @amqp-contract/client @amqp-contract/contr
 ## Usage
 
 ```typescript
-import { Injectable, Module } from '@nestjs/common';
-import { AmqpClientModule, AmqpClientService } from '@amqp-contract/client-nestjs';
-import { contract } from './contract';
+import { Injectable, Module } from "@nestjs/common";
+import { AmqpClientModule, AmqpClientService } from "@amqp-contract/client-nestjs";
+import { contract } from "./contract";
 
 @Module({
   imports: [
     AmqpClientModule.forRoot({
       contract,
-      connection: 'amqp://localhost',
+      connection: "amqp://localhost",
     }),
   ],
 })
@@ -35,12 +35,10 @@ export class AppModule {}
 
 @Injectable()
 export class OrderService {
-  constructor(
-    private readonly client: AmqpClientService<typeof contract>,
-  ) {}
+  constructor(private readonly client: AmqpClientService<typeof contract>) {}
 
   async createOrder(orderId: string, amount: number) {
-    await this.client.publish('orderCreated', { orderId, amount });
+    await this.client.publish("orderCreated", { orderId, amount });
   }
 }
 ```

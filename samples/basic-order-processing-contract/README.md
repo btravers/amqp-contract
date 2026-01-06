@@ -15,12 +15,12 @@ This package demonstrates the **recommended approach** for defining contracts:
 ## Quick Example
 
 ```typescript
-import { contract } from '@amqp-contract-samples/basic-order-processing-contract';
-import { TypedAmqpClient } from '@amqp-contract/client';
+import { contract } from "@amqp-contract-samples/basic-order-processing-contract";
+import { TypedAmqpClient } from "@amqp-contract/client";
 
 const clientResult = await TypedAmqpClient.create({
   contract,
-  urls: ['amqp://localhost']
+  urls: ["amqp://localhost"],
 });
 
 if (clientResult.isError()) {
@@ -28,7 +28,9 @@ if (clientResult.isError()) {
 }
 
 const client = clientResult.get();
-await client.publish('orderCreated', { /* fully typed */ });
+await client.publish("orderCreated", {
+  /* fully typed */
+});
 ```
 
 ## Patterns Demonstrated

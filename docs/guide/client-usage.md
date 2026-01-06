@@ -11,17 +11,17 @@ For NestJS applications, see the [NestJS Client Usage](/guide/client-nestjs-usag
 Create a type-safe client from your contract. The `create` method returns a `Future<Result<...>>` that must be awaited:
 
 ```typescript
-import { TypedAmqpClient } from '@amqp-contract/client';
-import { contract } from './contract';
+import { TypedAmqpClient } from "@amqp-contract/client";
+import { contract } from "./contract";
 
 const clientResult = await TypedAmqpClient.create({
   contract,
-  urls: ['amqp://localhost']
+  urls: ["amqp://localhost"],
 });
 
 // Handle connection errors
 if (clientResult.isError()) {
-  console.error('Failed to create client:', clientResult.error);
+  console.error("Failed to create client:", clientResult.error);
   throw clientResult.error; // or handle appropriately
 }
 
@@ -33,18 +33,16 @@ const client = clientResult.get();
 Publish messages with full type safety and explicit error handling:
 
 ```typescript
-const result = await client.publish('orderCreated', {
-  orderId: 'ORD-123',
-  customerId: 'CUST-456',
+const result = await client.publish("orderCreated", {
+  orderId: "ORD-123",
+  customerId: "CUST-456",
   amount: 99.99,
-  items: [
-    { productId: 'PROD-A', quantity: 2 },
-  ],
+  items: [{ productId: "PROD-A", quantity: 2 }],
 });
 
 result.match({
-  Ok: () => console.log('✅ Published'),
-  Error: (error) => console.error('❌ Failed:', error.message),
+  Ok: () => console.log("✅ Published"),
+  Error: (error) => console.error("❌ Failed:", error.message),
 });
 ```
 
@@ -87,9 +85,9 @@ Override the routing key for specific messages:
 
 ```typescript
 const result = await client.publish(
-  'orderCreated',
-  { orderId: 'ORD-123', amount: 99.99 },
-  { routingKey: 'order.created.urgent' }
+  "orderCreated",
+  { orderId: "ORD-123", amount: 99.99 },
+  { routingKey: "order.created.urgent" },
 );
 ```
 
@@ -99,15 +97,15 @@ Set AMQP message properties:
 
 ```typescript
 const result = await client.publish(
-  'orderCreated',
-  { orderId: 'ORD-123', amount: 99.99 },
+  "orderCreated",
+  { orderId: "ORD-123", amount: 99.99 },
   {
     options: {
       persistent: true,
       priority: 10,
-      headers: { 'x-request-id': 'req-123' },
+      headers: { "x-request-id": "req-123" },
     },
-  }
+  },
 );
 ```
 
@@ -124,24 +122,22 @@ await client.close();
 Errors are returned via `Result` types, not thrown:
 
 ```typescript
-import { MessageValidationError, TechnicalError } from '@amqp-contract/client';
-import { match, P } from 'ts-pattern';
+import { MessageValidationError, TechnicalError } from "@amqp-contract/client";
+import { match, P } from "ts-pattern";
 
-const result = await client.publish('orderCreated', {
-  orderId: 'ORD-123',
+const result = await client.publish("orderCreated", {
+  orderId: "ORD-123",
   amount: 99.99,
 });
 
 result.match({
-  Ok: () => console.log('✅ Published'),
+  Ok: () => console.log("✅ Published"),
   Error: (error) =>
     match(error)
       .with(P.instanceOf(MessageValidationError), (err) =>
-        console.error('Validation failed:', err.issues)
+        console.error("Validation failed:", err.issues),
       )
-      .with(P.instanceOf(TechnicalError), (err) =>
-        console.error('Technical error:', err.message)
-      )
+      .with(P.instanceOf(TechnicalError), (err) => console.error("Technical error:", err.message))
       .exhaustive(),
 });
 ```
@@ -156,10 +152,10 @@ result.match({
 ## Complete Example
 
 ```typescript
-import { TypedAmqpClient } from '@amqp-contract/client';
-import { MessageValidationError, TechnicalError } from '@amqp-contract/client';
-import { match, P } from 'ts-pattern';
-import { contract } from './contract';
+import { TypedAmqpClient } from "@amqp-contract/client";
+import { MessageValidationError, TechnicalError } from "@amqp-contract/client";
+import { match, P } from "ts-pattern";
+import { contract } from "./contract";
 
 async function main() {
   let client;
@@ -167,39 +163,37 @@ async function main() {
   try {
     const clientResult = await TypedAmqpClient.create({
       contract,
-      urls: ['amqp://localhost']
+      urls: ["amqp://localhost"],
     });
 
     if (clientResult.isError()) {
-      console.error('Failed to create client:', clientResult.error);
+      console.error("Failed to create client:", clientResult.error);
       throw clientResult.error;
     }
 
     client = clientResult.get();
 
-    const result = await client.publish('orderCreated', {
-      orderId: 'ORD-123',
-      customerId: 'CUST-456',
+    const result = await client.publish("orderCreated", {
+      orderId: "ORD-123",
+      customerId: "CUST-456",
       amount: 99.99,
-      items: [
-        { productId: 'PROD-A', quantity: 2 },
-      ],
+      items: [{ productId: "PROD-A", quantity: 2 }],
     });
 
     result.match({
-      Ok: () => console.log('✅ Message published'),
+      Ok: () => console.log("✅ Message published"),
       Error: (error) =>
         match(error)
           .with(P.instanceOf(MessageValidationError), (err) =>
-            console.error('❌ Validation failed:', err.issues)
+            console.error("❌ Validation failed:", err.issues),
           )
           .with(P.instanceOf(TechnicalError), (err) =>
-            console.error('❌ Technical error:', err.message)
+            console.error("❌ Technical error:", err.message),
           )
           .exhaustive(),
     });
   } catch (error) {
-    console.error('Unexpected error:', error);
+    console.error("Unexpected error:", error);
   } finally {
     await client?.close();
   }

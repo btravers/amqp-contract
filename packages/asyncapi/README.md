@@ -19,11 +19,11 @@ pnpm add @amqp-contract/asyncapi
 ## Usage
 
 ```typescript
-import { AsyncAPIGenerator } from '@amqp-contract/asyncapi';
-import { ZodToJsonSchemaConverter } from '@orpc/zod/zod4';
-import { writeFileSync } from 'fs';
+import { AsyncAPIGenerator } from "@amqp-contract/asyncapi";
+import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
+import { writeFileSync } from "fs";
 
-import { contract } from './contract';
+import { contract } from "./contract";
 
 // Create generator with schema converters
 const generator = new AsyncAPIGenerator({
@@ -33,20 +33,20 @@ const generator = new AsyncAPIGenerator({
 // Generate AsyncAPI specification
 const asyncAPISpec = await generator.generate(contract, {
   info: {
-    title: 'My AMQP API',
-    version: '1.0.0',
-    description: 'Type-safe AMQP messaging API',
+    title: "My AMQP API",
+    version: "1.0.0",
+    description: "Type-safe AMQP messaging API",
   },
   servers: {
     development: {
-      host: 'localhost:5672',
-      protocol: 'amqp',
-      description: 'Development RabbitMQ server',
+      host: "localhost:5672",
+      protocol: "amqp",
+      description: "Development RabbitMQ server",
     },
     production: {
-      host: 'rabbitmq.example.com:5672',
-      protocol: 'amqp',
-      description: 'Production RabbitMQ server',
+      host: "rabbitmq.example.com:5672",
+      protocol: "amqp",
+      description: "Production RabbitMQ server",
     },
   },
 });
@@ -55,7 +55,7 @@ const asyncAPISpec = await generator.generate(contract, {
 console.log(JSON.stringify(asyncAPISpec, null, 2));
 
 // Or write to file
-writeFileSync('asyncapi.json', JSON.stringify(asyncAPISpec, null, 2));
+writeFileSync("asyncapi.json", JSON.stringify(asyncAPISpec, null, 2));
 ```
 
 ## API

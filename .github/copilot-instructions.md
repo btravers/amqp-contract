@@ -68,12 +68,20 @@ packages/[package-name]/
    - Use composition pattern: define resources first, then reference them
 
    ```typescript
-   import { defineContract, defineExchange, defineQueue, defineQueueBinding, definePublisher, defineConsumer, defineMessage } from '@amqp-contract/contract';
-   import { z } from 'zod';
+   import {
+     defineContract,
+     defineExchange,
+     defineQueue,
+     defineQueueBinding,
+     definePublisher,
+     defineConsumer,
+     defineMessage,
+   } from "@amqp-contract/contract";
+   import { z } from "zod";
 
    // 1. Define exchanges and queues first
-   const ordersExchange = defineExchange('orders', 'topic', { durable: true });
-   const orderProcessingQueue = defineQueue('order-processing', { durable: true });
+   const ordersExchange = defineExchange("orders", "topic", { durable: true });
+   const orderProcessingQueue = defineQueue("order-processing", { durable: true });
 
    // 2. Define message schemas with metadata
    const orderMessage = defineMessage(
@@ -82,9 +90,9 @@ packages/[package-name]/
        amount: z.number(),
      }),
      {
-       summary: 'Order created event',
-       description: 'Emitted when a new order is created',
-     }
+       summary: "Order created event",
+       description: "Emitted when a new order is created",
+     },
    );
 
    // 3. Compose the contract using object references
@@ -97,12 +105,12 @@ packages/[package-name]/
      },
      bindings: {
        orderBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
-         routingKey: 'order.created',
+         routingKey: "order.created",
        }),
      },
      publishers: {
        orderCreated: definePublisher(ordersExchange, orderMessage, {
-         routingKey: 'order.created',
+         routingKey: "order.created",
        }),
      },
      consumers: {
@@ -131,12 +139,12 @@ packages/[package-name]/
    ```typescript
    // Queue-to-exchange binding
    const queueBinding = defineQueueBinding(orderProcessingQueue, ordersExchange, {
-     routingKey: 'order.created',
+     routingKey: "order.created",
    });
 
    // Exchange-to-exchange binding for message routing
    const exchangeBinding = defineExchangeBinding(analyticsExchange, ordersExchange, {
-     routingKey: 'order.#',  // Forward all order events
+     routingKey: "order.#", // Forward all order events
    });
    ```
 
@@ -152,24 +160,26 @@ packages/[package-name]/
    - Use `defineMessage` to wrap schemas with optional metadata
 
    ```typescript
-   import { defineMessage } from '@amqp-contract/contract';
-   import { z } from 'zod';
+   import { defineMessage } from "@amqp-contract/contract";
+   import { z } from "zod";
 
    const orderMessage = defineMessage(
      z.object({
        orderId: z.string(),
        customerId: z.string(),
-       items: z.array(z.object({
-         productId: z.string(),
-         quantity: z.number().int().positive(),
-         price: z.number().positive(),
-       })),
+       items: z.array(
+         z.object({
+           productId: z.string(),
+           quantity: z.number().int().positive(),
+           price: z.number().positive(),
+         }),
+       ),
        totalAmount: z.number().positive(),
      }),
      {
-       summary: 'Order created event',
-       description: 'Emitted when a new order is created in the system'
-     }
+       summary: "Order created event",
+       description: "Emitted when a new order is created in the system",
+     },
    );
    ```
 
@@ -186,25 +196,25 @@ packages/[package-name]/
    - Connection is managed automatically (connect on init, disconnect on destroy)
 
    ```typescript
-   import { Module } from '@nestjs/common';
-   import { AmqpClientModule } from '@amqp-contract/client-nestjs';
-   import { AmqpWorkerModule } from '@amqp-contract/worker-nestjs';
-   import { contract } from './contract';
+   import { Module } from "@nestjs/common";
+   import { AmqpClientModule } from "@amqp-contract/client-nestjs";
+   import { AmqpWorkerModule } from "@amqp-contract/worker-nestjs";
+   import { contract } from "./contract";
 
    @Module({
      imports: [
        AmqpClientModule.forRoot({
          contract,
-         urls: ['amqp://localhost'],
+         urls: ["amqp://localhost"],
        }),
        AmqpWorkerModule.forRoot({
          contract,
          handlers: {
            processOrder: async (message) => {
-             console.log('Processing:', message.orderId);
+             console.log("Processing:", message.orderId);
            },
          },
-         urls: ['amqp://localhost'],
+         urls: ["amqp://localhost"],
        }),
      ],
    })
@@ -217,22 +227,22 @@ packages/[package-name]/
    - No manual connection management needed; the service is provided by `AmqpClientModule`
 
    ```typescript
-   import { AmqpClientService } from '@amqp-contract/client-nestjs';
+   import { AmqpClientService } from "@amqp-contract/client-nestjs";
 
    @Injectable()
    export class OrderService {
-     constructor(
-       private readonly amqpClient: AmqpClientService<typeof contract>
-     ) {}
+     constructor(private readonly amqpClient: AmqpClientService<typeof contract>) {}
 
      async createOrder(order: Order) {
-       const result = await this.amqpClient.publish('orderCreated', {
-         orderId: order.id,
-         amount: order.total
-       }).resultToPromise();
+       const result = await this.amqpClient
+         .publish("orderCreated", {
+           orderId: order.id,
+           amount: order.total,
+         })
+         .resultToPromise();
 
        if (result.isError()) {
-         throw new Error('Failed to publish order event');
+         throw new Error("Failed to publish order event");
        }
      }
    }
@@ -262,14 +272,14 @@ packages/[package-name]/
 
    ```typescript
    // ❌ Bad
-   function process(data: any): any { }
+   function process(data: any): any {}
 
    // ✅ Good
    function process(data: unknown): string {
-     if (typeof data === 'string') {
+     if (typeof data === "string") {
        return data.toUpperCase();
      }
-     throw new Error('Invalid data');
+     throw new Error("Invalid data");
    }
    ```
 
@@ -279,10 +289,13 @@ packages/[package-name]/
    - Client and Worker types are automatically inferred
 
    ```typescript
-   import type { ClientInferPublisherInput, WorkerInferConsumerInput } from '@amqp-contract/contract';
+   import type {
+     ClientInferPublisherInput,
+     WorkerInferConsumerInput,
+   } from "@amqp-contract/contract";
 
-   type OrderInput = ClientInferPublisherInput<typeof contract, 'orderCreated'>;
-   type OrderMessage = WorkerInferConsumerInput<typeof contract, 'processOrder'>;
+   type OrderInput = ClientInferPublisherInput<typeof contract, "orderCreated">;
+   type OrderMessage = WorkerInferConsumerInput<typeof contract, "processOrder">;
    ```
 
 3. **Import Extensions**
@@ -309,10 +322,10 @@ packages/[package-name]/
    - Provide clear, actionable error messages
 
    ```typescript
-   import type { StandardSchemaV1 } from '@standard-schema/spec';
+   import type { StandardSchemaV1 } from "@standard-schema/spec";
 
    async function validateAndPublish(schema: StandardSchemaV1, data: unknown) {
-     const validation = await schema['~standard'].validate(data);
+     const validation = await schema["~standard"].validate(data);
      if (validation.issues) {
        // Validation failed
        throw new Error(`Validation failed: ${JSON.stringify(validation.issues)}`);
@@ -331,14 +344,10 @@ packages/[package-name]/
    export class ConsumerNotFoundError extends Error {
      constructor(
        public readonly consumerName: string,
-       public readonly availableConsumers: readonly string[] = []
+       public readonly availableConsumers: readonly string[] = [],
      ) {
-       const available = availableConsumers.length > 0
-         ? availableConsumers.join(", ")
-         : "none";
-       super(
-         `Consumer not found: "${consumerName}". Available consumers: ${available}`
-       );
+       const available = availableConsumers.length > 0 ? availableConsumers.join(", ") : "none";
+       super(`Consumer not found: "${consumerName}". Available consumers: ${available}`);
        this.name = "ConsumerNotFoundError";
        if (Error.captureStackTrace) {
          Error.captureStackTrace(this, this.constructor);
@@ -377,7 +386,9 @@ packages/[package-name]/
      describe("specific function/method", () => {
        it("should do something specific", () => {
          // GIVEN
-         const input = { /* ... */ };
+         const input = {
+           /* ... */
+         };
 
          // WHEN
          const result = functionUnderTest(input);
@@ -568,7 +579,7 @@ packages/[package-name]/
 
    ```typescript
    // ❌ Never do this
-   function process(data: any): any { }
+   function process(data: any): any {}
    ```
 
 2. **Missing validation**
@@ -577,17 +588,19 @@ packages/[package-name]/
    // ❌ Bad - no message definition
    const publisher = {
      exchange: ordersExchange,
-     routingKey: 'order.created',
+     routingKey: "order.created",
    };
 
    // ✅ Good - with message definition and schema validation
-   const orderMessage = defineMessage(z.object({
-     orderId: z.string(),
-     amount: z.number(),
-   }));
+   const orderMessage = defineMessage(
+     z.object({
+       orderId: z.string(),
+       amount: z.number(),
+     }),
+   );
 
    const publisher = definePublisher(ordersExchange, orderMessage, {
-     routingKey: 'order.created',
+     routingKey: "order.created",
    });
    ```
 
@@ -607,22 +620,22 @@ packages/[package-name]/
    // ❌ Bad - using strings directly
    const contract = defineContract({
      exchanges: {
-       orders: defineExchange('orders', 'topic', { durable: true }),
+       orders: defineExchange("orders", "topic", { durable: true }),
      },
      queues: {
-       orderProcessing: defineQueue('order-processing', { durable: true }),
+       orderProcessing: defineQueue("order-processing", { durable: true }),
      },
      bindings: {
        // Cannot reference exchange/queue objects, must use strings
-       orderBinding: defineQueueBinding('order-processing', 'orders', {
-         routingKey: 'order.created',
+       orderBinding: defineQueueBinding("order-processing", "orders", {
+         routingKey: "order.created",
        }),
      },
    });
 
    // ✅ Good - define first, then reference (composition pattern)
-   const ordersExchange = defineExchange('orders', 'topic', { durable: true });
-   const orderProcessingQueue = defineQueue('order-processing', { durable: true });
+   const ordersExchange = defineExchange("orders", "topic", { durable: true });
+   const orderProcessingQueue = defineQueue("order-processing", { durable: true });
 
    const contract = defineContract({
      exchanges: {
@@ -634,7 +647,7 @@ packages/[package-name]/
      bindings: {
        // References the actual objects for better type safety
        orderBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
-         routingKey: 'order.created',
+         routingKey: "order.created",
        }),
      },
    });

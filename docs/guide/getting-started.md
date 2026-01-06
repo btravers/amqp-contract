@@ -125,12 +125,12 @@ import {
   defineQueue,
   definePublisherFirst,
   defineMessage,
-} from '@amqp-contract/contract';
-import { z } from 'zod';
+} from "@amqp-contract/contract";
+import { z } from "zod";
 
 // 1. Define resources
-const ordersExchange = defineExchange('orders', 'topic', { durable: true });
-const orderProcessingQueue = defineQueue('order-processing', { durable: true });
+const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const orderProcessingQueue = defineQueue("order-processing", { durable: true });
 
 // 2. Define message
 const orderMessage = defineMessage(
@@ -142,17 +142,14 @@ const orderMessage = defineMessage(
       z.object({
         productId: z.string(),
         quantity: z.number().int().positive(),
-      })
+      }),
     ),
-  })
+  }),
 );
 
 // 3. Publisher-first pattern for event-oriented messaging
-const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } = definePublisherFirst(
-  ordersExchange,
-  orderMessage,
-  { routingKey: 'order.created' }
-);
+const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } =
+  definePublisherFirst(ordersExchange, orderMessage, { routingKey: "order.created" });
 
 // 4. Create consumer from the event (ensures consistency)
 const { consumer: processOrderConsumer, binding: orderBinding } =
@@ -184,35 +181,35 @@ Use the type-safe client to publish messages:
 
 ```typescript
 // publisher.ts
-import { TypedAmqpClient } from '@amqp-contract/client';
-import { contract } from './contract';
+import { TypedAmqpClient } from "@amqp-contract/client";
+import { contract } from "./contract";
 
 async function main() {
   const clientResult = await TypedAmqpClient.create({
     contract,
-    urls: ['amqp://localhost']
+    urls: ["amqp://localhost"],
   });
 
   if (clientResult.isError()) {
-    console.error('Failed to create client:', clientResult.error);
+    console.error("Failed to create client:", clientResult.error);
     throw clientResult.error;
   }
 
   const client = clientResult.get();
 
-  const result = await client.publish('orderCreated', {
-    orderId: 'ORD-123',
-    customerId: 'CUST-456',
+  const result = await client.publish("orderCreated", {
+    orderId: "ORD-123",
+    customerId: "CUST-456",
     amount: 99.99,
     items: [
-      { productId: 'PROD-A', quantity: 2 },
-      { productId: 'PROD-B', quantity: 1 },
+      { productId: "PROD-A", quantity: 2 },
+      { productId: "PROD-B", quantity: 1 },
     ],
   });
 
   result.match({
-    Ok: () => console.log('✅ Order published!'),
-    Error: (error) => console.error('❌ Failed:', error.message),
+    Ok: () => console.log("✅ Order published!"),
+    Error: (error) => console.error("❌ Failed:", error.message),
   });
 
   await client.close();
@@ -227,8 +224,8 @@ Create a worker with type-safe message handlers:
 
 ```typescript
 // consumer.ts
-import { TypedAmqpWorker } from '@amqp-contract/worker';
-import { contract } from './contract';
+import { TypedAmqpWorker } from "@amqp-contract/worker";
+import { contract } from "./contract";
 
 async function main() {
   const workerResult = await TypedAmqpWorker.create({
@@ -246,12 +243,12 @@ async function main() {
         }
       },
     },
-    urls: ['amqp://localhost'],
+    urls: ["amqp://localhost"],
   });
 
   workerResult.match({
     Ok: (worker) => {
-      console.log('✅ Worker ready, waiting for messages...');
+      console.log("✅ Worker ready, waiting for messages...");
     },
     Error: (error) => {
       throw error;

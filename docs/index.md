@@ -25,23 +25,23 @@ features:
   - icon: 🔒
     title: End-to-end Type Safety
     details: Full TypeScript inference from contract to client and worker. No manual type annotations needed.
-  
+
   - icon: ✅
     title: Automatic Validation
     details: Schema validation at network boundaries with <a href="https://zod.dev/" target="_blank" rel="noopener noreferrer">Zod</a>, <a href="https://valibot.dev/" target="_blank" rel="noopener noreferrer">Valibot</a>, or <a href="https://arktype.io/" target="_blank" rel="noopener noreferrer">ArkType</a>. No runtime surprises.
-  
+
   - icon: 🛠️
     title: Compile-time Checks
     details: TypeScript catches missing or incorrect implementations before runtime. Refactor with confidence.
-  
+
   - icon: 🚀
     title: Better Developer Experience
     details: Full autocomplete, inline documentation, and refactoring support throughout your codebase.
-  
+
   - icon: 📝
     title: Contract-First Design
     details: Define your AMQP interface once with schemas — types and validation flow from there.
-  
+
   - icon: 📄
     title: AsyncAPI Generation
     details: Automatically generate AsyncAPI 3.0 specifications from your contracts for documentation and tooling.
@@ -68,27 +68,24 @@ import {
   defineQueue,
   definePublisherFirst,
   defineMessage,
-} from '@amqp-contract/contract';
-import { z } from 'zod';
+} from "@amqp-contract/contract";
+import { z } from "zod";
 
 // Define resources
-const ordersExchange = defineExchange('orders', 'topic', { durable: true });
-const orderProcessingQueue = defineQueue('order-processing', { durable: true });
+const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const orderProcessingQueue = defineQueue("order-processing", { durable: true });
 
 // Define message
 const orderMessage = defineMessage(
   z.object({
     orderId: z.string(),
     amount: z.number(),
-  })
+  }),
 );
 
 // Publisher-first pattern ensures consistency
-const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } = definePublisherFirst(
-  ordersExchange,
-  orderMessage,
-  { routingKey: 'order.created' }
-);
+const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } =
+  definePublisherFirst(ordersExchange, orderMessage, { routingKey: "order.created" });
 
 // Create consumer from the event
 const { consumer: processOrderConsumer, binding: orderBinding } =
@@ -109,12 +106,12 @@ export const contract = defineContract({
 ```
 
 ```typescript [2. Publish Messages]
-import { TypedAmqpClient } from '@amqp-contract/client';
-import { contract } from './contract';
+import { TypedAmqpClient } from "@amqp-contract/client";
+import { contract } from "./contract";
 
 const clientResult = await TypedAmqpClient.create({
   contract,
-  urls: ['amqp://localhost']
+  urls: ["amqp://localhost"],
 });
 
 if (clientResult.isError()) {
@@ -123,20 +120,20 @@ if (clientResult.isError()) {
 
 const client = clientResult.get();
 
-const result = await client.publish('orderCreated', {
-  orderId: 'ORD-123',
+const result = await client.publish("orderCreated", {
+  orderId: "ORD-123",
   amount: 99.99,
 });
 
 result.match({
-  Ok: () => console.log('✅ Published'),
-  Error: (error) => console.error('❌ Failed:', error),
+  Ok: () => console.log("✅ Published"),
+  Error: (error) => console.error("❌ Failed:", error),
 });
 ```
 
 ```typescript [3. Consume Messages]
-import { TypedAmqpWorker } from '@amqp-contract/worker';
-import { contract } from './contract';
+import { TypedAmqpWorker } from "@amqp-contract/worker";
+import { contract } from "./contract";
 
 const workerResult = await TypedAmqpWorker.create({
   contract,
@@ -146,11 +143,11 @@ const workerResult = await TypedAmqpWorker.create({
       console.log(`Amount: $${message.amount}`);
     },
   },
-  urls: ['amqp://localhost'],
+  urls: ["amqp://localhost"],
 });
 
 workerResult.match({
-  Ok: (worker) => console.log('✅ Worker ready'),
+  Ok: (worker) => console.log("✅ Worker ready"),
   Error: (error) => {
     throw error;
   },
@@ -164,9 +161,9 @@ workerResult.match({
 Automatically generate AsyncAPI 3.0 specifications from your contracts:
 
 ```typescript
-import { AsyncAPIGenerator } from '@amqp-contract/asyncapi';
-import { ZodToJsonSchemaConverter } from '@orpc/zod/zod4';
-import { contract } from './contract';
+import { AsyncAPIGenerator } from "@amqp-contract/asyncapi";
+import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
+import { contract } from "./contract";
 
 const generator = new AsyncAPIGenerator({
   schemaConverters: [new ZodToJsonSchemaConverter()],
@@ -174,13 +171,13 @@ const generator = new AsyncAPIGenerator({
 
 const spec = await generator.generate(contract, {
   info: {
-    title: 'Order Processing API',
-    version: '1.0.0',
+    title: "Order Processing API",
+    version: "1.0.0",
   },
   servers: {
     production: {
-      host: 'rabbitmq.example.com:5672',
-      protocol: 'amqp',
+      host: "rabbitmq.example.com:5672",
+      protocol: "amqp",
     },
   },
 });

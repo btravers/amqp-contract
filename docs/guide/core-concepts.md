@@ -24,26 +24,23 @@ Define once, use everywhere with full type safety.
 Type safety flows automatically from your contract:
 
 ```typescript
-import { z } from 'zod';
+import { z } from "zod";
 
 // 1. Define resources and message
-const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+const ordersExchange = defineExchange("orders", "topic", { durable: true });
 const orderMessage = defineMessage(
   z.object({
     orderId: z.string(),
     amount: z.number(),
-  })
+  }),
 );
 
 // 2. Publisher-first pattern (recommended for events)
-const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } = definePublisherFirst(
-  ordersExchange,
-  orderMessage,
-  { routingKey: 'order.created' }
-);
+const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } =
+  definePublisherFirst(ordersExchange, orderMessage, { routingKey: "order.created" });
 
 // 3. Create consumer from event
-const orderProcessingQueue = defineQueue('order-processing', { durable: true });
+const orderProcessingQueue = defineQueue("order-processing", { durable: true });
 const { consumer: processOrderConsumer, binding: orderBinding } =
   createOrderCreatedConsumer(orderProcessingQueue);
 
@@ -63,7 +60,7 @@ const contract = defineContract({
 // 5. Client knows exact types
 const clientResult = await TypedAmqpClient.create({
   contract,
-  urls: ['amqp://localhost']
+  urls: ["amqp://localhost"],
 });
 
 if (clientResult.isError()) {
@@ -72,15 +69,15 @@ if (clientResult.isError()) {
 
 const client = clientResult.get();
 
-const result = await client.publish('orderCreated', {
-  orderId: 'ORD-123',  // ✅ TypeScript knows!
-  amount: 99.99,        // ✅ TypeScript knows!
+const result = await client.publish("orderCreated", {
+  orderId: "ORD-123", // ✅ TypeScript knows!
+  amount: 99.99, // ✅ TypeScript knows!
   // invalid: true,     // ❌ TypeScript error!
 });
 
 result.match({
-  Ok: () => console.log('Published'),
-  Error: (error) => console.error('Failed:', error),
+  Ok: () => console.log("Published"),
+  Error: (error) => console.error("Failed:", error),
 });
 ```
 
@@ -95,16 +92,16 @@ Invalid messages are caught early with clear error messages.
 
 ```typescript
 // This returns a validation error (doesn't throw)
-const result = await client.publish('orderCreated', {
-  orderId: 'ORD-123',
-  amount: 'not-a-number',  // ❌ Validation error!
+const result = await client.publish("orderCreated", {
+  orderId: "ORD-123",
+  amount: "not-a-number", // ❌ Validation error!
 });
 
 result.match({
-  Ok: () => console.log('Published'),
+  Ok: () => console.log("Published"),
   Error: (error) => {
     // Handle MessageValidationError or TechnicalError
-    console.error('Failed:', error.message);
+    console.error("Failed:", error.message);
   },
 });
 ```
@@ -120,29 +117,29 @@ amqp-contract uses [Standard Schema](https://github.com/standard-schema/standard
 All examples use [Zod](https://zod.dev/), but you can use any compatible library:
 
 ```typescript
-import { z } from 'zod';
-import * as v from 'valibot';
-import { type } from 'arktype';
+import { z } from "zod";
+import * as v from "valibot";
+import { type } from "arktype";
 
-const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+const ordersExchange = defineExchange("orders", "topic", { durable: true });
 
 // All work the same way with definePublisherFirst:
 const { publisher: zodPublisher, createConsumer: createZodConsumer } = definePublisherFirst(
   ordersExchange,
   defineMessage(z.object({ id: z.string() })),
-  { routingKey: 'order.created' }
+  { routingKey: "order.created" },
 );
 
 const { publisher: valibotPublisher, createConsumer: createValibotConsumer } = definePublisherFirst(
   ordersExchange,
   defineMessage(v.object({ id: v.string() })),
-  { routingKey: 'order.created' }
+  { routingKey: "order.created" },
 );
 
 const { publisher: arktypePublisher, createConsumer: createArktypeConsumer } = definePublisherFirst(
   ordersExchange,
-  defineMessage(type({ id: 'string' })),
-  { routingKey: 'order.created' }
+  defineMessage(type({ id: "string" })),
+  { routingKey: "order.created" },
 );
 ```
 
@@ -154,9 +151,9 @@ Exchanges receive and route messages to queues:
 
 ```typescript
 const ordersExchange = defineExchange(
-  'orders',      // name
-  'topic',       // type: direct, fanout, or topic
-  { durable: true }  // options
+  "orders", // name
+  "topic", // type: direct, fanout, or topic
+  { durable: true }, // options
 );
 ```
 
@@ -172,11 +169,11 @@ Queues store messages until consumed:
 
 ```typescript
 const orderProcessingQueue = defineQueue(
-  'order-processing',  // name
+  "order-processing", // name
   {
-    durable: true,     // survives broker restart
-    exclusive: false,  // shared across connections
-  }
+    durable: true, // survives broker restart
+    exclusive: false, // shared across connections
+  },
 );
 ```
 
@@ -191,9 +188,9 @@ const orderMessage = defineMessage(
     amount: z.number(),
   }),
   {
-    summary: 'Order created event',
-    description: 'Emitted when a new order is created',
-  }
+    summary: "Order created event",
+    description: "Emitted when a new order is created",
+  },
 );
 ```
 
@@ -203,11 +200,11 @@ Bindings connect queues to exchanges:
 
 ```typescript
 const orderBinding = defineQueueBinding(
-  orderProcessingQueue,  // queue
-  ordersExchange,        // exchange
+  orderProcessingQueue, // queue
+  ordersExchange, // exchange
   {
-    routingKey: 'order.created',  // routing pattern
-  }
+    routingKey: "order.created", // routing pattern
+  },
 );
 ```
 
@@ -217,11 +214,11 @@ Publishers define what messages can be published:
 
 ```typescript
 const orderCreatedPublisher = definePublisher(
-  ordersExchange,    // exchange
-  orderMessage,      // message definition
+  ordersExchange, // exchange
+  orderMessage, // message definition
   {
-    routingKey: 'order.created',
-  }
+    routingKey: "order.created",
+  },
 );
 ```
 
@@ -231,8 +228,8 @@ Consumers define what messages can be consumed:
 
 ```typescript
 const processOrderConsumer = defineConsumer(
-  orderProcessingQueue,  // queue
-  orderMessage           // message definition
+  orderProcessingQueue, // queue
+  orderMessage, // message definition
 );
 ```
 

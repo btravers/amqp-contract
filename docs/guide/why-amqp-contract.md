@@ -17,13 +17,19 @@ Without types, you're working blind:
 
 ```typescript
 // ❌ Traditional approach - no type safety
-channel.publish('orders', 'order.created', Buffer.from(JSON.stringify({
-  orderId: 'ORD-123'  // What fields are required? What types?
-})));
+channel.publish(
+  "orders",
+  "order.created",
+  Buffer.from(
+    JSON.stringify({
+      orderId: "ORD-123", // What fields are required? What types?
+    }),
+  ),
+);
 
-channel.consume('order-processing', (msg) => {
-  const data = JSON.parse(msg.content.toString());  // unknown type
-  console.log(data.orderId);  // No autocomplete, no type checking
+channel.consume("order-processing", (msg) => {
+  const data = JSON.parse(msg.content.toString()); // unknown type
+  console.log(data.orderId); // No autocomplete, no type checking
   // Is it orderId or order_id? Did the field change?
 });
 ```
@@ -35,12 +41,12 @@ You must validate messages manually at every boundary:
 ```typescript
 // ❌ Validation scattered throughout the codebase
 function validateOrder(data: unknown): Order {
-  if (!data || typeof data !== 'object') {
-    throw new Error('Invalid data');
+  if (!data || typeof data !== "object") {
+    throw new Error("Invalid data");
   }
   const order = data as any;
-  if (typeof order.orderId !== 'string') {
-    throw new Error('orderId must be a string');
+  if (typeof order.orderId !== "string") {
+    throw new Error("orderId must be a string");
   }
   // ... dozens more checks ...
   return order as Order;
@@ -53,7 +59,7 @@ Without validation, invalid messages cause runtime failures:
 
 ```typescript
 // ❌ No validation - crashes at runtime
-channel.consume('orders', (msg) => {
+channel.consume("orders", (msg) => {
   const order = JSON.parse(msg.content.toString());
   processPayment(order.amount); // TypeError: amount is undefined
 });
@@ -72,7 +78,8 @@ interface OrderEvent {
 }
 
 // consumer.ts
-interface OrderEvent {  // Same schema, different file
+interface OrderEvent {
+  // Same schema, different file
   orderId: string;
   amount: number;
 }
@@ -102,14 +109,14 @@ import {
   defineQueue,
   definePublisherFirst,
   defineMessage,
-} from '@amqp-contract/contract';
-import { TypedAmqpClient } from '@amqp-contract/client';
-import { TypedAmqpWorker } from '@amqp-contract/worker';
-import { z } from 'zod';
+} from "@amqp-contract/contract";
+import { TypedAmqpClient } from "@amqp-contract/client";
+import { TypedAmqpWorker } from "@amqp-contract/worker";
+import { z } from "zod";
 
 // 1. Define resources
-const ordersExchange = defineExchange('orders', 'topic', { durable: true });
-const orderProcessingQueue = defineQueue('order-processing', { durable: true });
+const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const orderProcessingQueue = defineQueue("order-processing", { durable: true });
 
 // 2. Define message schema
 const orderMessage = defineMessage(
@@ -117,15 +124,12 @@ const orderMessage = defineMessage(
     orderId: z.string(),
     customerId: z.string(),
     amount: z.number().positive(),
-  })
+  }),
 );
 
 // 3. Publisher-first pattern for event-oriented messaging
-const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } = definePublisherFirst(
-  ordersExchange,
-  orderMessage,
-  { routingKey: 'order.created' }
-);
+const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } =
+  definePublisherFirst(ordersExchange, orderMessage, { routingKey: "order.created" });
 
 // 4. Create consumer from event (ensures schema consistency)
 const { consumer: processOrderConsumer, binding: orderBinding } =
@@ -147,14 +151,14 @@ const contract = defineContract({
 // 4. Publisher gets full type safety
 const clientResult = await TypedAmqpClient.create({
   contract,
-  urls: ['amqp://localhost']
+  urls: ["amqp://localhost"],
 });
 
 const client = clientResult.get();
-const result = await client.publish('orderCreated', {
-  orderId: 'ORD-123',      // ✅ TypeScript knows these fields!
-  customerId: 'CUST-456',  // ✅ Autocomplete works!
-  amount: 99.99,           // ✅ Type checked at compile time!
+const result = await client.publish("orderCreated", {
+  orderId: "ORD-123", // ✅ TypeScript knows these fields!
+  customerId: "CUST-456", // ✅ Autocomplete works!
+  amount: 99.99, // ✅ Type checked at compile time!
 });
 
 // 5. Consumer gets fully typed messages
@@ -162,12 +166,12 @@ const workerResult = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => {
-      console.log(message.orderId);     // ✅ Fully typed!
-      console.log(message.customerId);  // ✅ Autocomplete!
-      console.log(message.amount);      // ✅ Type safe!
+      console.log(message.orderId); // ✅ Fully typed!
+      console.log(message.customerId); // ✅ Autocomplete!
+      console.log(message.amount); // ✅ Type safe!
     },
   },
-  urls: ['amqp://localhost'],
+  urls: ["amqp://localhost"],
 });
 ```
 
@@ -177,15 +181,15 @@ Schema validation happens automatically at network boundaries:
 
 ```typescript
 // ✅ Validation happens automatically
-const result = await client.publish('orderCreated', {
-  orderId: 'ORD-123',
-  customerId: 'CUST-456',
-  amount: -10,  // ❌ Validation error: amount must be positive
+const result = await client.publish("orderCreated", {
+  orderId: "ORD-123",
+  customerId: "CUST-456",
+  amount: -10, // ❌ Validation error: amount must be positive
 });
 
 result.match({
-  Ok: () => console.log('Published'),
-  Error: (error) => console.error('Validation failed:', error),
+  Ok: () => console.log("Published"),
+  Error: (error) => console.error("Validation failed:", error),
 });
 ```
 
@@ -195,15 +199,15 @@ TypeScript catches errors before runtime:
 
 ```typescript
 // ❌ TypeScript error at compile time
-await client.publish('orderCreated', {
-  orderId: 'ORD-123',
+await client.publish("orderCreated", {
+  orderId: "ORD-123",
   // Missing customerId and amount - TypeScript error!
 });
 
 // ❌ TypeScript error for wrong types
-await client.publish('orderCreated', {
-  orderId: 123,  // Error: orderId must be string
-  customerId: 'CUST-456',
+await client.publish("orderCreated", {
+  orderId: 123, // Error: orderId must be string
+  customerId: "CUST-456",
   amount: 99.99,
 });
 ```
@@ -214,11 +218,8 @@ Your contract is the single source of truth:
 
 ```typescript
 // ✅ One contract definition using publisher-first pattern
-const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } = definePublisherFirst(
-  ordersExchange,
-  orderMessage,
-  { routingKey: 'order.created' }
-);
+const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } =
+  definePublisherFirst(ordersExchange, orderMessage, { routingKey: "order.created" });
 
 const { consumer: processOrderConsumer, binding: orderBinding } =
   createOrderCreatedConsumer(orderProcessingQueue);
@@ -246,10 +247,10 @@ Refactoring is safe and guided by TypeScript:
 // Change the schema
 const orderMessage = defineMessage(
   z.object({
-    id: z.string(),          // Changed from orderId to id
+    id: z.string(), // Changed from orderId to id
     customerId: z.string(),
     amount: z.number().positive(),
-  })
+  }),
 );
 
 // TypeScript immediately shows all places that need updates:

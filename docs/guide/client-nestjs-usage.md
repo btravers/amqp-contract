@@ -50,34 +50,30 @@ import {
   defineExchange,
   definePublisherFirst,
   defineMessage,
-} from '@amqp-contract/contract';
-import { z } from 'zod';
+} from "@amqp-contract/contract";
+import { z } from "zod";
 
 // Define resources and messages
-const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+const ordersExchange = defineExchange("orders", "topic", { durable: true });
 
 const orderMessage = defineMessage(
   z.object({
     orderId: z.string(),
     customerId: z.string(),
     amount: z.number().positive(),
-    items: z.array(z.object({
-      productId: z.string(),
-      quantity: z.number().int().positive(),
-      price: z.number().positive(),
-    })),
-  })
+    items: z.array(
+      z.object({
+        productId: z.string(),
+        quantity: z.number().int().positive(),
+        price: z.number().positive(),
+      }),
+    ),
+  }),
 );
 
 // Publisher-first pattern
-const {
-  publisher: orderCreatedPublisher,
-  createConsumer: createOrderCreatedConsumer,
-} = definePublisherFirst(
-  ordersExchange,
-  orderMessage,
-  { routingKey: 'order.created' }
-);
+const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } =
+  definePublisherFirst(ordersExchange, orderMessage, { routingKey: "order.created" });
 
 export const contract = defineContract({
   exchanges: { orders: ordersExchange },
@@ -93,15 +89,15 @@ Import and configure the client module:
 
 ```typescript
 // app.module.ts
-import { Module } from '@nestjs/common';
-import { AmqpClientModule } from '@amqp-contract/client-nestjs';
-import { contract } from './contract';
+import { Module } from "@nestjs/common";
+import { AmqpClientModule } from "@amqp-contract/client-nestjs";
+import { contract } from "./contract";
 
 @Module({
   imports: [
     AmqpClientModule.forRoot({
       contract,
-      connection: 'amqp://localhost',
+      connection: "amqp://localhost",
     }),
   ],
 })
@@ -114,20 +110,18 @@ Inject and use the client service in your services or controllers:
 
 ```typescript
 // order.service.ts
-import { Injectable } from '@nestjs/common';
-import { AmqpClientService } from '@amqp-contract/client-nestjs';
-import type { contract } from './contract';
+import { Injectable } from "@nestjs/common";
+import { AmqpClientService } from "@amqp-contract/client-nestjs";
+import type { contract } from "./contract";
 
 @Injectable()
 export class OrderService {
-  constructor(
-    private readonly client: AmqpClientService<typeof contract>,
-  ) {}
+  constructor(private readonly client: AmqpClientService<typeof contract>) {}
 
   async createOrder(customerId: string, amount: number, items: any[]) {
     const orderId = this.generateOrderId();
 
-    const result = this.client.publish('orderCreated', {
+    const result = this.client.publish("orderCreated", {
       orderId,
       customerId,
       amount,
@@ -137,7 +131,7 @@ export class OrderService {
     result.match({
       Ok: () => console.log(`Order ${orderId} published`),
       Error: (error) => {
-        console.error('Failed to publish order:', error);
+        console.error("Failed to publish order:", error);
         throw new Error(`Failed to publish order: ${error.message}`);
       },
     });
@@ -155,8 +149,8 @@ export class OrderService {
 
 ```typescript
 // order.controller.ts
-import { Controller, Post, Body } from '@nestjs/common';
-import { OrderService } from './order.service';
+import { Controller, Post, Body } from "@nestjs/common";
+import { OrderService } from "./order.service";
 
 interface CreateOrderDto {
   customerId: string;
@@ -168,17 +162,13 @@ interface CreateOrderDto {
   }>;
 }
 
-@Controller('orders')
+@Controller("orders")
 export class OrderController {
   constructor(private readonly orderService: OrderService) {}
 
   @Post()
   async createOrder(@Body() dto: CreateOrderDto) {
-    return this.orderService.createOrder(
-      dto.customerId,
-      dto.amount,
-      dto.items
-    );
+    return this.orderService.createOrder(dto.customerId, dto.amount, dto.items);
   }
 }
 ```
@@ -190,10 +180,10 @@ That's it! The client automatically connects when the application starts and dis
 Use `@nestjs/config` for environment-based configuration:
 
 ```typescript
-import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { AmqpClientModule } from '@amqp-contract/client-nestjs';
-import { contract } from './contract';
+import { Module } from "@nestjs/common";
+import { ConfigModule, ConfigService } from "@nestjs/config";
+import { AmqpClientModule } from "@amqp-contract/client-nestjs";
+import { contract } from "./contract";
 
 @Module({
   imports: [
@@ -202,7 +192,7 @@ import { contract } from './contract';
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
         contract,
-        connection: configService.get('RABBITMQ_URL') || 'amqp://localhost',
+        connection: configService.get("RABBITMQ_URL") || "amqp://localhost",
       }),
       inject: [ConfigService],
     }),
@@ -224,22 +214,20 @@ RABBITMQ_URL=amqp://user:pass@rabbitmq-server:5672
 ```typescript
 @Injectable()
 export class OrderService {
-  constructor(
-    private readonly client: AmqpClientService<typeof contract>,
-  ) {}
+  constructor(private readonly client: AmqpClientService<typeof contract>) {}
 
   async createOrder(orderId: string, amount: number) {
-    const result = this.client.publish('orderCreated', {
+    const result = this.client.publish("orderCreated", {
       orderId,
-      customerId: 'CUST-123',
+      customerId: "CUST-123",
       amount,
       items: [],
     });
 
     result.match({
-      Ok: () => console.log('Order published successfully'),
+      Ok: () => console.log("Order published successfully"),
       Error: (error) => {
-        console.error('Failed to publish:', error);
+        console.error("Failed to publish:", error);
         throw new Error(`Publish failed: ${error.message}`);
       },
     });
@@ -252,30 +240,28 @@ export class OrderService {
 ```typescript
 @Injectable()
 export class OrderService {
-  constructor(
-    private readonly client: AmqpClientService<typeof contract>,
-  ) {}
+  constructor(private readonly client: AmqpClientService<typeof contract>) {}
 
   async createUrgentOrder(orderId: string, amount: number) {
     const result = this.client.publish(
-      'orderCreated',
+      "orderCreated",
       {
         orderId,
-        customerId: 'CUST-123',
+        customerId: "CUST-123",
         amount,
         items: [],
       },
       {
-        routingKey: 'order.created.urgent',
+        routingKey: "order.created.urgent",
         options: {
           persistent: true,
           priority: 10,
           headers: {
-            'x-priority': 'high',
-            'x-source': 'api',
+            "x-priority": "high",
+            "x-source": "api",
           },
         },
-      }
+      },
     );
 
     result.match({
@@ -288,19 +274,19 @@ export class OrderService {
 
   async createOrderWithTTL(orderId: string, amount: number) {
     const result = this.client.publish(
-      'orderCreated',
+      "orderCreated",
       {
         orderId,
-        customerId: 'CUST-123',
+        customerId: "CUST-123",
         amount,
         items: [],
       },
       {
         options: {
           persistent: true,
-          expiration: '60000', // 60 seconds
+          expiration: "60000", // 60 seconds
         },
-      }
+      },
     );
 
     result.match({
@@ -320,20 +306,18 @@ The NestJS client service uses `Result` types for explicit error handling:
 ### Basic Error Handling
 
 ```typescript
-import { Injectable } from '@nestjs/common';
-import { AmqpClientService } from '@amqp-contract/client-nestjs';
-import type { contract } from './contract';
+import { Injectable } from "@nestjs/common";
+import { AmqpClientService } from "@amqp-contract/client-nestjs";
+import type { contract } from "./contract";
 
 @Injectable()
 export class OrderService {
-  constructor(
-    private readonly client: AmqpClientService<typeof contract>,
-  ) {}
+  constructor(private readonly client: AmqpClientService<typeof contract>) {}
 
   async createOrder(orderId: string, amount: number) {
-    const result = this.client.publish('orderCreated', {
+    const result = this.client.publish("orderCreated", {
       orderId,
-      customerId: 'CUST-123',
+      customerId: "CUST-123",
       amount,
       items: [],
     });
@@ -341,7 +325,7 @@ export class OrderService {
     result.match({
       Ok: () => console.log(`Order ${orderId} published successfully`),
       Error: (error) => {
-        console.error('Failed to publish order:', error);
+        console.error("Failed to publish order:", error);
         throw new Error(`Publish failed: ${error.message}`);
       },
     });
@@ -354,22 +338,20 @@ export class OrderService {
 ### Structured Error Handling
 
 ```typescript
-import { Injectable, BadRequestException, InternalServerErrorException } from '@nestjs/common';
-import { AmqpClientService } from '@amqp-contract/client-nestjs';
-import { MessageValidationError, TechnicalError } from '@amqp-contract/client';
-import { match, P } from 'ts-pattern';
-import type { contract } from './contract';
+import { Injectable, BadRequestException, InternalServerErrorException } from "@nestjs/common";
+import { AmqpClientService } from "@amqp-contract/client-nestjs";
+import { MessageValidationError, TechnicalError } from "@amqp-contract/client";
+import { match, P } from "ts-pattern";
+import type { contract } from "./contract";
 
 @Injectable()
 export class OrderService {
-  constructor(
-    private readonly client: AmqpClientService<typeof contract>,
-  ) {}
+  constructor(private readonly client: AmqpClientService<typeof contract>) {}
 
   async createOrder(orderId: string, amount: number, items: any[]) {
-    const result = this.client.publish('orderCreated', {
+    const result = this.client.publish("orderCreated", {
       orderId,
-      customerId: 'CUST-123',
+      customerId: "CUST-123",
       amount,
       items,
     });
@@ -381,14 +363,14 @@ export class OrderService {
           .with(P.instanceOf(MessageValidationError), (err) => {
             // Schema validation failed
             throw new BadRequestException({
-              message: 'Invalid order data',
+              message: "Invalid order data",
               issues: err.issues,
             });
           })
           .with(P.instanceOf(TechnicalError), (err) => {
             // Runtime/network error
             throw new InternalServerErrorException({
-              message: 'Failed to publish order',
+              message: "Failed to publish order",
               cause: err.cause,
             });
           })
@@ -405,42 +387,41 @@ export class OrderService {
 Use NestJS's built-in logger for structured logging:
 
 ```typescript
-import { Injectable, Logger } from '@nestjs/common';
-import { AmqpClientService } from '@amqp-contract/client-nestjs';
-import type { contract } from './contract';
+import { Injectable, Logger } from "@nestjs/common";
+import { AmqpClientService } from "@amqp-contract/client-nestjs";
+import type { contract } from "./contract";
 
 @Injectable()
 export class OrderService {
   private readonly logger = new Logger(OrderService.name);
 
-  constructor(
-    private readonly client: AmqpClientService<typeof contract>,
-  ) {}
+  constructor(private readonly client: AmqpClientService<typeof contract>) {}
 
   async createOrder(orderId: string, amount: number) {
     this.logger.log(`Publishing order ${orderId}`);
 
-    const result = this.client.publish('orderCreated', {
-      orderId,
-      customerId: 'CUST-123',
-      amount,
-      items: [],
-    }, {
-      options: {
-        persistent: true,
-        headers: {
-          'x-timestamp': new Date().toISOString(),
+    const result = this.client.publish(
+      "orderCreated",
+      {
+        orderId,
+        customerId: "CUST-123",
+        amount,
+        items: [],
+      },
+      {
+        options: {
+          persistent: true,
+          headers: {
+            "x-timestamp": new Date().toISOString(),
+          },
         },
       },
-    });
+    );
 
     result.match({
       Ok: () => this.logger.log(`Order ${orderId} published successfully`),
       Error: (error) => {
-        this.logger.error(
-          `Failed to publish order ${orderId}`,
-          error.message,
-        );
+        this.logger.error(`Failed to publish order ${orderId}`, error.message);
         throw error;
       },
     });
@@ -458,10 +439,10 @@ Use [oRPC](https://orpc.dev/) for type-safe RPC that aligns with amqp-contract's
 
 ```typescript
 // order.router.ts
-import { initServer } from '@orpc/server';
-import { z } from 'zod';
-import { AmqpClientService } from '@amqp-contract/client-nestjs';
-import type { contract } from './contract';
+import { initServer } from "@orpc/server";
+import { z } from "zod";
+import { AmqpClientService } from "@amqp-contract/client-nestjs";
+import type { contract } from "./contract";
 
 // Helper function to generate unique order IDs
 function generateOrderId(): string {
@@ -480,45 +461,45 @@ export const orderRouter = initServer.router({
             productId: z.string(),
             quantity: z.number().int().positive(),
             price: z.number().positive(),
-          })
+          }),
         ),
-      })
+      }),
     )
     .output(
       z.object({
         orderId: z.string(),
         message: z.string(),
-      })
+      }),
     )
     .handler(async ({ input, context }) => {
       const client = context.client as AmqpClientService<typeof contract>;
 
       const orderId = generateOrderId();
 
-      await client.publish('orderCreated', {
+      await client.publish("orderCreated", {
         orderId,
         ...input,
       });
 
       return {
         orderId,
-        message: 'Order submitted for processing',
+        message: "Order submitted for processing",
       };
     }),
 });
 
 // order.module.ts
-import { Module } from '@nestjs/common';
-import { AmqpClientModule } from '@amqp-contract/client-nestjs';
-import { contract } from './contract';
-import { OrderController } from './order.controller';
-import { OrderService } from './order.service';
+import { Module } from "@nestjs/common";
+import { AmqpClientModule } from "@amqp-contract/client-nestjs";
+import { contract } from "./contract";
+import { OrderController } from "./order.controller";
+import { OrderService } from "./order.service";
 
 @Module({
   imports: [
     AmqpClientModule.forRoot({
       contract,
-      connection: 'amqp://localhost',
+      connection: "amqp://localhost",
     }),
   ],
   controllers: [OrderController],
@@ -527,27 +508,25 @@ import { OrderService } from './order.service';
 export class OrderModule {}
 
 // order.controller.ts - Expose oRPC router as NestJS controller
-import { Controller, All, Req, Res } from '@nestjs/common';
-import { Request, Response } from 'express';
-import { createServerAdapter } from '@orpc/server/node';
-import { AmqpClientService } from '@amqp-contract/client-nestjs';
-import { orderRouter } from './order.router';
-import type { contract } from './contract';
+import { Controller, All, Req, Res } from "@nestjs/common";
+import { Request, Response } from "express";
+import { createServerAdapter } from "@orpc/server/node";
+import { AmqpClientService } from "@amqp-contract/client-nestjs";
+import { orderRouter } from "./order.router";
+import type { contract } from "./contract";
 
-@Controller('orders')
+@Controller("orders")
 export class OrderController {
   private handler: ReturnType<typeof createServerAdapter>;
 
-  constructor(
-    private readonly client: AmqpClientService<typeof contract>,
-  ) {
+  constructor(private readonly client: AmqpClientService<typeof contract>) {
     this.handler = createServerAdapter({
       router: orderRouter,
       context: { client: this.client },
     });
   }
 
-  @All('*')
+  @All("*")
   async handleRpc(@Req() req: Request, @Res() res: Response) {
     return this.handler(req, res);
   }
@@ -567,28 +546,26 @@ Create a dedicated event publishing service:
 
 ```typescript
 // order-event.service.ts
-import { Injectable, Logger } from '@nestjs/common';
-import { AmqpClientService } from '@amqp-contract/client-nestjs';
-import type { contract } from './contract';
+import { Injectable, Logger } from "@nestjs/common";
+import { AmqpClientService } from "@amqp-contract/client-nestjs";
+import type { contract } from "./contract";
 
 @Injectable()
 export class OrderEventService {
   private readonly logger = new Logger(OrderEventService.name);
 
-  constructor(
-    private readonly client: AmqpClientService<typeof contract>,
-  ) {}
+  constructor(private readonly client: AmqpClientService<typeof contract>) {}
 
   async publishOrderCreated(order: any) {
     this.logger.log(`Publishing OrderCreated event for ${order.orderId}`);
 
-    await this.client.publish('orderCreated', order, {
+    await this.client.publish("orderCreated", order, {
       persistent: true,
       headers: {
-        'event-type': 'OrderCreated',
-        'event-version': '1.0',
-        'aggregate-id': order.orderId,
-        'timestamp': new Date().toISOString(),
+        "event-type": "OrderCreated",
+        "event-version": "1.0",
+        "aggregate-id": order.orderId,
+        timestamp: new Date().toISOString(),
       },
     });
   }
@@ -596,13 +573,13 @@ export class OrderEventService {
   async publishOrderUpdated(order: any) {
     this.logger.log(`Publishing OrderUpdated event for ${order.orderId}`);
 
-    await this.client.publish('orderUpdated', order, {
+    await this.client.publish("orderUpdated", order, {
       persistent: true,
       headers: {
-        'event-type': 'OrderUpdated',
-        'event-version': '1.0',
-        'aggregate-id': order.orderId,
-        'timestamp': new Date().toISOString(),
+        "event-type": "OrderUpdated",
+        "event-version": "1.0",
+        "aggregate-id": order.orderId,
+        timestamp: new Date().toISOString(),
       },
     });
   }
@@ -610,15 +587,19 @@ export class OrderEventService {
   async publishOrderCancelled(orderId: string) {
     this.logger.log(`Publishing OrderCancelled event for ${orderId}`);
 
-    await this.client.publish('orderCancelled', { orderId }, {
-      persistent: true,
-      headers: {
-        'event-type': 'OrderCancelled',
-        'event-version': '1.0',
-        'aggregate-id': orderId,
-        'timestamp': new Date().toISOString(),
+    await this.client.publish(
+      "orderCancelled",
+      { orderId },
+      {
+        persistent: true,
+        headers: {
+          "event-type": "OrderCancelled",
+          "event-version": "1.0",
+          "aggregate-id": orderId,
+          timestamp: new Date().toISOString(),
+        },
       },
-    });
+    );
   }
 }
 ```
@@ -633,7 +614,7 @@ Use multiple clients for different domains:
   imports: [
     AmqpClientModule.forRoot({
       contract: orderContract,
-      connection: 'amqp://localhost',
+      connection: "amqp://localhost",
     }),
   ],
   providers: [OrderService, OrderController],
@@ -646,7 +627,7 @@ export class OrderModule {}
   imports: [
     AmqpClientModule.forRoot({
       contract: paymentContract,
-      connection: 'amqp://localhost',
+      connection: "amqp://localhost",
     }),
   ],
   providers: [PaymentService, PaymentController],
@@ -667,11 +648,11 @@ export class AppModule {}
 
 ```typescript
 // order.service.spec.ts
-import { Test, TestingModule } from '@nestjs/testing';
-import { AmqpClientService } from '@amqp-contract/client-nestjs';
-import { OrderService } from './order.service';
+import { Test, TestingModule } from "@nestjs/testing";
+import { AmqpClientService } from "@amqp-contract/client-nestjs";
+import { OrderService } from "./order.service";
 
-describe('OrderService', () => {
+describe("OrderService", () => {
   let service: OrderService;
   let client: AmqpClientService<any>;
 
@@ -692,29 +673,27 @@ describe('OrderService', () => {
     client = module.get<AmqpClientService<any>>(AmqpClientService);
   });
 
-  it('should publish order created event', async () => {
-    const publishSpy = jest.spyOn(client, 'publish').mockResolvedValue(true);
+  it("should publish order created event", async () => {
+    const publishSpy = jest.spyOn(client, "publish").mockResolvedValue(true);
 
-    const result = await service.createOrder('CUST-123', 99.99, []);
+    const result = await service.createOrder("CUST-123", 99.99, []);
 
-    expect(result).toHaveProperty('orderId');
+    expect(result).toHaveProperty("orderId");
     expect(publishSpy).toHaveBeenCalledWith(
-      'orderCreated',
+      "orderCreated",
       expect.objectContaining({
         orderId: expect.any(String),
-        customerId: 'CUST-123',
+        customerId: "CUST-123",
         amount: 99.99,
         items: [],
-      })
+      }),
     );
   });
 
-  it('should handle publishing errors', async () => {
-    jest.spyOn(client, 'publish').mockRejectedValue(new Error('Connection failed'));
+  it("should handle publishing errors", async () => {
+    jest.spyOn(client, "publish").mockRejectedValue(new Error("Connection failed"));
 
-    await expect(
-      service.createOrder('CUST-123', 99.99, [])
-    ).rejects.toThrow('Connection failed');
+    await expect(service.createOrder("CUST-123", 99.99, [])).rejects.toThrow("Connection failed");
   });
 });
 ```
@@ -723,19 +702,19 @@ describe('OrderService', () => {
 
 ```typescript
 // app.e2e-spec.ts
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
-import * as request from 'supertest';
-import { connect, Connection, Channel } from 'amqplib';
-import { AppModule } from '../src/app.module';
+import { Test, TestingModule } from "@nestjs/testing";
+import { INestApplication } from "@nestjs/common";
+import * as request from "supertest";
+import { connect, Connection, Channel } from "amqplib";
+import { AppModule } from "../src/app.module";
 
-describe('Order API (e2e)', () => {
+describe("Order API (e2e)", () => {
   let app: INestApplication;
   let connection: Connection;
   let channel: Channel;
 
   beforeAll(async () => {
-    connection = await connect('amqp://localhost');
+    connection = await connect("amqp://localhost");
     channel = await connection.createChannel();
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -752,10 +731,10 @@ describe('Order API (e2e)', () => {
     await app.close();
   });
 
-  it('/orders (POST)', async () => {
+  it("/orders (POST)", async () => {
     // Setup consumer to verify message
     const messages: any[] = [];
-    await channel.consume('order-processing', (msg) => {
+    await channel.consume("order-processing", (msg) => {
       if (msg) {
         messages.push(JSON.parse(msg.content.toString()));
         channel.ack(msg);
@@ -764,23 +743,23 @@ describe('Order API (e2e)', () => {
 
     // Send HTTP request
     const response = await request(app.getHttpServer())
-      .post('/orders')
+      .post("/orders")
       .send({
-        customerId: 'CUST-TEST-123',
+        customerId: "CUST-TEST-123",
         amount: 99.99,
         items: [],
       })
       .expect(202);
 
-    expect(response.body).toHaveProperty('orderId');
+    expect(response.body).toHaveProperty("orderId");
 
     // Wait for message
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     // Verify message was published
     expect(messages).toHaveLength(1);
     expect(messages[0]).toMatchObject({
-      customerId: 'CUST-TEST-123',
+      customerId: "CUST-TEST-123",
       amount: 99.99,
     });
   });
@@ -812,46 +791,46 @@ import {
   defineExchange,
   definePublisher,
   defineMessage,
-} from '@amqp-contract/contract';
-import { z } from 'zod';
+} from "@amqp-contract/contract";
+import { z } from "zod";
 
-const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+const ordersExchange = defineExchange("orders", "topic", { durable: true });
 
 const orderMessage = defineMessage(
   z.object({
     orderId: z.string(),
     customerId: z.string(),
     amount: z.number().positive(),
-    items: z.array(z.object({
-      productId: z.string(),
-      quantity: z.number().int().positive(),
-      price: z.number().positive(),
-    })),
-  })
+    items: z.array(
+      z.object({
+        productId: z.string(),
+        quantity: z.number().int().positive(),
+        price: z.number().positive(),
+      }),
+    ),
+  }),
 );
 
 export const contract = defineContract({
   exchanges: { orders: ordersExchange },
   publishers: {
     orderCreated: definePublisher(ordersExchange, orderMessage, {
-      routingKey: 'order.created',
+      routingKey: "order.created",
     }),
   },
 });
 ```
 
 ```typescript [order.service.ts]
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
-import { AmqpClientService } from '@amqp-contract/client-nestjs';
-import type { contract } from './contract';
+import { Injectable, Logger, BadRequestException } from "@nestjs/common";
+import { AmqpClientService } from "@amqp-contract/client-nestjs";
+import type { contract } from "./contract";
 
 @Injectable()
 export class OrderService {
   private readonly logger = new Logger(OrderService.name);
 
-  constructor(
-    private readonly client: AmqpClientService<typeof contract>,
-  ) {}
+  constructor(private readonly client: AmqpClientService<typeof contract>) {}
 
   async createOrder(customerId: string, amount: number, items: any[]) {
     const orderId = this.generateOrderId();
@@ -859,19 +838,23 @@ export class OrderService {
     this.logger.log(`Creating order ${orderId} for customer ${customerId}`);
 
     try {
-      await this.client.publish('orderCreated', {
-        orderId,
-        customerId,
-        amount,
-        items,
-      }, {
-        persistent: true,
-        headers: {
-          'x-source': 'order-service',
-          'x-timestamp': new Date().toISOString(),
-          'x-customer-id': customerId,
+      await this.client.publish(
+        "orderCreated",
+        {
+          orderId,
+          customerId,
+          amount,
+          items,
         },
-      });
+        {
+          persistent: true,
+          headers: {
+            "x-source": "order-service",
+            "x-timestamp": new Date().toISOString(),
+            "x-customer-id": customerId,
+          },
+        },
+      );
 
       this.logger.log(`Order ${orderId} published successfully`);
       return { orderId };
@@ -884,14 +867,14 @@ export class OrderService {
 
       // Handle schema validation errors
       if (this.isValidationError(error)) {
-        throw new BadRequestException('Invalid order data');
+        throw new BadRequestException("Invalid order data");
       }
       throw error;
     }
   }
 
   private isValidationError(error: unknown): error is { issues: unknown } {
-    return typeof error === 'object' && error !== null && 'issues' in error;
+    return typeof error === "object" && error !== null && "issues" in error;
   }
 
   private generateOrderId(): string {
@@ -901,8 +884,8 @@ export class OrderService {
 ```
 
 ```typescript [order.controller.ts]
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
-import { OrderService } from './order.service';
+import { Controller, Post, Body, HttpCode, HttpStatus } from "@nestjs/common";
+import { OrderService } from "./order.service";
 
 interface CreateOrderDto {
   customerId: string;
@@ -914,21 +897,17 @@ interface CreateOrderDto {
   }>;
 }
 
-@Controller('orders')
+@Controller("orders")
 export class OrderController {
   constructor(private readonly orderService: OrderService) {}
 
   @Post()
   @HttpCode(HttpStatus.ACCEPTED)
   async createOrder(@Body() dto: CreateOrderDto) {
-    const result = await this.orderService.createOrder(
-      dto.customerId,
-      dto.amount,
-      dto.items
-    );
+    const result = await this.orderService.createOrder(dto.customerId, dto.amount, dto.items);
 
     return {
-      message: 'Order submitted for processing',
+      message: "Order submitted for processing",
       ...result,
     };
   }
@@ -936,12 +915,12 @@ export class OrderController {
 ```
 
 ```typescript [app.module.ts]
-import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { AmqpClientModule } from '@amqp-contract/client-nestjs';
-import { contract } from './contract';
-import { OrderService } from './order.service';
-import { OrderController } from './order.controller';
+import { Module } from "@nestjs/common";
+import { ConfigModule, ConfigService } from "@nestjs/config";
+import { AmqpClientModule } from "@amqp-contract/client-nestjs";
+import { contract } from "./contract";
+import { OrderService } from "./order.service";
+import { OrderController } from "./order.controller";
 
 @Module({
   imports: [
@@ -950,7 +929,7 @@ import { OrderController } from './order.controller';
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
         contract,
-        connection: configService.get('RABBITMQ_URL') || 'amqp://localhost',
+        connection: configService.get("RABBITMQ_URL") || "amqp://localhost",
       }),
       inject: [ConfigService],
     }),
@@ -962,12 +941,12 @@ export class AppModule {}
 ```
 
 ```typescript [main.ts]
-import { NestFactory } from '@nestjs/core';
-import { Logger, ValidationPipe } from '@nestjs/common';
-import { AppModule } from './app.module';
+import { NestFactory } from "@nestjs/core";
+import { Logger, ValidationPipe } from "@nestjs/common";
+import { AppModule } from "./app.module";
 
 async function bootstrap() {
-  const logger = new Logger('Bootstrap');
+  const logger = new Logger("Bootstrap");
 
   const app = await NestFactory.create(AppModule);
 
@@ -979,8 +958,8 @@ async function bootstrap() {
 
   await app.listen(3000);
 
-  logger.log('Application is running on: http://localhost:3000');
-  logger.log('AMQP client connected and ready to publish');
+  logger.log("Application is running on: http://localhost:3000");
+  logger.log("AMQP client connected and ready to publish");
 }
 
 bootstrap();

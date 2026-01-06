@@ -61,10 +61,12 @@ When defining a contract, we use standard AMQP terms:
 
 ```typescript
 const contract = defineContract({
-  publishers: {  // ← "publisher" in contract
+  publishers: {
+    // ← "publisher" in contract
     orderCreated: definePublisher(exchange, schema, options),
   },
-  consumers: {   // ← "consumer" in contract
+  consumers: {
+    // ← "consumer" in contract
     processOrder: defineConsumer(queue, schema),
   },
 });
@@ -79,7 +81,7 @@ When implementing the contract, we use our terms:
 ```typescript
 // Client = runtime publisher
 const client = await TypedAmqpClient.create({ contract, urls });
-await client.publish('orderCreated', message);
+await client.publish("orderCreated", message);
 
 // Worker = runtime consumer
 const worker = await TypedAmqpWorker.create({
@@ -147,7 +149,7 @@ const consumer = await createConsumer(queue, handler);
 
 // amqp-contract uses:
 const client = await TypedAmqpClient.create({ contract, urls });
-await client.publish('orderCreated', message);
+await client.publish("orderCreated", message);
 
 const worker = await TypedAmqpWorker.create({
   contract,
