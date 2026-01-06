@@ -234,8 +234,7 @@ export default withMermaid(
           "@context": "https://schema.org",
           "@type": "SoftwareApplication",
           name: "amqp-contract",
-          description:
-            "Type-safe contracts for AMQP/RabbitMQ messaging with TypeScript. End-to-end type safety and automatic schema validation for Node.js and NestJS applications.",
+          description: SITE_DESCRIPTION,
           applicationCategory: "DeveloperApplication",
           operatingSystem: "Cross-platform",
           offers: {
