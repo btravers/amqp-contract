@@ -1,3 +1,4 @@
+/* eslint-disable sort-imports */
 import type { CompressionAlgorithm } from "@amqp-contract/contract";
 import { deflate, gzip } from "node:zlib";
 import { promisify } from "node:util";
