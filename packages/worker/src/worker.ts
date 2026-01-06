@@ -247,17 +247,17 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     }
     this.batchTimers.clear();
 
-    // Cancel all consumers before closing the channel
-    const cancelPromises = Array.from(this.consumerTags).map(async (consumerTag) => {
-      try {
-        await this.amqpClient.channel.cancel(consumerTag);
-      } catch (error) {
-        // Ignore errors during consumer cancellation (channel might already be closed)
-        this.logger?.warn("Failed to cancel consumer during close", { consumerTag, error });
-      }
-    });
-
-    return Future.fromPromise(Promise.all(cancelPromises))
+    return Future.all(
+      Array.from(this.consumerTags).map((consumerTag) =>
+        Future.fromPromise(this.amqpClient.channel.cancel(consumerTag)).mapErrorToResult(
+          (error) => {
+            this.logger?.warn("Failed to cancel consumer during close", { consumerTag, error });
+            return Result.Ok(undefined);
+          },
+        ),
+      ),
+    )
+      .map(Result.all)
       .tapOk(() => {
         // Clear consumer tags after successful cancellation
         this.consumerTags.clear();
