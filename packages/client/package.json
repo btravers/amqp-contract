@@ -53,7 +53,8 @@
     "build": "tsdown src/index.ts --format cjs,esm --dts --clean",
     "build:docs": "typedoc",
     "dev": "tsdown src/index.ts --format cjs,esm --dts --watch",
-    "test:integration": "vitest run",
+    "test": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
