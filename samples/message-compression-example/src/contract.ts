@@ -1,11 +1,11 @@
 import {
+  defineConsumer,
   defineContract,
   defineExchange,
   defineMessage,
   definePublisher,
   defineQueue,
   defineQueueBinding,
-  defineConsumer,
 } from "@amqp-contract/contract";
 import { z } from "zod";
 

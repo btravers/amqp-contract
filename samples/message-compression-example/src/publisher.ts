@@ -1,8 +1,8 @@
+import * as crypto from "node:crypto";
 import { TypedAmqpClient } from "@amqp-contract/client";
 import { contract } from "./contract.js";
 import pino from "pino";
 import { z } from "zod";
-import * as crypto from "node:crypto";
 
 const env = z
   .object({
