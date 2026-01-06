@@ -69,7 +69,6 @@ const it = baseIt.extend<{
         return worker;
       },
     );
-    await Promise.all(workers.map((worker) => worker.close().resultToPromise()));
   },
 });
 
