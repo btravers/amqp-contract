@@ -31,7 +31,7 @@ const it = baseIt.extend<{
         try {
           await client.close().resultToPromise();
         } catch (error) {
-          // Avoid unhandled promise rejections during test teardown.
+          // Avoid unhandled promise rejections during test teardown
           // eslint-disable-next-line no-console
           console.error("Failed to close AMQP client in test teardown:", error);
         }
