@@ -1,7 +1,6 @@
-/* eslint-disable sort-imports */
 import { TypedAmqpClient } from "@amqp-contract/client";
-import { priorityQueueContract } from "./contract.js";
 import pino from "pino";
+import { priorityQueueContract } from "./contract.js";
 import { z } from "zod";
 
 const env = z
