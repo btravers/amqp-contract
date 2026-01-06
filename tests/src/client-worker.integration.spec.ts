@@ -58,6 +58,15 @@ const it = baseIt.extend<{
   },
 });
 
+/**
+ * Helper function to wait for worker to be ready to consume messages.
+ * Workers need a brief moment to establish their connection and start consuming.
+ * This is a pragmatic solution for integration tests since workers don't expose a ready event.
+ */
+async function waitForWorkerReady(delayMs = 500): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, delayMs));
+}
+
 describe("Client and Worker Integration", () => {
   describe("end-to-end message flow", () => {
     it("should successfully publish and consume messages between client and worker", async ({
@@ -106,8 +115,8 @@ describe("Client and Worker Integration", () => {
       });
       const client = await clientFactory(contract);
 
-      // Wait for worker to be ready
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Wait for worker to be ready to consume messages
+      await waitForWorkerReady();
 
       // WHEN - Publish message
       const publishResult = await client.publish("orderCreated", {
@@ -179,8 +188,8 @@ describe("Client and Worker Integration", () => {
       });
       const client = await clientFactory(contract);
 
-      // Wait for worker to be ready
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Wait for worker to be ready to consume messages
+      await waitForWorkerReady();
 
       // WHEN - Publish multiple messages
       const messages = [
@@ -248,7 +257,8 @@ describe("Client and Worker Integration", () => {
       });
       const client = await clientFactory(contract);
 
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Wait for worker to be ready to consume messages
+      await waitForWorkerReady();
 
       // WHEN - Try to publish invalid message (invalid UUID)
       const invalidResult = await client.publish("strictPublisher", {
@@ -332,7 +342,8 @@ describe("Client and Worker Integration", () => {
       });
       const client = await clientFactory(contract);
 
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Wait for worker to be ready to consume messages
+      await waitForWorkerReady();
 
       // WHEN - Publish email notification
       const emailResult = await client.publish("emailNotification", {
