@@ -25,15 +25,13 @@ const dataMessage = defineMessage(
     value: z.number().optional(),
     // Optional fields only in large messages
     metadata: z.record(z.string(), z.string()).optional(),
-    items: z
-      .array(
-        z.object({
-          name: z.string(),
-          description: z.string(),
-          properties: z.record(z.string(), z.unknown()),
-        }),
-      )
-      .optional(),
+    items: z.array(
+      z.object({
+        name: z.string(),
+        description: z.string(),
+        properties: z.record(z.string(), z.unknown()),
+      }),
+    ),
   }),
   {
     summary: "Data event",

@@ -74,6 +74,7 @@ async function main() {
     id: "small-001",
     timestamp: new Date().toISOString(),
     value: 42,
+    items: [],
   };
   const smallPayloadSize = JSON.stringify(smallPayload).length;
 
