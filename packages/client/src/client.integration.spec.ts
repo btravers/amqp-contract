@@ -27,7 +27,7 @@ const it = baseIt.extend<{
         urls: [amqpConnectionUrl],
       }).resultToPromise();
 
-      onTestFinished(() => client.close().resultToPromise())
+      onTestFinished(() => client.close().resultToPromise());
 
       return client;
     });

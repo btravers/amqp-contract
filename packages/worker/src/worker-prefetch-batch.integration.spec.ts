@@ -21,7 +21,7 @@ const it = baseIt.extend<{
     handlers: WorkerInferConsumerHandlers<TContract>,
   ) => Promise<TypedAmqpWorker<TContract>>;
 }>({
-  workerFactory: async ({ amqpConnectionUrl , onTestFinished}, use) => {
+  workerFactory: async ({ amqpConnectionUrl, onTestFinished }, use) => {
     await use(
       async <TContract extends ContractDefinition>(
         contract: TContract,
