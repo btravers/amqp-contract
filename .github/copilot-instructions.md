@@ -26,6 +26,7 @@ This guide provides coding standards and best practices for contributing to the 
 
 ```
 amqp-contract/
+├── docs/                  # Documentation site
 ├── packages/
 │   ├── contract/          # Core contract builder
 │   ├── core/              # Core utilities for AMQP setup and management
@@ -36,7 +37,6 @@ amqp-contract/
 │   ├── asyncapi/          # AsyncAPI 3.0 generator
 │   └── testing/           # Testing utilities
 ├── samples/               # Example implementations
-├── website/               # Documentation site
 └── tools/                 # Development tools
 ```
 
@@ -483,7 +483,7 @@ packages/[package-name]/
    - Show different exchange types and routing strategies
 
 4. **Website Documentation**
-   - Keep `website/docs/` in sync with code changes
+   - Keep `docs/` in sync with code changes
    - Update API documentation when signatures change
    - Add guides for new features
 

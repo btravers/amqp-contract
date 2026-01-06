@@ -232,10 +232,10 @@ The concerns raised are valid but not critical:
 
 - `ARCHITECTURE_REVIEW.md` - 25KB comprehensive review
 - `TERMINOLOGY.md` - 6KB terminology guide
-- `website/docs/adr/README.md` - ADR index
-- `website/docs/adr/001-client-worker-terminology.md` - Terminology ADR
-- `website/docs/adr/002-separate-packages.md` - Package structure ADR
-- `website/docs/adr/003-connection-sharing.md` - Connection sharing ADR
+- `docs/adr/README.md` - ADR index
+- `docs/adr/001-client-worker-terminology.md` - Terminology ADR
+- `docs/adr/002-separate-packages.md` - Package structure ADR
+- `docs/adr/003-connection-sharing.md` - Connection sharing ADR
 
 ### Modified
 

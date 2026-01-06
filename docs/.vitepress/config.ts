@@ -176,7 +176,7 @@ export default withMermaid(
       },
 
       editLink: {
-        pattern: "https://github.com/btravers/amqp-contract/edit/main/website/docs/:path",
+        pattern: "https://github.com/btravers/amqp-contract/edit/main/docs/:path",
         text: "Edit this page on GitHub",
       },
     },
