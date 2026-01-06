@@ -901,6 +901,40 @@ importers:
         specifier: 'catalog:'
         version: 5.9.3
 
+  tests:
+    dependencies:
+      '@amqp-contract/client':
+        specifier: workspace:*
+        version: link:../packages/client
+      '@amqp-contract/contract':
+        specifier: workspace:*
+        version: link:../packages/contract
+      '@amqp-contract/testing':
+        specifier: workspace:*
+        version: link:../packages/testing
+      '@amqp-contract/worker':
+        specifier: workspace:*
+        version: link:../packages/worker
+      '@swan-io/boxed':
+        specifier: 'catalog:'
+        version: 3.2.1(typescript@5.9.3)
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.0.3
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 4.0.16(vitest@4.0.16(@types/node@25.0.3)(jiti@2.6.1)(jsdom@27.4.0)(tsx@4.21.0)(yaml@2.8.2))
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 4.0.16(@types/node@25.0.3)(jiti@2.6.1)(jsdom@27.4.0)(tsx@4.21.0)(yaml@2.8.2)
+      zod:
+        specifier: 'catalog:'
+        version: 4.3.5
+
   tools/tsconfig: {}
 
   tools/typedoc: {}

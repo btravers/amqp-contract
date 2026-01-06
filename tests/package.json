@@ -1,0 +1,26 @@
+{
+  "name": "@amqp-contract/tests",
+  "private": true,
+  "description": "Integration tests for amqp-contract library",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:integration": "vitest run",
+    "test:watch": "vitest watch"
+  },
+  "dependencies": {
+    "@amqp-contract/client": "workspace:*",
+    "@amqp-contract/contract": "workspace:*",
+    "@amqp-contract/testing": "workspace:*",
+    "@amqp-contract/worker": "workspace:*",
+    "@swan-io/boxed": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "zod": "catalog:"
+  }
+}
