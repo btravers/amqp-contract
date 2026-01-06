@@ -1,0 +1,53 @@
+name: Dependabot Auto-Merge
+
+permissions:
+  contents: write
+  pull-requests: write
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+
+jobs:
+  auto-merge:
+    name: Auto-merge Dependabot PRs
+    runs-on: ubuntu-latest
+    if: |
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.actor.login == 'dependabot[bot]'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Get PR number
+        id: pr
+        run: |
+          # Get the PR number from the workflow run
+          PR_NUMBER=$(gh pr list --head "${{ github.event.workflow_run.head_branch }}" --json number --jq '.[0].number')
+          echo "number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No PR found for branch ${{ github.event.workflow_run.head_branch }}"
+            exit 0
+          fi
+          echo "Found PR #$PR_NUMBER"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Approve PR
+        if: steps.pr.outputs.number != ''
+        run: |
+          echo "Approving PR #${{ steps.pr.outputs.number }}"
+          gh pr review "${{ steps.pr.outputs.number }}" --approve --body "Auto-approving Dependabot PR after successful CI run"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable auto-merge
+        if: steps.pr.outputs.number != ''
+        run: |
+          echo "Enabling auto-merge for PR #${{ steps.pr.outputs.number }}"
+          gh pr merge "${{ steps.pr.outputs.number }}" --auto --squash --delete-branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
