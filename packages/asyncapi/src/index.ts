@@ -255,9 +255,9 @@ export class AsyncAPIGenerator {
           bindings: {
             amqp: {
               bindingVersion: "0.3.0",
-            } as unknown as ChannelObject["bindings"],
+            },
           },
-        };
+        } as OperationsObject[string];
       }
     }
 

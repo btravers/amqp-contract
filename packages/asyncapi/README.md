@@ -10,14 +10,6 @@
 
 📖 **[Full documentation →](https://btravers.github.io/amqp-contract/api/asyncapi)**
 
-## Features
-
-- ✅ **AsyncAPI 3.0 compliant** - Generates specifications following AsyncAPI 3.0.0 standard
-- ✅ **Proper AMQP bindings** - Full support for AMQP binding version 0.3.0
-- ✅ **Schema validation** - Converts Zod, Valibot, and ArkType schemas to JSON Schema
-- ✅ **Type-safe** - Full TypeScript support with type inference
-- ✅ **Comprehensive** - Includes channels, operations, messages, and bindings
-
 ## Installation
 
 ```bash
@@ -66,92 +58,14 @@ console.log(JSON.stringify(asyncAPISpec, null, 2));
 writeFileSync("asyncapi.json", JSON.stringify(asyncAPISpec, null, 2));
 ```
 
-## Generated AsyncAPI Features
+## Features
 
-### AMQP Channel Bindings
+- ✅ **AsyncAPI 3.0 compliant** with proper AMQP bindings (v0.3.0)
+- ✅ **Schema validation** - Converts Zod, Valibot, and ArkType schemas to JSON Schema
+- ✅ **Queue-exchange binding documentation** in channel descriptions
+- ✅ **Type-safe** with full TypeScript support
 
-The generator produces proper AMQP channel bindings compliant with AsyncAPI 3.0:
-
-```json
-{
-  "channels": {
-    "orders": {
-      "address": "orders",
-      "bindings": {
-        "amqp": {
-          "is": "routingKey",
-          "exchange": {
-            "name": "orders",
-            "type": "topic",
-            "durable": true,
-            "autoDelete": false,
-            "vhost": "/"
-          },
-          "bindingVersion": "0.3.0"
-        }
-      }
-    }
-  }
-}
-```
-
-### Operation Bindings
-
-Operations include AMQP-specific bindings for routing and message handling:
-
-**Publishers:**
-```json
-{
-  "operations": {
-    "orderCreated": {
-      "action": "send",
-      "bindings": {
-        "amqp": {
-          "cc": ["order.created"],
-          "deliveryMode": 2,
-          "bindingVersion": "0.3.0"
-        }
-      }
-    }
-  }
-}
-```
-
-**Consumers:**
-```json
-{
-  "operations": {
-    "processOrder": {
-      "action": "receive",
-      "bindings": {
-        "amqp": {
-          "ack": true,
-          "bindingVersion": "0.3.0"
-        }
-      }
-    }
-  }
-}
-```
-
-## Validation and Tooling
-
-Use the generated AsyncAPI specification with AsyncAPI tooling:
-
-```bash
-# Validate the specification
-npx @asyncapi/cli validate asyncapi.json
-
-# Generate HTML documentation
-npx @asyncapi/cli generate fromTemplate asyncapi.json @asyncapi/html-template
-
-# Bundle multiple specs
-npx @asyncapi/cli bundle asyncapi.json -o asyncapi-bundle.json
-```
-
-Or use online tools:
-- [AsyncAPI Studio](https://studio.asyncapi.com/) - Visual editor and documentation
-- [AsyncAPI Diff](https://github.com/asyncapi/diff) - Breaking change detection
+For examples and detailed guides, see the [documentation](https://btravers.github.io/amqp-contract/api/asyncapi).
 
 ## API
 
