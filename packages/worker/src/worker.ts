@@ -136,6 +136,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   >;
   private readonly consumerOptions: Partial<Record<InferConsumerNames<TContract>, ConsumerOptions>>;
   private readonly batchTimers: Map<string, NodeJS.Timeout> = new Map();
+  private readonly consumerTags: string[] = [];
 
   private constructor(
     private readonly contract: TContract,
@@ -246,7 +247,18 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     }
     this.batchTimers.clear();
 
-    return Future.fromPromise(this.amqpClient.close())
+    // Cancel all consumers before closing the channel
+    const cancelPromises = this.consumerTags.map(async (consumerTag) => {
+      try {
+        await this.amqpClient.channel.cancel(consumerTag);
+      } catch (error) {
+        // Ignore errors during consumer cancellation (channel might already be closed)
+        this.logger?.warn("Failed to cancel consumer during close", { consumerTag, error });
+      }
+    });
+
+    return Future.fromPromise(Promise.all(cancelPromises))
+      .flatMapOk(() => Future.fromPromise(this.amqpClient.close()))
       .mapError((error) => new TechnicalError("Failed to close AMQP connection", error))
       .mapOk(() => undefined);
   }
@@ -483,6 +495,10 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           .toPromise();
       }),
     )
+      .tapOk((reply) => {
+        // Store consumer tag for later cancellation
+        this.consumerTags.push(reply.consumerTag);
+      })
       .mapError(
         (error) =>
           new TechnicalError(`Failed to start consuming for "${String(consumerName)}"`, error),
@@ -643,6 +659,10 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         }
       }),
     )
+      .tapOk((reply) => {
+        // Store consumer tag for later cancellation
+        this.consumerTags.push(reply.consumerTag);
+      })
       .mapError(
         (error) =>
           new TechnicalError(`Failed to start consuming for "${String(consumerName)}"`, error),
