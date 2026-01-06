@@ -33,7 +33,15 @@ const it = baseIt.extend<{
           urls: [amqpConnectionUrl],
         }).resultToPromise();
 
-        onTestFinished(() => worker.close().resultToPromise());
+        onTestFinished(async () => {
+          try {
+            await worker.close().resultToPromise();
+          } catch (error) {
+            // Avoid unhandled promise rejections during test teardown
+            // eslint-disable-next-line no-console
+            console.error("Failed to close TypedAmqpWorker in onTestFinished:", error);
+          }
+        });
 
         return worker;
       },

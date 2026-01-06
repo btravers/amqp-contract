@@ -27,7 +27,15 @@ const it = baseIt.extend<{
         urls: [amqpConnectionUrl],
       }).resultToPromise();
 
-      onTestFinished(() => client.close().resultToPromise());
+      onTestFinished(async () => {
+        try {
+          await client.close().resultToPromise();
+        } catch (error) {
+          // Avoid unhandled promise rejections during test teardown.
+          // eslint-disable-next-line no-console
+          console.error("Failed to close AMQP client in test teardown:", error);
+        }
+      });
 
       return client;
     });

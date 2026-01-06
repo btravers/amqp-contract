@@ -194,7 +194,13 @@ export const it = vitestIt.extend<{
       );
 
       onTestFinished(async () => {
-        await amqpChannel.cancel(consumer.consumerTag);
+        try {
+          await amqpChannel.cancel(consumer.consumerTag);
+        } catch (error) {
+          // Swallow cancellation errors to avoid unhandled promise rejections during test teardown
+          // eslint-disable-next-line no-console
+          console.error("Failed to cancel AMQP consumer during test teardown:", error);
+        }
       });
 
       return async (options = {}) => {
