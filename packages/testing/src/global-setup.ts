@@ -50,7 +50,9 @@ export default async function setup({ provide }: TestProject) {
   console.log("🐳 Starting RabbitMQ test environment...");
 
   // Start RabbitMQ container with management plugin
-  const rabbitmqContainer = await new GenericContainer("rabbitmq:4.2.1-management-alpine")
+  const rabbitmqContainer = await new GenericContainer(
+    "ghcr.io/rabbitmq/rabbitmq:4.2.1-management-alpine",
+  )
     .withExposedPorts(5672, 15672)
     .withEnvironment({
       RABBITMQ_DEFAULT_USER: "guest",
