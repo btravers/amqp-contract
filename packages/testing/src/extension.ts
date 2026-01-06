@@ -194,7 +194,7 @@ export const it = vitestIt.extend<{
       );
 
       onTestFinished(async () => {
-        await amqpChannel.cancel(consumer.consumerTag)
+        await amqpChannel.cancel(consumer.consumerTag);
       });
 
       return async (options = {}) => {
