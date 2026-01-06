@@ -215,15 +215,26 @@ export class AsyncAPIGenerator {
         const exchangeName = this.getExchangeName(publisher.exchange, contract);
         const messageName = `${publisherName}Message`;
 
-        convertedOperations[publisherName] = {
+        const operation: Record<string, unknown> = {
           action: "send",
           channel: { $ref: `#/channels/${exchangeName}` },
           messages: [{ $ref: `#/channels/${exchangeName}/messages/${messageName}` }],
           summary: `Publish to ${publisher.exchange.name}`,
-          ...(publisher.routingKey && {
-            description: `Routing key: ${publisher.routingKey}`,
-          }),
         };
+
+        // Add operation-level AMQP bindings
+        if (publisher.routingKey) {
+          operation.bindings = {
+            amqp: {
+              cc: [publisher.routingKey],
+              deliveryMode: 2, // Persistent by default
+              bindingVersion: "0.3.0",
+            },
+          };
+          operation.description = `Routing key: ${publisher.routingKey}`;
+        }
+
+        convertedOperations[publisherName] = operation;
       }
     }
 
@@ -238,6 +249,12 @@ export class AsyncAPIGenerator {
           channel: { $ref: `#/channels/${queueName}` },
           messages: [{ $ref: `#/channels/${queueName}/messages/${messageName}` }],
           summary: `Consume from ${consumer.queue.name}`,
+          bindings: {
+            amqp: {
+              ack: true, // Auto-acknowledge by default
+              bindingVersion: "0.3.0",
+            },
+          },
         };
       }
     }
@@ -303,8 +320,9 @@ export class AsyncAPIGenerator {
             durable: queue.durable ?? false,
             exclusive: queue.exclusive ?? false,
             autoDelete: queue.autoDelete ?? false,
-            ...(queue.arguments && { vhost: "/" }),
+            vhost: "/",
           },
+          bindingVersion: "0.3.0",
         },
       },
     };
@@ -328,8 +346,9 @@ export class AsyncAPIGenerator {
             type: exchange.type,
             durable: exchange.durable ?? false,
             autoDelete: exchange.autoDelete ?? false,
-            ...(exchange.arguments && { vhost: "/" }),
+            vhost: "/",
           },
+          bindingVersion: "0.3.0",
         },
       },
     };

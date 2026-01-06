@@ -88,12 +88,14 @@ describe("AsyncAPIGenerator", () => {
               "address": "order-processing",
               "bindings": {
                 "amqp": {
+                  "bindingVersion": "0.3.0",
                   "is": "queue",
                   "queue": {
                     "autoDelete": false,
                     "durable": true,
                     "exclusive": false,
                     "name": "order-processing",
+                    "vhost": "/",
                   },
                 },
               },
@@ -136,11 +138,13 @@ describe("AsyncAPIGenerator", () => {
               "address": "orders",
               "bindings": {
                 "amqp": {
+                  "bindingVersion": "0.3.0",
                   "exchange": {
                     "autoDelete": false,
                     "durable": true,
                     "name": "orders",
                     "type": "topic",
+                    "vhost": "/",
                   },
                   "is": "routingKey",
                 },
@@ -253,6 +257,15 @@ describe("AsyncAPIGenerator", () => {
           "operations": {
             "orderCreated": {
               "action": "send",
+              "bindings": {
+                "amqp": {
+                  "bindingVersion": "0.3.0",
+                  "cc": [
+                    "order.created",
+                  ],
+                  "deliveryMode": 2,
+                },
+              },
               "channel": {
                 "$ref": "#/channels/orders",
               },
@@ -266,6 +279,12 @@ describe("AsyncAPIGenerator", () => {
             },
             "processOrder": {
               "action": "receive",
+              "bindings": {
+                "amqp": {
+                  "ack": true,
+                  "bindingVersion": "0.3.0",
+                },
+              },
               "channel": {
                 "$ref": "#/channels/orderProcessing",
               },
@@ -339,12 +358,14 @@ describe("AsyncAPIGenerator", () => {
               "address": "event-queue",
               "bindings": {
                 "amqp": {
+                  "bindingVersion": "0.3.0",
                   "is": "queue",
                   "queue": {
                     "autoDelete": false,
                     "durable": false,
                     "exclusive": false,
                     "name": "event-queue",
+                    "vhost": "/",
                   },
                 },
               },
@@ -355,11 +376,13 @@ describe("AsyncAPIGenerator", () => {
               "address": "events",
               "bindings": {
                 "amqp": {
+                  "bindingVersion": "0.3.0",
                   "exchange": {
                     "autoDelete": false,
                     "durable": false,
                     "name": "events",
                     "type": "fanout",
+                    "vhost": "/",
                   },
                   "is": "routingKey",
                 },
@@ -525,12 +548,14 @@ describe("AsyncAPIGenerator", () => {
               "address": "notification-queue",
               "bindings": {
                 "amqp": {
+                  "bindingVersion": "0.3.0",
                   "is": "queue",
                   "queue": {
                     "autoDelete": false,
                     "durable": true,
                     "exclusive": false,
                     "name": "notification-queue",
+                    "vhost": "/",
                   },
                 },
               },
@@ -575,11 +600,13 @@ describe("AsyncAPIGenerator", () => {
               "address": "notifications",
               "bindings": {
                 "amqp": {
+                  "bindingVersion": "0.3.0",
                   "exchange": {
                     "autoDelete": false,
                     "durable": true,
                     "name": "notifications",
                     "type": "direct",
+                    "vhost": "/",
                   },
                   "is": "routingKey",
                 },
@@ -697,6 +724,12 @@ describe("AsyncAPIGenerator", () => {
           "operations": {
             "processNotification": {
               "action": "receive",
+              "bindings": {
+                "amqp": {
+                  "ack": true,
+                  "bindingVersion": "0.3.0",
+                },
+              },
               "channel": {
                 "$ref": "#/channels/notificationQueue",
               },
@@ -709,6 +742,15 @@ describe("AsyncAPIGenerator", () => {
             },
             "sendNotification": {
               "action": "send",
+              "bindings": {
+                "amqp": {
+                  "bindingVersion": "0.3.0",
+                  "cc": [
+                    "notification.send",
+                  ],
+                  "deliveryMode": 2,
+                },
+              },
               "channel": {
                 "$ref": "#/channels/notifications",
               },
@@ -788,12 +830,14 @@ describe("AsyncAPIGenerator", () => {
               "address": "payment-processing",
               "bindings": {
                 "amqp": {
+                  "bindingVersion": "0.3.0",
                   "is": "queue",
                   "queue": {
                     "autoDelete": false,
                     "durable": false,
                     "exclusive": false,
                     "name": "payment-processing",
+                    "vhost": "/",
                   },
                 },
               },
@@ -847,11 +891,13 @@ describe("AsyncAPIGenerator", () => {
               "address": "payments",
               "bindings": {
                 "amqp": {
+                  "bindingVersion": "0.3.0",
                   "exchange": {
                     "autoDelete": false,
                     "durable": false,
                     "name": "payments",
                     "type": "topic",
+                    "vhost": "/",
                   },
                   "is": "routingKey",
                 },
@@ -996,6 +1042,15 @@ describe("AsyncAPIGenerator", () => {
           "operations": {
             "paymentCreated": {
               "action": "send",
+              "bindings": {
+                "amqp": {
+                  "bindingVersion": "0.3.0",
+                  "cc": [
+                    "payment.created",
+                  ],
+                  "deliveryMode": 2,
+                },
+              },
               "channel": {
                 "$ref": "#/channels/payments",
               },
@@ -1009,6 +1064,12 @@ describe("AsyncAPIGenerator", () => {
             },
             "processPayment": {
               "action": "receive",
+              "bindings": {
+                "amqp": {
+                  "ack": true,
+                  "bindingVersion": "0.3.0",
+                },
+              },
               "channel": {
                 "$ref": "#/channels/paymentProcessing",
               },
@@ -1090,11 +1151,13 @@ describe("AsyncAPIGenerator", () => {
               "address": "mixed",
               "bindings": {
                 "amqp": {
+                  "bindingVersion": "0.3.0",
                   "exchange": {
                     "autoDelete": false,
                     "durable": false,
                     "name": "mixed",
                     "type": "topic",
+                    "vhost": "/",
                   },
                   "is": "routingKey",
                 },
@@ -1145,12 +1208,14 @@ describe("AsyncAPIGenerator", () => {
               "address": "valibot-queue",
               "bindings": {
                 "amqp": {
+                  "bindingVersion": "0.3.0",
                   "is": "queue",
                   "queue": {
                     "autoDelete": false,
                     "durable": false,
                     "exclusive": false,
                     "name": "valibot-queue",
+                    "vhost": "/",
                   },
                 },
               },
@@ -1161,12 +1226,14 @@ describe("AsyncAPIGenerator", () => {
               "address": "zod-queue",
               "bindings": {
                 "amqp": {
+                  "bindingVersion": "0.3.0",
                   "is": "queue",
                   "queue": {
                     "autoDelete": false,
                     "durable": false,
                     "exclusive": false,
                     "name": "zod-queue",
+                    "vhost": "/",
                   },
                 },
               },
@@ -1222,6 +1289,15 @@ describe("AsyncAPIGenerator", () => {
           "operations": {
             "publishValibot": {
               "action": "send",
+              "bindings": {
+                "amqp": {
+                  "bindingVersion": "0.3.0",
+                  "cc": [
+                    "valibot.event",
+                  ],
+                  "deliveryMode": 2,
+                },
+              },
               "channel": {
                 "$ref": "#/channels/mixed",
               },
@@ -1235,6 +1311,15 @@ describe("AsyncAPIGenerator", () => {
             },
             "publishZod": {
               "action": "send",
+              "bindings": {
+                "amqp": {
+                  "bindingVersion": "0.3.0",
+                  "cc": [
+                    "zod.event",
+                  ],
+                  "deliveryMode": 2,
+                },
+              },
               "channel": {
                 "$ref": "#/channels/mixed",
               },
@@ -1296,11 +1381,13 @@ describe("AsyncAPIGenerator", () => {
               "address": "generic",
               "bindings": {
                 "amqp": {
+                  "bindingVersion": "0.3.0",
                   "exchange": {
                     "autoDelete": false,
                     "durable": false,
                     "name": "generic",
                     "type": "fanout",
+                    "vhost": "/",
                   },
                   "is": "routingKey",
                 },
@@ -1320,12 +1407,14 @@ describe("AsyncAPIGenerator", () => {
               "address": "generic-queue",
               "bindings": {
                 "amqp": {
+                  "bindingVersion": "0.3.0",
                   "is": "queue",
                   "queue": {
                     "autoDelete": false,
                     "durable": false,
                     "exclusive": false,
                     "name": "generic-queue",
+                    "vhost": "/",
                   },
                 },
               },
@@ -1400,12 +1489,14 @@ describe("AsyncAPIGenerator", () => {
               "address": "test-queue",
               "bindings": {
                 "amqp": {
+                  "bindingVersion": "0.3.0",
                   "is": "queue",
                   "queue": {
                     "autoDelete": false,
                     "durable": true,
                     "exclusive": false,
                     "name": "test-queue",
+                    "vhost": "/",
                   },
                 },
               },
@@ -1457,11 +1548,13 @@ describe("AsyncAPIGenerator", () => {
               "address": "test-exchange",
               "bindings": {
                 "amqp": {
+                  "bindingVersion": "0.3.0",
                   "exchange": {
                     "autoDelete": false,
                     "durable": true,
                     "name": "test-exchange",
                     "type": "topic",
+                    "vhost": "/",
                   },
                   "is": "routingKey",
                 },
@@ -1520,11 +1613,13 @@ describe("AsyncAPIGenerator", () => {
               "address": "orders",
               "bindings": {
                 "amqp": {
+                  "bindingVersion": "0.3.0",
                   "exchange": {
                     "autoDelete": false,
                     "durable": false,
                     "name": "orders",
                     "type": "topic",
+                    "vhost": "/",
                   },
                   "is": "routingKey",
                 },
@@ -1574,6 +1669,15 @@ describe("AsyncAPIGenerator", () => {
           "operations": {
             "orderCreated": {
               "action": "send",
+              "bindings": {
+                "amqp": {
+                  "bindingVersion": "0.3.0",
+                  "cc": [
+                    "order.created",
+                  ],
+                  "deliveryMode": 2,
+                },
+              },
               "channel": {
                 "$ref": "#/channels/orders",
               },
@@ -1666,11 +1770,13 @@ describe("AsyncAPIGenerator", () => {
               "address": "fanout-exchange",
               "bindings": {
                 "amqp": {
+                  "bindingVersion": "0.3.0",
                   "exchange": {
                     "autoDelete": false,
                     "durable": false,
                     "name": "fanout-exchange",
                     "type": "fanout",
+                    "vhost": "/",
                   },
                   "is": "routingKey",
                 },
@@ -1698,12 +1804,14 @@ describe("AsyncAPIGenerator", () => {
               "address": "fanout-queue",
               "bindings": {
                 "amqp": {
+                  "bindingVersion": "0.3.0",
                   "is": "queue",
                   "queue": {
                     "autoDelete": false,
                     "durable": false,
                     "exclusive": false,
                     "name": "fanout-queue",
+                    "vhost": "/",
                   },
                 },
               },
