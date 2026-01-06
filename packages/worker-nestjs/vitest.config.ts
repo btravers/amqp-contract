@@ -20,7 +20,6 @@ export default defineConfig({
           name: "integration",
           globalSetup: "@amqp-contract/testing/global-setup",
           include: ["src/**/*.integration.spec.ts"],
-          testTimeout: 10000,
         },
       },
     ],
