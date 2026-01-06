@@ -218,26 +218,30 @@ export class AsyncAPIGenerator {
         const exchangeName = this.getExchangeName(publisher.exchange, contract);
         const messageName = `${publisherName}Message`;
 
-        const operation: Record<string, unknown> = {
-          action: "send",
-          channel: { $ref: `#/channels/${exchangeName}` },
-          messages: [{ $ref: `#/channels/${exchangeName}/messages/${messageName}` }],
-          summary: `Publish to ${publisher.exchange.name}`,
-        };
-
-        // Add operation-level AMQP bindings
+        // Build operation without type assertion
         if (publisher.routingKey) {
-          operation["bindings"] = {
-            amqp: {
-              cc: [publisher.routingKey],
-              deliveryMode: 2, // Persistent by default
-              bindingVersion: "0.3.0",
+          convertedOperations[publisherName] = {
+            action: "send",
+            channel: { $ref: `#/channels/${exchangeName}` },
+            messages: [{ $ref: `#/channels/${exchangeName}/messages/${messageName}` }],
+            summary: `Publish to ${publisher.exchange.name}`,
+            description: `Routing key: ${publisher.routingKey}`,
+            bindings: {
+              amqp: {
+                cc: [publisher.routingKey],
+                deliveryMode: 2, // Persistent by default
+                bindingVersion: "0.3.0",
+              } as Record<string, unknown>,
             },
           };
-          operation["description"] = `Routing key: ${publisher.routingKey}`;
+        } else {
+          convertedOperations[publisherName] = {
+            action: "send",
+            channel: { $ref: `#/channels/${exchangeName}` },
+            messages: [{ $ref: `#/channels/${exchangeName}/messages/${messageName}` }],
+            summary: `Publish to ${publisher.exchange.name}`,
+          };
         }
-
-        convertedOperations[publisherName] = operation as OperationsObject[string];
       }
     }
 
@@ -255,9 +259,9 @@ export class AsyncAPIGenerator {
           bindings: {
             amqp: {
               bindingVersion: "0.3.0",
-            },
+            } as Record<string, unknown>,
           },
-        } as OperationsObject[string];
+        };
       }
     }
 
