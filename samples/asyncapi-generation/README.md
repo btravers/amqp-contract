@@ -47,7 +47,6 @@ The generated AsyncAPI specification includes:
   - `bindingVersion: "0.3.0"` for all bindings
   - Virtual host (`vhost`) configuration
   - Queue and exchange properties (durable, autoDelete, exclusive)
-  
 - **Operation-Level Bindings**:
   - Publishers: Routing keys (`cc`), delivery mode (persistent)
   - Consumers: Acknowledgment settings
