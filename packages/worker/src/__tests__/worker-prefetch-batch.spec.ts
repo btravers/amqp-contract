@@ -10,10 +10,10 @@ import {
   defineQueueBinding,
 } from "@amqp-contract/contract";
 import { describe, expect, vi } from "vitest";
-import { TypedAmqpWorker } from "./worker.js";
+import { TypedAmqpWorker } from "../worker.js";
 import { it as baseIt } from "@amqp-contract/testing/extension";
 import { z } from "zod";
-import type { WorkerInferConsumerHandlers } from "./types.js";
+import type { WorkerInferConsumerHandlers } from "../types.js";
 
 const it = baseIt.extend<{
   workerFactory: <TContract extends ContractDefinition>(

@@ -10,8 +10,8 @@ import {
   defineQueueBinding,
 } from "@amqp-contract/contract";
 import { describe, expect, vi } from "vitest";
-import { TypedAmqpWorker } from "./worker.js";
-import type { WorkerInferConsumerHandlers } from "./types.js";
+import { TypedAmqpWorker } from "../worker.js";
+import type { WorkerInferConsumerHandlers } from "../types.js";
 import { it as baseIt } from "@amqp-contract/testing/extension";
 import { z } from "zod";
 

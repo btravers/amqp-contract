@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { compressBuffer } from "../compression.js";
+import { compressBuffer } from "./compression.js";
 
 describe("Compression utilities", () => {
   describe("compressBuffer", () => {
