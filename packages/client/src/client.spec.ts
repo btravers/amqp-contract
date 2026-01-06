@@ -21,18 +21,32 @@ const it = baseIt.extend<{
   ) => Promise<TypedAmqpClient<TContract>>;
 }>({
   clientFactory: async ({ amqpConnectionUrl }, use) => {
-    const clients: TypedAmqpClient<ContractDefinition>[] = [];
-    await use(async <TContract extends ContractDefinition>(contract: TContract) => {
-      const client = await TypedAmqpClient.create({
-        contract,
-        urls: [amqpConnectionUrl],
-      }).resultToPromise();
+    const clients: Array<TypedAmqpClient<ContractDefinition>> = [];
 
-      clients.push(client);
+    try {
+      await use(async <TContract extends ContractDefinition>(contract: TContract) => {
+        const client = await TypedAmqpClient.create({
+          contract,
+          urls: [amqpConnectionUrl],
+        }).resultToPromise();
 
-      return client;
-    });
-    await Promise.all(clients.map((client) => client.close().resultToPromise()));
+        clients.push(client);
+        return client;
+      });
+    } finally {
+      // Clean up all clients before fixture cleanup (which deletes the vhost)
+      await Promise.all(
+        clients.map(async (client) => {
+          try {
+            await client.close().resultToPromise();
+          } catch (error) {
+            // Swallow errors during cleanup to avoid unhandled rejections
+            // eslint-disable-next-line no-console
+            console.error("Failed to close AMQP client during fixture cleanup:", error);
+          }
+        }),
+      );
+    }
   },
 });
 

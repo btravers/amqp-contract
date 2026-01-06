@@ -18,9 +18,6 @@ Unlike the integration tests in individual packages (which test each package in 
 # Run all integration tests
 pnpm --filter @amqp-contract/tests test
 
-# Run tests in watch mode
-pnpm --filter @amqp-contract/tests test:watch
-
 # From the root
 pnpm test:integration
 ```
@@ -29,7 +26,7 @@ pnpm test:integration
 
 Tests are organized by scenario:
 
-- `client-worker.integration.spec.ts` - Tests client and worker interaction
+- `client-worker.spec.ts` - Tests client and worker interaction
 
 Planned for future implementation:
 
