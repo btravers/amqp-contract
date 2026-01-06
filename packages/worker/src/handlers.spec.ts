@@ -80,8 +80,8 @@ describe("handlers", () => {
 
       // WHEN/THEN
       expect(() => {
-        // @ts-expect-error Testing invalid consumer name
-        defineHandler(testContract, "nonExistentConsumer", handler);
+        // oxlint-disable-next-line no-explicit-any
+        (defineHandler as any)(testContract, "nonExistentConsumer", handler);
       }).toThrow(
         'Consumer "nonExistentConsumer" not found in contract. Available consumers: testConsumer, anotherConsumer',
       );
@@ -99,8 +99,8 @@ describe("handlers", () => {
 
       // WHEN/THEN
       expect(() => {
-        // @ts-expect-error Testing with empty contract
-        defineHandler(emptyContract, "testConsumer", handler);
+        // oxlint-disable-next-line no-explicit-any
+        (defineHandler as any)(emptyContract, "testConsumer", handler);
       }).toThrow('Consumer "testConsumer" not found in contract. Available consumers: none');
     });
   });
@@ -153,7 +153,6 @@ describe("handlers", () => {
         testConsumer: async (message: { id: string; data: string }) => {
           console.log(message.id);
         },
-        // @ts-expect-error Testing invalid consumer name
         nonExistentConsumer: async (message: { id: string; data: string }) => {
           console.log(message.data);
         },
@@ -161,7 +160,8 @@ describe("handlers", () => {
 
       // WHEN/THEN
       expect(() => {
-        defineHandlers(testContract, handlers);
+        // oxlint-disable-next-line no-explicit-any
+        defineHandlers(testContract, handlers as any);
       }).toThrow(
         'Consumer "nonExistentConsumer" not found in contract. Available consumers: testConsumer, anotherConsumer',
       );
@@ -175,7 +175,6 @@ describe("handlers", () => {
       });
 
       const handlers = {
-        // @ts-expect-error Testing with empty contract
         testConsumer: async (message: { id: string; data: string }) => {
           console.log(message.id);
         },
@@ -183,7 +182,8 @@ describe("handlers", () => {
 
       // WHEN/THEN
       expect(() => {
-        defineHandlers(emptyContract, handlers);
+        // oxlint-disable-next-line no-explicit-any
+        defineHandlers(emptyContract, handlers as any);
       }).toThrow('Consumer "testConsumer" not found in contract. Available consumers: none');
     });
   });
