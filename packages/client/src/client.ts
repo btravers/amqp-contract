@@ -1,23 +1,23 @@
 import { AmqpClient, type Logger } from "@amqp-contract/core";
 import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
 import type { CompressionAlgorithm, ContractDefinition, InferPublisherNames } from "@amqp-contract/contract";
-import type { Options } from "amqplib";
 import { Future, Result } from "@swan-io/boxed";
 import { MessageValidationError, TechnicalError } from "./errors.js";
-import { compressBuffer } from "./compression.js";
 import type { ClientInferPublisherInput } from "./types.js";
+import type { Options } from "amqplib";
+import { compressBuffer } from "./compression.js";
 
 /**
  * Publish options that extend amqplib's Options.Publish with optional compression support.
  */
-export interface PublishOptions extends Options.Publish {
+export type PublishOptions = Options.Publish & {
   /**
    * Optional compression algorithm to use for the message payload.
    * When specified, the message will be compressed using the chosen algorithm
    * and the contentEncoding header will be set automatically.
    */
   compression?: CompressionAlgorithm;
-}
+};
 
 /**
  * Options for creating a client
@@ -116,7 +116,7 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
 
     const publishMessage = (validatedMessage: unknown): Future<Result<void, TechnicalError>> => {
       // Extract compression from options and create publish options without it
-      const { compression, ...restOptions } = options || {};
+      const { compression, ...restOptions } = options ?? {};
       const publishOptions: Options.Publish = { ...restOptions };
 
       // Prepare payload and options based on compression configuration

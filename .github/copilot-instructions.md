@@ -269,10 +269,16 @@ packages/[package-name]/
    - Never use `any` type (enforced by oxlint)
    - Use `unknown` for truly dynamic data, then narrow the type
    - Prefer `readonly` arrays and properties where appropriate
+   - **Use type aliases instead of interfaces** for consistency
 
    ```typescript
    // ❌ Bad
    function process(data: any): any {}
+
+   // ❌ Bad - using interface
+   export interface PublishOptions extends Options.Publish {
+     compression?: string;
+   }
 
    // ✅ Good
    function process(data: unknown): string {
@@ -281,6 +287,11 @@ packages/[package-name]/
      }
      throw new Error("Invalid data");
    }
+
+   // ✅ Good - using type alias
+   export type PublishOptions = Options.Publish & {
+     compression?: CompressionAlgorithm;
+   };
    ```
 
 2. **Type Inference**
@@ -513,6 +524,19 @@ packages/[package-name]/
    - Keep functions small and focused
    - Avoid side effects in pure functions
    - Use pure functions where possible
+   - **Use nullish coalescing (`?? {}`) for optional object parameters** to provide safe defaults
+
+   ```typescript
+   // ❌ Bad - using || which treats empty object as falsy
+   function process(options) {
+     const { field, ...rest } = options || {};
+   }
+
+   // ✅ Good - using ?? which only checks for null/undefined
+   function process(options) {
+     const { field, ...rest } = options ?? {};
+   }
+   ```
 
 4. **Dependencies**
    - Minimize external dependencies
