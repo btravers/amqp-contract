@@ -244,10 +244,7 @@ describe("Priority Queue", () => {
     await consumePromise;
 
     // Verify priority message was consumed first
-    expect(consumedMessages).toEqual([
-      { id: "msg-priority" },
-      { id: "msg-default" },
-    ]);
+    expect(consumedMessages).toEqual([{ id: "msg-priority" }, { id: "msg-default" }]);
 
     // CLEANUP
     await client.close();
