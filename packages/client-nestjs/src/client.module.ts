@@ -126,14 +126,14 @@ export class AmqpClientModule {
       {
         provide: MODULE_OPTIONS_TOKEN,
         useFactory: options.useFactory,
-        inject: options.inject || [],
+        inject: options.inject ?? [],
       },
       AmqpClientService,
     ];
 
     return {
       module: AmqpClientModule,
-      imports: options.imports || [],
+      imports: options.imports ?? [],
       providers,
       exports: [AmqpClientService],
     };

@@ -2,7 +2,24 @@ import type { Channel } from "amqplib";
 import type { ContractDefinition } from "@amqp-contract/contract";
 
 /**
- * Setup AMQP topology (exchanges, queues, and bindings) from a contract definition
+ * Setup AMQP topology (exchanges, queues, and bindings) from a contract definition.
+ *
+ * This function sets up the complete AMQP topology in the correct order:
+ * 1. Assert all exchanges defined in the contract
+ * 2. Validate dead letter exchanges are declared before referencing them
+ * 3. Assert all queues with their configurations (including dead letter settings)
+ * 4. Create all bindings (queue-to-exchange and exchange-to-exchange)
+ *
+ * @param channel - The AMQP channel to use for topology setup
+ * @param contract - The contract definition containing the topology specification
+ * @throws {AggregateError} If any exchanges, queues, or bindings fail to be created
+ * @throws {Error} If a queue references a dead letter exchange not declared in the contract
+ *
+ * @example
+ * ```typescript
+ * const channel = await connection.createChannel();
+ * await setupAmqpTopology(channel, contract);
+ * ```
  */
 export async function setupAmqpTopology(
   channel: Channel,
