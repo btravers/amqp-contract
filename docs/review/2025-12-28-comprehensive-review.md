@@ -240,7 +240,7 @@ The amqp-contract project is **exceptionally well-structured** with high code qu
 
    **Impact:** Low - Build still succeeds
    **Cause:** VitePress doesn't resolve workspace: protocol correctly
-   **Recommendation:** Consider using relative path in website/tsconfig.json
+   **Recommendation:** Consider using relative path in tsconfig.json
 
 2. **Turbo Cache:** All tasks show "cache miss" on fresh build
    **Impact:** None - Expected behavior on first build
