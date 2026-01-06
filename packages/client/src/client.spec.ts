@@ -22,7 +22,7 @@ const it = baseIt.extend<{
 }>({
   clientFactory: async ({ amqpConnectionUrl }, use) => {
     const clients: Array<TypedAmqpClient<ContractDefinition>> = [];
-    
+
     try {
       await use(async <TContract extends ContractDefinition>(contract: TContract) => {
         const client = await TypedAmqpClient.create({

@@ -23,7 +23,7 @@ const it = baseIt.extend<{
 }>({
   workerFactory: async ({ amqpConnectionUrl }, use) => {
     const workers: Array<TypedAmqpWorker<ContractDefinition>> = [];
-    
+
     try {
       await use(
         async <TContract extends ContractDefinition>(

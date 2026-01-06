@@ -172,7 +172,7 @@ export const it = vitestIt.extend<{
    */
   initConsumer: async ({ amqpChannel }, use) => {
     const consumerTags: string[] = [];
-    
+
     async function initConsumer(
       exchange: string,
       routingKey: string,
@@ -212,7 +212,7 @@ export const it = vitestIt.extend<{
         return messages.splice(0, nbEvents);
       };
     }
-    
+
     try {
       await use(initConsumer);
     } finally {
