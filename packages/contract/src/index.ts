@@ -7,6 +7,7 @@ export {
   defineMessage,
   definePublisher,
   defineQueue,
+  definePriorityQueue,
   definePublisherFirst,
   defineConsumerFirst,
 } from "./builder.js";

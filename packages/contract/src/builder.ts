@@ -171,6 +171,72 @@ export function defineQueue(
 }
 
 /**
+ * Define a priority queue with a maximum priority level.
+ *
+ * A priority queue allows messages to be consumed based on their priority level.
+ * Messages with higher priority values are delivered first. If no priority is
+ * specified on a message, it defaults to priority 0.
+ *
+ * Priority queues have performance implications - use them only when message
+ * ordering by priority is required. For more information, see:
+ * https://www.rabbitmq.com/docs/priority
+ *
+ * @param name - The name of the queue
+ * @param maxPriority - Maximum priority level (typically 1-255, recommended: 1-10)
+ * @param options - Optional queue configuration
+ * @param options.durable - If true, the queue survives broker restarts (default: false)
+ * @param options.exclusive - If true, the queue can only be used by the declaring connection (default: false)
+ * @param options.autoDelete - If true, the queue is deleted when the last consumer unsubscribes (default: false)
+ * @param options.deadLetter - Dead letter configuration for handling failed messages
+ * @param options.arguments - Additional AMQP arguments (x-max-priority will be set automatically)
+ * @returns A queue definition with priority support
+ *
+ * @example
+ * ```typescript
+ * // Create a priority queue with priority levels 0-10
+ * const taskQueue = definePriorityQueue('urgent-tasks', 10, {
+ *   durable: true,
+ * });
+ *
+ * // Publish messages with different priorities
+ * await client.publish('executeTask', { taskId: '123' }, {
+ *   priority: 10  // High priority
+ * });
+ *
+ * await client.publish('executeTask', { taskId: '456' }, {
+ *   priority: 5   // Medium priority
+ * });
+ *
+ * await client.publish('executeTask', { taskId: '789' }, {
+ *   priority: 1   // Low priority
+ * });
+ * // Messages will be consumed in order: 123, 456, 789
+ * ```
+ */
+export function definePriorityQueue(
+  name: string,
+  maxPriority: number,
+  options?: Omit<QueueDefinition, "name" | "arguments"> & {
+    arguments?: Omit<Record<string, unknown>, "x-max-priority">;
+  },
+): QueueDefinition {
+  if (maxPriority < 1 || maxPriority > 255) {
+    throw new Error(
+      `Invalid maxPriority: ${maxPriority}. Must be between 1 and 255. Recommended range: 1-10.`,
+    );
+  }
+
+  return {
+    name,
+    ...options,
+    arguments: {
+      ...options?.arguments,
+      "x-max-priority": maxPriority,
+    },
+  };
+}
+
+/**
  * Define a message definition with payload and optional headers/metadata.
  *
  * A message definition specifies the schema for message payloads and headers using

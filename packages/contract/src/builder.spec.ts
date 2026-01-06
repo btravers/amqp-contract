@@ -5,6 +5,7 @@ import {
   defineExchange,
   defineExchangeBinding,
   defineMessage,
+  definePriorityQueue,
   definePublisher,
   definePublisherFirst,
   defineQueue,
@@ -105,6 +106,122 @@ describe("builder", () => {
         durable: true,
         deadLetter: {
           exchange: dlx,
+        },
+      });
+    });
+  });
+
+  describe("definePriorityQueue", () => {
+    it("should create a priority queue with x-max-priority argument", () => {
+      // WHEN
+      const queue = definePriorityQueue("priority-queue", 10, { durable: true });
+
+      // THEN
+      expect(queue).toEqual({
+        name: "priority-queue",
+        durable: true,
+        arguments: {
+          "x-max-priority": 10,
+        },
+      });
+    });
+
+    it("should create a priority queue with minimal options", () => {
+      // WHEN
+      const queue = definePriorityQueue("priority-queue", 5);
+
+      // THEN
+      expect(queue).toEqual({
+        name: "priority-queue",
+        arguments: {
+          "x-max-priority": 5,
+        },
+      });
+    });
+
+    it("should merge additional arguments with x-max-priority", () => {
+      // WHEN
+      const queue = definePriorityQueue("priority-queue", 10, {
+        durable: true,
+        arguments: {
+          "x-message-ttl": 60000,
+        },
+      });
+
+      // THEN
+      expect(queue).toEqual({
+        name: "priority-queue",
+        durable: true,
+        arguments: {
+          "x-message-ttl": 60000,
+          "x-max-priority": 10,
+        },
+      });
+    });
+
+    it("should create a priority queue with dead letter exchange", () => {
+      // GIVEN
+      const dlx = defineExchange("test-dlx", "topic", { durable: true });
+
+      // WHEN
+      const queue = definePriorityQueue("priority-queue", 10, {
+        durable: true,
+        deadLetter: {
+          exchange: dlx,
+          routingKey: "failed",
+        },
+      });
+
+      // THEN
+      expect(queue).toEqual({
+        name: "priority-queue",
+        durable: true,
+        deadLetter: {
+          exchange: dlx,
+          routingKey: "failed",
+        },
+        arguments: {
+          "x-max-priority": 10,
+        },
+      });
+    });
+
+    it("should throw error for maxPriority less than 1", () => {
+      // WHEN/THEN
+      expect(() => definePriorityQueue("priority-queue", 0)).toThrow(
+        "Invalid maxPriority: 0. Must be between 1 and 255. Recommended range: 1-10.",
+      );
+    });
+
+    it("should throw error for maxPriority greater than 255", () => {
+      // WHEN/THEN
+      expect(() => definePriorityQueue("priority-queue", 256)).toThrow(
+        "Invalid maxPriority: 256. Must be between 1 and 255. Recommended range: 1-10.",
+      );
+    });
+
+    it("should accept maxPriority of 1", () => {
+      // WHEN
+      const queue = definePriorityQueue("priority-queue", 1);
+
+      // THEN
+      expect(queue).toEqual({
+        name: "priority-queue",
+        arguments: {
+          "x-max-priority": 1,
+        },
+      });
+    });
+
+    it("should accept maxPriority of 255", () => {
+      // WHEN
+      const queue = definePriorityQueue("priority-queue", 255);
+
+      // THEN
+      expect(queue).toEqual({
+        name: "priority-queue",
+        arguments: {
+          "x-max-priority": 255,
         },
       });
     });
