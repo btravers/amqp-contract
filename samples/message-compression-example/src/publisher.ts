@@ -2,6 +2,7 @@ import { TypedAmqpClient } from "@amqp-contract/client";
 import { contract } from "./contract.js";
 import pino from "pino";
 import { z } from "zod";
+import crypto from "crypto";
 
 const env = z
   .object({
@@ -49,7 +50,7 @@ function generateLargePayload(id: string, itemCount: number) {
       environment: "production",
       version: "2.1.0",
       correlationId: `corr-${Date.now()}`,
-      userId: `user-${Math.floor(Math.random() * 1000)}`,
+      userId: `user-${crypto.randomInt(0, 1000)}`,
     },
     items,
   };
