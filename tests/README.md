@@ -32,6 +32,7 @@ Tests are organized by scenario:
 - `client-worker.integration.spec.ts` - Tests client and worker interaction
 
 Planned for future implementation:
+
 - `nestjs-integration.integration.spec.ts` - Tests NestJS modules integration
 - `publisher-consumer.integration.spec.ts` - Tests full publisher-consumer workflows
 
