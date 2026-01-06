@@ -1,0 +1,25 @@
+{
+  "name": "@amqp-contract-samples/priority-queue-example",
+  "version": "0.6.0",
+  "private": true,
+  "description": "Example demonstrating priority queue usage with amqp-contract",
+  "type": "module",
+  "scripts": {
+    "start:client": "tsx src/client.ts",
+    "start:worker": "tsx src/worker.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@amqp-contract/client": "workspace:*",
+    "@amqp-contract/contract": "workspace:*",
+    "@amqp-contract/worker": "workspace:*",
+    "pino": "catalog:",
+    "pino-pretty": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@amqp-contract/tsconfig": "workspace:*",
+    "tsx": "catalog:",
+    "typescript": "catalog:"
+  }
+}

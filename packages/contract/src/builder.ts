@@ -136,7 +136,8 @@ export function defineExchange(
  * @param options.exclusive - If true, the queue can only be used by the declaring connection (default: false)
  * @param options.autoDelete - If true, the queue is deleted when the last consumer unsubscribes (default: false)
  * @param options.deadLetter - Dead letter configuration for handling failed messages
- * @param options.arguments - Additional AMQP arguments (e.g., x-message-ttl, x-max-priority)
+ * @param options.maxPriority - Maximum priority level for priority queue (1-255, recommended: 1-10). Sets x-max-priority argument.
+ * @param options.arguments - Additional AMQP arguments (e.g., x-message-ttl)
  * @returns A queue definition
  *
  * @example
@@ -144,6 +145,12 @@ export function defineExchange(
  * // Basic queue
  * const orderQueue = defineQueue('order-processing', {
  *   durable: true,
+ * });
+ *
+ * // Priority queue with max priority of 10
+ * const taskQueue = defineQueue('urgent-tasks', {
+ *   durable: true,
+ *   maxPriority: 10,
  * });
  *
  * // Queue with dead letter exchange
@@ -162,11 +169,32 @@ export function defineExchange(
  */
 export function defineQueue(
   name: string,
-  options?: Omit<QueueDefinition, "name">,
+  options?: Omit<QueueDefinition, "name"> & {
+    maxPriority?: number;
+  },
 ): QueueDefinition {
+  const { maxPriority, ...queueOptions } = options ?? {};
+
+  if (maxPriority !== undefined) {
+    if (maxPriority < 1 || maxPriority > 255) {
+      throw new Error(
+        `Invalid maxPriority: ${maxPriority}. Must be between 1 and 255. Recommended range: 1-10.`,
+      );
+    }
+
+    return {
+      name,
+      ...queueOptions,
+      arguments: {
+        ...queueOptions.arguments,
+        "x-max-priority": maxPriority,
+      },
+    };
+  }
+
   return {
     name,
-    ...options,
+    ...queueOptions,
   };
 }
 
