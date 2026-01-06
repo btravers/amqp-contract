@@ -15,35 +15,29 @@ const dataExchange = defineExchange("data-exchange", "topic", { durable: true })
 // Define queue
 const dataQueue = defineQueue("data-processing-queue", { durable: true });
 
-// Define message schemas
-const smallDataMessage = defineMessage(
+// Define message schema - using a unified schema that works for all message types
+// In this example, we use the large schema as it's a superset, with optional fields
+const dataMessage = defineMessage(
   z.object({
     id: z.string(),
     timestamp: z.string(),
-    value: z.number(),
+    // Optional field only in small messages
+    value: z.number().optional(),
+    // Optional fields only in large messages
+    metadata: z.record(z.string(), z.string()).optional(),
+    items: z
+      .array(
+        z.object({
+          name: z.string(),
+          description: z.string(),
+          properties: z.record(z.string(), z.unknown()),
+        }),
+      )
+      .optional(),
   }),
   {
-    summary: "Small data event",
-    description: "A small message that doesn't benefit from compression",
-  },
-);
-
-const largeDataMessage = defineMessage(
-  z.object({
-    id: z.string(),
-    timestamp: z.string(),
-    metadata: z.record(z.string(), z.string()),
-    items: z.array(
-      z.object({
-        name: z.string(),
-        description: z.string(),
-        properties: z.record(z.string(), z.unknown()),
-      }),
-    ),
-  }),
-  {
-    summary: "Large data event",
-    description: "A large message that benefits from compression",
+    summary: "Data event",
+    description: "A message that can be small or large, with optional compression",
   },
 );
 
@@ -61,14 +55,14 @@ export const contract = defineContract({
     }),
   },
   publishers: {
-    smallData: definePublisher(dataExchange, smallDataMessage, {
+    smallData: definePublisher(dataExchange, dataMessage, {
       routingKey: "data.small",
     }),
-    largeData: definePublisher(dataExchange, largeDataMessage, {
+    largeData: definePublisher(dataExchange, dataMessage, {
       routingKey: "data.large",
     }),
   },
   consumers: {
-    processData: defineConsumer(dataQueue, largeDataMessage),
+    processData: defineConsumer(dataQueue, dataMessage),
   },
 });

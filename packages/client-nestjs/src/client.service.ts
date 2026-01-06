@@ -2,6 +2,7 @@ import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connectio
 import {
   type ClientInferPublisherInput,
   MessageValidationError,
+  type PublishOptions,
   TechnicalError,
   TypedAmqpClient,
 } from "@amqp-contract/client";
@@ -9,7 +10,6 @@ import type { ContractDefinition, InferPublisherNames } from "@amqp-contract/con
 import { Future, Result } from "@swan-io/boxed";
 import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
 import { MODULE_OPTIONS_TOKEN } from "./client.module-definition.js";
-import type { Options } from "amqplib";
 
 /**
  * Configuration options for the AMQP client NestJS module.
@@ -158,7 +158,7 @@ export class AmqpClientService<TContract extends ContractDefinition>
   publish<TName extends InferPublisherNames<TContract>>(
     publisherName: TName,
     message: ClientInferPublisherInput<TContract, TName>,
-    options?: Options.Publish & { compression?: "gzip" | "deflate" },
+    options?: PublishOptions,
   ): Future<Result<void, TechnicalError | MessageValidationError>> {
     if (!this.client) {
       return Future.value(
