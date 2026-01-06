@@ -4,8 +4,8 @@ import {
   defineContract,
   defineExchange,
   defineMessage,
-  definePriorityQueue,
   definePublisher,
+  defineQueue,
   defineQueueBinding,
 } from "@amqp-contract/contract";
 import { AmqpClient } from "./amqp-client.js";
@@ -24,8 +24,9 @@ describe("Priority Queue", () => {
     amqpChannel,
   }) => {
     // GIVEN
-    const priorityQueue = definePriorityQueue("test-priority-queue", 10, {
+    const priorityQueue = defineQueue("test-priority-queue", {
       durable: false,
+      maxPriority: 10,
     });
 
     const contract = defineContract({
@@ -53,8 +54,9 @@ describe("Priority Queue", () => {
   it("should consume messages in priority order", async ({ amqpConnectionUrl, amqpChannel }) => {
     // GIVEN
     const exchange = defineExchange("test-priority-exchange", "direct", { durable: false });
-    const priorityQueue = definePriorityQueue("test-priority-queue-ordering", 10, {
+    const priorityQueue = defineQueue("test-priority-queue-ordering", {
       durable: false,
+      maxPriority: 10,
     });
 
     const messageSchema = z.object({
@@ -146,10 +148,11 @@ describe("Priority Queue", () => {
     await consumePromise;
 
     // Verify messages were consumed in priority order (high to low)
-    expect(consumedMessages).toHaveLength(3);
-    expect(consumedMessages[0]?.id).toBe("msg-high");
-    expect(consumedMessages[1]?.id).toBe("msg-medium");
-    expect(consumedMessages[2]?.id).toBe("msg-low");
+    expect(consumedMessages).toEqual([
+      { id: "msg-high", priority: 10 },
+      { id: "msg-medium", priority: 5 },
+      { id: "msg-low", priority: 1 },
+    ]);
 
     // CLEANUP
     await client.close();
@@ -165,8 +168,9 @@ describe("Priority Queue", () => {
     const exchange = defineExchange("test-priority-default-exchange", "direct", {
       durable: false,
     });
-    const priorityQueue = definePriorityQueue("test-priority-default-queue", 10, {
+    const priorityQueue = defineQueue("test-priority-default-queue", {
       durable: false,
+      maxPriority: 10,
     });
 
     const messageSchema = z.object({
@@ -240,9 +244,10 @@ describe("Priority Queue", () => {
     await consumePromise;
 
     // Verify priority message was consumed first
-    expect(consumedMessages).toHaveLength(2);
-    expect(consumedMessages[0]?.id).toBe("msg-priority");
-    expect(consumedMessages[1]?.id).toBe("msg-default");
+    expect(consumedMessages).toEqual([
+      { id: "msg-priority" },
+      { id: "msg-default" },
+    ]);
 
     // CLEANUP
     await client.close();

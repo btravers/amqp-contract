@@ -4,7 +4,7 @@ This example demonstrates how to use **priority queues** with `amqp-contract` to
 
 ## Features Demonstrated
 
-- ✅ Creating priority queues using `definePriorityQueue`
+- ✅ Creating priority queues using `maxPriority` option in `defineQueue`
 - ✅ Publishing messages with different priority levels (0-10)
 - ✅ Consuming messages in priority order (highest first)
 - ✅ Type-safe message handling with Zod schemas
@@ -82,8 +82,9 @@ The worker will process tasks in **priority order**, not publication order:
 
 ```typescript
 // Create a priority queue with max priority of 10
-const taskQueue = definePriorityQueue("task-processing", 10, {
+const taskQueue = defineQueue("task-processing", {
   durable: true,
+  maxPriority: 10,
 });
 ```
 
@@ -119,10 +120,13 @@ const worker = await TypedAmqpWorker.create({
 
 ### 1. Queue Definition
 
-Use `definePriorityQueue` to create a queue with priority support:
+Use the `maxPriority` option in `defineQueue` to create a queue with priority support:
 
 ```typescript
-const queue = definePriorityQueue("my-queue", maxPriority, options);
+const queue = defineQueue("my-queue", {
+  durable: true,
+  maxPriority: 10, // Maximum priority level (1-255, recommended: 1-10)
+});
 ```
 
 - `maxPriority`: Maximum priority level (1-255, recommended: 1-10)

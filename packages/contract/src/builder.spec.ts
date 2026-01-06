@@ -5,7 +5,6 @@ import {
   defineExchange,
   defineExchangeBinding,
   defineMessage,
-  definePriorityQueue,
   definePublisher,
   definePublisherFirst,
   defineQueue,
@@ -111,10 +110,10 @@ describe("builder", () => {
     });
   });
 
-  describe("definePriorityQueue", () => {
+  describe("defineQueue with maxPriority", () => {
     it("should create a priority queue with x-max-priority argument", () => {
       // WHEN
-      const queue = definePriorityQueue("priority-queue", 10, { durable: true });
+      const queue = defineQueue("priority-queue", { durable: true, maxPriority: 10 });
 
       // THEN
       expect(queue).toEqual({
@@ -128,7 +127,7 @@ describe("builder", () => {
 
     it("should create a priority queue with minimal options", () => {
       // WHEN
-      const queue = definePriorityQueue("priority-queue", 5);
+      const queue = defineQueue("priority-queue", { maxPriority: 5 });
 
       // THEN
       expect(queue).toEqual({
@@ -141,8 +140,9 @@ describe("builder", () => {
 
     it("should merge additional arguments with x-max-priority", () => {
       // WHEN
-      const queue = definePriorityQueue("priority-queue", 10, {
+      const queue = defineQueue("priority-queue", {
         durable: true,
+        maxPriority: 10,
         arguments: {
           "x-message-ttl": 60000,
         },
@@ -164,8 +164,9 @@ describe("builder", () => {
       const dlx = defineExchange("test-dlx", "topic", { durable: true });
 
       // WHEN
-      const queue = definePriorityQueue("priority-queue", 10, {
+      const queue = defineQueue("priority-queue", {
         durable: true,
+        maxPriority: 10,
         deadLetter: {
           exchange: dlx,
           routingKey: "failed",
@@ -188,21 +189,21 @@ describe("builder", () => {
 
     it("should throw error for maxPriority less than 1", () => {
       // WHEN/THEN
-      expect(() => definePriorityQueue("priority-queue", 0)).toThrow(
+      expect(() => defineQueue("priority-queue", { maxPriority: 0 })).toThrow(
         "Invalid maxPriority: 0. Must be between 1 and 255. Recommended range: 1-10.",
       );
     });
 
     it("should throw error for maxPriority greater than 255", () => {
       // WHEN/THEN
-      expect(() => definePriorityQueue("priority-queue", 256)).toThrow(
+      expect(() => defineQueue("priority-queue", { maxPriority: 256 })).toThrow(
         "Invalid maxPriority: 256. Must be between 1 and 255. Recommended range: 1-10.",
       );
     });
 
     it("should accept maxPriority of 1", () => {
       // WHEN
-      const queue = definePriorityQueue("priority-queue", 1);
+      const queue = defineQueue("priority-queue", { maxPriority: 1 });
 
       // THEN
       expect(queue).toEqual({
@@ -215,7 +216,7 @@ describe("builder", () => {
 
     it("should accept maxPriority of 255", () => {
       // WHEN
-      const queue = definePriorityQueue("priority-queue", 255);
+      const queue = defineQueue("priority-queue", { maxPriority: 255 });
 
       // THEN
       expect(queue).toEqual({

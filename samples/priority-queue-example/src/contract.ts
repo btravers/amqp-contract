@@ -3,8 +3,8 @@ import {
   defineContract,
   defineExchange,
   defineMessage,
-  definePriorityQueue,
   definePublisher,
+  defineQueue,
   defineQueueBinding,
 } from "@amqp-contract/contract";
 import { z } from "zod";
@@ -24,8 +24,9 @@ const tasksExchange = defineExchange("tasks", "direct", { durable: true });
 
 // Define a priority queue with maximum priority of 10
 // Messages with higher priority (0-10) will be processed first
-const taskQueue = definePriorityQueue("task-processing", 10, {
+const taskQueue = defineQueue("task-processing", {
   durable: true,
+  maxPriority: 10,
 });
 
 // Define message with task schema
@@ -38,7 +39,7 @@ const taskMessage = defineMessage(taskSchema, {
  * Priority queue contract for task processing
  *
  * This contract demonstrates:
- * 1. Priority queue creation using definePriorityQueue
+ * 1. Priority queue creation using maxPriority option in defineQueue
  * 2. Publishing messages with different priority levels
  * 3. Consuming messages in priority order (high to low)
  *
