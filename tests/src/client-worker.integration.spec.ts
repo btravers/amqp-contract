@@ -154,7 +154,7 @@ describe("Client and Worker Integration", () => {
         z.object({
           eventId: z.string(),
           type: z.enum(["created", "updated", "deleted"]),
-          data: z.record(z.string(), z.any()),
+          data: z.record(z.string(), z.unknown()),
         }),
       );
 
