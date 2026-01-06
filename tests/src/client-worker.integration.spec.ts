@@ -108,8 +108,6 @@ describe("Client and Worker Integration", () => {
 
       // GIVEN
       const mockHandler = vi.fn().mockResolvedValue(undefined);
-
-      // GIVEN
       const _worker = await workerFactory(contract, {
         processOrder: mockHandler,
       });
@@ -128,21 +126,19 @@ describe("Client and Worker Integration", () => {
       // THEN
       expect(publishResult).toEqual(Result.Ok(undefined));
 
-      // THEN
       await vi.waitFor(
         () => {
           expect(mockHandler).toHaveBeenCalledTimes(1);
+          expect(mockHandler).toHaveBeenNthCalledWith(
+            1,
+            expect.objectContaining({
+              orderId: "ORD-123",
+              amount: 99.99,
+              customerId: "CUST-456",
+            }),
+          );
         },
         { timeout: 5000 },
-      );
-
-      // THEN
-      expect(mockHandler).toHaveBeenCalledWith(
-        expect.objectContaining({
-          orderId: "ORD-123",
-          amount: 99.99,
-          customerId: "CUST-456",
-        }),
       );
     });
 
@@ -181,8 +177,6 @@ describe("Client and Worker Integration", () => {
       const mockHandler = vi.fn().mockImplementation(async (message: unknown) => {
         receivedMessages.push(message);
       });
-
-      // GIVEN
       const _worker = await workerFactory(contract, {
         processEvent: mockHandler,
       });
@@ -207,18 +201,15 @@ describe("Client and Worker Integration", () => {
       await vi.waitFor(
         () => {
           expect(mockHandler).toHaveBeenCalledTimes(3);
+          expect(receivedMessages).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({ eventId: "EVT-1", type: "created" }),
+              expect.objectContaining({ eventId: "EVT-2", type: "updated" }),
+              expect.objectContaining({ eventId: "EVT-3", type: "deleted" }),
+            ]),
+          );
         },
         { timeout: 5000 },
-      );
-
-      // THEN
-      expect(receivedMessages).toHaveLength(3);
-      expect(receivedMessages).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ eventId: "EVT-1", type: "created" }),
-          expect.objectContaining({ eventId: "EVT-2", type: "updated" }),
-          expect.objectContaining({ eventId: "EVT-3", type: "deleted" }),
-        ]),
       );
     });
 
@@ -363,23 +354,23 @@ describe("Client and Worker Integration", () => {
       await vi.waitFor(
         () => {
           expect(emailHandler).toHaveBeenCalledTimes(1);
+          expect(emailHandler).toHaveBeenNthCalledWith(
+            1,
+            expect.objectContaining({
+              recipient: "user@example.com",
+              message: "Test email",
+            }),
+          );
           expect(smsHandler).toHaveBeenCalledTimes(1);
+          expect(smsHandler).toHaveBeenNthCalledWith(
+            1,
+            expect.objectContaining({
+              recipient: "+1234567890",
+              message: "Test SMS",
+            }),
+          );
         },
         { timeout: 5000 },
-      );
-
-      expect(emailHandler).toHaveBeenCalledWith(
-        expect.objectContaining({
-          recipient: "user@example.com",
-          message: "Test email",
-        }),
-      );
-
-      expect(smsHandler).toHaveBeenCalledWith(
-        expect.objectContaining({
-          recipient: "+1234567890",
-          message: "Test SMS",
-        }),
       );
     });
   });

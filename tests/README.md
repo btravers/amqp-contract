@@ -43,9 +43,6 @@ This workspace depends on:
 - `@amqp-contract/contract` - Contract definitions
 - `@amqp-contract/client` - Type-safe AMQP client
 - `@amqp-contract/worker` - Type-safe AMQP worker
-- `@amqp-contract/client-nestjs` - NestJS client integration
-- `@amqp-contract/worker-nestjs` - NestJS worker integration
-- `@amqp-contract/core` - Core utilities
 - `@amqp-contract/testing` - Testing utilities (testcontainers setup)
 
 ## Configuration
