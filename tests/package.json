@@ -1,6 +1,5 @@
 {
   "name": "@amqp-contract/tests",
-  "version": "0.0.0",
   "private": true,
   "description": "Integration tests for amqp-contract library",
   "license": "MIT",

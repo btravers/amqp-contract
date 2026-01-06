@@ -73,7 +73,7 @@ describe("Client and Worker Integration", () => {
       clientFactory,
       workerFactory,
     }) => {
-      // GIVEN - Define contract
+      // GIVEN
       const exchange = defineExchange("orders", "topic", { durable: false });
       const queue = defineQueue("order-processing", { durable: false });
       const orderMessage = defineMessage(
@@ -106,10 +106,10 @@ describe("Client and Worker Integration", () => {
         },
       });
 
-      // GIVEN - Create mock handler
+      // GIVEN
       const mockHandler = vi.fn().mockResolvedValue(undefined);
 
-      // GIVEN - Create worker and client
+      // GIVEN
       const _worker = await workerFactory(contract, {
         processOrder: mockHandler,
       });
@@ -118,17 +118,17 @@ describe("Client and Worker Integration", () => {
       // Wait for worker to be ready to consume messages
       await waitForWorkerReady();
 
-      // WHEN - Publish message
+      // WHEN
       const publishResult = await client.publish("orderCreated", {
         orderId: "ORD-123",
         amount: 99.99,
         customerId: "CUST-456",
       });
 
-      // THEN - Publish should succeed
+      // THEN
       expect(publishResult).toEqual(Result.Ok(undefined));
 
-      // THEN - Wait for message to be consumed
+      // THEN
       await vi.waitFor(
         () => {
           expect(mockHandler).toHaveBeenCalledTimes(1);
@@ -136,7 +136,7 @@ describe("Client and Worker Integration", () => {
         { timeout: 5000 },
       );
 
-      // THEN - Verify handler was called with correct data
+      // THEN
       expect(mockHandler).toHaveBeenCalledWith(
         expect.objectContaining({
           orderId: "ORD-123",
@@ -147,7 +147,7 @@ describe("Client and Worker Integration", () => {
     });
 
     it("should handle multiple messages in sequence", async ({ clientFactory, workerFactory }) => {
-      // GIVEN - Define contract
+      // GIVEN
       const exchange = defineExchange("events", "topic", { durable: false });
       const queue = defineQueue("event-processing", { durable: false });
       const eventMessage = defineMessage(
@@ -176,13 +176,13 @@ describe("Client and Worker Integration", () => {
         },
       });
 
-      // GIVEN - Track all received messages
+      // GIVEN
       const receivedMessages: unknown[] = [];
       const mockHandler = vi.fn().mockImplementation(async (message: unknown) => {
         receivedMessages.push(message);
       });
 
-      // GIVEN - Create worker and client
+      // GIVEN
       const _worker = await workerFactory(contract, {
         processEvent: mockHandler,
       });
@@ -191,7 +191,7 @@ describe("Client and Worker Integration", () => {
       // Wait for worker to be ready to consume messages
       await waitForWorkerReady();
 
-      // WHEN - Publish multiple messages
+      // WHEN
       const messages = [
         { eventId: "EVT-1", type: "created" as const, data: { name: "Test 1" } },
         { eventId: "EVT-2", type: "updated" as const, data: { name: "Test 2" } },
@@ -203,7 +203,7 @@ describe("Client and Worker Integration", () => {
         expect(result).toEqual(Result.Ok(undefined));
       }
 
-      // THEN - All messages should be consumed
+      // THEN
       await vi.waitFor(
         () => {
           expect(mockHandler).toHaveBeenCalledTimes(3);
@@ -211,7 +211,7 @@ describe("Client and Worker Integration", () => {
         { timeout: 5000 },
       );
 
-      // THEN - Verify all messages were received in order
+      // THEN
       expect(receivedMessages).toHaveLength(3);
       expect(receivedMessages).toEqual(
         expect.arrayContaining([
@@ -223,7 +223,7 @@ describe("Client and Worker Integration", () => {
     });
 
     it("should handle validation errors gracefully", async ({ clientFactory, workerFactory }) => {
-      // GIVEN - Define contract with strict validation
+      // GIVEN
       const exchange = defineExchange("strict", "topic", { durable: false });
       const queue = defineQueue("strict-processing", { durable: false });
       const strictMessage = defineMessage(
@@ -260,22 +260,22 @@ describe("Client and Worker Integration", () => {
       // Wait for worker to be ready to consume messages
       await waitForWorkerReady();
 
-      // WHEN - Try to publish invalid message (invalid UUID)
+      // WHEN
       const invalidResult = await client.publish("strictPublisher", {
         id: "not-a-uuid",
         value: 42,
       } as never);
 
-      // THEN - Should fail validation
+      // THEN
       expect(invalidResult.isError()).toBe(true);
 
-      // WHEN - Publish valid message
+      // WHEN
       const validResult = await client.publish("strictPublisher", {
         id: "123e4567-e89b-12d3-a456-426614174000",
         value: 42,
       });
 
-      // THEN - Valid message should be processed
+      // THEN
       expect(validResult).toEqual(Result.Ok(undefined));
 
       await vi.waitFor(
@@ -292,7 +292,7 @@ describe("Client and Worker Integration", () => {
       clientFactory,
       workerFactory,
     }) => {
-      // GIVEN - Define contract with topic routing
+      // GIVEN
       const exchange = defineExchange("notifications", "topic", { durable: false });
       const emailQueue = defineQueue("email-queue", { durable: false });
       const smsQueue = defineQueue("sms-queue", { durable: false });
@@ -332,7 +332,7 @@ describe("Client and Worker Integration", () => {
         },
       });
 
-      // GIVEN - Create handlers
+      // GIVEN
       const emailHandler = vi.fn().mockResolvedValue(undefined);
       const smsHandler = vi.fn().mockResolvedValue(undefined);
 
@@ -345,21 +345,21 @@ describe("Client and Worker Integration", () => {
       // Wait for worker to be ready to consume messages
       await waitForWorkerReady();
 
-      // WHEN - Publish email notification
+      // WHEN
       const emailResult = await client.publish("emailNotification", {
         recipient: "user@example.com",
         message: "Test email",
       });
       expect(emailResult).toEqual(Result.Ok(undefined));
 
-      // WHEN - Publish SMS notification
+      // WHEN
       const smsResult = await client.publish("smsNotification", {
         recipient: "+1234567890",
         message: "Test SMS",
       });
       expect(smsResult).toEqual(Result.Ok(undefined));
 
-      // THEN - Each handler should receive only its messages
+      // THEN
       await vi.waitFor(
         () => {
           expect(emailHandler).toHaveBeenCalledTimes(1);
