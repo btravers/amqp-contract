@@ -53,14 +53,16 @@
     "build": "tsdown src/index.ts --format cjs,esm --dts --clean",
     "build:docs": "typedoc",
     "dev": "tsdown src/index.ts --format cjs,esm --dts --watch",
-    "test:integration": "vitest run",
+    "test": "vitest run --project unit",
+    "test:integration": "vitest run --project integration",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@amqp-contract/contract": "workspace:*",
     "@amqp-contract/core": "workspace:*",
     "@standard-schema/spec": "catalog:",
-    "@swan-io/boxed": "catalog:"
+    "@swan-io/boxed": "catalog:",
+    "ts-pattern": "catalog:"
   },
   "devDependencies": {
     "@amqp-contract/testing": "workspace:*",

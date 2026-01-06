@@ -1,10 +1,28 @@
-import { AmqpClient, type Logger } from "@amqp-contract/core";
+/* eslint-disable sort-imports */
 import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
-import type { ContractDefinition, InferPublisherNames } from "@amqp-contract/contract";
+import type {
+  CompressionAlgorithm,
+  ContractDefinition,
+  InferPublisherNames,
+} from "@amqp-contract/contract";
+import type { Options } from "amqplib";
 import { Future, Result } from "@swan-io/boxed";
 import { MessageValidationError, TechnicalError } from "./errors.js";
 import type { ClientInferPublisherInput } from "./types.js";
-import type { Options } from "amqplib";
+import { AmqpClient, type Logger } from "@amqp-contract/core";
+import { compressBuffer } from "./compression.js";
+
+/**
+ * Publish options that extend amqplib's Options.Publish with optional compression support.
+ */
+export type PublishOptions = Options.Publish & {
+  /**
+   * Optional compression algorithm to use for the message payload.
+   * When specified, the message will be compressed using the chosen algorithm
+   * and the contentEncoding header will be set automatically.
+   */
+  compression?: CompressionAlgorithm | undefined;
+};
 
 /**
  * Options for creating a client
@@ -53,12 +71,22 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
 
   /**
    * Publish a message using a defined publisher
-   * Returns Result.Ok(true) on success, or Result.Error with specific error on failure
+   *
+   * @param publisherName - The name of the publisher to use
+   * @param message - The message to publish
+   * @param options - Optional publish options including compression, headers, priority, etc.
+   *
+   * @remarks
+   * If `options.compression` is specified, the message will be compressed before publishing
+   * and the `contentEncoding` property will be set automatically. Any `contentEncoding`
+   * value already in options will be overwritten by the compression algorithm.
+   *
+   * @returns Result.Ok(void) on success, or Result.Error with specific error on failure
    */
   publish<TName extends InferPublisherNames<TContract>>(
     publisherName: TName,
     message: ClientInferPublisherInput<TContract, TName>,
-    options?: Options.Publish,
+    options?: PublishOptions,
   ): Future<Result<void, TechnicalError | MessageValidationError>> {
     const publishers = this.contract.publishers;
     if (!publishers) {
@@ -92,32 +120,56 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     };
 
     const publishMessage = (validatedMessage: unknown): Future<Result<void, TechnicalError>> => {
-      return Future.fromPromise(
-        this.amqpClient.channel.publish(
-          publisher.exchange.name,
-          publisher.routingKey ?? "",
-          validatedMessage,
-          options,
-        ),
-      )
-        .mapError((error) => new TechnicalError(`Failed to publish message`, error))
-        .mapOkToResult((published) => {
-          if (!published) {
-            return Result.Error(
-              new TechnicalError(
-                `Failed to publish message for publisher "${String(publisherName)}": Channel rejected the message (buffer full or other channel issue)`,
-              ),
-            );
-          }
+      // Extract compression from options and create publish options without it
+      const { compression, ...restOptions } = options ?? {};
+      const publishOptions: Options.Publish = { ...restOptions };
 
-          this.logger?.info("Message published successfully", {
-            publisherName: String(publisherName),
-            exchange: publisher.exchange.name,
-            routingKey: publisher.routingKey,
-          });
+      // Prepare payload and options based on compression configuration
+      const preparePayload = (): Future<Result<Buffer | unknown, TechnicalError>> => {
+        if (compression) {
+          // Compress the message payload
+          const messageBuffer = Buffer.from(JSON.stringify(validatedMessage));
+          publishOptions.contentEncoding = compression;
 
-          return Result.Ok(undefined);
-        });
+          return Future.fromPromise(compressBuffer(messageBuffer, compression))
+            .mapError((error) => new TechnicalError(`Failed to compress message`, error))
+            .map((compressedBuffer) => Result.Ok(compressedBuffer));
+        }
+
+        // No compression: use the channel's built-in JSON serialization
+        return Future.value(Result.Ok(validatedMessage));
+      };
+
+      // Publish the prepared payload
+      return preparePayload().flatMapOk((payload) =>
+        Future.fromPromise(
+          this.amqpClient.channel.publish(
+            publisher.exchange.name,
+            publisher.routingKey ?? "",
+            payload,
+            publishOptions,
+          ),
+        )
+          .mapError((error) => new TechnicalError(`Failed to publish message`, error))
+          .mapOkToResult((published) => {
+            if (!published) {
+              return Result.Error(
+                new TechnicalError(
+                  `Failed to publish message for publisher "${String(publisherName)}": Channel rejected the message (buffer full or other channel issue)`,
+                ),
+              );
+            }
+
+            this.logger?.info("Message published successfully", {
+              publisherName: String(publisherName),
+              exchange: publisher.exchange.name,
+              routingKey: publisher.routingKey,
+              compressed: !!compression,
+            });
+
+            return Result.Ok(undefined);
+          }),
+      );
     };
 
     // Validate message using schema

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect } from "vitest";
 import { defineContract, defineExchange } from "@amqp-contract/contract";
-import { AmqpClient } from "./amqp-client.js";
+import { AmqpClient } from "../amqp-client.js";
 import { it } from "@amqp-contract/testing/extension";
 
 describe("AmqpClient Connection Sharing Integration", () => {

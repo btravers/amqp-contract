@@ -5,8 +5,8 @@ import {
   definePublisher,
 } from "@amqp-contract/contract";
 import { describe, expect } from "vitest";
-import { AmqpClientModule } from "./client.module.js";
-import { AmqpClientService } from "./client.service.js";
+import { AmqpClientModule } from "../client.module.js";
+import { AmqpClientService } from "../client.service.js";
 import { MessageValidationError } from "@amqp-contract/client";
 import { Module } from "@nestjs/common";
 import { Result } from "@swan-io/boxed";

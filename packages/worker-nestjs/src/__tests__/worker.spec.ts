@@ -7,7 +7,7 @@ import {
   defineQueueBinding,
 } from "@amqp-contract/contract";
 import { describe, expect, vi } from "vitest";
-import { AmqpWorkerModule } from "./worker.module.js";
+import { AmqpWorkerModule } from "../worker.module.js";
 import { Module } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import { it } from "@amqp-contract/testing/extension";

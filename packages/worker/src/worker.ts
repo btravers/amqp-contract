@@ -14,6 +14,7 @@ import type {
   WorkerInferConsumerHandlers,
   WorkerInferConsumerInput,
 } from "./types.js";
+import { decompressBuffer } from "./decompression.js";
 
 /**
  * Internal type for consumer options extracted from handler tuples.
@@ -415,41 +416,68 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     consumer: ConsumerDefinition,
     consumerName: TName,
   ): Future<Result<WorkerInferConsumerInput<TContract, TName>, void>> {
-    // Parse message
-    const parseResult = Result.fromExecution(() => JSON.parse(msg.content.toString()));
-    if (parseResult.isError()) {
-      this.logger?.error("Error parsing message", {
+    // Decompress message if needed
+    const decompressMessage = Future.fromPromise(
+      decompressBuffer(msg.content, msg.properties.contentEncoding),
+    ).mapError((error) => {
+      this.logger?.error("Error decompressing message", {
         consumerName: String(consumerName),
         queueName: consumer.queue.name,
-        error: parseResult.error,
+        contentEncoding: msg.properties.contentEncoding,
+        error,
       });
 
-      // fixme proper error handling strategy
-      // Reject message with no requeue (malformed JSON)
+      // Reject message with no requeue (decompression failed)
       this.amqpClient.channel.nack(msg, false, false);
-      return Future.value(Result.Error(undefined));
-    }
+      return undefined;
+    });
 
-    const rawValidation = consumer.message.payload["~standard"].validate(parseResult.value);
-    return Future.fromPromise(
-      rawValidation instanceof Promise ? rawValidation : Promise.resolve(rawValidation),
-    ).mapOkToResult((validationResult) => {
-      if (validationResult.issues) {
-        const error = new MessageValidationError(String(consumerName), validationResult.issues);
-        this.logger?.error("Message validation failed", {
+    // Parse message
+    const parseMessage = (buffer: Buffer) => {
+      const parseResult = Result.fromExecution(() => JSON.parse(buffer.toString()));
+      if (parseResult.isError()) {
+        this.logger?.error("Error parsing message", {
           consumerName: String(consumerName),
           queueName: consumer.queue.name,
-          error,
+          error: parseResult.error,
         });
 
-        // fixme proper error handling strategy
-        // Reject message with no requeue (validation failed)
+        // Reject message with no requeue (malformed JSON)
         this.amqpClient.channel.nack(msg, false, false);
-        return Result.Error(undefined) as Result<WorkerInferConsumerInput<TContract, TName>, void>;
+        return Future.value(Result.Error(undefined));
       }
+      return Future.value(Result.Ok(parseResult.value));
+    };
 
-      return Result.Ok(validationResult.value as WorkerInferConsumerInput<TContract, TName>);
-    }) as Future<Result<WorkerInferConsumerInput<TContract, TName>, void>>;
+    // Validate message
+    const validateMessage = (parsedMessage: unknown) => {
+      const rawValidation = consumer.message.payload["~standard"].validate(parsedMessage);
+      return Future.fromPromise(
+        rawValidation instanceof Promise ? rawValidation : Promise.resolve(rawValidation),
+      ).mapOkToResult((validationResult) => {
+        if (validationResult.issues) {
+          const error = new MessageValidationError(String(consumerName), validationResult.issues);
+          this.logger?.error("Message validation failed", {
+            consumerName: String(consumerName),
+            queueName: consumer.queue.name,
+            error,
+          });
+
+          // Reject message with no requeue (validation failed)
+          this.amqpClient.channel.nack(msg, false, false);
+          return Result.Error(undefined) as Result<
+            WorkerInferConsumerInput<TContract, TName>,
+            void
+          >;
+        }
+
+        return Result.Ok(validationResult.value as WorkerInferConsumerInput<TContract, TName>);
+      }) as Future<Result<WorkerInferConsumerInput<TContract, TName>, void>>;
+    };
+
+    return decompressMessage.flatMapOk(parseMessage).flatMapOk(validateMessage) as Future<
+      Result<WorkerInferConsumerInput<TContract, TName>, void>
+    >;
   }
 
   /**

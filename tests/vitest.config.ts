@@ -2,11 +2,13 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
+    environment: "node",
     globalSetup: "@amqp-contract/testing/global-setup",
     reporters: ["default"],
     coverage: {
-      enabled: false,
       provider: "v8",
+      reporter: ["text", "json", "json-summary", "html"],
+      include: ["src/**", "!src/**/__tests__/**"],
     },
     testTimeout: 10_000,
     hookTimeout: 10_000,

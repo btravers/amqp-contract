@@ -8,7 +8,7 @@ import {
   defineQueue,
   defineQueueBinding,
 } from "@amqp-contract/contract";
-import { AmqpClient } from "./amqp-client.js";
+import { AmqpClient } from "../amqp-client.js";
 import type { ConsumeMessage } from "amqplib";
 import { it } from "@amqp-contract/testing/extension";
 import { z } from "zod";
