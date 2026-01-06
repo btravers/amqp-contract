@@ -900,9 +900,6 @@ importers:
       '@amqp-contract/tsconfig':
         specifier: workspace:*
         version: link:../../tools/tsconfig
-      '@swan-io/boxed':
-        specifier: 'catalog:'
-        version: 3.2.1(typescript@5.9.3)
       tsx:
         specifier: 'catalog:'
         version: 4.21.0
