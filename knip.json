@@ -13,7 +13,8 @@
       "entry": ["*.json"]
     },
     "tests": {
-      "entry": ["src/**/*.spec.ts", "vitest.config.ts"]
+      "entry": ["src/**/*.spec.ts", "vitest.config.ts"],
+      "ignoreDependencies": ["@vitest/coverage-v8"]
     },
     "docs": {
       "entry": [".vitepress/config.ts", ".vitepress/theme/index.ts"],
