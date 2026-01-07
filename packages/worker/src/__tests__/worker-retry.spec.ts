@@ -173,18 +173,14 @@ describe("AmqpWorker Retry Integration", () => {
     await new Promise((resolve) => setTimeout(resolve, 3000));
 
     // THEN - Verify exponential backoff delays
-    expect(timestamps.length).toBeGreaterThanOrEqual(2);
-    if (timestamps.length >= 3) {
-      const ts0 = timestamps[0];
-      const ts1 = timestamps[1];
-      const ts2 = timestamps[2];
-      if (ts0 !== undefined && ts1 !== undefined && ts2 !== undefined) {
-        const delay1 = ts1 - ts0;
-        const delay2 = ts2 - ts1;
-        // Second delay should be roughly 2x the first delay (100ms vs 200ms)
-        // Allow some margin for execution time
-        expect(delay2).toBeGreaterThan(delay1 * 1.5);
-      }
+    expect(timestamps.length).toBeGreaterThanOrEqual(3);
+    const [ts0, ts1, ts2] = timestamps;
+    if (ts0 !== undefined && ts1 !== undefined && ts2 !== undefined) {
+      const delay1 = ts1 - ts0;
+      const delay2 = ts2 - ts1;
+      // Second delay should be roughly 2x the first delay (100ms vs 200ms)
+      // Allow some margin for execution time
+      expect(delay2).toBeGreaterThan(delay1 * 1.5);
     }
   });
 

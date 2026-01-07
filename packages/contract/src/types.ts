@@ -453,7 +453,7 @@ export type RetryPolicy = {
      *
      * @default 'fixed'
      */
-    type: "fixed" | "exponential";
+    type?: "fixed" | "exponential";
 
     /**
      * Initial delay in milliseconds before the first retry.
