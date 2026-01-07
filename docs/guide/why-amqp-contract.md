@@ -164,7 +164,7 @@ const result = await client
   .resultToPromise();
 
 // 5. Consumer gets fully typed messages
-const workerResult = await TypedAmqpWorker.create({
+const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => {

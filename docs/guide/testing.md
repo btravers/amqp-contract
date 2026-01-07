@@ -119,19 +119,14 @@ describe("Order Processing Contract", () => {
     amqpConnectionUrl,
   }) => {
     // Create client
-    const clientResult = await TypedAmqpClient.create({
+    const client = await TypedAmqpClient.create({
       contract,
       urls: [amqpConnectionUrl],
     }).resultToPromise();
 
-    if (clientResult.isError()) {
-      throw clientResult.error;
-    }
-    const client = clientResult.get();
-
     // Create worker with handler
     const receivedOrders: unknown[] = [];
-    const workerResult = await TypedAmqpWorker.create({
+    const worker = await TypedAmqpWorker.create({
       contract,
       handlers: {
         processOrder: async (message) => {
@@ -140,11 +135,6 @@ describe("Order Processing Contract", () => {
       },
       urls: [amqpConnectionUrl],
     }).resultToPromise();
-
-    if (workerResult.isError()) {
-      throw workerResult.error;
-    }
-    const worker = workerResult.get();
 
     // Publish message
     const result = await client

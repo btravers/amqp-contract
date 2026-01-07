@@ -169,17 +169,10 @@ async function main() {
   let client;
 
   try {
-    const clientResult = await TypedAmqpClient.create({
+    client = await TypedAmqpClient.create({
       contract,
       urls: ["amqp://localhost"],
     }).resultToPromise();
-
-    if (clientResult.isError()) {
-      console.error("Failed to create client:", clientResult.error);
-      throw clientResult.error;
-    }
-
-    client = clientResult.get();
 
     const result = await client
       .publish("orderCreated", {
