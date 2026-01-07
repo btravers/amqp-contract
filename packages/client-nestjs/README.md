@@ -38,11 +38,7 @@ export class OrderService {
   constructor(private readonly client: AmqpClientService<typeof contract>) {}
 
   async createOrder(orderId: string, amount: number) {
-    const result = await this.client.publish("orderCreated", { orderId, amount }).resultToPromise();
-
-    if (result.isError()) {
-      throw new Error(`Failed to publish: ${result.error.message}`);
-    }
+    await this.client.publish("orderCreated", { orderId, amount }).resultToPromise();
   }
 }
 ```

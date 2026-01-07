@@ -476,15 +476,19 @@ export const orderRouter = initServer.router({
 
       const orderId = generateOrderId();
 
-      const result = await client
-        .publish("orderCreated", {
-          orderId,
-          ...input,
-        })
-        .resultToPromise();
-
-      if (result.isError()) {
-        throw new Error(`Failed to publish order: ${result.error.message}`);
+      try {
+        await client
+          .publish("orderCreated", {
+            orderId,
+            ...input,
+          })
+          .resultToPromise();
+      } catch (error) {
+        throw new Error(
+          error instanceof Error
+            ? `Failed to publish order: ${error.message}`
+            : "Failed to publish order",
+        );
       }
 
       return {
@@ -565,7 +569,7 @@ export class OrderEventService {
   async publishOrderCreated(order: any) {
     this.logger.log(`Publishing OrderCreated event for ${order.orderId}`);
 
-    const result = await this.client
+    await this.client
       .publish("orderCreated", order, {
         persistent: true,
         headers: {
@@ -576,16 +580,12 @@ export class OrderEventService {
         },
       })
       .resultToPromise();
-
-    if (result.isError()) {
-      throw new Error(`Failed to publish OrderCreated: ${result.error.message}`);
-    }
   }
 
   async publishOrderUpdated(order: any) {
     this.logger.log(`Publishing OrderUpdated event for ${order.orderId}`);
 
-    const result = await this.client
+    await this.client
       .publish("orderUpdated", order, {
         persistent: true,
         headers: {
@@ -596,16 +596,12 @@ export class OrderEventService {
         },
       })
       .resultToPromise();
-
-    if (result.isError()) {
-      throw new Error(`Failed to publish OrderUpdated: ${result.error.message}`);
-    }
   }
 
   async publishOrderCancelled(orderId: string) {
     this.logger.log(`Publishing OrderCancelled event for ${orderId}`);
 
-    const result = await this.client
+    await this.client
       .publish(
         "orderCancelled",
         { orderId },
@@ -620,10 +616,6 @@ export class OrderEventService {
         },
       )
       .resultToPromise();
-
-    if (result.isError()) {
-      throw new Error(`Failed to publish OrderCancelled: ${result.error.message}`);
-    }
   }
 }
 ```
@@ -862,7 +854,7 @@ export class OrderService {
     this.logger.log(`Creating order ${orderId} for customer ${customerId}`);
 
     try {
-      const result = await this.client
+      await this.client
         .publish(
           "orderCreated",
           {
@@ -881,10 +873,6 @@ export class OrderService {
           },
         )
         .resultToPromise();
-
-      if (result.isError()) {
-        throw new Error(`Failed to publish order: ${result.error.message}`);
-      }
 
       this.logger.log(`Order ${orderId} published successfully`);
       return { orderId };
