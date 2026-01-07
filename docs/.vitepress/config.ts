@@ -77,8 +77,10 @@ export default withMermaid(
             text: "Getting Started",
             items: [
               { text: "Why amqp-contract?", link: "/guide/why-amqp-contract" },
+              { text: "Quick Start", link: "/guide/quick-start" },
               { text: "Getting Started", link: "/guide/getting-started" },
               { text: "Core Concepts", link: "/guide/core-concepts" },
+              { text: "Comparison", link: "/guide/comparison" },
             ],
           },
           {
@@ -104,6 +106,10 @@ export default withMermaid(
               { text: "Channel Configuration", link: "/guide/channel-configuration" },
               { text: "AsyncAPI Generation", link: "/guide/asyncapi-generation" },
             ],
+          },
+          {
+            text: "Help",
+            items: [{ text: "Troubleshooting", link: "/guide/troubleshooting" }],
           },
         ],
         "/api/": [
