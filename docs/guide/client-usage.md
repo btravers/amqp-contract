@@ -33,12 +33,14 @@ const client = clientResult.get();
 Publish messages with full type safety and explicit error handling:
 
 ```typescript
-const result = await client.publish("orderCreated", {
-  orderId: "ORD-123",
-  customerId: "CUST-456",
-  amount: 99.99,
-  items: [{ productId: "PROD-A", quantity: 2 }],
-});
+const result = await client
+  .publish("orderCreated", {
+    orderId: "ORD-123",
+    customerId: "CUST-456",
+    amount: 99.99,
+    items: [{ productId: "PROD-A", quantity: 2 }],
+  })
+  .resultToPromise();
 
 result.match({
   Ok: () => console.log("✅ Published"),
@@ -57,19 +59,19 @@ The client enforces:
 
 ```typescript
 // ❌ TypeScript error: 'unknownPublisher' not in contract
-const result = await client.publish('unknownPublisher', { ... });
+const result = await client.publish('unknownPublisher', { ... }).resultToPromise();
 
 // ❌ TypeScript error: missing required field
 const result = await client.publish('orderCreated', {
   customerId: 'CUST-456',
-});
+}).resultToPromise();
 
 // ❌ Runtime validation error returned in Result
 const result = await client.publish('orderCreated', {
   orderId: 123, // should be string
   customerId: 'CUST-456',
   amount: 99.99,
-});
+}).resultToPromise();
 
 result.match({
   Ok: () => console.log('Published'),
@@ -84,11 +86,13 @@ result.match({
 Override the routing key for specific messages:
 
 ```typescript
-const result = await client.publish(
-  "orderCreated",
-  { orderId: "ORD-123", amount: 99.99 },
-  { routingKey: "order.created.urgent" },
-);
+const result = await client
+  .publish(
+    "orderCreated",
+    { orderId: "ORD-123", amount: 99.99 },
+    { routingKey: "order.created.urgent" },
+  )
+  .resultToPromise();
 ```
 
 ### Message Properties
@@ -96,17 +100,19 @@ const result = await client.publish(
 Set AMQP message properties:
 
 ```typescript
-const result = await client.publish(
-  "orderCreated",
-  { orderId: "ORD-123", amount: 99.99 },
-  {
-    options: {
-      persistent: true,
-      priority: 10,
-      headers: { "x-request-id": "req-123" },
+const result = await client
+  .publish(
+    "orderCreated",
+    { orderId: "ORD-123", amount: 99.99 },
+    {
+      options: {
+        persistent: true,
+        priority: 10,
+        headers: { "x-request-id": "req-123" },
+      },
     },
-  },
-);
+  )
+  .resultToPromise();
 ```
 
 ## Connection Management
@@ -125,10 +131,12 @@ Errors are returned via `Result` types, not thrown:
 import { MessageValidationError, TechnicalError } from "@amqp-contract/client";
 import { match, P } from "ts-pattern";
 
-const result = await client.publish("orderCreated", {
-  orderId: "ORD-123",
-  amount: 99.99,
-});
+const result = await client
+  .publish("orderCreated", {
+    orderId: "ORD-123",
+    amount: 99.99,
+  })
+  .resultToPromise();
 
 result.match({
   Ok: () => console.log("✅ Published"),
@@ -164,7 +172,7 @@ async function main() {
     const clientResult = await TypedAmqpClient.create({
       contract,
       urls: ["amqp://localhost"],
-    });
+    }).resultToPromise();
 
     if (clientResult.isError()) {
       console.error("Failed to create client:", clientResult.error);
@@ -173,12 +181,14 @@ async function main() {
 
     client = clientResult.get();
 
-    const result = await client.publish("orderCreated", {
-      orderId: "ORD-123",
-      customerId: "CUST-456",
-      amount: 99.99,
-      items: [{ productId: "PROD-A", quantity: 2 }],
-    });
+    const result = await client
+      .publish("orderCreated", {
+        orderId: "ORD-123",
+        customerId: "CUST-456",
+        amount: 99.99,
+        items: [{ productId: "PROD-A", quantity: 2 }],
+      })
+      .resultToPromise();
 
     result.match({
       Ok: () => console.log("✅ Message published"),

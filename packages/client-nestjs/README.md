@@ -27,7 +27,7 @@ import { contract } from "./contract";
   imports: [
     AmqpClientModule.forRoot({
       contract,
-      connection: "amqp://localhost",
+      urls: ["amqp://localhost"],
     }),
   ],
 })

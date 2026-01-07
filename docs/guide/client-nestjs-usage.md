@@ -97,7 +97,7 @@ import { contract } from "./contract";
   imports: [
     AmqpClientModule.forRoot({
       contract,
-      connection: "amqp://localhost",
+      urls: ["amqp://localhost"],
     }),
   ],
 })
@@ -121,12 +121,14 @@ export class OrderService {
   async createOrder(customerId: string, amount: number, items: any[]) {
     const orderId = this.generateOrderId();
 
-    const result = this.client.publish("orderCreated", {
-      orderId,
-      customerId,
-      amount,
-      items,
-    });
+    const result = await this.client
+      .publish("orderCreated", {
+        orderId,
+        customerId,
+        amount,
+        items,
+      })
+      .resultToPromise();
 
     result.match({
       Ok: () => console.log(`Order ${orderId} published`),
@@ -192,7 +194,7 @@ import { contract } from "./contract";
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
         contract,
-        connection: configService.get("RABBITMQ_URL") || "amqp://localhost",
+        urls: [configService.get("RABBITMQ_URL") || "amqp://localhost"],
       }),
       inject: [ConfigService],
     }),
@@ -476,10 +478,16 @@ export const orderRouter = initServer.router({
 
       const orderId = generateOrderId();
 
-      await client.publish("orderCreated", {
-        orderId,
-        ...input,
-      });
+      const result = await client
+        .publish("orderCreated", {
+          orderId,
+          ...input,
+        })
+        .resultToPromise();
+
+      if (result.isError()) {
+        throw new Error(`Failed to publish order: ${result.error.message}`);
+      }
 
       return {
         orderId,
@@ -499,7 +507,7 @@ import { OrderService } from "./order.service";
   imports: [
     AmqpClientModule.forRoot({
       contract,
-      connection: "amqp://localhost",
+      urls: ["amqp://localhost"],
     }),
   ],
   controllers: [OrderController],
@@ -559,47 +567,64 @@ export class OrderEventService {
   async publishOrderCreated(order: any) {
     this.logger.log(`Publishing OrderCreated event for ${order.orderId}`);
 
-    await this.client.publish("orderCreated", order, {
-      persistent: true,
-      headers: {
-        "event-type": "OrderCreated",
-        "event-version": "1.0",
-        "aggregate-id": order.orderId,
-        timestamp: new Date().toISOString(),
-      },
-    });
+    const result = await this.client
+      .publish("orderCreated", order, {
+        persistent: true,
+        headers: {
+          "event-type": "OrderCreated",
+          "event-version": "1.0",
+          "aggregate-id": order.orderId,
+          timestamp: new Date().toISOString(),
+        },
+      })
+      .resultToPromise();
+
+    if (result.isError()) {
+      throw new Error(`Failed to publish OrderCreated: ${result.error.message}`);
+    }
   }
 
   async publishOrderUpdated(order: any) {
     this.logger.log(`Publishing OrderUpdated event for ${order.orderId}`);
 
-    await this.client.publish("orderUpdated", order, {
-      persistent: true,
-      headers: {
-        "event-type": "OrderUpdated",
-        "event-version": "1.0",
-        "aggregate-id": order.orderId,
-        timestamp: new Date().toISOString(),
-      },
-    });
+    const result = await this.client
+      .publish("orderUpdated", order, {
+        persistent: true,
+        headers: {
+          "event-type": "OrderUpdated",
+          "event-version": "1.0",
+          "aggregate-id": order.orderId,
+          timestamp: new Date().toISOString(),
+        },
+      })
+      .resultToPromise();
+
+    if (result.isError()) {
+      throw new Error(`Failed to publish OrderUpdated: ${result.error.message}`);
+    }
   }
 
   async publishOrderCancelled(orderId: string) {
     this.logger.log(`Publishing OrderCancelled event for ${orderId}`);
 
-    await this.client.publish(
-      "orderCancelled",
-      { orderId },
-      {
-        persistent: true,
-        headers: {
-          "event-type": "OrderCancelled",
-          "event-version": "1.0",
-          "aggregate-id": orderId,
+    const result = await this.client
+      .publish(
+        "orderCancelled",
+        { orderId },
+        {
+          persistent: true,
+          headers: {
+            "event-type": "OrderCancelled",
+            "event-version": "1.0",
+            "aggregate-id": orderId,
           timestamp: new Date().toISOString(),
         },
-      },
-    );
+      })
+      .resultToPromise();
+
+    if (result.isError()) {
+      throw new Error(`Failed to publish OrderCancelled: ${result.error.message}`);
+    }
   }
 }
 ```
@@ -614,7 +639,7 @@ Use multiple clients for different domains:
   imports: [
     AmqpClientModule.forRoot({
       contract: orderContract,
-      connection: "amqp://localhost",
+      urls: ["amqp://localhost"],
     }),
   ],
   providers: [OrderService, OrderController],
@@ -627,7 +652,7 @@ export class OrderModule {}
   imports: [
     AmqpClientModule.forRoot({
       contract: paymentContract,
-      connection: "amqp://localhost",
+      urls: ["amqp://localhost"],
     }),
   ],
   providers: [PaymentService, PaymentController],
@@ -838,23 +863,29 @@ export class OrderService {
     this.logger.log(`Creating order ${orderId} for customer ${customerId}`);
 
     try {
-      await this.client.publish(
-        "orderCreated",
-        {
-          orderId,
-          customerId,
-          amount,
-          items,
-        },
-        {
-          persistent: true,
-          headers: {
-            "x-source": "order-service",
-            "x-timestamp": new Date().toISOString(),
-            "x-customer-id": customerId,
+      const result = await this.client
+        .publish(
+          "orderCreated",
+          {
+            orderId,
+            customerId,
+            amount,
+            items,
           },
-        },
-      );
+          {
+            persistent: true,
+            headers: {
+              "x-source": "order-service",
+              "x-timestamp": new Date().toISOString(),
+              "x-customer-id": customerId,
+            },
+          },
+        )
+        .resultToPromise();
+
+      if (result.isError()) {
+        throw new Error(`Failed to publish order: ${result.error.message}`);
+      }
 
       this.logger.log(`Order ${orderId} published successfully`);
       return { orderId };
@@ -929,7 +960,7 @@ import { OrderController } from "./order.controller";
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
         contract,
-        connection: configService.get("RABBITMQ_URL") || "amqp://localhost",
+        urls: [configService.get("RABBITMQ_URL") || "amqp://localhost"],
       }),
       inject: [ConfigService],
     }),

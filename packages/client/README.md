@@ -37,10 +37,12 @@ if (clientResult.isError()) {
 const client = clientResult.get();
 
 // Publish message with explicit error handling
-const result = await client.publish("orderCreated", {
-  orderId: "ORD-123",
-  amount: 99.99,
-});
+const result = await client
+  .publish("orderCreated", {
+    orderId: "ORD-123",
+    amount: 99.99,
+  })
+  .resultToPromise();
 
 // Handle errors explicitly - no exceptions thrown
 if (result.isError()) {
