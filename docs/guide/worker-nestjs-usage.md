@@ -230,7 +230,7 @@ import { OrderService } from "./order.service";
             }
           },
         },
-        urls: [configService.get("RABBITMQ_URL") || "amqp://localhost"],
+        urls: [configService.get("RABBITMQ_URL") ?? "amqp://localhost"],
       }),
       inject: [ConfigService, OrderService],
     }),
@@ -671,7 +671,7 @@ import { OrderService, BusinessRuleError, TemporaryError } from "./order.service
             }
           },
         },
-        urls: [configService.get("RABBITMQ_URL") || "amqp://localhost"],
+        urls: [configService.get("RABBITMQ_URL") ?? "amqp://localhost"],
       }),
       inject: [ConfigService, OrderService],
     }),

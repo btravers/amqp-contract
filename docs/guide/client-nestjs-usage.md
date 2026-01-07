@@ -177,28 +177,51 @@ That's it! The client automatically connects when the application starts and dis
 
 ## Configuration with Environment Variables
 
-Use `@nestjs/config` for environment-based configuration:
+Use `@nestjs/config` with `registerAs` and Zod for type-safe configuration:
 
 ```typescript
 import { Module } from "@nestjs/common";
-import { ConfigModule, ConfigService } from "@nestjs/config";
+import { ConfigModule } from "@nestjs/config";
 import { AmqpClientModule } from "@amqp-contract/client-nestjs";
 import { contract } from "./contract";
+import { amqpConfig } from "./config/amqp.config";
 
 @Module({
   imports: [
-    ConfigModule.forRoot(),
+    ConfigModule.forRoot({
+      load: [amqpConfig],
+    }),
     AmqpClientModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
+      useFactory: () => ({
         contract,
-        urls: [configService.get("RABBITMQ_URL") || "amqp://localhost"],
+        urls: [amqpConfig().url],
       }),
-      inject: [ConfigService],
     }),
   ],
 })
 export class AppModule {}
+```
+
+Create a config file with Zod validation:
+
+```typescript
+// config/amqp.config.ts
+import { registerAs } from "@nestjs/config";
+import { z } from "zod";
+
+const amqpConfigSchema = z.object({
+  url: z.string().url().default("amqp://localhost"),
+});
+
+export const amqpConfig = registerAs("amqp", () => {
+  const config = amqpConfigSchema.parse({
+    url: process.env.RABBITMQ_URL,
+  });
+  return config;
+});
+
+export type AmqpConfig = z.infer<typeof amqpConfigSchema>;
 ```
 
 Then set the environment variable:
@@ -476,20 +499,13 @@ export const orderRouter = initServer.router({
 
       const orderId = generateOrderId();
 
-      try {
-        await client
-          .publish("orderCreated", {
-            orderId,
-            ...input,
-          })
-          .resultToPromise();
-      } catch (error) {
-        throw new Error(
-          error instanceof Error
-            ? `Failed to publish order: ${error.message}`
-            : "Failed to publish order",
-        );
-      }
+      await client
+        .publish("orderCreated", {
+          orderId,
+          ...input,
+        })
+        .mapError((error) => new Error(`Failed to publish order: ${error.message}`))
+        .resultToPromise();
 
       return {
         orderId,
@@ -853,42 +869,32 @@ export class OrderService {
 
     this.logger.log(`Creating order ${orderId} for customer ${customerId}`);
 
-    try {
-      await this.client
-        .publish(
-          "orderCreated",
-          {
-            orderId,
-            customerId,
-            amount,
-            items,
+    await this.client
+      .publish(
+        "orderCreated",
+        {
+          orderId,
+          customerId,
+          amount,
+          items,
+        },
+        {
+          persistent: true,
+          headers: {
+            "x-source": "order-service",
+            "x-timestamp": new Date().toISOString(),
+            "x-customer-id": customerId,
           },
-          {
-            persistent: true,
-            headers: {
-              "x-source": "order-service",
-              "x-timestamp": new Date().toISOString(),
-              "x-customer-id": customerId,
-            },
-          },
-        )
-        .resultToPromise();
+        },
+      )
+      .mapError((error) => {
+        this.logger.error(`Failed to publish order ${orderId}`, error);
+        return new Error(`Failed to create order: ${error.message}`);
+      })
+      .resultToPromise();
 
-      this.logger.log(`Order ${orderId} published successfully`);
-      return { orderId };
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        this.logger.error(`Failed to publish order ${orderId}`, error.stack);
-      } else {
-        this.logger.error(`Failed to publish order ${orderId}`);
-      }
-
-      // Handle schema validation errors
-      if (this.isValidationError(error)) {
-        throw new BadRequestException("Invalid order data");
-      }
-      throw error;
-    }
+    this.logger.log(`Order ${orderId} published successfully`);
+    return { orderId };
   }
 
   private isValidationError(error: unknown): error is { issues: unknown } {
@@ -934,22 +940,24 @@ export class OrderController {
 
 ```typescript [app.module.ts]
 import { Module } from "@nestjs/common";
-import { ConfigModule, ConfigService } from "@nestjs/config";
+import { ConfigModule } from "@nestjs/config";
 import { AmqpClientModule } from "@amqp-contract/client-nestjs";
 import { contract } from "./contract";
 import { OrderService } from "./order.service";
 import { OrderController } from "./order.controller";
+import { amqpConfig } from "./config/amqp.config";
 
 @Module({
   imports: [
-    ConfigModule.forRoot(),
+    ConfigModule.forRoot({
+      load: [amqpConfig],
+    }),
     AmqpClientModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
+      useFactory: () => ({
         contract,
-        urls: [configService.get("RABBITMQ_URL") || "amqp://localhost"],
+        urls: [amqpConfig().url],
       }),
-      inject: [ConfigService],
     }),
   ],
   controllers: [OrderController],
