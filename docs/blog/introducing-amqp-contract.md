@@ -176,7 +176,7 @@ And create a type-safe worker for consuming messages:
 import { TypedAmqpWorker } from "@amqp-contract/worker";
 import { contract } from "./contract";
 
-const workerResult = await TypedAmqpWorker.create({
+const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     // ✅ message is fully typed based on your schema
@@ -195,14 +195,9 @@ const workerResult = await TypedAmqpWorker.create({
     },
   },
   urls: ["amqp://localhost"],
-});
+}).resultToPromise();
 
-workerResult.match({
-  Ok: (worker) => console.log("✅ Worker ready"),
-  Error: (error) => {
-    throw error;
-  },
-});
+console.log("✅ Worker ready");
 ```
 
 ## Key Features That Make amqp-contract Special

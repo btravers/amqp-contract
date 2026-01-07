@@ -39,12 +39,10 @@ Compression is specified in the publish options:
 import { TypedAmqpClient } from "@amqp-contract/client";
 import { contract } from "./contract";
 
-const clientResult = await TypedAmqpClient.create({
+const client = await TypedAmqpClient.create({
   contract,
   urls: ["amqp://localhost"],
-});
-
-const client = clientResult.get();
+}).resultToPromise();
 
 // Publish with gzip compression
 await client
@@ -91,7 +89,7 @@ await client
 import { TypedAmqpWorker } from "@amqp-contract/worker";
 import { contract } from "./contract";
 
-const workerResult = await TypedAmqpWorker.create({
+const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => {
@@ -101,7 +99,7 @@ const workerResult = await TypedAmqpWorker.create({
     },
   },
   urls: ["amqp://localhost"],
-});
+}).resultToPromise();
 ```
 
 The worker automatically:

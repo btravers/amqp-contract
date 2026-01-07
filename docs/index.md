@@ -129,7 +129,7 @@ result.match({
 import { TypedAmqpWorker } from "@amqp-contract/worker";
 import { contract } from "./contract";
 
-const workerResult = await TypedAmqpWorker.create({
+const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => {
@@ -138,7 +138,7 @@ const workerResult = await TypedAmqpWorker.create({
     },
   },
   urls: ["amqp://localhost"],
-});
+}).resultToPromise();
 
 workerResult.match({
   Ok: (worker) => console.log("✅ Worker ready"),
