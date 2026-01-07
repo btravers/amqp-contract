@@ -31,12 +31,12 @@ export function getRetryCount(msg: Message): number {
 export function calculateBackoffDelay(attemptNumber: number, policy: RetryPolicy): number {
   const backoff = policy.backoff;
   if (!backoff) {
-    return 1000; // Default 1 second
+    return 1_000; // Default 1 second
   }
 
   const type = backoff.type ?? "fixed";
-  const initialInterval = backoff.initialInterval ?? 1000;
-  const maxInterval = backoff.maxInterval ?? 60000;
+  const initialInterval = backoff.initialInterval ?? 1_000;
+  const maxInterval = backoff.maxInterval ?? 60_000;
   const coefficient = backoff.coefficient ?? 2;
 
   if (type === "fixed") {
