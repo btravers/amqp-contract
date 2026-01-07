@@ -139,13 +139,6 @@ const worker = await TypedAmqpWorker.create({
   },
   urls: ["amqp://localhost"],
 }).resultToPromise();
-
-workerResult.match({
-  Ok: (worker) => console.log("✅ Worker ready"),
-  Error: (error) => {
-    throw error;
-  },
-});
 ```
 
 :::
