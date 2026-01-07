@@ -62,10 +62,12 @@ export class OrderService {
   constructor(private readonly amqpClient: AmqpClientService<typeof orderContract>) {}
 
   async createOrder(order: Order) {
-    const result = await this.amqpClient.publish("orderCreated", {
-      ...order,
-      createdAt: new Date().toISOString(),
-    });
+    const result = await this.amqpClient
+      .publish("orderCreated", {
+        ...order,
+        createdAt: new Date().toISOString(),
+      })
+      .resultToPromise();
 
     if (result.isError()) {
       throw result.error;
