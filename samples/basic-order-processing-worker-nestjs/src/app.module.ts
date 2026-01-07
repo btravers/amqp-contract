@@ -7,7 +7,7 @@ import {
   ProcessAnalyticsHandler,
   ProcessOrderHandler,
   ShipOrderHandler,
-} from "./handlers";
+} from "./handlers/index.js";
 import { AmqpWorkerModule } from "@amqp-contract/worker-nestjs";
 import { Module } from "@nestjs/common";
 import { amqpConfig } from "./config/amqp.config.js";

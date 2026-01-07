@@ -5,7 +5,7 @@ import {
   MessageObject,
   MessagesObject,
   OperationsObject,
-} from "@asyncapi/parser/esm/spec-types/v3";
+} from "@asyncapi/parser/esm/spec-types/v3.js";
 import { ConditionalSchemaConverter, JSONSchema } from "@orpc/openapi";
 import type {
   ContractDefinition,
@@ -41,7 +41,8 @@ export type AsyncAPIGeneratorOptions = {
  * Options for generating an AsyncAPI document.
  * These correspond to the top-level AsyncAPI document fields.
  */
-export type AsyncAPIGeneratorGenerateOptions = Pick<AsyncAPIObject, "id" | "info" | "servers">;
+export type AsyncAPIGeneratorGenerateOptions = Pick<AsyncAPIObject, "info"> &
+  Partial<Pick<AsyncAPIObject, "id" | "servers">>;
 
 /**
  * Generator for creating AsyncAPI 3.0 documentation from AMQP contracts.
