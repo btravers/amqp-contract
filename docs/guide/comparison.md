@@ -21,7 +21,7 @@ How does **amqp-contract** compare to alternatives?
 | **Contract Documentation** | ❌ None               | ✅ Single source of truth             |
 | **AsyncAPI Generation**    | ❌ No                 | ✅ Built-in                           |
 | **Refactoring Safety**     | ❌ Runtime errors     | ✅ Compile-time errors                |
-| **Learning Curve**         | Steep                 | Gentle                                |
+| **Learning Curve**         | Steep                 | Moderate                              |
 | **Performance**            | Fastest               | Near-native (minimal overhead)        |
 | **Flexibility**            | Maximum               | High                                  |
 
