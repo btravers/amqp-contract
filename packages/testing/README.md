@@ -104,7 +104,7 @@ The extension provides:
 
 - **Image**: `rabbitmq:4.2.1-management-alpine` (default)
   - Can be configured via `RABBITMQ_IMAGE` environment variable
-  - In CI, uses `ghcr.io/btravers/amqp-contract/rabbitmq:latest` for faster builds
+  - In CI, uses `ghcr.io/btravers/amqp-contract/rabbitmq:latest` to avoid Docker Hub rate limits and enable faster image pulls
 - **Ports**:
   - 5672 (AMQP)
   - 15672 (Management console)

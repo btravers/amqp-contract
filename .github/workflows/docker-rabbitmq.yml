@@ -3,6 +3,7 @@ name: Build and Push RabbitMQ Docker Image
 permissions:
   contents: read
   packages: write
+  actions: read
 
 on:
   push:
