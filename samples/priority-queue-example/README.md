@@ -92,13 +92,15 @@ const taskQueue = defineQueue("task-processing", {
 
 ```typescript
 // Publish a message with priority 10 (critical)
-await client.publish(
-  "submitTask",
-  { taskId: "task-1", title: "Critical task", priority: 10, createdAt: now },
-  {
-    priority: 10, // Set RabbitMQ message priority
-  },
-);
+await client
+  .publish(
+    "submitTask",
+    { taskId: "task-1", title: "Critical task", priority: 10, createdAt: now },
+    {
+      priority: 10, // Set RabbitMQ message priority
+    },
+  )
+  .resultToPromise();
 ```
 
 ### Worker Configuration (`src/worker.ts`)

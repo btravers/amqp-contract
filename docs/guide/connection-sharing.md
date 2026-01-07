@@ -53,10 +53,12 @@ const workerResult = await TypedAmqpWorker.create({
       console.log("Processing order:", message.orderId);
 
       // Can publish from within consumer
-      const publishResult = await client.publish("orderProcessed", {
-        orderId: message.orderId,
-        status: "completed",
-      });
+      const publishResult = await client
+        .publish("orderProcessed", {
+          orderId: message.orderId,
+          status: "completed",
+        })
+        .resultToPromise();
 
       publishResult.match({
         Ok: () => console.log("Order processed event published"),

@@ -188,7 +188,7 @@ async function main() {
   const clientResult = await TypedAmqpClient.create({
     contract,
     urls: ["amqp://localhost"],
-  });
+  }).resultToPromise();
 
   if (clientResult.isError()) {
     console.error("Failed to create client:", clientResult.error);
@@ -197,15 +197,17 @@ async function main() {
 
   const client = clientResult.get();
 
-  const result = await client.publish("orderCreated", {
-    orderId: "ORD-123",
-    customerId: "CUST-456",
-    amount: 99.99,
-    items: [
-      { productId: "PROD-A", quantity: 2 },
-      { productId: "PROD-B", quantity: 1 },
-    ],
-  });
+  const result = await client
+    .publish("orderCreated", {
+      orderId: "ORD-123",
+      customerId: "CUST-456",
+      amount: 99.99,
+      items: [
+        { productId: "PROD-A", quantity: 2 },
+        { productId: "PROD-B", quantity: 1 },
+      ],
+    })
+    .resultToPromise();
 
   result.match({
     Ok: () => console.log("✅ Order published!"),
@@ -244,7 +246,7 @@ async function main() {
       },
     },
     urls: ["amqp://localhost"],
-  });
+  }).resultToPromise();
 
   workerResult.match({
     Ok: (worker) => {

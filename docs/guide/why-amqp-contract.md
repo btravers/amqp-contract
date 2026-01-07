@@ -155,11 +155,13 @@ const clientResult = await TypedAmqpClient.create({
 });
 
 const client = clientResult.get();
-const result = await client.publish("orderCreated", {
-  orderId: "ORD-123", // ✅ TypeScript knows these fields!
-  customerId: "CUST-456", // ✅ Autocomplete works!
-  amount: 99.99, // ✅ Type checked at compile time!
-});
+const result = await client
+  .publish("orderCreated", {
+    orderId: "ORD-123", // ✅ TypeScript knows these fields!
+    customerId: "CUST-456", // ✅ Autocomplete works!
+    amount: 99.99, // ✅ Type checked at compile time!
+  })
+  .resultToPromise();
 
 // 5. Consumer gets fully typed messages
 const workerResult = await TypedAmqpWorker.create({
@@ -172,7 +174,7 @@ const workerResult = await TypedAmqpWorker.create({
     },
   },
   urls: ["amqp://localhost"],
-});
+}).resultToPromise();
 ```
 
 ### 2. Automatic Validation
@@ -181,11 +183,13 @@ Schema validation happens automatically at network boundaries:
 
 ```typescript
 // ✅ Validation happens automatically
-const result = await client.publish("orderCreated", {
-  orderId: "ORD-123",
-  customerId: "CUST-456",
-  amount: -10, // ❌ Validation error: amount must be positive
-});
+const result = await client
+  .publish("orderCreated", {
+    orderId: "ORD-123",
+    customerId: "CUST-456",
+    amount: -10, // ❌ Validation error: amount must be positive
+  })
+  .resultToPromise();
 
 result.match({
   Ok: () => console.log("Published"),
@@ -199,17 +203,21 @@ TypeScript catches errors before runtime:
 
 ```typescript
 // ❌ TypeScript error at compile time
-await client.publish("orderCreated", {
-  orderId: "ORD-123",
-  // Missing customerId and amount - TypeScript error!
-});
+await client
+  .publish("orderCreated", {
+    orderId: "ORD-123",
+    // Missing customerId and amount - TypeScript error!
+  })
+  .resultToPromise();
 
 // ❌ TypeScript error for wrong types
-await client.publish("orderCreated", {
-  orderId: 123, // Error: orderId must be string
-  customerId: "CUST-456",
-  amount: 99.99,
-});
+await client
+  .publish("orderCreated", {
+    orderId: 123, // Error: orderId must be string
+    customerId: "CUST-456",
+    amount: 99.99,
+  })
+  .resultToPromise();
 ```
 
 ### 4. Single Source of Truth

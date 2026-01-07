@@ -147,17 +147,18 @@ if (clientResult.isError()) {
 const client = clientResult.value;
 
 // ✅ Fully typed! TypeScript knows exactly what fields are required
-const result = await client.publish("orderCreated", {
-  orderId: "ORD-123",
-  customerId: "CUST-456",
-  items: [
-    {
-      productId: "PROD-789",
-      quantity: 2,
-      price: 49.99,
-    },
-  ],
-  totalAmount: 99.98,
+const result = await client
+  .publish("orderCreated", {
+    orderId: "ORD-123",
+    customerId: "CUST-456",
+    items: [
+      {
+        productId: "PROD-789",
+        quantity: 2,
+        price: 49.99,
+      },
+    ],
+    totalAmount: 99.98,
   status: "pending",
   // ✅ TypeScript will error if you forget a required field
   // ✅ TypeScript will error if you use the wrong type
@@ -223,13 +224,15 @@ Messages are automatically validated at network boundaries using [Standard Schem
 
 ```typescript
 // If you try to publish invalid data, you get immediate feedback
-const result = await client.publish("orderCreated", {
-  orderId: "ORD-123",
-  customerId: "CUST-456",
-  items: [],
-  totalAmount: -50, // ❌ Validation error - must be positive
-  status: "invalid", // ❌ Validation error - must be pending/processing/completed
-});
+const result = await client
+  .publish("orderCreated", {
+    orderId: "ORD-123",
+    customerId: "CUST-456",
+    items: [],
+    totalAmount: -50, // ❌ Validation error - must be positive
+    status: "invalid", // ❌ Validation error - must be pending/processing/completed
+  })
+  .resultToPromise();
 
 result.match({
   Ok: () => {},
@@ -247,7 +250,7 @@ TypeScript catches errors before runtime:
 
 ```typescript
 // ❌ TypeScript error - "orderDeleted" doesn't exist in contract
-await client.publish("orderDeleted", { orderId: "123" });
+await client.publish("orderDeleted", { orderId: "123" }).resultToPromise();
 
 // ❌ TypeScript error - missing handler for "processOrder"
 await TypedAmqpWorker.create({
@@ -316,12 +319,12 @@ import { contract } from "./contract";
           console.log("Processing:", message.orderId);
         },
       },
-      connection: process.env.RABBITMQ_URL,
+      urls: [process.env.RABBITMQ_URL],
     }),
     // Client module for publishing messages
     AmqpClientModule.forRoot({
       contract,
-      connection: process.env.RABBITMQ_URL,
+      urls: [process.env.RABBITMQ_URL],
     }),
   ],
 })
