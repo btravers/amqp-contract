@@ -1,6 +1,6 @@
 import type { ContractDefinition } from "@amqp-contract/contract";
-import { TypedAmqpWorker } from "../worker";
-import type { WorkerInferConsumerHandlers } from "../types";
+import { TypedAmqpWorker } from "../worker.js";
+import type { WorkerInferConsumerHandlers } from "../types.js";
 import { it as baseIt } from "@amqp-contract/testing/extension";
 
 export const it = baseIt.extend<{
