@@ -79,15 +79,10 @@ const contract = defineContract({
 });
 
 // 6. Client - type-safe publishing with explicit error handling
-const clientResult = await TypedAmqpClient.create({
+const client = await TypedAmqpClient.create({
   contract,
   urls: ["amqp://localhost"],
 }).resultToPromise();
-
-if (clientResult.isError()) {
-  throw clientResult.error; // or handle error appropriately
-}
-const client = clientResult.get();
 
 const result = await client
   .publish("orderCreated", {
@@ -106,7 +101,7 @@ result.match({
 });
 
 // 7. Worker - type-safe consuming
-const workerResult = await TypedAmqpWorker.create({
+const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => {
@@ -115,11 +110,6 @@ const workerResult = await TypedAmqpWorker.create({
   },
   urls: ["amqp://localhost"],
 }).resultToPromise();
-
-if (workerResult.isError()) {
-  throw workerResult.error;
-}
-const worker = workerResult.get();
 ```
 
 > **Note**: If your application both publishes and consumes messages, see the [Architecture Review](docs/review/2025-12-25-architecture-review.md#3-connection-sharing-analysis) for connection sharing strategies to optimize resource usage.

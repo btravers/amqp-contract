@@ -80,14 +80,12 @@ When implementing the contract, we use our terms:
 
 ```typescript
 // Client = runtime publisher
-const clientResult = await TypedAmqpClient.create({ contract, urls }).resultToPromise();
-if (clientResult.isError()) throw clientResult.error;
-const client = clientResult.get();
+const client = await TypedAmqpClient.create({ contract, urls }).resultToPromise();
 
 await client.publish("orderCreated", message).resultToPromise();
 
 // Worker = runtime consumer
-const workerResult = await TypedAmqpWorker.create({
+const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => {
@@ -151,13 +149,11 @@ await publisher.publish(exchange, routingKey, message);
 const consumer = await createConsumer(queue, handler);
 
 // amqp-contract uses:
-const clientResult = await TypedAmqpClient.create({ contract, urls }).resultToPromise();
-if (clientResult.isError()) throw clientResult.error;
-const client = clientResult.get();
+const client = await TypedAmqpClient.create({ contract, urls }).resultToPromise();
 
 await client.publish("orderCreated", message).resultToPromise();
 
-const workerResult = await TypedAmqpWorker.create({
+const worker = await TypedAmqpWorker.create({
   contract,
   handlers: { processOrder: handler },
   urls,
