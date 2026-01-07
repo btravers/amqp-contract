@@ -123,28 +123,29 @@ jobs:
             echo "changed=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Wait for Docker image build
-        if: steps.dockerfile-changed.outputs.changed == 'true'
-        run: |
-          echo "Waiting for Docker image to be built..."
-          sleep 60
-          # Poll for image availability
-          for i in {1..20}; do
-            if docker pull ghcr.io/${{ github.repository }}/rabbitmq:pr-${{ github.event.pull_request.number }} 2>/dev/null; then
-              echo "Image is available"
-              exit 0
-            fi
-            echo "Waiting for image... attempt $i/20"
-            sleep 15
-          done
-          echo "Warning: Image may not be ready, will try to use it anyway"
-
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Wait for Docker image build
+        if: steps.dockerfile-changed.outputs.changed == 'true'
+        run: |
+          echo "Waiting for Docker image to be built..."
+          # Give the Docker workflow more time to start and build the image before polling
+          sleep 180
+          # Poll for image availability
+          for i in {1..30}; do
+            if docker pull ghcr.io/${{ github.repository }}/rabbitmq:pr-${{ github.event.pull_request.number }} 2>/dev/null; then
+              echo "Image is available"
+              exit 0
+            fi
+            echo "Waiting for image... attempt $i/30"
+            sleep 20
+          done
+          echo "Warning: Image may not be ready, will try to use it anyway"
 
       - name: Setup
         uses: ./.github/actions/setup
@@ -153,7 +154,8 @@ jobs:
         run: pnpm test:integration -- --coverage --reporter=default --reporter=github-actions
         env:
           # Use PR-specific image if Dockerfile changed, otherwise use latest
-          RABBITMQ_IMAGE: ghcr.io/${{ github.repository }}/rabbitmq:${{ steps.dockerfile-changed.outputs.changed == 'true' && format('pr-{0}', github.event.pull_request.number) || 'latest' }}
+          # Format includes fallback to run_number to avoid empty tags
+          RABBITMQ_IMAGE: ghcr.io/${{ github.repository }}/rabbitmq:${{ steps.dockerfile-changed.outputs.changed == 'true' && format('pr-{0}', github.event.pull_request.number || github.run_number) || 'latest' }}
 
       - name: Upload Integration Coverage Report
         if: always()

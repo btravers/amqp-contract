@@ -48,6 +48,8 @@ jobs:
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=,format=short
+            # IMPORTANT: This generates tags like "pr-123" for PR builds. Keep this format in sync
+            # with the CI workflow that pulls these RabbitMQ images for pull requests.
             type=ref,event=pr
 
       - name: Build and push Docker image

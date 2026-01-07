@@ -1,8 +1,7 @@
 /**
  * Test to verify that RABBITMQ_IMAGE environment variable works correctly
  */
-import { describe, expect, it } from "vitest";
-import { inject } from "vitest";
+import { describe, expect, inject, it } from "vitest";
 
 describe("RabbitMQ Container Configuration", () => {
   it("should start RabbitMQ container successfully with correct configuration", () => {
