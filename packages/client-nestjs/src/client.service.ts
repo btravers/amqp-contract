@@ -74,10 +74,6 @@ export type AmqpClientModuleOptions<TContract extends ContractDefinition> = {
  *       orderId: order.id,
  *       amount: order.total
  *     }).resultToPromise();
- *
- *     if (result.isError()) {
- *       throw new Error('Failed to publish order event');
- *     }
  *   }
  * }
  * ```
@@ -101,11 +97,7 @@ export class AmqpClientService<TContract extends ContractDefinition>
    * in the background with automatic reconnection handling.
    */
   async onModuleInit(): Promise<void> {
-    const clientResult = await TypedAmqpClient.create(this.options);
-    if (clientResult.isError()) {
-      throw new Error(`Failed to create AMQP client: ${clientResult.error.message}`);
-    }
-    this.client = clientResult.get();
+    this.client = await TypedAmqpClient.create(this.options).resultToPromise();
   }
 
   /**
@@ -135,19 +127,15 @@ export class AmqpClientService<TContract extends ContractDefinition>
    *
    * @example Basic publishing
    * ```typescript
-   * const result = await this.amqpClient.publish('orderCreated', {
+   * await this.amqpClient.publish('orderCreated', {
    *   orderId: '123',
    *   amount: 99.99
    * }).resultToPromise();
-   *
-   * if (result.isError()) {
-   *   console.error('Publish failed:', result.error);
-   * }
    * ```
    *
    * @example Publishing with compression
    * ```typescript
-   * const result = await this.amqpClient.publish('orderCreated', {
+   * await this.amqpClient.publish('orderCreated', {
    *   orderId: '123',
    *   amount: 99.99
    * }, {

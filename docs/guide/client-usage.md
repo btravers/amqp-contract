@@ -14,18 +14,10 @@ Create a type-safe client from your contract. The `create` method returns a `Fut
 import { TypedAmqpClient } from "@amqp-contract/client";
 import { contract } from "./contract";
 
-const clientResult = await TypedAmqpClient.create({
+const client = await TypedAmqpClient.create({
   contract,
   urls: ["amqp://localhost"],
-});
-
-// Handle connection errors
-if (clientResult.isError()) {
-  console.error("Failed to create client:", clientResult.error);
-  throw clientResult.error; // or handle appropriately
-}
-
-const client = clientResult.get();
+}).resultToPromise();
 ```
 
 ## Publishing Messages

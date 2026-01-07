@@ -31,21 +31,16 @@ import { TypedAmqpWorker } from "@amqp-contract/worker";
 import { contract } from "./contract";
 
 // 1. Create client - automatically creates connection
-const clientResult = await TypedAmqpClient.create({
+const client = await TypedAmqpClient.create({
   contract,
   urls: ["amqp://localhost"], // ← Just provide URLs
   connectionOptions: {
     heartbeatIntervalInSeconds: 30,
   },
-});
-
-if (clientResult.isError()) {
-  throw clientResult.error;
-}
-const client = clientResult.value;
+}).resultToPromise();
 
 // 2. Create worker - automatically reuses the same connection!
-const workerResult = await TypedAmqpWorker.create({
+const worker = await TypedAmqpWorker.create({
   contract,
   urls: ["amqp://localhost"], // ← Same URLs = automatic sharing
   handlers: {
@@ -64,12 +59,7 @@ const workerResult = await TypedAmqpWorker.create({
       });
     },
   },
-});
-
-if (workerResult.isError()) {
-  throw workerResult.error;
-}
-const worker = workerResult.value;
+}).resultToPromise();
 
 // Both client and worker automatically share a single connection! ✅
 // Result: 1 connection, 2 channels

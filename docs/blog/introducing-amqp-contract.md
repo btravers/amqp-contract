@@ -135,16 +135,10 @@ Now use the contract to create a type-safe client:
 import { TypedAmqpClient } from "@amqp-contract/client";
 import { contract } from "./contract";
 
-const clientResult = await TypedAmqpClient.create({
+const client = await TypedAmqpClient.create({
   contract,
   urls: ["amqp://localhost"],
-});
-
-if (clientResult.isError()) {
-  throw clientResult.error; // Handle connection error
-}
-
-const client = clientResult.value;
+}).resultToPromise();
 
 // ✅ Fully typed! TypeScript knows exactly what fields are required
 const result = await client.publish("orderCreated", {

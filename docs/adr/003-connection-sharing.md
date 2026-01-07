@@ -169,18 +169,13 @@ describe("Automatic Connection Sharing Integration", () => {
     const urls = ["amqp://localhost"];
 
     // Create client
-    const clientResult = await TypedAmqpClient.create({
+    const client = await TypedAmqpClient.create({
       contract,
       urls,
     }).resultToPromise();
 
-    if (clientResult.isError()) {
-      throw clientResult.error;
-    }
-    const client = clientResult.value;
-
     // Create worker - automatically shares connection
-    const workerResult = await TypedAmqpWorker.create({
+    const worker = await TypedAmqpWorker.create({
       contract,
       urls,
       handlers: {
@@ -190,22 +185,13 @@ describe("Automatic Connection Sharing Integration", () => {
       },
     }).resultToPromise();
 
-    if (workerResult.isError()) {
-      throw workerResult.error;
-    }
-    const worker = workerResult.value;
-
     // Publish message
-    const publishResult = await client
+    await client
       .publish("orderCreated", {
         orderId: "TEST-123",
         amount: 99.99,
       })
       .resultToPromise();
-
-    if (publishResult.isError()) {
-      throw publishResult.error;
-    }
 
     await waitFor(() => messages.length > 0);
 
@@ -321,18 +307,13 @@ describe("Automatic Connection Sharing Integration", () => {
     const urls = ["amqp://localhost"];
 
     // Create client
-    const clientResult = await TypedAmqpClient.create({
+    const client = await TypedAmqpClient.create({
       contract,
       urls,
     }).resultToPromise();
 
-    if (clientResult.isError()) {
-      throw clientResult.error;
-    }
-    const client = clientResult.value;
-
     // Create worker - automatically shares connection
-    const workerResult = await TypedAmqpWorker.create({
+    const worker = await TypedAmqpWorker.create({
       contract,
       urls,
       handlers: {
@@ -342,22 +323,13 @@ describe("Automatic Connection Sharing Integration", () => {
       },
     }).resultToPromise();
 
-    if (workerResult.isError()) {
-      throw workerResult.error;
-    }
-    const worker = workerResult.value;
-
     // Publish message
-    const publishResult = await client
+    await client
       .publish("orderCreated", {
         orderId: "TEST-123",
         amount: 99.99,
       })
       .resultToPromise();
-
-    if (publishResult.isError()) {
-      throw publishResult.error;
-    }
 
     await waitFor(() => messages.length > 0);
 
