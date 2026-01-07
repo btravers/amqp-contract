@@ -492,6 +492,17 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     consumerName: TName,
   ): Promise<void> {
     const retryPolicy = consumer.retryPolicy;
+
+    // Legacy behavior: no retry policy configured - use simple requeue
+    if (!retryPolicy) {
+      this.logger?.info("Requeuing message (legacy behavior - no retry policy)", {
+        consumerName: String(consumerName),
+        queueName: consumer.queue.name,
+      });
+      this.amqpClient.channel.nack(msg, false, true);
+      return;
+    }
+
     const {
       shouldRetry: shouldRetryMessage,
       delay,
@@ -505,7 +516,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         consumerName: String(consumerName),
         queueName: consumer.queue.name,
         retryCount: currentRetryCount,
-        maxRetries: retryPolicy?.maxRetries,
+        maxRetries: retryPolicy.maxRetries,
       });
       this.amqpClient.channel.nack(msg, false, false);
       return;
@@ -513,6 +524,12 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
     // Increment retry count and schedule retry
     const newRetryCount = currentRetryCount + 1;
+
+    // Update retry count in headers for next attempt
+    const headers = {
+      ...msg.properties.headers,
+      [RETRY_COUNT_HEADER]: newRetryCount,
+    };
 
     if (delay > 0) {
       // Apply backoff delay before requeuing
@@ -525,64 +542,57 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
       // Wait for backoff delay, then republish with updated retry count
       await new Promise((resolve) => setTimeout(resolve, delay));
-
-      // Republish the message with incremented retry count
-      // Use the same queue as the consumer
-      const headers = {
-        ...msg.properties.headers,
-        [RETRY_COUNT_HEADER]: newRetryCount,
-      };
-
-      try {
-        await this.amqpClient.channel.sendToQueue(consumer.queue.name, msg.content, {
-          ...msg.properties,
-          headers,
-        });
-
-        // Acknowledge the original message after successful republish
-        this.amqpClient.channel.ack(msg);
-      } catch (error) {
-        this.logger?.error("Failed to republish message for retry", {
-          consumerName: String(consumerName),
-          queueName: consumer.queue.name,
-          retryCount: newRetryCount,
-          error,
-        });
-        // If republish fails, nack with requeue to avoid message loss
-        this.amqpClient.channel.nack(msg, false, true);
-      }
     } else {
-      // No backoff delay - immediate retry with updated count
       this.logger?.info("Requeuing message for immediate retry", {
         consumerName: String(consumerName),
         queueName: consumer.queue.name,
         retryCount: newRetryCount,
       });
+    }
 
-      // For immediate retry, we need to republish with updated count
-      const headers = {
-        ...msg.properties.headers,
-        [RETRY_COUNT_HEADER]: newRetryCount,
-      };
-
-      try {
-        await this.amqpClient.channel.sendToQueue(consumer.queue.name, msg.content, {
-          ...msg.properties,
+    // Republish the message with incremented retry count
+    try {
+      // Publish to the default exchange with the queue name as the routing key
+      // This is the standard way to send messages directly to a queue in AMQP
+      const published = await this.amqpClient.channel.publish(
+        "", // default exchange
+        consumer.queue.name, // routing key = queue name
+        msg.content,
+        {
+          contentType: msg.properties.contentType,
+          contentEncoding: msg.properties.contentEncoding,
           headers,
-        });
+          deliveryMode: msg.properties.deliveryMode,
+          priority: msg.properties.priority,
+          correlationId: msg.properties.correlationId,
+          replyTo: msg.properties.replyTo,
+          expiration: msg.properties.expiration,
+          messageId: msg.properties.messageId,
+          timestamp: msg.properties.timestamp,
+          type: msg.properties.type,
+          userId: msg.properties.userId,
+          appId: msg.properties.appId,
+        },
+      );
 
-        // Acknowledge the original message after successful republish
-        this.amqpClient.channel.ack(msg);
-      } catch (error) {
-        this.logger?.error("Failed to republish message for retry", {
-          consumerName: String(consumerName),
-          queueName: consumer.queue.name,
-          retryCount: newRetryCount,
-          error,
-        });
-        // If republish fails, nack with requeue to avoid message loss
-        this.amqpClient.channel.nack(msg, false, true);
-      }
+      this.logger?.info("Message republished for retry", {
+        consumerName: String(consumerName),
+        queueName: consumer.queue.name,
+        retryCount: newRetryCount,
+        published,
+      });
+
+      // Acknowledge the original message after successful republish
+      this.amqpClient.channel.ack(msg);
+    } catch (error) {
+      this.logger?.error("Failed to republish message for retry", {
+        consumerName: String(consumerName),
+        queueName: consumer.queue.name,
+        retryCount: newRetryCount,
+        error,
+      });
+      // If republish fails, nack with requeue to avoid message loss
+      this.amqpClient.channel.nack(msg, false, true);
     }
   }
 
