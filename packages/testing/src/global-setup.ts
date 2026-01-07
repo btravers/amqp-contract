@@ -5,12 +5,23 @@
  * a RabbitMQ container with the management plugin before tests run, and stops
  * it after all tests complete.
  *
+ * The RabbitMQ image can be configured via the `RABBITMQ_IMAGE` environment variable.
+ * By default, it uses the public Docker Hub image (`rabbitmq:4.2.1-management-alpine`).
+ * In CI environments, you can set it to use the GitHub Container Registry image for
+ * faster and more reliable builds.
+ *
  * @module global-setup
  * @packageDocumentation
  */
 
 import { GenericContainer, Wait } from "testcontainers";
 import type { TestProject } from "vitest/node";
+
+/**
+ * Default RabbitMQ Docker image to use for testing.
+ * Can be overridden via RABBITMQ_IMAGE environment variable.
+ */
+const DEFAULT_RABBITMQ_IMAGE = "rabbitmq:4.2.1-management-alpine";
 
 declare module "vitest" {
   // eslint-disable-next-line @typescript-eslint/consistent-type-definitions -- Module augmentation requires interface for declaration merging
@@ -47,10 +58,13 @@ declare module "vitest" {
  * @returns Cleanup function that stops the RabbitMQ container
  */
 export default async function setup({ provide }: TestProject) {
+  const rabbitmqImage = process.env["RABBITMQ_IMAGE"] ?? DEFAULT_RABBITMQ_IMAGE;
+
   console.log("🐳 Starting RabbitMQ test environment...");
+  console.log(`📦 Using RabbitMQ image: ${rabbitmqImage}`);
 
   // Start RabbitMQ container with management plugin
-  const rabbitmqContainer = await new GenericContainer("rabbitmq:4.2.1-management-alpine")
+  const rabbitmqContainer = await new GenericContainer(rabbitmqImage)
     .withExposedPorts(5672, 15672)
     .withEnvironment({
       RABBITMQ_DEFAULT_USER: "guest",

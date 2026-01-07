@@ -256,7 +256,9 @@ it("example", async ({ initConsumer, publishMessage }) => {
 
 The RabbitMQ container is configured with:
 
-- **Image**: `rabbitmq:4.2.1-management-alpine`
+- **Image**: `rabbitmq:4.2.1-management-alpine` (default)
+  - Can be configured via `RABBITMQ_IMAGE` environment variable
+  - In CI environments, uses `ghcr.io/btravers/amqp-contract/rabbitmq:latest` for faster builds
 - **Ports**:
   - 5672 (AMQP)
   - 15672 (Management console)
@@ -265,7 +267,33 @@ The RabbitMQ container is configured with:
   - Password: `guest`
 - **Health Check**: Waits for RabbitMQ to be fully ready
 
+### Custom RabbitMQ Image
+
+You can use a custom RabbitMQ image by setting the `RABBITMQ_IMAGE` environment variable:
+
+```bash
+# Use a specific version
+RABBITMQ_IMAGE=rabbitmq:3.13-management pnpm test:integration
+
+# Use GitHub Container Registry image (used in CI)
+RABBITMQ_IMAGE=ghcr.io/btravers/amqp-contract/rabbitmq:latest pnpm test:integration
+
+# Use a custom image
+RABBITMQ_IMAGE=my-registry.com/rabbitmq:custom pnpm test:integration
+```
+
 ## Environment Variables
+
+### Configuration Variables
+
+These environment variables can be set to configure the test environment:
+
+- `RABBITMQ_IMAGE`: Docker image to use for the RabbitMQ container
+  - Default: `rabbitmq:4.2.1-management-alpine`
+  - CI: `ghcr.io/btravers/amqp-contract/rabbitmq:latest`
+  - Can be set to any compatible RabbitMQ image with management plugin
+
+### Test Context Variables
 
 The following variables are provided to tests via Vitest's context:
 

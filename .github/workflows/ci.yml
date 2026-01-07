@@ -112,11 +112,20 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Setup
         uses: ./.github/actions/setup
 
       - name: Run integration tests
         run: pnpm test:integration -- --coverage --reporter=default --reporter=github-actions
+        env:
+          RABBITMQ_IMAGE: ghcr.io/${{ github.repository }}/rabbitmq:latest
 
       - name: Upload Integration Coverage Report
         if: always()
