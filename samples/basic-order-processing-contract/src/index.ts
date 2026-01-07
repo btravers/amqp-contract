@@ -91,8 +91,21 @@ const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedCons
   });
 
 // Create consumer for processing queue using publisher-first pattern
-const { consumer: processOrderConsumer, binding: processOrderBinding } =
-  createOrderCreatedConsumer(orderProcessingQueue);
+// We use the binding from this but define the actual consumer with retry policy below
+const { binding: processOrderBinding } = createOrderCreatedConsumer(orderProcessingQueue);
+
+// Add retry policy to the consumer for robust error handling
+const processOrderConsumerWithRetry = defineConsumer(orderProcessingQueue, orderMessage, {
+  retryPolicy: {
+    maxRetries: 3,
+    backoff: {
+      type: "exponential",
+      initialDelay: 1000,
+      maxDelay: 60000,
+      multiplier: 2,
+    },
+  },
+});
 
 /**
  * RECOMMENDED APPROACH: Consumer-First Pattern (Command-Oriented)
@@ -115,6 +128,7 @@ const {
  * 2. Consumer-First Pattern: shipOrderConsumer ensures publisher matches consumer
  * 3. Traditional Approach: For advanced scenarios like exchange-to-exchange bindings
  * 4. Dead Letter Exchange: Failed messages from orderProcessingQueue are routed to DLX
+ * 5. Retry Policies: Configured with exponential backoff to prevent infinite loops
  *
  * Benefits of Publisher-First / Consumer-First:
  * - Guaranteed message schema consistency
@@ -125,6 +139,11 @@ const {
  * - Failed or rejected messages are automatically routed to a DLX
  * - Messages that exceed TTL are moved to DLX
  * - Enables message retry and error handling strategies
+ *
+ * Retry Policy Pattern:
+ * - Prevents infinite retry loops with maxRetries limit
+ * - Exponential backoff reduces load during outages
+ * - Messages exceeding retry limit are sent to DLX for inspection
  */
 export const orderContract = defineContract({
   exchanges: {
@@ -207,8 +226,8 @@ export const orderContract = defineContract({
     }),
   },
   consumers: {
-    // Consumer from Publisher-First pattern (same message schema guaranteed)
-    processOrder: processOrderConsumer,
+    // Consumer with retry policy for production use (prevents infinite loops)
+    processOrder: processOrderConsumerWithRetry,
 
     // Traditional consumer for notifications (receives all order events via wildcard)
     notifyOrder: defineConsumer(orderNotificationsQueue, orderUnionMessage),
@@ -221,6 +240,7 @@ export const orderContract = defineContract({
     processAnalytics: defineConsumer(analyticsProcessingQueue, orderUnionMessage),
 
     // Consumer for dead letter queue (handles failed messages)
+    // No retry policy needed here as these are already failed messages
     handleFailedOrders: defineConsumer(ordersDlxQueue, orderMessage),
   },
 });

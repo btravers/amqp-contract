@@ -20,6 +20,8 @@ pnpm add @amqp-contract/worker
 
 - ✅ **Type-safe message consumption** — Handlers are fully typed based on your contract
 - ✅ **Automatic validation** — Messages are validated before reaching your handlers
+- ✅ **Retry policies** — Configurable retry limits with exponential backoff to prevent infinite loops
+- ✅ **Dead letter exchange support** — Automatically route permanently failed messages to DLX
 - ✅ **Prefetch configuration** — Control message flow with per-consumer prefetch settings
 - ✅ **Batch processing** — Process multiple messages at once for better throughput
 - ✅ **Automatic reconnection** — Built-in connection management with failover support
@@ -75,6 +77,59 @@ You can define handlers outside of the worker creation using `defineHandler` and
 
 ## Error Handling
 
+### Retry Policies (Production-Ready)
+
+**For production use, always configure a retry policy** to prevent infinite retry loops and handle permanently failed messages gracefully.
+
+```typescript
+import { defineConsumer, defineQueue, defineMessage } from "@amqp-contract/contract";
+import { z } from "zod";
+
+const orderQueue = defineQueue("order-processing", {
+  durable: true,
+  deadLetter: {
+    exchange: dlxExchange, // Messages that exceed retry limit go here
+    routingKey: "order.failed",
+  },
+});
+
+const orderMessage = defineMessage(
+  z.object({
+    orderId: z.string(),
+    amount: z.number(),
+  }),
+);
+
+const processOrderConsumer = defineConsumer(orderQueue, orderMessage, {
+  retryPolicy: {
+    maxRetries: 3, // Try up to 3 times after initial attempt
+    backoff: {
+      type: "exponential", // or "fixed"
+      initialDelay: 1000, // Start with 1 second
+      maxDelay: 60000, // Cap at 60 seconds
+      multiplier: 2, // Double delay each retry (1s, 2s, 4s, ...)
+    },
+  },
+});
+```
+
+**Retry Policy Options:**
+
+- `maxRetries`: Maximum number of retry attempts (set to `0` for fail-fast behavior)
+- `backoff.type`: `"fixed"` (same delay) or `"exponential"` (increasing delay)
+- `backoff.initialDelay`: Delay in milliseconds before first retry (default: 1000)
+- `backoff.maxDelay`: Maximum delay for exponential backoff (default: 60000)
+- `backoff.multiplier`: Multiplier for exponential backoff (default: 2)
+
+**Behavior:**
+
+- Messages are retried up to `maxRetries` times with configurable backoff delays
+- Retry count is tracked in message headers (`x-retry-count`)
+- After exhausting retries, messages are sent to the dead letter exchange (if configured)
+- If no DLX is configured, messages are rejected without requeue
+
+### Basic Error Handling
+
 Worker handlers use standard Promise-based async/await pattern:
 
 ```typescript
@@ -86,7 +141,7 @@ handlers: {
       // Message acknowledged automatically on success
     } catch (error) {
       // Exception automatically caught by worker
-      // Message is requeued for retry
+      // Message is retried according to retry policy
       throw error;
     }
   };
@@ -101,6 +156,16 @@ Worker defines error classes for internal use:
 - `MessageValidationError` - Message fails schema validation
 
 These errors are logged but **handlers don't need to use them** - just throw standard exceptions.
+
+### Migration from Legacy Behavior
+
+If you have existing consumers without retry policies, they will continue to work with the legacy behavior (infinite retries). However, **this is not recommended for production** as it can lead to infinite retry loops.
+
+To migrate:
+
+1. Add a dead letter exchange to your queue configuration (optional but recommended)
+2. Configure a retry policy on your consumer definition
+3. Test with your actual failure scenarios to tune the retry parameters
 
 ## API
 
