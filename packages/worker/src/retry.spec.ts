@@ -1,12 +1,7 @@
+import { RETRY_COUNT_HEADER, calculateBackoffDelay, getRetryCount, shouldRetry } from "./retry.js";
 import { describe, expect, it } from "vitest";
 import type { Message } from "amqplib";
 import type { RetryPolicy } from "@amqp-contract/contract";
-import {
-  RETRY_COUNT_HEADER,
-  calculateBackoffDelay,
-  getRetryCount,
-  shouldRetry,
-} from "./retry.js";
 
 describe("Retry utilities", () => {
   describe("getRetryCount", () => {
@@ -15,7 +10,7 @@ describe("Retry utilities", () => {
         properties: {
           headers: {},
         },
-      } as Message;
+      } as unknown as Message;
 
       expect(getRetryCount(msg)).toBe(0);
     });
@@ -23,7 +18,7 @@ describe("Retry utilities", () => {
     it("should return 0 when headers are undefined", () => {
       const msg = {
         properties: {},
-      } as Message;
+      } as unknown as Message;
 
       expect(getRetryCount(msg)).toBe(0);
     });
@@ -35,7 +30,7 @@ describe("Retry utilities", () => {
             [RETRY_COUNT_HEADER]: 3,
           },
         },
-      } as Message;
+      } as unknown as Message;
 
       expect(getRetryCount(msg)).toBe(3);
     });
@@ -47,7 +42,7 @@ describe("Retry utilities", () => {
             [RETRY_COUNT_HEADER]: "invalid",
           },
         },
-      } as Message;
+      } as unknown as Message;
 
       expect(getRetryCount(msg)).toBe(0);
     });
@@ -59,7 +54,7 @@ describe("Retry utilities", () => {
             [RETRY_COUNT_HEADER]: -1,
           },
         },
-      } as Message;
+      } as unknown as Message;
 
       expect(getRetryCount(msg)).toBe(0);
     });
@@ -144,7 +139,7 @@ describe("Retry utilities", () => {
             [RETRY_COUNT_HEADER]: 100,
           },
         },
-      } as Message;
+      } as unknown as Message;
 
       const result = shouldRetry(msg, undefined);
 
@@ -172,7 +167,7 @@ describe("Retry utilities", () => {
             [RETRY_COUNT_HEADER]: 1,
           },
         },
-      } as Message;
+      } as unknown as Message;
 
       const result = shouldRetry(msg, policy);
 
@@ -194,7 +189,7 @@ describe("Retry utilities", () => {
             [RETRY_COUNT_HEADER]: 3,
           },
         },
-      } as Message;
+      } as unknown as Message;
 
       const result = shouldRetry(msg, policy);
 
@@ -216,7 +211,7 @@ describe("Retry utilities", () => {
             [RETRY_COUNT_HEADER]: 5,
           },
         },
-      } as Message;
+      } as unknown as Message;
 
       const result = shouldRetry(msg, policy);
 
@@ -243,7 +238,7 @@ describe("Retry utilities", () => {
             [RETRY_COUNT_HEADER]: 2,
           },
         },
-      } as Message;
+      } as unknown as Message;
 
       const result = shouldRetry(msg, policy);
 
@@ -263,7 +258,7 @@ describe("Retry utilities", () => {
         properties: {
           headers: {},
         },
-      } as Message;
+      } as unknown as Message;
 
       const result = shouldRetry(msg, policy);
 

@@ -8,6 +8,7 @@ import type {
 } from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
 import { MessageValidationError, TechnicalError } from "./errors.js";
+import { RETRY_COUNT_HEADER, shouldRetry } from "./retry.js";
 import type {
   WorkerInferConsumerBatchHandler,
   WorkerInferConsumerHandler,
@@ -15,7 +16,6 @@ import type {
   WorkerInferConsumerInput,
 } from "./types.js";
 import { decompressBuffer } from "./decompression.js";
-import { RETRY_COUNT_HEADER, shouldRetry } from "./retry.js";
 
 /**
  * Internal type for consumer options extracted from handler tuples.
