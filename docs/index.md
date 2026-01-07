@@ -112,7 +112,7 @@ import { contract } from "./contract";
 const client = await TypedAmqpClient.create({
   contract,
   urls: ["amqp://localhost"],
-});
+}).resultToPromise();
 
 const result = await client.publish("orderCreated", {
   orderId: "ORD-123",
