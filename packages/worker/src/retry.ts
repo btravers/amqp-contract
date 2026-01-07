@@ -2,15 +2,15 @@ import type { Message } from "amqplib";
 import type { RetryPolicy } from "@amqp-contract/contract";
 
 /**
- * Header key used to track retry count in AMQP message headers.
+ * Header key used to track attempt count in AMQP message headers.
  * @internal
  */
 export const RETRY_COUNT_HEADER = "x-retry-count";
 
 /**
- * Get the current retry count from message headers.
+ * Get the current attempt count from message headers.
  * @param msg - The AMQP message
- * @returns The current retry count (0 if not set)
+ * @returns The current attempt count (0 for initial attempt)
  * @internal
  */
 export function getRetryCount(msg: Message): number {
@@ -22,37 +22,37 @@ export function getRetryCount(msg: Message): number {
 }
 
 /**
- * Calculate the delay before the next retry using the backoff strategy.
- * @param retryCount - Current retry count (0-indexed)
+ * Calculate the interval before the next retry using the backoff strategy.
+ * @param attemptNumber - Current attempt number (0 for first retry, 1 for second, etc.)
  * @param policy - The retry policy configuration
- * @returns Delay in milliseconds
+ * @returns Interval in milliseconds
  * @internal
  */
-export function calculateBackoffDelay(retryCount: number, policy: RetryPolicy): number {
+export function calculateBackoffDelay(attemptNumber: number, policy: RetryPolicy): number {
   const backoff = policy.backoff;
   if (!backoff) {
     return 1000; // Default 1 second
   }
 
   const type = backoff.type ?? "fixed";
-  const initialDelay = backoff.initialDelay ?? 1000;
-  const maxDelay = backoff.maxDelay ?? 60000;
-  const multiplier = backoff.multiplier ?? 2;
+  const initialInterval = backoff.initialInterval ?? 1000;
+  const maxInterval = backoff.maxInterval ?? 60000;
+  const coefficient = backoff.coefficient ?? 2;
 
   if (type === "fixed") {
-    return initialDelay;
+    return initialInterval;
   }
 
-  // Exponential backoff: initialDelay * (multiplier ^ retryCount)
-  const exponentialDelay = initialDelay * Math.pow(multiplier, retryCount);
-  return Math.min(exponentialDelay, maxDelay);
+  // Exponential backoff: initialInterval * (coefficient ^ attemptNumber)
+  const exponentialInterval = initialInterval * Math.pow(coefficient, attemptNumber);
+  return Math.min(exponentialInterval, maxInterval);
 }
 
 /**
  * Check if a message should be retried based on the retry policy.
  * @param msg - The AMQP message
  * @param policy - The retry policy configuration (optional)
- * @returns Object indicating if retry should happen and the delay
+ * @returns Object indicating if retry should happen and the interval
  * @internal
  */
 export function shouldRetry(
@@ -65,14 +65,14 @@ export function shouldRetry(
   }
 
   const currentRetryCount = getRetryCount(msg);
-  const maxRetries = policy.maxRetries ?? Number.POSITIVE_INFINITY;
+  const maxAttempts = policy.maxAttempts ?? Number.POSITIVE_INFINITY;
 
-  // Check if we've exceeded the retry limit
-  if (currentRetryCount >= maxRetries) {
+  // Check if we've exceeded the attempt limit
+  if (currentRetryCount >= maxAttempts) {
     return { shouldRetry: false, delay: 0, currentRetryCount };
   }
 
-  // Calculate backoff delay for this retry attempt
+  // Calculate backoff interval for this retry attempt
   const delay = calculateBackoffDelay(currentRetryCount, policy);
 
   return { shouldRetry: true, delay, currentRetryCount };

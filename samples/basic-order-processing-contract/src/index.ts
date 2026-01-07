@@ -97,12 +97,12 @@ const { binding: processOrderBinding } = createOrderCreatedConsumer(orderProcess
 // Add retry policy to the consumer for robust error handling
 const processOrderConsumerWithRetry = defineConsumer(orderProcessingQueue, orderMessage, {
   retryPolicy: {
-    maxRetries: 3,
+    maxAttempts: 3,
     backoff: {
       type: "exponential",
-      initialDelay: 1000,
-      maxDelay: 60000,
-      multiplier: 2,
+      initialInterval: 1000,
+      maxInterval: 60000,
+      coefficient: 2,
     },
   },
 });

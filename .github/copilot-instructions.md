@@ -473,9 +473,25 @@ packages/[package-name]/
 ### ✅ Required Practices
 
 1. **README Files**
-   - Every package must have a README.md
-   - Include: description, installation, usage examples, API overview
-   - Keep examples up-to-date with code
+   - README files should stay simple with just an introduction to concepts
+   - Keep READMEs concise: key features, quick examples, and links to full documentation
+   - Full documentation belongs in the `docs/` directory to maintain a single source of truth
+   - README example: brief feature list → quick code snippet → link to docs site
+   - This prevents documentation drift and duplication
+
+   ```markdown
+   ## Feature Name
+
+   Brief introduction to the feature (1-2 sentences).
+
+   **Quick Example:**
+
+   \`\`\`typescript
+   // Minimal working example
+   \`\`\`
+
+   📖 **[Learn more →](https://btravers.github.io/amqp-contract/guide/feature)**
+   ```
 
 2. **Code Comments**
    - Use JSDoc for all public APIs

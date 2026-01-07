@@ -413,73 +413,75 @@ export type PublisherDefinition<TMessage extends MessageDefinition = MessageDefi
 /**
  * Retry policy configuration for handling failed message processing.
  *
- * Defines how messages should be retried when processing fails, including
- * exponential backoff and dead letter exchange integration.
+ * Inspired by Temporal's retry policy design, this configuration allows
+ * fine-grained control over retry behavior for failed messages.
  *
  * @example
  * ```typescript
  * const retryPolicy: RetryPolicy = {
- *   maxRetries: 3,
+ *   maxAttempts: 3,
  *   backoff: {
  *     type: 'exponential',
- *     initialDelay: 1000,
- *     maxDelay: 60000,
- *     multiplier: 2
+ *     initialInterval: 1000,
+ *     maxInterval: 60000,
+ *     coefficient: 2
  *   }
  * };
  * ```
  */
 export type RetryPolicy = {
   /**
-   * Maximum number of retry attempts before giving up.
+   * Maximum number of attempts (initial attempt + retries).
    * After this limit is reached, the message will be:
    * - Sent to the dead letter exchange if configured on the queue
    * - Rejected (nacked without requeue) if no dead letter exchange
    *
    * Set to 0 to disable retries (fail fast).
-   * @default undefined (infinite retries - not recommended for production)
+   * If not specified, retries infinitely (not recommended for production).
    */
-  maxRetries?: number;
+  maxAttempts?: number;
 
   /**
-   * Backoff strategy for retry delays.
+   * Backoff strategy for retry intervals.
    * Adds delay between retry attempts to avoid overwhelming the system.
    */
   backoff?: {
     /**
      * Type of backoff strategy.
-     * - `fixed`: Same delay for every retry
-     * - `exponential`: Delay increases exponentially with each retry
+     * - `fixed`: Same interval for every retry
+     * - `exponential`: Interval increases exponentially with each retry
      *
-     * @default 'fixed'
+     * If not specified, defaults to 'fixed'.
      */
     type?: "fixed" | "exponential";
 
     /**
-     * Initial delay in milliseconds before the first retry.
-     * For exponential backoff, this is the base delay.
+     * Initial interval in milliseconds before the first retry.
+     * For exponential backoff, this is the base interval.
      *
-     * @default 1000 (1 second)
+     * If not specified, defaults to 1000ms (1 second).
      */
-    initialDelay?: number;
+    initialInterval?: number;
 
     /**
-     * Maximum delay in milliseconds between retries.
+     * Maximum interval in milliseconds between retries.
      * Prevents exponential backoff from growing indefinitely.
      *
      * Only applies to exponential backoff.
-     * @default 60000 (60 seconds)
+     * If not specified, defaults to 60000ms (60 seconds).
      */
-    maxDelay?: number;
+    maxInterval?: number;
 
     /**
-     * Multiplier for exponential backoff.
-     * Delay calculation: initialDelay * (multiplier ^ retryCount)
+     * Multiplication coefficient for exponential backoff.
+     * Each retry interval is multiplied by this value.
+     *
+     * Formula: interval = initialInterval * (coefficient ^ attemptNumber)
      *
      * Only applies to exponential backoff.
-     * @default 2
+     * If not specified, defaults to 2.
      */
-    multiplier?: number;
+    coefficient?: number;
   };
 };
 

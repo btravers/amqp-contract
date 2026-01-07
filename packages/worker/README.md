@@ -102,12 +102,12 @@ const orderMessage = defineMessage(
 
 const processOrderConsumer = defineConsumer(orderQueue, orderMessage, {
   retryPolicy: {
-    maxRetries: 3, // Try up to 3 times after initial attempt
+    maxAttempts: 3, // Maximum 3 attempts (initial + 2 retries)
     backoff: {
       type: "exponential", // or "fixed"
-      initialDelay: 1000, // Start with 1 second
-      maxDelay: 60000, // Cap at 60 seconds
-      multiplier: 2, // Double delay each retry (1s, 2s, 4s, ...)
+      initialInterval: 1000, // Start with 1 second
+      maxInterval: 60000, // Cap at 60 seconds
+      coefficient: 2, // Double interval each retry (1s, 2s, 4s, ...)
     },
   },
 });
@@ -115,17 +115,17 @@ const processOrderConsumer = defineConsumer(orderQueue, orderMessage, {
 
 **Retry Policy Options:**
 
-- `maxRetries`: Maximum number of retry attempts (set to `0` for fail-fast behavior)
-- `backoff.type`: `"fixed"` (same delay) or `"exponential"` (increasing delay)
-- `backoff.initialDelay`: Delay in milliseconds before first retry (default: 1000)
-- `backoff.maxDelay`: Maximum delay for exponential backoff (default: 60000)
-- `backoff.multiplier`: Multiplier for exponential backoff (default: 2)
+- `maxAttempts`: Maximum number of attempts (initial + retries, set to `0` for fail-fast behavior)
+- `backoff.type`: `"fixed"` (same interval) or `"exponential"` (increasing interval)
+- `backoff.initialInterval`: Interval in milliseconds before first retry (default: 1000)
+- `backoff.maxInterval`: Maximum interval for exponential backoff (default: 60000)
+- `backoff.coefficient`: Multiplier for exponential backoff (default: 2)
 
 **Behavior:**
 
-- Messages are retried up to `maxRetries` times with configurable backoff delays
-- Retry count is tracked in message headers (`x-retry-count`)
-- After exhausting retries, messages are sent to the dead letter exchange (if configured)
+- Messages are retried up to `maxAttempts` times with configurable backoff intervals
+- Attempt count is tracked in message headers (`x-retry-count`)
+- After exhausting attempts, messages are sent to the dead letter exchange (if configured)
 - If no DLX is configured, messages are rejected without requeue
 
 ### Basic Error Handling

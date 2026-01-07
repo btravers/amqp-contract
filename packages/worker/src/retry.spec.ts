@@ -63,7 +63,7 @@ describe("Retry utilities", () => {
   describe("calculateBackoffDelay", () => {
     it("should return default delay when no backoff configured", () => {
       const policy: RetryPolicy = {
-        maxRetries: 3,
+        maxAttempts: 3,
       };
 
       expect(calculateBackoffDelay(0, policy)).toBe(1000);
@@ -71,10 +71,10 @@ describe("Retry utilities", () => {
 
     it("should return initial delay for fixed backoff", () => {
       const policy: RetryPolicy = {
-        maxRetries: 3,
+        maxAttempts: 3,
         backoff: {
           type: "fixed",
-          initialDelay: 2000,
+          initialInterval: 2000,
         },
       };
 
@@ -85,11 +85,11 @@ describe("Retry utilities", () => {
 
     it("should calculate exponential backoff correctly", () => {
       const policy: RetryPolicy = {
-        maxRetries: 5,
+        maxAttempts: 5,
         backoff: {
           type: "exponential",
-          initialDelay: 1000,
-          multiplier: 2,
+          initialInterval: 1000,
+          coefficient: 2,
         },
       };
 
@@ -101,12 +101,12 @@ describe("Retry utilities", () => {
 
     it("should respect max delay for exponential backoff", () => {
       const policy: RetryPolicy = {
-        maxRetries: 10,
+        maxAttempts: 10,
         backoff: {
           type: "exponential",
-          initialDelay: 1000,
-          maxDelay: 5000,
-          multiplier: 2,
+          initialInterval: 1000,
+          maxInterval: 5000,
+          coefficient: 2,
         },
       };
 
@@ -119,7 +119,7 @@ describe("Retry utilities", () => {
 
     it("should use default values when not specified", () => {
       const policy: RetryPolicy = {
-        maxRetries: 3,
+        maxAttempts: 3,
         backoff: {
           type: "exponential",
         },
@@ -154,10 +154,10 @@ describe("Retry utilities", () => {
 
     it("should allow retry when under max retries", () => {
       const policy: RetryPolicy = {
-        maxRetries: 3,
+        maxAttempts: 3,
         backoff: {
           type: "fixed",
-          initialDelay: 1000,
+          initialInterval: 1000,
         },
       };
 
@@ -180,7 +180,7 @@ describe("Retry utilities", () => {
 
     it("should disallow retry when max retries reached", () => {
       const policy: RetryPolicy = {
-        maxRetries: 3,
+        maxAttempts: 3,
       };
 
       const msg = {
@@ -202,7 +202,7 @@ describe("Retry utilities", () => {
 
     it("should disallow retry when max retries exceeded", () => {
       const policy: RetryPolicy = {
-        maxRetries: 3,
+        maxAttempts: 3,
       };
 
       const msg = {
@@ -224,11 +224,11 @@ describe("Retry utilities", () => {
 
     it("should calculate exponential backoff delay", () => {
       const policy: RetryPolicy = {
-        maxRetries: 5,
+        maxAttempts: 5,
         backoff: {
           type: "exponential",
-          initialDelay: 1000,
-          multiplier: 2,
+          initialInterval: 1000,
+          coefficient: 2,
         },
       };
 
@@ -251,7 +251,7 @@ describe("Retry utilities", () => {
 
     it("should handle zero max retries (fail fast)", () => {
       const policy: RetryPolicy = {
-        maxRetries: 0,
+        maxAttempts: 0,
       };
 
       const msg = {

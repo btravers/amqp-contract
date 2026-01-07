@@ -510,26 +510,26 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     } = shouldRetry(msg, retryPolicy);
 
     if (!shouldRetryMessage) {
-      // Max retries exceeded - reject without requeue
+      // Max attempts exceeded - reject without requeue
       // The message will go to DLX if configured on the queue, otherwise discarded
-      this.logger?.warn("Message retry limit exceeded, rejecting", {
+      this.logger?.warn("Message attempt limit exceeded, rejecting", {
         consumerName: String(consumerName),
         queueName: consumer.queue.name,
-        retryCount: currentRetryCount,
-        maxRetries: retryPolicy.maxRetries,
+        attemptCount: currentRetryCount,
+        maxAttempts: retryPolicy.maxAttempts,
       });
       this.amqpClient.channel.nack(msg, false, false);
       return;
     }
 
-    // Increment retry count and schedule retry
-    const newRetryCount = currentRetryCount + 1;
+    // Increment attempt count and schedule retry
+    const newAttemptCount = currentRetryCount + 1;
 
-    // Update retry count in headers for next attempt
+    // Update attempt count in headers for next attempt
     // Store original exchange and routing key for proper retry routing
     const headers = {
       ...msg.properties.headers,
-      [RETRY_COUNT_HEADER]: newRetryCount,
+      [RETRY_COUNT_HEADER]: newAttemptCount,
       "x-original-exchange": msg.properties.headers?.["x-original-exchange"] ?? msg.fields.exchange,
       "x-original-routing-key":
         msg.properties.headers?.["x-original-routing-key"] ?? msg.fields.routingKey,
@@ -542,70 +542,75 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     const routingKey =
       (headers["x-original-routing-key"] as string | undefined) ?? consumer.queue.name;
 
-    if (delay > 0) {
-      // Apply backoff delay before requeuing
-      this.logger?.info("Scheduling message retry with backoff", {
-        consumerName: String(consumerName),
-        queueName: consumer.queue.name,
-        retryCount: newRetryCount,
-        delayMs: delay,
-        exchange,
-        routingKey,
-      });
+    // Acknowledge the original message immediately to free up the consumer
+    // callback and avoid blocking the consumer while waiting for retry interval
+    this.amqpClient.channel.ack(msg);
 
-      // Wait for backoff delay, then republish with updated retry count
-      await new Promise((resolve) => setTimeout(resolve, delay));
-    } else {
-      this.logger?.info("Requeuing message for immediate retry", {
-        consumerName: String(consumerName),
-        queueName: consumer.queue.name,
-        retryCount: newRetryCount,
-        exchange,
-        routingKey,
-      });
-    }
+    // Schedule asynchronous retry after backoff interval
+    // Use void IIFE to avoid blocking the consumer callback
+    void (async () => {
+      try {
+        if (delay > 0) {
+          // Apply backoff interval before requeuing
+          this.logger?.info("Scheduling message retry with backoff", {
+            consumerName: String(consumerName),
+            queueName: consumer.queue.name,
+            attemptCount: newAttemptCount,
+            intervalMs: delay,
+            exchange,
+            routingKey,
+          });
 
-    // Republish the message with incremented retry count
-    try {
-      const published = await this.amqpClient.channel.publish(exchange, routingKey, msg.content, {
-        contentType: msg.properties.contentType,
-        contentEncoding: msg.properties.contentEncoding,
-        headers,
-        deliveryMode: msg.properties.deliveryMode,
-        priority: msg.properties.priority,
-        correlationId: msg.properties.correlationId,
-        replyTo: msg.properties.replyTo,
-        expiration: msg.properties.expiration,
-        messageId: msg.properties.messageId,
-        timestamp: msg.properties.timestamp,
-        type: msg.properties.type,
-        userId: msg.properties.userId,
-        appId: msg.properties.appId,
-      });
+          // Wait for backoff interval
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        } else {
+          this.logger?.info("Requeuing message for immediate retry", {
+            consumerName: String(consumerName),
+            queueName: consumer.queue.name,
+            attemptCount: newAttemptCount,
+            exchange,
+            routingKey,
+          });
+        }
 
-      this.logger?.info("Message republished for retry", {
-        consumerName: String(consumerName),
-        queueName: consumer.queue.name,
-        retryCount: newRetryCount,
-        exchange,
-        routingKey,
-        published,
-      });
+        // Republish the message with incremented attempt count
+        const published = await this.amqpClient.channel.publish(exchange, routingKey, msg.content, {
+          contentType: msg.properties.contentType,
+          contentEncoding: msg.properties.contentEncoding,
+          headers,
+          deliveryMode: msg.properties.deliveryMode,
+          priority: msg.properties.priority,
+          correlationId: msg.properties.correlationId,
+          replyTo: msg.properties.replyTo,
+          expiration: msg.properties.expiration,
+          messageId: msg.properties.messageId,
+          timestamp: msg.properties.timestamp,
+          type: msg.properties.type,
+          userId: msg.properties.userId,
+          appId: msg.properties.appId,
+        });
 
-      // Acknowledge the original message after successful republish
-      this.amqpClient.channel.ack(msg);
-    } catch (error) {
-      this.logger?.error("Failed to republish message for retry", {
-        consumerName: String(consumerName),
-        queueName: consumer.queue.name,
-        retryCount: newRetryCount,
-        exchange,
-        routingKey,
-        error,
-      });
-      // If republish fails, nack with requeue to avoid message loss
-      this.amqpClient.channel.nack(msg, false, true);
-    }
+        this.logger?.info("Message republished for retry", {
+          consumerName: String(consumerName),
+          queueName: consumer.queue.name,
+          attemptCount: newAttemptCount,
+          exchange,
+          routingKey,
+          published,
+        });
+      } catch (error) {
+        // The original message has already been acknowledged at this point.
+        // We can only log the failure; it is not safe to nack after ack.
+        this.logger?.error("Failed to republish message for retry", {
+          consumerName: String(consumerName),
+          queueName: consumer.queue.name,
+          attemptCount: newAttemptCount,
+          exchange,
+          routingKey,
+          error,
+        });
+      }
+    })();
   }
 
   /**
@@ -742,19 +747,20 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
          * throws, every message in the batch is treated as failed for this
          * attempt and passed through the retry logic.
          *
-         * Retry decisions (based on retry count and policy) are evaluated
+         * Retry decisions (based on attempt count and policy) are evaluated
          * per message inside handleMessageRetry. However, all messages in a
          * failing batch are retried or rejected together according to their
-         * individual retry counts.
+         * individual attempt counts.
          *
          * This is an intentional limitation of batch mode: messages that might
          * have succeeded individually are retried/rejected with the batch.
+         *
+         * Note: handleMessageRetry ACKs immediately and schedules async retry,
+         * so this loop completes quickly without blocking on retry intervals.
          */
-        await Promise.all(
-          currentBatch.map((item) =>
-            this.handleMessageRetry(item.amqpMessage, consumer, consumerName),
-          ),
-        );
+        for (const item of currentBatch) {
+          await this.handleMessageRetry(item.amqpMessage, consumer, consumerName);
+        }
       } finally {
         isProcessing = false;
       }

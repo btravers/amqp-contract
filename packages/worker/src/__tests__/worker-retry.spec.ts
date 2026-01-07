@@ -82,10 +82,10 @@ describe("AmqpWorker Retry Integration", () => {
       consumers: {
         testConsumer: defineConsumer(queue, defineMessage(TestMessage), {
           retryPolicy: {
-            maxRetries: 3,
+            maxAttempts: 3,
             backoff: {
               type: "fixed",
-              initialDelay: 100,
+              initialInterval: 100,
             },
           },
         }),
@@ -143,11 +143,11 @@ describe("AmqpWorker Retry Integration", () => {
       consumers: {
         testConsumer: defineConsumer(queue, defineMessage(TestMessage), {
           retryPolicy: {
-            maxRetries: 3,
+            maxAttempts: 3,
             backoff: {
               type: "exponential",
-              initialDelay: 100,
-              multiplier: 2,
+              initialInterval: 100,
+              coefficient: 2,
             },
           },
         }),
@@ -207,7 +207,7 @@ describe("AmqpWorker Retry Integration", () => {
       consumers: {
         testConsumer: defineConsumer(queue, defineMessage(TestMessage), {
           retryPolicy: {
-            maxRetries: 0, // Fail fast
+            maxAttempts: 0, // Fail fast
           },
         }),
       },
@@ -273,10 +273,10 @@ describe("AmqpWorker Retry Integration", () => {
       consumers: {
         mainConsumer: defineConsumer(mainQueue, defineMessage(TestMessage), {
           retryPolicy: {
-            maxRetries: 2,
+            maxAttempts: 2,
             backoff: {
               type: "fixed",
-              initialDelay: 100,
+              initialInterval: 100,
             },
           },
         }),
@@ -338,10 +338,10 @@ describe("AmqpWorker Retry Integration", () => {
       consumers: {
         testConsumer: defineConsumer(queue, defineMessage(TestMessage), {
           retryPolicy: {
-            maxRetries: 3,
+            maxAttempts: 3,
             backoff: {
               type: "fixed",
-              initialDelay: 100,
+              initialInterval: 100,
             },
           },
         }),
