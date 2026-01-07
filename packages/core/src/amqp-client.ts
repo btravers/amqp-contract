@@ -10,18 +10,59 @@ import { ConnectionManagerSingleton } from "./connection-manager.js";
 import type { ContractDefinition } from "@amqp-contract/contract";
 import { setupAmqpTopology } from "./setup.js";
 
+/**
+ * Options for creating an AMQP client.
+ *
+ * @property urls - AMQP broker URL(s). Multiple URLs provide failover support.
+ * @property connectionOptions - Optional connection configuration (heartbeat, reconnect settings, etc.).
+ * @property channelOptions - Optional channel configuration options.
+ */
 export type AmqpClientOptions = {
   urls: ConnectionUrl[];
   connectionOptions?: AmqpConnectionManagerOptions | undefined;
   channelOptions?: Partial<CreateChannelOpts> | undefined;
 };
 
+/**
+ * AMQP client that manages connections and channels with automatic topology setup.
+ *
+ * This class handles:
+ * - Connection management with automatic reconnection via amqp-connection-manager
+ * - Connection pooling and sharing across instances with the same URLs
+ * - Automatic AMQP topology setup (exchanges, queues, bindings) from contract
+ * - Channel creation with JSON serialization enabled by default
+ *
+ * @example
+ * ```typescript
+ * const client = new AmqpClient(contract, {
+ *   urls: ['amqp://localhost'],
+ *   connectionOptions: { heartbeatIntervalInSeconds: 30 }
+ * });
+ *
+ * // Use the channel to publish messages
+ * await client.channel.publish('exchange', 'routingKey', { data: 'value' });
+ *
+ * // Close when done
+ * await client.close();
+ * ```
+ */
 export class AmqpClient {
   private readonly connection: AmqpConnectionManager;
   public readonly channel: ChannelWrapper;
   private readonly urls: ConnectionUrl[];
   private readonly connectionOptions?: AmqpConnectionManagerOptions;
 
+  /**
+   * Create a new AMQP client instance.
+   *
+   * The client will automatically:
+   * - Get or create a shared connection using the singleton pattern
+   * - Set up AMQP topology (exchanges, queues, bindings) from the contract
+   * - Create a channel with JSON serialization enabled
+   *
+   * @param contract - The contract definition specifying the AMQP topology
+   * @param options - Client configuration options
+   */
   constructor(
     private readonly contract: ContractDefinition,
     options: AmqpClientOptions,
@@ -89,6 +130,16 @@ export class AmqpClient {
     return this.connection;
   }
 
+  /**
+   * Close the channel and release the connection reference.
+   *
+   * This will:
+   * - Close the channel wrapper
+   * - Decrease the reference count on the shared connection
+   * - Close the connection if this was the last client using it
+   *
+   * @returns A promise that resolves when the channel and connection are closed
+   */
   async close(): Promise<void> {
     await this.channel.close();
     // Release connection reference - will close connection if this was the last reference

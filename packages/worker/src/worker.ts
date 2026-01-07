@@ -510,8 +510,12 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
                 error,
               });
 
-              // fixme proper error handling strategy
-              // Reject message and requeue (handler failed)
+              // Requeue failed messages for retry
+              // NOTE: This strategy assumes transient failures that may succeed on retry.
+              // For production use, consider:
+              // - Implementing retry limits to prevent infinite loops
+              // - Using dead letter exchanges for permanently failed messages
+              // - Adding exponential backoff between retries
               this.amqpClient.channel.nack(msg, false, true);
             }),
           )
@@ -608,8 +612,13 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           error,
         });
 
-        // fixme proper error handling strategy
-        // Reject all messages and requeue (handler failed)
+        // Requeue all failed messages for retry
+        // NOTE: This strategy assumes transient failures that may succeed on retry.
+        // For production use, consider:
+        // - Implementing retry limits to prevent infinite loops
+        // - Using dead letter exchanges for permanently failed messages
+        // - Adding exponential backoff between retries
+        // - Implementing partial batch success handling
         for (const item of currentBatch) {
           this.amqpClient.channel.nack(item.amqpMessage, false, true);
         }
