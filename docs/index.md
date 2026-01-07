@@ -12,8 +12,8 @@ hero:
     alt: amqp-contract
   actions:
     - theme: brand
-      text: Get Started
-      link: /guide/getting-started
+      text: Quick Start (5 min)
+      link: /guide/quick-start
     - theme: alt
       text: Why amqp-contract?
       link: /guide/why-amqp-contract
@@ -54,6 +54,161 @@ features:
     title: Framework Agnostic
     details: Use with any framework or none at all. Core packages work anywhere TypeScript runs.
 ---
+
+## Why Choose amqp-contract?
+
+Stop fighting with untyped AMQP code. Get type safety, validation, and great developer experience out of the box.
+
+::: code-group
+
+```typescript [❌ Without amqp-contract]
+// Verbose, error-prone, no type safety
+import * as amqp from "amqplib";
+
+const connection = await amqp.connect("amqp://localhost");
+const channel = await connection.createChannel();
+
+await channel.assertExchange("orders", "topic", { durable: true });
+await channel.assertQueue("order-processing", { durable: true });
+await channel.bindQueue("order-processing", "orders", "order.created");
+
+// ❌ No type checking!
+// ❌ No validation!
+// ❌ Manual error handling!
+channel.publish(
+  "orders",
+  "order.created",
+  Buffer.from(
+    JSON.stringify({
+      orderId: "ORD-123",
+      amount: "99.99", // ❌ Should be number - no error until runtime!
+      // ❌ Missing required fields - no compile-time error!
+    }),
+  ),
+);
+
+// Consumer - manually parse and validate
+channel.consume("order-processing", (msg) => {
+  if (msg) {
+    const data = JSON.parse(msg.content.toString()); // ❌ Any type!
+    console.log(data.orderId); // ❌ No autocomplete!
+    // ❌ No validation - runtime errors waiting to happen!
+    channel.ack(msg);
+  }
+});
+```
+
+```typescript [✅ With amqp-contract]
+// Type-safe, validated, clean
+import {
+  defineContract,
+  defineExchange,
+  defineQueue,
+  definePublisher,
+  defineConsumer,
+  defineMessage,
+  defineQueueBinding,
+} from "@amqp-contract/contract";
+import { TypedAmqpClient } from "@amqp-contract/client";
+import { TypedAmqpWorker } from "@amqp-contract/worker";
+import { z } from "zod";
+
+// Define once, use everywhere
+const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const orderProcessingQueue = defineQueue("order-processing", { durable: true });
+
+const orderMessage = defineMessage(
+  z.object({
+    orderId: z.string(),
+    amount: z.number(), // ✅ Type enforced!
+  }),
+);
+
+const contract = defineContract({
+  exchanges: { orders: ordersExchange },
+  queues: { orderProcessing: orderProcessingQueue },
+  bindings: {
+    orderBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
+      routingKey: "order.created",
+    }),
+  },
+  publishers: {
+    orderCreated: definePublisher(ordersExchange, orderMessage, {
+      routingKey: "order.created",
+    }),
+  },
+  consumers: {
+    processOrder: defineConsumer(orderProcessingQueue, orderMessage),
+  },
+});
+
+// Publisher - fully typed!
+const client = await TypedAmqpClient.create({
+  contract,
+  urls: ["amqp://localhost"],
+}).resultToPromise();
+
+const result = await client.publish("orderCreated", {
+  orderId: "ORD-123",
+  amount: 99.99, // ✅ Number required - TypeScript enforces!
+  // ✅ Missing fields caught at compile time!
+});
+
+result.match({
+  Ok: () => console.log("✅ Published"),
+  Error: (error) => console.error("❌ Failed:", error),
+}); // ✅ Automatic validation!
+
+// Consumer - fully typed!
+const worker = await TypedAmqpWorker.create({
+  contract,
+  handlers: {
+    processOrder: async (message) => {
+      console.log(message.orderId); // ✅ Full autocomplete!
+      console.log(message.amount); // ✅ Known to be number!
+      // ✅ Automatic validation - invalid messages rejected!
+    }, // ✅ Auto-acknowledgment on success!
+  },
+  urls: ["amqp://localhost"],
+}).resultToPromise();
+```
+
+:::
+
+## Who Should Use This?
+
+### 🎯 Perfect for:
+
+- **Backend TypeScript Developers** using RabbitMQ who want type safety and validation
+- **NestJS Developers** building microservices with message-based communication
+- **Platform Teams** enforcing message contracts across multiple services
+- **Teams** collaborating on event-driven architectures with shared schemas
+- **Developers** who value great DX with autocomplete and refactoring support
+
+### ⚡ Quick Stats
+
+[![npm version](https://img.shields.io/npm/v/@amqp-contract/contract.svg)](https://www.npmjs.com/package/@amqp-contract/contract)
+[![npm downloads](https://img.shields.io/npm/dm/@amqp-contract/contract.svg)](https://www.npmjs.com/package/@amqp-contract/contract)
+[![GitHub stars](https://img.shields.io/github/stars/btravers/amqp-contract.svg)](https://github.com/btravers/amqp-contract)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+**Battle-tested in production** • **8 packages** • **Full TypeScript support**
+
+## See It in Action
+
+Experience the power of type-safe messaging:
+
+- **IntelliSense Autocomplete** - Your IDE knows all message fields and types
+- **Compile-Time Errors** - Catch mistakes before runtime
+- **Refactoring Support** - Rename fields safely across your entire codebase
+- **Inline Documentation** - Hover over fields to see schemas and descriptions
+
+<div style="text-align: center; margin: 2rem 0;">
+  <img src="https://img.shields.io/badge/TypeScript-Full%20Support-blue?logo=typescript" alt="TypeScript" style="margin: 0 0.5rem;">
+  <img src="https://img.shields.io/badge/RabbitMQ-Compatible-orange?logo=rabbitmq" alt="RabbitMQ" style="margin: 0 0.5rem;">
+  <img src="https://img.shields.io/badge/NestJS-First--class-red?logo=nestjs" alt="NestJS" style="margin: 0 0.5rem;">
+  <img src="https://img.shields.io/badge/AsyncAPI-3.0-green" alt="AsyncAPI" style="margin: 0 0.5rem;">
+</div>
 
 ## Quick Start
 
