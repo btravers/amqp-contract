@@ -148,10 +148,15 @@ const client = await TypedAmqpClient.create({
   urls: ["amqp://localhost"],
 }).resultToPromise();
 
-await client.publish("orderCreated", {
+const result = await client.publish("orderCreated", {
   orderId: "ORD-123",
   amount: 99.99, // ✅ Number required - TypeScript enforces!
   // ✅ Missing fields caught at compile time!
+});
+
+result.match({
+  Ok: () => console.log("✅ Published"),
+  Error: (error) => console.error("❌ Failed:", error),
 }); // ✅ Automatic validation!
 
 // Consumer - fully typed!

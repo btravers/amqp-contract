@@ -72,10 +72,15 @@ const client = await TypedAmqpClient.create({
 }).resultToPromise();
 
 // Publish - fully typed and validated!
-await client.publish("orderCreated", {
+const result = await client.publish("orderCreated", {
   orderId: "ORD-123",
   amount: 99.99, // ✅ Type-checked!
   customerId: "CUST-456", // ✅ Required fields enforced!
+});
+
+result.match({
+  Ok: () => console.log("✅ Published"),
+  Error: (error) => console.error("❌ Failed:", error),
 }); // ✅ Automatic validation!
 
 // Cleanup managed for you
