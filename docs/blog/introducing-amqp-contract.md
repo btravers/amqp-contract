@@ -147,24 +147,22 @@ if (clientResult.isError()) {
 const client = clientResult.value;
 
 // ✅ Fully typed! TypeScript knows exactly what fields are required
-const result = await client
-  .publish("orderCreated", {
-    orderId: "ORD-123",
-    customerId: "CUST-456",
-    items: [
-      {
-        productId: "PROD-789",
-        quantity: 2,
-        price: 49.99,
-      },
-    ],
-    totalAmount: 99.98,
-    status: "pending",
-    // ✅ TypeScript will error if you forget a required field
-    // ✅ TypeScript will error if you use the wrong type
-    // ✅ Autocomplete shows you all available fields
-  })
-  .resultToPromise();
+const result = await client.publish("orderCreated", {
+  orderId: "ORD-123",
+  customerId: "CUST-456",
+  items: [
+    {
+      productId: "PROD-789",
+      quantity: 2,
+      price: 49.99,
+    },
+  ],
+  totalAmount: 99.98,
+  status: "pending",
+  // ✅ TypeScript will error if you forget a required field
+  // ✅ TypeScript will error if you use the wrong type
+  // ✅ Autocomplete shows you all available fields
+});
 
 // Explicit error handling with Result type
 result.match({
@@ -225,15 +223,13 @@ Messages are automatically validated at network boundaries using [Standard Schem
 
 ```typescript
 // If you try to publish invalid data, you get immediate feedback
-const result = await client
-  .publish("orderCreated", {
-    orderId: "ORD-123",
-    customerId: "CUST-456",
-    items: [],
-    totalAmount: -50, // ❌ Validation error - must be positive
-    status: "invalid", // ❌ Validation error - must be pending/processing/completed
-  })
-  .resultToPromise();
+const result = await client.publish("orderCreated", {
+  orderId: "ORD-123",
+  customerId: "CUST-456",
+  items: [],
+  totalAmount: -50, // ❌ Validation error - must be positive
+  status: "invalid", // ❌ Validation error - must be pending/processing/completed
+});
 
 result.match({
   Ok: () => {},

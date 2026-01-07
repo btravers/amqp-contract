@@ -326,15 +326,13 @@ if (clientResult.isError()) {
 const client = clientResult.get();
 
 // Publish new order with explicit error handling
-const result = await client
-  .publish("orderCreated", {
-    orderId: "ORD-001",
-    customerId: "CUST-123",
-    items: [{ productId: "PROD-A", quantity: 2, price: 29.99 }],
-    totalAmount: 59.98,
-    createdAt: new Date().toISOString(),
-  })
-  .resultToPromise();
+const result = await client.publish("orderCreated", {
+  orderId: "ORD-001",
+  customerId: "CUST-123",
+  items: [{ productId: "PROD-A", quantity: 2, price: 29.99 }],
+  totalAmount: 59.98,
+  createdAt: new Date().toISOString(),
+});
 
 result.match({
   Ok: () => console.log("Order published successfully"),
@@ -345,13 +343,11 @@ result.match({
 });
 
 // Publish status update
-const updateResult = await client
-  .publish("orderUpdated", {
-    orderId: "ORD-001",
-    status: "processing",
-    updatedAt: new Date().toISOString(),
-  })
-  .resultToPromise();
+const updateResult = await client.publish("orderUpdated", {
+  orderId: "ORD-001",
+  status: "processing",
+  updatedAt: new Date().toISOString(),
+});
 
 updateResult.match({
   Ok: () => console.log("Status update published"),

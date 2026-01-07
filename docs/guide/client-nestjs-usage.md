@@ -121,14 +121,12 @@ export class OrderService {
   async createOrder(customerId: string, amount: number, items: any[]) {
     const orderId = this.generateOrderId();
 
-    const result = await this.client
-      .publish("orderCreated", {
-        orderId,
-        customerId,
-        amount,
-        items,
-      })
-      .resultToPromise();
+    const result = await this.client.publish("orderCreated", {
+      orderId,
+      customerId,
+      amount,
+      items,
+    });
 
     result.match({
       Ok: () => console.log(`Order ${orderId} published`),

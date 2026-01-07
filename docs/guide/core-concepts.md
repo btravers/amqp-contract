@@ -69,13 +69,11 @@ if (clientResult.isError()) {
 
 const client = clientResult.get();
 
-const result = await client
-  .publish("orderCreated", {
-    orderId: "ORD-123", // ✅ TypeScript knows!
-    amount: 99.99, // ✅ TypeScript knows!
-    // invalid: true,     // ❌ TypeScript error!
-  })
-  .resultToPromise();
+const result = await client.publish("orderCreated", {
+  orderId: "ORD-123", // ✅ TypeScript knows!
+  amount: 99.99, // ✅ TypeScript knows!
+  // invalid: true,     // ❌ TypeScript error!
+});
 
 result.match({
   Ok: () => console.log("Published"),
@@ -94,12 +92,10 @@ Invalid messages are caught early with clear error messages.
 
 ```typescript
 // This returns a validation error (doesn't throw)
-const result = await client
-  .publish("orderCreated", {
-    orderId: "ORD-123",
-    amount: "not-a-number", // ❌ Validation error!
-  })
-  .resultToPromise();
+const result = await client.publish("orderCreated", {
+  orderId: "ORD-123",
+  amount: "not-a-number", // ❌ Validation error!
+});
 
 result.match({
   Ok: () => console.log("Published"),

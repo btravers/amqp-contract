@@ -84,12 +84,10 @@ const client = await TypedAmqpClient.create({
   urls: ["amqp://localhost"],
 }).resultToPromise();
 
-const result = await client
-  .publish("orderCreated", {
-    orderId: "ORD-123", // ✅ TypeScript knows!
-    amount: 99.99,
-  })
-  .resultToPromise();
+const result = await client.publish("orderCreated", {
+  orderId: "ORD-123", // ✅ TypeScript knows!
+  amount: 99.99,
+});
 
 // Handle errors explicitly using match pattern
 result.match({

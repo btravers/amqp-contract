@@ -155,13 +155,11 @@ const clientResult = await TypedAmqpClient.create({
 });
 
 const client = clientResult.get();
-const result = await client
-  .publish("orderCreated", {
-    orderId: "ORD-123", // ✅ TypeScript knows these fields!
-    customerId: "CUST-456", // ✅ Autocomplete works!
-    amount: 99.99, // ✅ Type checked at compile time!
-  })
-  .resultToPromise();
+const result = await client.publish("orderCreated", {
+  orderId: "ORD-123", // ✅ TypeScript knows these fields!
+  customerId: "CUST-456", // ✅ Autocomplete works!
+  amount: 99.99, // ✅ Type checked at compile time!
+});
 
 // 5. Consumer gets fully typed messages
 const worker = await TypedAmqpWorker.create({
@@ -183,13 +181,11 @@ Schema validation happens automatically at network boundaries:
 
 ```typescript
 // ✅ Validation happens automatically
-const result = await client
-  .publish("orderCreated", {
-    orderId: "ORD-123",
-    customerId: "CUST-456",
-    amount: -10, // ❌ Validation error: amount must be positive
-  })
-  .resultToPromise();
+const result = await client.publish("orderCreated", {
+  orderId: "ORD-123",
+  customerId: "CUST-456",
+  amount: -10, // ❌ Validation error: amount must be positive
+});
 
 result.match({
   Ok: () => console.log("Published"),

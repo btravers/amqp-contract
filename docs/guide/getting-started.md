@@ -190,17 +190,15 @@ async function main() {
     urls: ["amqp://localhost"],
   }).resultToPromise();
 
-  const result = await client
-    .publish("orderCreated", {
-      orderId: "ORD-123",
-      customerId: "CUST-456",
-      amount: 99.99,
-      items: [
-        { productId: "PROD-A", quantity: 2 },
-        { productId: "PROD-B", quantity: 1 },
-      ],
-    })
-    .resultToPromise();
+  const result = await client.publish("orderCreated", {
+    orderId: "ORD-123",
+    customerId: "CUST-456",
+    amount: 99.99,
+    items: [
+      { productId: "PROD-A", quantity: 2 },
+      { productId: "PROD-B", quantity: 1 },
+    ],
+  });
 
   result.match({
     Ok: () => console.log("✅ Order published!"),

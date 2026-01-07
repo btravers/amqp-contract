@@ -33,14 +33,12 @@ const client = clientResult.get();
 Publish messages with full type safety and explicit error handling:
 
 ```typescript
-const result = await client
-  .publish("orderCreated", {
-    orderId: "ORD-123",
-    customerId: "CUST-456",
-    amount: 99.99,
-    items: [{ productId: "PROD-A", quantity: 2 }],
-  })
-  .resultToPromise();
+const result = await client.publish("orderCreated", {
+  orderId: "ORD-123",
+  customerId: "CUST-456",
+  amount: 99.99,
+  items: [{ productId: "PROD-A", quantity: 2 }],
+});
 
 result.match({
   Ok: () => console.log("✅ Published"),
@@ -59,19 +57,19 @@ The client enforces:
 
 ```typescript
 // ❌ TypeScript error: 'unknownPublisher' not in contract
-const result = await client.publish('unknownPublisher', { ... }).resultToPromise();
+const result = await client.publish('unknownPublisher', { ... });
 
 // ❌ TypeScript error: missing required field
 const result = await client.publish('orderCreated', {
   customerId: 'CUST-456',
-}).resultToPromise();
+});
 
 // ❌ Runtime validation error returned in Result
 const result = await client.publish('orderCreated', {
   orderId: 123, // should be string
   customerId: 'CUST-456',
   amount: 99.99,
-}).resultToPromise();
+});
 
 result.match({
   Ok: () => console.log('Published'),
@@ -131,12 +129,10 @@ Errors are returned via `Result` types, not thrown:
 import { MessageValidationError, TechnicalError } from "@amqp-contract/client";
 import { match, P } from "ts-pattern";
 
-const result = await client
-  .publish("orderCreated", {
-    orderId: "ORD-123",
-    amount: 99.99,
-  })
-  .resultToPromise();
+const result = await client.publish("orderCreated", {
+  orderId: "ORD-123",
+  amount: 99.99,
+});
 
 result.match({
   Ok: () => console.log("✅ Published"),
