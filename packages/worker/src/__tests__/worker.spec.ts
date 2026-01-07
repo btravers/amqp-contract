@@ -612,7 +612,7 @@ describe("AmqpWorker Integration", () => {
     };
 
     // Create worker with mock logger
-    const workerResult = await TypedAmqpWorker.create({
+    const worker = await TypedAmqpWorker.create({
       contract,
       handlers: {
         testConsumer: (_msg) => {
@@ -654,6 +654,6 @@ describe("AmqpWorker Integration", () => {
     expect(mockLogger.warn).not.toHaveBeenCalled();
 
     // Clean up
-    await workerResult.close().resultToPromise();
+    await worker.close().resultToPromise();
   });
 });

@@ -14,7 +14,7 @@ Create a worker with type-safe message handlers:
 import { TypedAmqpWorker } from "@amqp-contract/worker";
 import { contract } from "./contract";
 
-const workerResult = await TypedAmqpWorker.create({
+const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => {
@@ -26,14 +26,9 @@ const workerResult = await TypedAmqpWorker.create({
     },
   },
   urls: ["amqp://localhost"],
-});
+}).resultToPromise();
 
-workerResult.match({
-  Ok: (worker) => console.log("✅ Worker ready!"),
-  Error: (error) => {
-    throw error;
-  },
-});
+console.log("✅ Worker ready!");
 ```
 
 The worker automatically connects and starts consuming messages from all queues.
@@ -43,7 +38,7 @@ The worker automatically connects and starts consuming messages from all queues.
 Handlers receive validated, fully-typed messages:
 
 ```typescript
-const workerResult = await TypedAmqpWorker.create({
+const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => {
@@ -58,7 +53,7 @@ const workerResult = await TypedAmqpWorker.create({
     },
   },
   connection,
-});
+}).resultToPromise();
 ```
 
 ### Type Safety
@@ -81,21 +76,16 @@ const workerResult = await TypedAmqpWorker.create({
 });
 
 // ✅ All handlers present
-const workerResult = await TypedAmqpWorker.create({
+const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => { ... },
     notifyOrder: async (message) => { ... },
   },
   urls: ['amqp://localhost'],
-});
+}).resultToPromise();
 
-workerResult.match({
-  Ok: (worker) => console.log('✅ All handlers present'),
-  Error: (error) => {
-    throw error;
-  },
-});
+console.log('✅ All handlers present');
 ```
 
 ## Defining Handlers Externally
@@ -257,7 +247,7 @@ const worker = await TypedAmqpWorker.create({
 For more control, use manual acknowledgment:
 
 ```typescript
-const workerResult = await TypedAmqpWorker.create({
+const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message, { ack, nack, reject }) => {
@@ -270,7 +260,7 @@ const workerResult = await TypedAmqpWorker.create({
     },
   },
   urls: ["amqp://localhost"],
-});
+}).resultToPromise();
 ```
 
 **Options:**

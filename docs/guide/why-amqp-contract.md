@@ -149,17 +149,18 @@ const contract = defineContract({
 });
 
 // 4. Publisher gets full type safety
-const clientResult = await TypedAmqpClient.create({
+const client = await TypedAmqpClient.create({
   contract,
   urls: ["amqp://localhost"],
-});
+}).resultToPromise();
 
-const client = clientResult.get();
-const result = await client.publish("orderCreated", {
-  orderId: "ORD-123", // ✅ TypeScript knows these fields!
-  customerId: "CUST-456", // ✅ Autocomplete works!
-  amount: 99.99, // ✅ Type checked at compile time!
-});
+await client
+  .publish("orderCreated", {
+    orderId: "ORD-123", // ✅ TypeScript knows these fields!
+    customerId: "CUST-456", // ✅ Autocomplete works!
+    amount: 99.99, // ✅ Type checked at compile time!
+  })
+  .resultToPromise();
 
 // 5. Consumer gets fully typed messages
 const worker = await TypedAmqpWorker.create({
