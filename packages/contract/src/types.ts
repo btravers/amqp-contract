@@ -436,7 +436,8 @@ export type RetryPolicy = {
    * - Sent to the dead letter exchange if configured on the queue
    * - Rejected (nacked without requeue) if no dead letter exchange
    *
-   * Set to 0 to disable retries (fail fast).
+   * Set to 1 to process once with no retries on failure (fail fast).
+   * Set to 0 to process once with no retries (effectively same as 1).
    * If not specified, retries infinitely (not recommended for production).
    */
   maxAttempts?: number;

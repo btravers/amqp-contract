@@ -16,7 +16,7 @@
     "setup": "pnpm install && pnpm build",
     "sort-package-json": "sort-package-json '**/package.json' '!**/node_modules/**'",
     "test": "turbo run test",
-    "test:integration": "turbo run test:integration",
+    "test:integration": "turbo run test:integration --concurrency=1",
     "typecheck": "turbo run typecheck",
     "version": "changeset version"
   },

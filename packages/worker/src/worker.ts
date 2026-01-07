@@ -590,18 +590,33 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           appId: msg.properties.appId,
         });
 
-        this.logger?.info("Message republished for retry", {
-          consumerName: String(consumerName),
-          queueName: consumer.queue.name,
-          attemptCount: newAttemptCount,
-          exchange,
-          routingKey,
-          published,
-        });
+        if (published) {
+          this.logger?.info("Message republished for retry", {
+            consumerName: String(consumerName),
+            queueName: consumer.queue.name,
+            attemptCount: newAttemptCount,
+            exchange,
+            routingKey,
+          });
+        } else {
+          // The message could not be queued because the channel write buffer is full.
+          // The original message has already been acknowledged, so this message is lost.
+          this.logger?.error(
+            "Failed to republish message for retry - channel write buffer full (message lost)",
+            {
+              consumerName: String(consumerName),
+              queueName: consumer.queue.name,
+              attemptCount: newAttemptCount,
+              exchange,
+              routingKey,
+            },
+          );
+        }
       } catch (error) {
         // The original message has already been acknowledged at this point.
         // We can only log the failure; it is not safe to nack after ack.
-        this.logger?.error("Failed to republish message for retry", {
+        // This represents permanent message loss.
+        this.logger?.error("Failed to republish message for retry (message lost)", {
           consumerName: String(consumerName),
           queueName: consumer.queue.name,
           attemptCount: newAttemptCount,

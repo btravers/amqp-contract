@@ -178,15 +178,18 @@ describe("Retry utilities", () => {
       });
     });
 
-    it("should disallow retry when max retries reached", () => {
+    it("should disallow retry when max attempts reached", () => {
       const policy: RetryPolicy = {
         maxAttempts: 3,
       };
 
+      // After 2 attempts (count 0, 1), we're about to do attempt 3
+      // With maxAttempts=3, this should be the last attempt
+      // So after it fails (count 2), we should NOT retry
       const msg = {
         properties: {
           headers: {
-            [RETRY_COUNT_HEADER]: 3,
+            [RETRY_COUNT_HEADER]: 2,
           },
         },
       } as unknown as Message;
@@ -196,7 +199,7 @@ describe("Retry utilities", () => {
       expect(result).toEqual({
         shouldRetry: false,
         delay: 0,
-        currentRetryCount: 3,
+        currentRetryCount: 2,
       });
     });
 

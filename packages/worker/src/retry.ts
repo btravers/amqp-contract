@@ -68,7 +68,7 @@ export function shouldRetry(
   const maxAttempts = policy.maxAttempts ?? Number.POSITIVE_INFINITY;
 
   // Check if performing the next attempt would exceed the attempt limit
-  if (currentRetryCount + 1 > maxAttempts) {
+  if (currentRetryCount + 1 >= maxAttempts) {
     return { shouldRetry: false, delay: 0, currentRetryCount };
   }
 

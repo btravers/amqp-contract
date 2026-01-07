@@ -231,8 +231,9 @@ describe("AmqpWorker Retry Integration", () => {
     // Wait a bit
     await new Promise((resolve) => setTimeout(resolve, 500));
 
-    // THEN - Handler should not be called at all (maxAttempts: 0 means no attempts)
-    expect(attemptCount).toBe(0);
+    // THEN - Handler called once (initial attempt), no retries
+    // Note: maxAttempts: 0 means "process once with no retries", not "never process"
+    expect(attemptCount).toBe(1);
   });
 
   it("should send to DLX when maxAttempts exceeded", async ({ workerFactory, publishMessage }) => {
