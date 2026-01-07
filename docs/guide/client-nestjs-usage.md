@@ -617,9 +617,10 @@ export class OrderEventService {
             "event-type": "OrderCancelled",
             "event-version": "1.0",
             "aggregate-id": orderId,
-          timestamp: new Date().toISOString(),
+            timestamp: new Date().toISOString(),
+          },
         },
-      })
+      )
       .resultToPromise();
 
     if (result.isError()) {

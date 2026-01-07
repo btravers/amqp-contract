@@ -147,18 +147,17 @@ if (clientResult.isError()) {
 const client = clientResult.value;
 
 // ✅ Fully typed! TypeScript knows exactly what fields are required
-const result = await client
-  .publish("orderCreated", {
-    orderId: "ORD-123",
-    customerId: "CUST-456",
-    items: [
-      {
-        productId: "PROD-789",
-        quantity: 2,
-        price: 49.99,
-      },
-    ],
-    totalAmount: 99.98,
+const result = await client.publish("orderCreated", {
+  orderId: "ORD-123",
+  customerId: "CUST-456",
+  items: [
+    {
+      productId: "PROD-789",
+      quantity: 2,
+      price: 49.99,
+    },
+  ],
+  totalAmount: 99.98,
   status: "pending",
   // ✅ TypeScript will error if you forget a required field
   // ✅ TypeScript will error if you use the wrong type
