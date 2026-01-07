@@ -84,8 +84,8 @@ Configure retry policies on consumers to prevent infinite retry loops and handle
 ```typescript
 const consumer = defineConsumer(queue, message, {
   retryPolicy: {
-    maxRetries: 3,
-    backoff: { type: "exponential", initialDelay: 1000 },
+    maxAttempts: 3,
+    backoff: { type: "exponential", initialInterval: 1000 },
   },
 });
 ```

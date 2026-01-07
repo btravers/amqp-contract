@@ -623,12 +623,12 @@ export function definePublisher<TMessage extends MessageDefinition>(
  * // Consumer with retry policy for production use
  * const robustConsumer = defineConsumer(orderQueue, orderMessage, {
  *   retryPolicy: {
- *     maxRetries: 3,
+ *     maxAttempts: 3,
  *     backoff: {
  *       type: 'exponential',
- *       initialDelay: 1000,
- *       maxDelay: 60000,
- *       multiplier: 2
+ *       initialInterval: 1000,
+ *       maxInterval: 60000,
+ *       coefficient: 2
  *     }
  *   }
  * });

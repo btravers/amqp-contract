@@ -508,12 +508,12 @@ export type RetryPolicy = {
  *   queue: orderProcessingQueue,
  *   message: orderMessage,
  *   retryPolicy: {
- *     maxRetries: 3,
+ *     maxAttempts: 3,
  *     backoff: {
  *       type: 'exponential',
- *       initialDelay: 1000,
- *       maxDelay: 60000,
- *       multiplier: 2
+ *       initialInterval: 1000,
+ *       maxInterval: 60000,
+ *       coefficient: 2
  *     }
  *   }
  * };
@@ -529,7 +529,7 @@ export type ConsumerDefinition<TMessage extends MessageDefinition = MessageDefin
   /**
    * Retry policy for handling failed message processing.
    *
-   * When configured, failed messages will be retried up to maxRetries times
+   * When configured, failed messages will be retried up to maxAttempts times
    * with optional exponential backoff between attempts. After exhausting retries,
    * messages will be sent to the dead letter exchange if configured on the queue,
    * or rejected without requeue.

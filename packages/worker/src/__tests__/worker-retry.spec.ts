@@ -55,7 +55,7 @@ const it = baseIt.extend<{
 });
 
 describe("AmqpWorker Retry Integration", () => {
-  it("should retry failed messages up to maxRetries limit", async ({
+  it("should retry failed messages up to maxAttempts limit", async ({
     workerFactory,
     publishMessage,
   }) => {
@@ -110,11 +110,11 @@ describe("AmqpWorker Retry Integration", () => {
       shouldFail: true,
     });
 
-    // Wait for retries to complete (3 retries + 1 initial attempt = 4 total)
+    // Wait for retries to complete
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
-    // THEN - Handler should be called maxRetries + 1 times (initial + 3 retries)
-    expect(attemptCount).toBe(4);
+    // THEN - Handler should be called maxAttempts times (3 attempts total)
+    expect(attemptCount).toBe(3);
   });
 
   it("should apply exponential backoff between retries", async ({
@@ -184,7 +184,7 @@ describe("AmqpWorker Retry Integration", () => {
     }
   });
 
-  it("should not retry when maxRetries is 0", async ({ workerFactory, publishMessage }) => {
+  it("should not retry when maxAttempts is 0", async ({ workerFactory, publishMessage }) => {
     // GIVEN
     const TestMessage = z.object({
       id: z.string(),
@@ -231,11 +231,11 @@ describe("AmqpWorker Retry Integration", () => {
     // Wait a bit
     await new Promise((resolve) => setTimeout(resolve, 500));
 
-    // THEN - Handler should only be called once (no retries)
-    expect(attemptCount).toBe(1);
+    // THEN - Handler should not be called at all (maxAttempts: 0 means no attempts)
+    expect(attemptCount).toBe(0);
   });
 
-  it("should send to DLX when maxRetries exceeded", async ({ workerFactory, publishMessage }) => {
+  it("should send to DLX when maxAttempts exceeded", async ({ workerFactory, publishMessage }) => {
     // GIVEN - Create main queue with DLX configured
     const TestMessage = z.object({
       id: z.string(),
@@ -306,7 +306,7 @@ describe("AmqpWorker Retry Integration", () => {
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
     // THEN
-    expect(mainAttemptCount).toBe(3); // 1 initial + 2 retries
+    expect(mainAttemptCount).toBe(2); // 2 attempts total
     expect(dlxMessages).toHaveLength(1);
     expect(dlxMessages[0]).toEqual({ id: "test-dlx-1" });
   });

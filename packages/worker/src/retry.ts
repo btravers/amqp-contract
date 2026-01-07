@@ -23,7 +23,7 @@ export function getRetryCount(msg: Message): number {
 
 /**
  * Calculate the interval before the next retry using the backoff strategy.
- * @param attemptNumber - Current attempt number (0 for first retry, 1 for second, etc.)
+ * @param attemptNumber - Current attempt index (0 for initial attempt, 1 for first retry, etc.)
  * @param policy - The retry policy configuration
  * @returns Interval in milliseconds
  * @internal
@@ -67,8 +67,8 @@ export function shouldRetry(
   const currentRetryCount = getRetryCount(msg);
   const maxAttempts = policy.maxAttempts ?? Number.POSITIVE_INFINITY;
 
-  // Check if we've exceeded the attempt limit
-  if (currentRetryCount >= maxAttempts) {
+  // Check if performing the next attempt would exceed the attempt limit
+  if (currentRetryCount + 1 > maxAttempts) {
     return { shouldRetry: false, delay: 0, currentRetryCount };
   }
 

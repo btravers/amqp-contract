@@ -141,9 +141,9 @@ const {
  * - Enables message retry and error handling strategies
  *
  * Retry Policy Pattern:
- * - Prevents infinite retry loops with maxRetries limit
+ * - Prevents infinite retry loops with maxAttempts limit
  * - Exponential backoff reduces load during outages
- * - Messages exceeding retry limit are sent to DLX for inspection
+ * - Messages exceeding attempt limit are sent to DLX for inspection
  */
 export const orderContract = defineContract({
   exchanges: {

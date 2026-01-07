@@ -113,7 +113,7 @@ describe("Retry utilities", () => {
       expect(calculateBackoffDelay(0, policy)).toBe(1000);
       expect(calculateBackoffDelay(1, policy)).toBe(2000);
       expect(calculateBackoffDelay(2, policy)).toBe(4000);
-      expect(calculateBackoffDelay(3, policy)).toBe(5000); // Capped at maxDelay
+      expect(calculateBackoffDelay(3, policy)).toBe(5000); // Capped at maxInterval
       expect(calculateBackoffDelay(10, policy)).toBe(5000); // Still capped
     });
 
@@ -125,7 +125,7 @@ describe("Retry utilities", () => {
         },
       };
 
-      // Default: initialDelay=1000, multiplier=2, maxDelay=60000
+      // Default: initialInterval=1000, coefficient=2, maxInterval=60000
       expect(calculateBackoffDelay(0, policy)).toBe(1000);
       expect(calculateBackoffDelay(1, policy)).toBe(2000);
     });
