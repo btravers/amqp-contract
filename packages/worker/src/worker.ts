@@ -189,17 +189,13 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    *
    * @example
    * ```typescript
-   * const workerResult = await TypedAmqpWorker.create({
+   * const worker = await TypedAmqpWorker.create({
    *   contract: myContract,
    *   handlers: {
    *     processOrder: async (msg) => console.log('Order:', msg.orderId)
    *   },
    *   urls: ['amqp://localhost']
    * }).resultToPromise();
-   *
-   * if (workerResult.isError()) {
-   *   console.error('Failed to create worker:', workerResult.error);
-   * }
    * ```
    */
   static create<TContract extends ContractDefinition>({

@@ -18,16 +18,11 @@ This package demonstrates the **recommended approach** for defining contracts:
 import { contract } from "@amqp-contract-samples/basic-order-processing-contract";
 import { TypedAmqpClient } from "@amqp-contract/client";
 
-const clientResult = await TypedAmqpClient.create({
+const client = await TypedAmqpClient.create({
   contract,
   urls: ["amqp://localhost"],
-});
+}).resultToPromise();
 
-if (clientResult.isError()) {
-  throw clientResult.error; // Handle connection error
-}
-
-const client = clientResult.get();
 await client
   .publish("orderCreated", {
     /* fully typed */

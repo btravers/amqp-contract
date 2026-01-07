@@ -234,16 +234,12 @@ packages/[package-name]/
      constructor(private readonly amqpClient: AmqpClientService<typeof contract>) {}
 
      async createOrder(order: Order) {
-       const result = await this.amqpClient
+       await this.amqpClient
          .publish("orderCreated", {
            orderId: order.id,
            amount: order.total,
          })
          .resultToPromise();
-
-       if (result.isError()) {
-         throw new Error("Failed to publish order event");
-       }
      }
    }
    ```

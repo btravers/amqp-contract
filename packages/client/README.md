@@ -23,18 +23,10 @@ import { TypedAmqpClient } from "@amqp-contract/client";
 import { contract } from "./contract";
 
 // Create client from contract (automatically connects and waits for connection)
-const clientResult = await TypedAmqpClient.create({
+const client = await TypedAmqpClient.create({
   contract,
   urls: ["amqp://localhost"],
-});
-
-// Handle connection errors
-if (clientResult.isError()) {
-  console.error("Failed to create client:", clientResult.error);
-  throw clientResult.error; // or handle appropriately
-}
-
-const client = clientResult.get();
+}).resultToPromise();
 
 // Publish message with explicit error handling
 const result = await client
@@ -43,13 +35,6 @@ const result = await client
     amount: 99.99,
   })
   .resultToPromise();
-
-// Handle errors explicitly - no exceptions thrown
-if (result.isError()) {
-  console.error("Failed to publish:", result.error);
-  // result.error is either TechnicalError or MessageValidationError
-  return;
-}
 
 console.log("Published successfully");
 

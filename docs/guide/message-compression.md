@@ -125,7 +125,7 @@ export class OrderService {
 
   async publishLargeOrder(order: Order) {
     // Compress large messages
-    const result = await this.amqpClient
+    await this.amqpClient
       .publish(
         "orderCreated",
         {
@@ -139,24 +139,16 @@ export class OrderService {
         },
       )
       .resultToPromise();
-
-    if (result.isError()) {
-      throw new Error(`Failed to publish: ${result.error.message}`);
-    }
   }
 
   async publishSmallOrder(order: Order) {
     // Skip compression for small messages
-    const result = await this.amqpClient
+    await this.amqpClient
       .publish("orderCreated", {
         orderId: order.id,
         items: [], // Empty or small
       })
       .resultToPromise(); // No compression
-
-    if (result.isError()) {
-      throw new Error(`Failed to publish: ${result.error.message}`);
-    }
   }
 }
 ```
@@ -262,16 +254,11 @@ client.publish("event", data, { compression: "deflate" });
 Compression errors are returned in the Result type:
 
 ```typescript
-const result = await client
+await client
   .publish("event", data, {
     compression: "gzip",
   })
   .resultToPromise();
-
-if (result.isError()) {
-  console.error("Failed to publish:", result.error);
-  // Error could be validation error, compression error, or network error
-}
 ```
 
 ### Decompression Errors

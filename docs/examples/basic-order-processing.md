@@ -313,17 +313,10 @@ The client is in a separate package (`@amqp-contract-samples/basic-order-process
 import { TypedAmqpClient } from "@amqp-contract/client";
 import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
 
-const clientResult = await TypedAmqpClient.create({
+const client = await TypedAmqpClient.create({
   contract: orderContract,
   urls: ["amqp://localhost"],
-});
-
-if (clientResult.isError()) {
-  console.error("Failed to create client:", clientResult.error);
-  throw clientResult.error;
-}
-
-const client = clientResult.get();
+}).resultToPromise();
 
 // Publish new order with explicit error handling
 const result = await client.publish("orderCreated", {

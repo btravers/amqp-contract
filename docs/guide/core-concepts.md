@@ -58,16 +58,10 @@ const contract = defineContract({
 });
 
 // 5. Client knows exact types
-const clientResult = await TypedAmqpClient.create({
+const client = await TypedAmqpClient.create({
   contract,
   urls: ["amqp://localhost"],
-});
-
-if (clientResult.isError()) {
-  throw clientResult.error; // Handle connection error
-}
-
-const client = clientResult.get();
+}).resultToPromise();
 
 const result = await client.publish("orderCreated", {
   orderId: "ORD-123", // ✅ TypeScript knows!

@@ -7,15 +7,10 @@ import { orderContract } from "@amqp-contract-samples/basic-order-processing-con
 describe("Basic Order Processing Client Integration", () => {
   it("should publish a new order successfully", async ({ amqpConnectionUrl }) => {
     // GIVEN
-    const clientResult = await TypedAmqpClient.create({
+    const client = await TypedAmqpClient.create({
       contract: orderContract,
       urls: [amqpConnectionUrl],
-    });
-
-    if (clientResult.isError()) {
-      throw clientResult.error;
-    }
-    const client = clientResult.value;
+    }).resultToPromise();
 
     const newOrder = {
       orderId: "TEST-001",
@@ -40,15 +35,10 @@ describe("Basic Order Processing Client Integration", () => {
 
   it("should publish order status updates", async ({ amqpConnectionUrl }) => {
     // GIVEN
-    const clientResult = await TypedAmqpClient.create({
+    const client = await TypedAmqpClient.create({
       contract: orderContract,
       urls: [amqpConnectionUrl],
-    });
-
-    if (clientResult.isError()) {
-      throw clientResult.error;
-    }
-    const client = clientResult.value;
+    }).resultToPromise();
 
     const orderUpdate = {
       orderId: "TEST-001",
@@ -68,15 +58,10 @@ describe("Basic Order Processing Client Integration", () => {
 
   it("should validate order schema before publishing", async ({ amqpConnectionUrl }) => {
     // GIVEN
-    const clientResult = await TypedAmqpClient.create({
+    const client = await TypedAmqpClient.create({
       contract: orderContract,
       urls: [amqpConnectionUrl],
-    });
-
-    if (clientResult.isError()) {
-      throw clientResult.error;
-    }
-    const client = clientResult.value;
+    }).resultToPromise();
 
     const invalidOrder = {
       orderId: "TEST-001",
