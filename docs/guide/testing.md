@@ -258,7 +258,7 @@ The RabbitMQ container is configured with:
 
 - **Image**: `rabbitmq:4.2.1-management-alpine` (default)
   - Can be configured via `RABBITMQ_IMAGE` environment variable
-  - In CI on main branch, uses `ghcr.io/btravers/amqp-contract/rabbitmq:latest` to avoid Docker Hub rate limits and enable faster image pulls from the same registry
+  - In CI on main branch (after merge), uses `ghcr.io/btravers/amqp-contract/rabbitmq:latest` to avoid Docker Hub rate limits
 - **Ports**:
   - 5672 (AMQP)
   - 15672 (Management console)

@@ -7,8 +7,9 @@
  *
  * The RabbitMQ image can be configured via the `RABBITMQ_IMAGE` environment variable.
  * By default, it uses the public Docker Hub image (`rabbitmq:4.2.1-management-alpine`).
- * In CI environments, you can set it to use the GitHub Container Registry image for
- * faster and more reliable builds.
+ * In CI environments (for example, on the main branch), you can point this variable
+ * to a GitHub Container Registry image so tests run against the same image that your
+ * pipeline builds and publishes.
  *
  * @module global-setup
  * @packageDocumentation

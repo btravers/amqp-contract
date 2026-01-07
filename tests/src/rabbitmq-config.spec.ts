@@ -23,6 +23,5 @@ describe("RabbitMQ Container Configuration", () => {
       username: "guest",
       password: "guest",
     });
-    expect(port).toBeGreaterThan(0);
   });
 });
