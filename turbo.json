@@ -10,17 +10,15 @@
       "dependsOn": ["^build"]
     },
     "test": {
-      "dependsOn": ["build"],
-      "cache": false
+      "dependsOn": ["^build"]
     },
     "test:integration": {
-      "dependsOn": ["build"],
-      "cache": false
+      "dependsOn": ["^build"]
     },
     "dev": {
+      "dependsOn": ["^build"],
       "cache": false,
-      "persistent": true,
-      "dependsOn": ["^build"]
+      "persistent": true
     },
     "build": {
       "dependsOn": ["^build"],
