@@ -12,6 +12,14 @@ export default withMermaid(
     base: "/amqp-contract/",
     lang: "en-US",
 
+    ignoreDeadLinks: [
+      // Ignore localhost links as they're for development examples
+      /^http:\/\/localhost/,
+      // API docs are generated separately and may not exist during build
+      /^\/api\//,
+      /^\.\/.*\/index$/,
+    ],
+
     sitemap: {
       hostname: "https://btravers.github.io/amqp-contract/",
     },
