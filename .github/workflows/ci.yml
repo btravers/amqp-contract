@@ -145,14 +145,14 @@ jobs:
           echo "Waiting for Docker image to be built..."
           # Give the Docker workflow more time to start and build the image before polling
           sleep 180
-          
+
           # Determine which image tag to poll for
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             IMAGE_TAG="pr-${{ github.event.pull_request.number }}"
           else
             IMAGE_TAG="latest"
           fi
-          
+
           # Poll for image availability
           for i in {1..30}; do
             if docker pull ghcr.io/${{ github.repository }}/rabbitmq:${IMAGE_TAG} 2>/dev/null; then
