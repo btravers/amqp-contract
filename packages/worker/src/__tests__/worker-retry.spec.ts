@@ -12,23 +12,13 @@ import { it } from "./context.js";
 import { z } from "zod";
 
 describe("AmqpWorker Retry Integration", () => {
-  // TODO: Fix async republishing in integration tests
-  // The retry logic is correctly implemented and unit tested, but there's an issue with
-  // how messages republished via channel.publish() inside the async void IIFE interact
-  // with the active consumer in integration tests. Messages are ACKed immediately and
-  // scheduled for republish, but the republished messages aren't being re-consumed.
-  // This needs investigation into the timing/state management between:
-  // 1. Immediate ACK of the original message
-  // 2. Async republishing after backoff interval via ChannelWrapper.publish()
-  // 3. Consumer picking up the republished message from the queue
-  it.skip("should retry failed messages up to maxAttempts limit", async ({
+  it("should retry failed messages up to maxAttempts limit", async ({
     workerFactory,
     publishMessage,
   }) => {
     // GIVEN
     const TestMessage = z.object({
       id: z.string(),
-      shouldFail: z.boolean(),
     });
 
     const exchange = defineExchange("retry-test-exchange", "topic", { durable: false });
@@ -59,31 +49,29 @@ describe("AmqpWorker Retry Integration", () => {
     });
 
     let attemptCount = 0;
-    const handler = vi.fn(async (msg: { id: string; shouldFail: boolean }) => {
-      attemptCount++;
-      if (msg.shouldFail) {
-        throw new Error("Simulated failure");
-      }
-    });
-
     await workerFactory(contract, {
-      testConsumer: handler,
+      testConsumer: () => {
+        attemptCount++;
+        throw new Error("Simulated failure");
+      },
     });
 
     // WHEN - Publish a message that will fail
-    await publishMessage("retry-test-exchange", "test.message", {
+    publishMessage("retry-test-exchange", "test.message", {
       id: "test-1",
-      shouldFail: true,
     });
 
-    // Wait for retries to complete
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
     // THEN - Handler should be called maxAttempts times (3 attempts total)
+    await vi.waitFor(() => {
+      if (attemptCount < 3) {
+        throw new Error("Not enough attempts yet");
+      }
+    });
+
     expect(attemptCount).toBe(3);
   });
 
-  it.skip("should apply exponential backoff between retries", async ({
+  it("should apply exponential backoff between retries", async ({
     workerFactory,
     publishMessage,
   }) => {
@@ -121,24 +109,25 @@ describe("AmqpWorker Retry Integration", () => {
     });
 
     const timestamps: number[] = [];
-    const handler = vi.fn(async () => {
-      timestamps.push(Date.now());
-      throw new Error("Simulated failure");
-    });
-
     await workerFactory(contract, {
-      testConsumer: handler,
+      testConsumer: () => {
+        timestamps.push(Date.now());
+        throw new Error("Simulated failure");
+      },
     });
 
     // WHEN
-    await publishMessage("backoff-test-exchange", "test.message", {
+    publishMessage("backoff-test-exchange", "test.message", {
       id: "test-1",
     });
 
-    // Wait for all retries
-    await new Promise((resolve) => setTimeout(resolve, 3000));
-
     // THEN - Verify exponential backoff delays
+    await vi.waitFor(() => {
+      if (timestamps.length < 3) {
+        throw new Error("Not enough attempts yet");
+      }
+    });
+
     expect(timestamps.length).toBeGreaterThanOrEqual(3);
     const [ts0, ts1, ts2] = timestamps;
     if (ts0 !== undefined && ts1 !== undefined && ts2 !== undefined) {
@@ -180,32 +169,30 @@ describe("AmqpWorker Retry Integration", () => {
     });
 
     let attemptCount = 0;
-    const handler = vi.fn(async () => {
-      attemptCount++;
-      throw new Error("Simulated failure");
-    });
-
     await workerFactory(contract, {
-      testConsumer: handler,
+      testConsumer: () => {
+        attemptCount++;
+        throw new Error("Simulated failure");
+      },
     });
 
     // WHEN
-    await publishMessage("no-retry-exchange", "test.message", {
+    publishMessage("no-retry-exchange", "test.message", {
       id: "test-1",
     });
 
-    // Wait a bit
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
     // THEN - Handler called once (initial attempt), no retries
     // Note: maxAttempts: 0 means "process once with no retries", not "never process"
+    await vi.waitFor(() => {
+      if (attemptCount < 1) {
+        throw new Error("Not enough attempts yet");
+      }
+    });
+
     expect(attemptCount).toBe(1);
   });
 
-  it.skip("should send to DLX when maxAttempts exceeded", async ({
-    workerFactory,
-    publishMessage,
-  }) => {
+  it("should send to DLX when maxAttempts exceeded", async ({ workerFactory, publishMessage }) => {
     // GIVEN - Create main queue with DLX configured
     const TestMessage = z.object({
       id: z.string(),
@@ -258,30 +245,33 @@ describe("AmqpWorker Retry Integration", () => {
     const dlxMessages: Array<{ id: string }> = [];
 
     await workerFactory(contract, {
-      mainConsumer: async () => {
+      mainConsumer: () => {
         mainAttemptCount++;
         throw new Error("Simulated failure");
       },
-      dlxConsumer: async (msg) => {
+      dlxConsumer: (msg) => {
         dlxMessages.push(msg);
+        return Promise.resolve();
       },
     });
 
     // WHEN
-    await publishMessage("main-exchange", "test.message", {
+    publishMessage("main-exchange", "test.message", {
       id: "test-dlx-1",
     });
 
-    // Wait for retries and DLX routing
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
     // THEN
+    await vi.waitFor(() => {
+      if (mainAttemptCount < 2) {
+        throw new Error("Not enough attempts yet");
+      }
+    });
+
     expect(mainAttemptCount).toBe(2); // 2 attempts total
-    expect(dlxMessages).toHaveLength(1);
-    expect(dlxMessages[0]).toEqual({ id: "test-dlx-1" });
+    expect(dlxMessages).toEqual([{ id: "test-dlx-1" }]);
   });
 
-  it.skip("should successfully process message after transient failure", async ({
+  it("should successfully process message after transient failure", async ({
     workerFactory,
     publishMessage,
   }) => {
@@ -320,31 +310,32 @@ describe("AmqpWorker Retry Integration", () => {
 
     let attemptCount = 0;
     const successfulMessages: Array<{ id: string; value: number }> = [];
-    const handler = vi.fn(async (msg: { id: string; value: number }) => {
-      attemptCount++;
-      // Fail first 2 attempts, succeed on 3rd
-      if (attemptCount < 3) {
-        throw new Error("Transient failure");
-      }
-      successfulMessages.push(msg);
-    });
-
     await workerFactory(contract, {
-      testConsumer: handler,
+      testConsumer: (msg: { id: string; value: number }) => {
+        attemptCount++;
+        // Fail first 2 attempts, succeed on 3rd
+        if (attemptCount < 3) {
+          throw new Error("Transient failure");
+        }
+        successfulMessages.push(msg);
+        return Promise.resolve();
+      },
     });
 
     // WHEN
-    await publishMessage("transient-exchange", "test.message", {
+    publishMessage("transient-exchange", "test.message", {
       id: "test-transient",
       value: 42,
     });
 
-    // Wait for retries
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
     // THEN - Message should eventually succeed
+    await vi.waitFor(() => {
+      if (attemptCount < 3) {
+        throw new Error("Not enough attempts yet");
+      }
+    });
+
     expect(attemptCount).toBe(3);
-    expect(successfulMessages).toHaveLength(1);
-    expect(successfulMessages[0]).toEqual({ id: "test-transient", value: 42 });
+    expect(successfulMessages).toEqual([{ id: "test-transient", value: 42 }]);
   });
 });
