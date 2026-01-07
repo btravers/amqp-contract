@@ -305,8 +305,9 @@ Each can be used independently or together.
 ```typescript
 import { TypedAmqpClient } from '@amqp-contract/client';
 
-const client = await TypedAmqpClient.create({ contract, urls });
-await client.publish('orderCreated', { ... });
+const client = await TypedAmqpClient.create({ contract, urls }).resultToPromise();
+
+await client.publish('orderCreated', { ... }).resultToPromise();
 ```
 
 **Use case**: API services, webhook handlers, event publishers

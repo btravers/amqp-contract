@@ -47,26 +47,40 @@ const clientResult = await TypedAmqpClient.create({
 const client = clientResult.get();
 
 // Publish with gzip compression
-await client.publish("orderCreated", {
-  orderId: "ORD-123",
-  items: [...], // Large array of items
-}, {
-  compression: "gzip"
-}).resultToPromise();
+await client
+  .publish(
+    "orderCreated",
+    {
+      orderId: "ORD-123",
+      items: [...], // Large array of items
+    },
+    {
+      compression: "gzip",
+    },
+  )
+  .resultToPromise();
 
 // Publish with deflate compression
-await client.publish("orderCreated", {
-  orderId: "ORD-124",
-  items: [...],
-}, {
-  compression: "deflate"
-}).resultToPromise();
+await client
+  .publish(
+    "orderCreated",
+    {
+      orderId: "ORD-124",
+      items: [...],
+    },
+    {
+      compression: "deflate",
+    },
+  )
+  .resultToPromise();
 
 // Publish without compression
-await client.publish("orderCreated", {
-  orderId: "ORD-125",
-  items: [],
-});
+await client
+  .publish("orderCreated", {
+    orderId: "ORD-125",
+    items: [],
+  })
+  .resultToPromise();
 ```
 
 ### Consuming Compressed Messages
@@ -303,9 +317,11 @@ function shouldCompress(message: unknown): boolean {
   return JSON.stringify(message).length > SIZE_THRESHOLD;
 }
 
-await client.publish("event", data, {
-  compression: shouldCompress(data) ? "gzip" : undefined,
-});
+await client
+  .publish("event", data, {
+    compression: shouldCompress(data) ? "gzip" : undefined,
+  })
+  .resultToPromise();
 ```
 
 ### 3. Monitor Performance

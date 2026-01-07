@@ -80,8 +80,9 @@ When implementing the contract, we use our terms:
 
 ```typescript
 // Client = runtime publisher
-const client = await TypedAmqpClient.create({ contract, urls });
-await client.publish("orderCreated", message);
+const client = await TypedAmqpClient.create({ contract, urls }).resultToPromise();
+
+await client.publish("orderCreated", message).resultToPromise();
 
 // Worker = runtime consumer
 const worker = await TypedAmqpWorker.create({
@@ -92,7 +93,7 @@ const worker = await TypedAmqpWorker.create({
     },
   },
   urls,
-});
+}).resultToPromise();
 ```
 
 These terms (`TypedAmqpClient`, `TypedAmqpWorker`) describe the **runtime components** that implement the contract.
@@ -148,14 +149,15 @@ await publisher.publish(exchange, routingKey, message);
 const consumer = await createConsumer(queue, handler);
 
 // amqp-contract uses:
-const client = await TypedAmqpClient.create({ contract, urls });
-await client.publish("orderCreated", message);
+const client = await TypedAmqpClient.create({ contract, urls }).resultToPromise();
+
+await client.publish("orderCreated", message).resultToPromise();
 
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: { processOrder: handler },
   urls,
-});
+}).resultToPromise();
 ```
 
 The functionality is identical; only the naming differs.

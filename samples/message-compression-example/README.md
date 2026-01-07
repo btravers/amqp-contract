@@ -88,17 +88,21 @@ Compression is chosen when publishing, not when defining the contract:
 
 ```typescript
 // No compression
-await client.publish("largeData", payload);
+await client.publish("largeData", payload).resultToPromise();
 
 // With GZIP compression
-await client.publish("largeData", payload, {
-  compression: "gzip",
-});
+await client
+  .publish("largeData", payload, {
+    compression: "gzip",
+  })
+  .resultToPromise();
 
 // With DEFLATE compression
-await client.publish("largeData", payload, {
-  compression: "deflate",
-});
+await client
+  .publish("largeData", payload, {
+    compression: "deflate",
+  })
+  .resultToPromise();
 ```
 
 ### Automatic Decompression

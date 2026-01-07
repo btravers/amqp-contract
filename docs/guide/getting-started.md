@@ -185,17 +185,10 @@ import { TypedAmqpClient } from "@amqp-contract/client";
 import { contract } from "./contract";
 
 async function main() {
-  const clientResult = await TypedAmqpClient.create({
+  const client = await TypedAmqpClient.create({
     contract,
     urls: ["amqp://localhost"],
-  });
-
-  if (clientResult.isError()) {
-    console.error("Failed to create client:", clientResult.error);
-    throw clientResult.error;
-  }
-
-  const client = clientResult.get();
+  }).resultToPromise();
 
   const result = await client.publish("orderCreated", {
     orderId: "ORD-123",
@@ -228,7 +221,7 @@ import { TypedAmqpWorker } from "@amqp-contract/worker";
 import { contract } from "./contract";
 
 async function main() {
-  const workerResult = await TypedAmqpWorker.create({
+  const worker = await TypedAmqpWorker.create({
     contract,
     handlers: {
       processOrder: async (message) => {
@@ -244,16 +237,9 @@ async function main() {
       },
     },
     urls: ["amqp://localhost"],
-  });
+  }).resultToPromise();
 
-  workerResult.match({
-    Ok: (worker) => {
-      console.log("✅ Worker ready, waiting for messages...");
-    },
-    Error: (error) => {
-      throw error;
-    },
-  });
+  console.log("✅ Worker ready, waiting for messages...");
 }
 
 main();

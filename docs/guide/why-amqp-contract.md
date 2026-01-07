@@ -162,7 +162,7 @@ const result = await client.publish("orderCreated", {
 });
 
 // 5. Consumer gets fully typed messages
-const workerResult = await TypedAmqpWorker.create({
+const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => {
@@ -172,7 +172,7 @@ const workerResult = await TypedAmqpWorker.create({
     },
   },
   urls: ["amqp://localhost"],
-});
+}).resultToPromise();
 ```
 
 ### 2. Automatic Validation
@@ -199,17 +199,21 @@ TypeScript catches errors before runtime:
 
 ```typescript
 // ❌ TypeScript error at compile time
-await client.publish("orderCreated", {
-  orderId: "ORD-123",
-  // Missing customerId and amount - TypeScript error!
-});
+await client
+  .publish("orderCreated", {
+    orderId: "ORD-123",
+    // Missing customerId and amount - TypeScript error!
+  })
+  .resultToPromise();
 
 // ❌ TypeScript error for wrong types
-await client.publish("orderCreated", {
-  orderId: 123, // Error: orderId must be string
-  customerId: "CUST-456",
-  amount: 99.99,
-});
+await client
+  .publish("orderCreated", {
+    orderId: 123, // Error: orderId must be string
+    customerId: "CUST-456",
+    amount: 99.99,
+  })
+  .resultToPromise();
 ```
 
 ### 4. Single Source of Truth

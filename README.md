@@ -79,11 +79,10 @@ const contract = defineContract({
 });
 
 // 6. Client - type-safe publishing with explicit error handling
-const clientResult = await TypedAmqpClient.create({ contract, connection });
-if (clientResult.isError()) {
-  throw clientResult.error; // or handle error appropriately
-}
-const client = clientResult.get();
+const client = await TypedAmqpClient.create({
+  contract,
+  urls: ["amqp://localhost"],
+}).resultToPromise();
 
 const result = await client.publish("orderCreated", {
   orderId: "ORD-123", // ✅ TypeScript knows!
@@ -107,8 +106,8 @@ const worker = await TypedAmqpWorker.create({
       console.log(message.orderId); // ✅ TypeScript knows!
     },
   },
-  connection,
-});
+  urls: ["amqp://localhost"],
+}).resultToPromise();
 ```
 
 > **Note**: If your application both publishes and consumes messages, see the [Architecture Review](docs/review/2025-12-25-architecture-review.md#3-connection-sharing-analysis) for connection sharing strategies to optimize resource usage.
@@ -144,12 +143,12 @@ import { contract } from "./contract";
           console.log("Processing:", message.orderId);
         },
       },
-      connection: "amqp://localhost",
+      urls: ["amqp://localhost"],
     }),
     // Client for publishing messages
     AmqpClientModule.forRoot({
       contract,
-      connection: "amqp://localhost",
+      urls: ["amqp://localhost"],
     }),
   ],
 })

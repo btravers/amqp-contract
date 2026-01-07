@@ -117,7 +117,7 @@ import { contract } from "./contract";
           // Your business logic here
         },
       },
-      connection: "amqp://localhost",
+      urls: ["amqp://localhost"],
     }),
   ],
 })
@@ -192,7 +192,7 @@ import { OrderService } from "./order.service";
             }
           },
         },
-        connection: "amqp://localhost",
+        urls: ["amqp://localhost"],
       }),
       inject: [OrderService],
     }),
@@ -230,7 +230,7 @@ import { OrderService } from "./order.service";
             }
           },
         },
-        connection: configService.get("RABBITMQ_URL") || "amqp://localhost",
+        urls: [configService.get("RABBITMQ_URL") ?? "amqp://localhost"],
       }),
       inject: [ConfigService, OrderService],
     }),
@@ -261,7 +261,7 @@ AmqpWorkerModule.forRoot({
       // Message is automatically acked if no error is thrown
     },
   },
-  connection: "amqp://localhost",
+  urls: ["amqp://localhost"],
 });
 ```
 
@@ -286,7 +286,7 @@ AmqpWorkerModule.forRoot({
       }
     },
   },
-  connection: "amqp://localhost",
+  urls: ["amqp://localhost"],
 });
 ```
 
@@ -339,7 +339,7 @@ AmqpWorkerModule.forRootAsync({
         }
       },
     },
-    connection: "amqp://localhost",
+    urls: ["amqp://localhost"],
   }),
   inject: [OrderService],
 });
@@ -385,7 +385,7 @@ Create separate modules for different domains:
           // Handle order processing
         },
       },
-      connection: "amqp://localhost",
+      urls: ["amqp://localhost"],
     }),
   ],
 })
@@ -401,7 +401,7 @@ export class OrderWorkerModule {}
           // Handle payment processing
         },
       },
-      connection: "amqp://localhost",
+      urls: ["amqp://localhost"],
     }),
   ],
 })
@@ -671,7 +671,7 @@ import { OrderService, BusinessRuleError, TemporaryError } from "./order.service
             }
           },
         },
-        connection: configService.get("RABBITMQ_URL") || "amqp://localhost",
+        urls: [configService.get("RABBITMQ_URL") ?? "amqp://localhost"],
       }),
       inject: [ConfigService, OrderService],
     }),

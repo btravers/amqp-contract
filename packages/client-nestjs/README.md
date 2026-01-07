@@ -27,7 +27,7 @@ import { contract } from "./contract";
   imports: [
     AmqpClientModule.forRoot({
       contract,
-      connection: "amqp://localhost",
+      urls: ["amqp://localhost"],
     }),
   ],
 })
@@ -38,7 +38,7 @@ export class OrderService {
   constructor(private readonly client: AmqpClientService<typeof contract>) {}
 
   async createOrder(orderId: string, amount: number) {
-    await this.client.publish("orderCreated", { orderId, amount });
+    await this.client.publish("orderCreated", { orderId, amount }).resultToPromise();
   }
 }
 ```

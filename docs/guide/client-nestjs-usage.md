@@ -97,7 +97,7 @@ import { contract } from "./contract";
   imports: [
     AmqpClientModule.forRoot({
       contract,
-      connection: "amqp://localhost",
+      urls: ["amqp://localhost"],
     }),
   ],
 })
@@ -121,7 +121,7 @@ export class OrderService {
   async createOrder(customerId: string, amount: number, items: any[]) {
     const orderId = this.generateOrderId();
 
-    const result = this.client.publish("orderCreated", {
+    const result = await this.client.publish("orderCreated", {
       orderId,
       customerId,
       amount,
@@ -177,28 +177,51 @@ That's it! The client automatically connects when the application starts and dis
 
 ## Configuration with Environment Variables
 
-Use `@nestjs/config` for environment-based configuration:
+Use `@nestjs/config` with `registerAs` and Zod for type-safe configuration:
 
 ```typescript
 import { Module } from "@nestjs/common";
-import { ConfigModule, ConfigService } from "@nestjs/config";
+import { ConfigModule } from "@nestjs/config";
 import { AmqpClientModule } from "@amqp-contract/client-nestjs";
 import { contract } from "./contract";
+import { amqpConfig } from "./config/amqp.config";
 
 @Module({
   imports: [
-    ConfigModule.forRoot(),
+    ConfigModule.forRoot({
+      load: [amqpConfig],
+    }),
     AmqpClientModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
+      useFactory: () => ({
         contract,
-        connection: configService.get("RABBITMQ_URL") || "amqp://localhost",
+        urls: [amqpConfig().url],
       }),
-      inject: [ConfigService],
     }),
   ],
 })
 export class AppModule {}
+```
+
+Create a config file with Zod validation:
+
+```typescript
+// config/amqp.config.ts
+import { registerAs } from "@nestjs/config";
+import { z } from "zod";
+
+const amqpConfigSchema = z.object({
+  url: z.string().url().default("amqp://localhost"),
+});
+
+export const amqpConfig = registerAs("amqp", () => {
+  const config = amqpConfigSchema.parse({
+    url: process.env.RABBITMQ_URL,
+  });
+  return config;
+});
+
+export type AmqpConfig = z.infer<typeof amqpConfigSchema>;
 ```
 
 Then set the environment variable:
@@ -476,10 +499,13 @@ export const orderRouter = initServer.router({
 
       const orderId = generateOrderId();
 
-      await client.publish("orderCreated", {
-        orderId,
-        ...input,
-      });
+      await client
+        .publish("orderCreated", {
+          orderId,
+          ...input,
+        })
+        .mapError((error) => new Error(`Failed to publish order: ${error.message}`))
+        .resultToPromise();
 
       return {
         orderId,
@@ -499,7 +525,7 @@ import { OrderService } from "./order.service";
   imports: [
     AmqpClientModule.forRoot({
       contract,
-      connection: "amqp://localhost",
+      urls: ["amqp://localhost"],
     }),
   ],
   controllers: [OrderController],
@@ -559,47 +585,53 @@ export class OrderEventService {
   async publishOrderCreated(order: any) {
     this.logger.log(`Publishing OrderCreated event for ${order.orderId}`);
 
-    await this.client.publish("orderCreated", order, {
-      persistent: true,
-      headers: {
-        "event-type": "OrderCreated",
-        "event-version": "1.0",
-        "aggregate-id": order.orderId,
-        timestamp: new Date().toISOString(),
-      },
-    });
+    await this.client
+      .publish("orderCreated", order, {
+        persistent: true,
+        headers: {
+          "event-type": "OrderCreated",
+          "event-version": "1.0",
+          "aggregate-id": order.orderId,
+          timestamp: new Date().toISOString(),
+        },
+      })
+      .resultToPromise();
   }
 
   async publishOrderUpdated(order: any) {
     this.logger.log(`Publishing OrderUpdated event for ${order.orderId}`);
 
-    await this.client.publish("orderUpdated", order, {
-      persistent: true,
-      headers: {
-        "event-type": "OrderUpdated",
-        "event-version": "1.0",
-        "aggregate-id": order.orderId,
-        timestamp: new Date().toISOString(),
-      },
-    });
+    await this.client
+      .publish("orderUpdated", order, {
+        persistent: true,
+        headers: {
+          "event-type": "OrderUpdated",
+          "event-version": "1.0",
+          "aggregate-id": order.orderId,
+          timestamp: new Date().toISOString(),
+        },
+      })
+      .resultToPromise();
   }
 
   async publishOrderCancelled(orderId: string) {
     this.logger.log(`Publishing OrderCancelled event for ${orderId}`);
 
-    await this.client.publish(
-      "orderCancelled",
-      { orderId },
-      {
-        persistent: true,
-        headers: {
-          "event-type": "OrderCancelled",
-          "event-version": "1.0",
-          "aggregate-id": orderId,
-          timestamp: new Date().toISOString(),
+    await this.client
+      .publish(
+        "orderCancelled",
+        { orderId },
+        {
+          persistent: true,
+          headers: {
+            "event-type": "OrderCancelled",
+            "event-version": "1.0",
+            "aggregate-id": orderId,
+            timestamp: new Date().toISOString(),
+          },
         },
-      },
-    );
+      )
+      .resultToPromise();
   }
 }
 ```
@@ -614,7 +646,7 @@ Use multiple clients for different domains:
   imports: [
     AmqpClientModule.forRoot({
       contract: orderContract,
-      connection: "amqp://localhost",
+      urls: ["amqp://localhost"],
     }),
   ],
   providers: [OrderService, OrderController],
@@ -627,7 +659,7 @@ export class OrderModule {}
   imports: [
     AmqpClientModule.forRoot({
       contract: paymentContract,
-      connection: "amqp://localhost",
+      urls: ["amqp://localhost"],
     }),
   ],
   providers: [PaymentService, PaymentController],
@@ -837,8 +869,8 @@ export class OrderService {
 
     this.logger.log(`Creating order ${orderId} for customer ${customerId}`);
 
-    try {
-      await this.client.publish(
+    await this.client
+      .publish(
         "orderCreated",
         {
           orderId,
@@ -854,23 +886,15 @@ export class OrderService {
             "x-customer-id": customerId,
           },
         },
-      );
+      )
+      .mapError((error) => {
+        this.logger.error(`Failed to publish order ${orderId}`, error);
+        return new Error(`Failed to create order: ${error.message}`);
+      })
+      .resultToPromise();
 
-      this.logger.log(`Order ${orderId} published successfully`);
-      return { orderId };
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        this.logger.error(`Failed to publish order ${orderId}`, error.stack);
-      } else {
-        this.logger.error(`Failed to publish order ${orderId}`);
-      }
-
-      // Handle schema validation errors
-      if (this.isValidationError(error)) {
-        throw new BadRequestException("Invalid order data");
-      }
-      throw error;
-    }
+    this.logger.log(`Order ${orderId} published successfully`);
+    return { orderId };
   }
 
   private isValidationError(error: unknown): error is { issues: unknown } {
@@ -916,22 +940,24 @@ export class OrderController {
 
 ```typescript [app.module.ts]
 import { Module } from "@nestjs/common";
-import { ConfigModule, ConfigService } from "@nestjs/config";
+import { ConfigModule } from "@nestjs/config";
 import { AmqpClientModule } from "@amqp-contract/client-nestjs";
 import { contract } from "./contract";
 import { OrderService } from "./order.service";
 import { OrderController } from "./order.controller";
+import { amqpConfig } from "./config/amqp.config";
 
 @Module({
   imports: [
-    ConfigModule.forRoot(),
+    ConfigModule.forRoot({
+      load: [amqpConfig],
+    }),
     AmqpClientModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
+      useFactory: () => ({
         contract,
-        connection: configService.get("RABBITMQ_URL") || "amqp://localhost",
+        urls: [amqpConfig().url],
       }),
-      inject: [ConfigService],
     }),
   ],
   controllers: [OrderController],

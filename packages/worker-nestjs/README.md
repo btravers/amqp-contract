@@ -32,7 +32,7 @@ import { contract } from "./contract";
           console.log("Processing order:", message.orderId);
         },
       },
-      connection: "amqp://localhost",
+      urls: ["amqp://localhost"],
     }),
   ],
 })

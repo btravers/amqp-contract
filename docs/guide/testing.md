@@ -109,8 +109,8 @@ You can use the testing utilities with your AMQP contracts:
 ```typescript
 import { describe, expect } from "vitest";
 import { it } from "@amqp-contract/testing/extension";
-import { createClient } from "@amqp-contract/client";
-import { createWorker } from "@amqp-contract/worker";
+import { TypedAmqpClient } from "@amqp-contract/client";
+import { TypedAmqpWorker } from "@amqp-contract/worker";
 import { contract } from "./contract.js";
 
 describe("Order Processing Contract", () => {
@@ -119,20 +119,22 @@ describe("Order Processing Contract", () => {
     amqpConnectionUrl,
   }) => {
     // Create client
-    const client = await createClient(contract, {
-      connection: amqpConnection,
-    });
+    const client = await TypedAmqpClient.create({
+      contract,
+      urls: [amqpConnectionUrl],
+    }).resultToPromise();
 
     // Create worker with handler
     const receivedOrders: unknown[] = [];
-    const worker = await createWorker(contract, {
+    const worker = await TypedAmqpWorker.create({
+      contract,
       handlers: {
         processOrder: async (message) => {
           receivedOrders.push(message);
         },
       },
       urls: [amqpConnectionUrl],
-    });
+    }).resultToPromise();
 
     // Publish message
     const result = await client

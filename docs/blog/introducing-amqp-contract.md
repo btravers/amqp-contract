@@ -247,7 +247,7 @@ TypeScript catches errors before runtime:
 
 ```typescript
 // ❌ TypeScript error - "orderDeleted" doesn't exist in contract
-await client.publish("orderDeleted", { orderId: "123" });
+await client.publish("orderDeleted", { orderId: "123" }).resultToPromise();
 
 // ❌ TypeScript error - missing handler for "processOrder"
 await TypedAmqpWorker.create({
@@ -316,12 +316,12 @@ import { contract } from "./contract";
           console.log("Processing:", message.orderId);
         },
       },
-      connection: process.env.RABBITMQ_URL,
+      urls: [process.env.RABBITMQ_URL],
     }),
     // Client module for publishing messages
     AmqpClientModule.forRoot({
       contract,
-      connection: process.env.RABBITMQ_URL,
+      urls: [process.env.RABBITMQ_URL],
     }),
   ],
 })

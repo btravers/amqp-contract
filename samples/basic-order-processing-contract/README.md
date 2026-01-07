@@ -28,9 +28,11 @@ if (clientResult.isError()) {
 }
 
 const client = clientResult.get();
-await client.publish("orderCreated", {
-  /* fully typed */
-});
+await client
+  .publish("orderCreated", {
+    /* fully typed */
+  })
+  .resultToPromise();
 ```
 
 ## Patterns Demonstrated

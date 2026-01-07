@@ -426,11 +426,13 @@ The project has successfully implemented automatic connection sharing using a si
 
 ```typescript
 // Type inference works perfectly:
-const result = await client.publish("orderCreated", {
-  orderId: "ORD-123", // ✅ TypeScript knows the exact type
-  amount: 99.99,
-  // invalid: true     // ❌ TypeScript catches this
-});
+const result = await client
+  .publish("orderCreated", {
+    orderId: "ORD-123", // ✅ TypeScript knows the exact type
+    amount: 99.99,
+    // invalid: true     // ❌ TypeScript catches this
+  })
+  .resultToPromise();
 ```
 
 #### 2. Error Handling ⭐⭐⭐⭐⭐

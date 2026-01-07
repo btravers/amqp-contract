@@ -84,11 +84,13 @@ result.match({
 Override the routing key for specific messages:
 
 ```typescript
-const result = await client.publish(
-  "orderCreated",
-  { orderId: "ORD-123", amount: 99.99 },
-  { routingKey: "order.created.urgent" },
-);
+const result = await client
+  .publish(
+    "orderCreated",
+    { orderId: "ORD-123", amount: 99.99 },
+    { routingKey: "order.created.urgent" },
+  )
+  .resultToPromise();
 ```
 
 ### Message Properties
@@ -96,17 +98,19 @@ const result = await client.publish(
 Set AMQP message properties:
 
 ```typescript
-const result = await client.publish(
-  "orderCreated",
-  { orderId: "ORD-123", amount: 99.99 },
-  {
-    options: {
-      persistent: true,
-      priority: 10,
-      headers: { "x-request-id": "req-123" },
+const result = await client
+  .publish(
+    "orderCreated",
+    { orderId: "ORD-123", amount: 99.99 },
+    {
+      options: {
+        persistent: true,
+        priority: 10,
+        headers: { "x-request-id": "req-123" },
+      },
     },
-  },
-);
+  )
+  .resultToPromise();
 ```
 
 ## Connection Management
@@ -161,24 +165,19 @@ async function main() {
   let client;
 
   try {
-    const clientResult = await TypedAmqpClient.create({
+    client = await TypedAmqpClient.create({
       contract,
       urls: ["amqp://localhost"],
-    });
+    }).resultToPromise();
 
-    if (clientResult.isError()) {
-      console.error("Failed to create client:", clientResult.error);
-      throw clientResult.error;
-    }
-
-    client = clientResult.get();
-
-    const result = await client.publish("orderCreated", {
-      orderId: "ORD-123",
-      customerId: "CUST-456",
-      amount: 99.99,
-      items: [{ productId: "PROD-A", quantity: 2 }],
-    });
+    const result = await client
+      .publish("orderCreated", {
+        orderId: "ORD-123",
+        customerId: "CUST-456",
+        amount: 99.99,
+        items: [{ productId: "PROD-A", quantity: 2 }],
+      })
+      .resultToPromise();
 
     result.match({
       Ok: () => console.log("✅ Message published"),
