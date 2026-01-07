@@ -411,6 +411,79 @@ export type PublisherDefinition<TMessage extends MessageDefinition = MessageDefi
 );
 
 /**
+ * Retry policy configuration for handling failed message processing.
+ *
+ * Defines how messages should be retried when processing fails, including
+ * exponential backoff and dead letter exchange integration.
+ *
+ * @example
+ * ```typescript
+ * const retryPolicy: RetryPolicy = {
+ *   maxRetries: 3,
+ *   backoff: {
+ *     type: 'exponential',
+ *     initialDelay: 1000,
+ *     maxDelay: 60000,
+ *     multiplier: 2
+ *   }
+ * };
+ * ```
+ */
+export type RetryPolicy = {
+  /**
+   * Maximum number of retry attempts before giving up.
+   * After this limit is reached, the message will be:
+   * - Sent to the dead letter exchange if configured on the queue
+   * - Rejected (nacked without requeue) if no dead letter exchange
+   *
+   * Set to 0 to disable retries (fail fast).
+   * @default undefined (infinite retries - not recommended for production)
+   */
+  maxRetries?: number;
+
+  /**
+   * Backoff strategy for retry delays.
+   * Adds delay between retry attempts to avoid overwhelming the system.
+   */
+  backoff?: {
+    /**
+     * Type of backoff strategy.
+     * - `fixed`: Same delay for every retry
+     * - `exponential`: Delay increases exponentially with each retry
+     *
+     * @default 'fixed'
+     */
+    type: "fixed" | "exponential";
+
+    /**
+     * Initial delay in milliseconds before the first retry.
+     * For exponential backoff, this is the base delay.
+     *
+     * @default 1000 (1 second)
+     */
+    initialDelay?: number;
+
+    /**
+     * Maximum delay in milliseconds between retries.
+     * Prevents exponential backoff from growing indefinitely.
+     *
+     * Only applies to exponential backoff.
+     * @default 60000 (60 seconds)
+     */
+    maxDelay?: number;
+
+    /**
+     * Multiplier for exponential backoff.
+     * Delay calculation: initialDelay * (multiplier ^ retryCount)
+     *
+     * Only applies to exponential backoff.
+     * @default 2
+     */
+    multiplier?: number;
+  };
+};
+
+/**
  * Definition of a message consumer.
  *
  * A consumer receives and processes messages from a queue with automatic schema validation.
@@ -422,9 +495,25 @@ export type PublisherDefinition<TMessage extends MessageDefinition = MessageDefi
  *
  * @example
  * ```typescript
+ * // Basic consumer
  * const consumer: ConsumerDefinition = {
  *   queue: orderProcessingQueue,
  *   message: orderMessage
+ * };
+ *
+ * // Consumer with retry policy
+ * const consumerWithRetry: ConsumerDefinition = {
+ *   queue: orderProcessingQueue,
+ *   message: orderMessage,
+ *   retryPolicy: {
+ *     maxRetries: 3,
+ *     backoff: {
+ *       type: 'exponential',
+ *       initialDelay: 1000,
+ *       maxDelay: 60000,
+ *       multiplier: 2
+ *     }
+ *   }
  * };
  * ```
  */
@@ -434,6 +523,19 @@ export type ConsumerDefinition<TMessage extends MessageDefinition = MessageDefin
 
   /** The message definition including the payload schema */
   message: TMessage;
+
+  /**
+   * Retry policy for handling failed message processing.
+   *
+   * When configured, failed messages will be retried up to maxRetries times
+   * with optional exponential backoff between attempts. After exhausting retries,
+   * messages will be sent to the dead letter exchange if configured on the queue,
+   * or rejected without requeue.
+   *
+   * If not specified, messages will be requeued indefinitely on failure (legacy behavior).
+   * **For production use, always configure a retry policy to prevent infinite loops.**
+   */
+  retryPolicy?: RetryPolicy;
 };
 
 /**

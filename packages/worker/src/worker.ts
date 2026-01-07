@@ -15,6 +15,7 @@ import type {
   WorkerInferConsumerInput,
 } from "./types.js";
 import { decompressBuffer } from "./decompression.js";
+import { RETRY_COUNT_HEADER, shouldRetry } from "./retry.js";
 
 /**
  * Internal type for consumer options extracted from handler tuples.
@@ -477,6 +478,115 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   }
 
   /**
+   * Handle message retry logic based on consumer retry policy.
+   * This method decides whether to retry, send to DLX, or reject the message.
+   *
+   * @param msg - The AMQP message
+   * @param consumer - The consumer definition
+   * @param consumerName - The consumer name for logging
+   * @returns Promise that resolves when retry handling is complete
+   */
+  private async handleMessageRetry<TName extends InferConsumerNames<TContract>>(
+    msg: Message,
+    consumer: ConsumerDefinition,
+    consumerName: TName,
+  ): Promise<void> {
+    const retryPolicy = consumer.retryPolicy;
+    const {
+      shouldRetry: shouldRetryMessage,
+      delay,
+      currentRetryCount,
+    } = shouldRetry(msg, retryPolicy);
+
+    if (!shouldRetryMessage) {
+      // Max retries exceeded - reject without requeue
+      // The message will go to DLX if configured on the queue, otherwise discarded
+      this.logger?.warn("Message retry limit exceeded, rejecting", {
+        consumerName: String(consumerName),
+        queueName: consumer.queue.name,
+        retryCount: currentRetryCount,
+        maxRetries: retryPolicy?.maxRetries,
+      });
+      this.amqpClient.channel.nack(msg, false, false);
+      return;
+    }
+
+    // Increment retry count and schedule retry
+    const newRetryCount = currentRetryCount + 1;
+
+    if (delay > 0) {
+      // Apply backoff delay before requeuing
+      this.logger?.info("Scheduling message retry with backoff", {
+        consumerName: String(consumerName),
+        queueName: consumer.queue.name,
+        retryCount: newRetryCount,
+        delayMs: delay,
+      });
+
+      // Wait for backoff delay, then republish with updated retry count
+      await new Promise((resolve) => setTimeout(resolve, delay));
+
+      // Republish the message with incremented retry count
+      // Use the same queue as the consumer
+      const headers = {
+        ...msg.properties.headers,
+        [RETRY_COUNT_HEADER]: newRetryCount,
+      };
+
+      try {
+        await this.amqpClient.channel.sendToQueue(consumer.queue.name, msg.content, {
+          ...msg.properties,
+          headers,
+        });
+
+        // Acknowledge the original message after successful republish
+        this.amqpClient.channel.ack(msg);
+      } catch (error) {
+        this.logger?.error("Failed to republish message for retry", {
+          consumerName: String(consumerName),
+          queueName: consumer.queue.name,
+          retryCount: newRetryCount,
+          error,
+        });
+        // If republish fails, nack with requeue to avoid message loss
+        this.amqpClient.channel.nack(msg, false, true);
+      }
+    } else {
+      // No backoff delay - immediate retry with updated count
+      this.logger?.info("Requeuing message for immediate retry", {
+        consumerName: String(consumerName),
+        queueName: consumer.queue.name,
+        retryCount: newRetryCount,
+      });
+
+      // For immediate retry, we need to republish with updated count
+      const headers = {
+        ...msg.properties.headers,
+        [RETRY_COUNT_HEADER]: newRetryCount,
+      };
+
+      try {
+        await this.amqpClient.channel.sendToQueue(consumer.queue.name, msg.content, {
+          ...msg.properties,
+          headers,
+        });
+
+        // Acknowledge the original message after successful republish
+        this.amqpClient.channel.ack(msg);
+      } catch (error) {
+        this.logger?.error("Failed to republish message for retry", {
+          consumerName: String(consumerName),
+          queueName: consumer.queue.name,
+          retryCount: newRetryCount,
+          error,
+        });
+        // If republish fails, nack with requeue to avoid message loss
+        this.amqpClient.channel.nack(msg, false, true);
+      }
+    }
+  }
+
+  /**
    * Consume messages one at a time
    */
   private consumeSingle<TName extends InferConsumerNames<TContract>>(
@@ -499,20 +609,15 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         // Parse and validate message
         await this.parseAndValidateMessage(msg, consumer, consumerName)
           .flatMapOk((validatedMessage) =>
-            Future.fromPromise(handler(validatedMessage)).tapError((error) => {
+            Future.fromPromise(handler(validatedMessage)).tapError(async (error) => {
               this.logger?.error("Error processing message", {
                 consumerName: String(consumerName),
                 queueName: consumer.queue.name,
                 error,
               });
 
-              // Requeue failed messages for retry
-              // NOTE: This strategy assumes transient failures that may succeed on retry.
-              // For production use, consider:
-              // - Implementing retry limits to prevent infinite loops
-              // - Using dead letter exchanges for permanently failed messages
-              // - Adding exponential backoff between retries
-              this.amqpClient.channel.nack(msg, false, true);
+              // Handle retry logic based on retry policy
+              await this.handleMessageRetry(msg, consumer, consumerName);
             }),
           )
           .tapOk(() => {
@@ -608,15 +713,10 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           error,
         });
 
-        // Requeue all failed messages for retry
-        // NOTE: This strategy assumes transient failures that may succeed on retry.
-        // For production use, consider:
-        // - Implementing retry limits to prevent infinite loops
-        // - Using dead letter exchanges for permanently failed messages
-        // - Adding exponential backoff between retries
-        // - Implementing partial batch success handling
+        // Handle retry for all messages in the failed batch
+        // Note: All messages in the batch are treated as failed when batch processing fails
         for (const item of currentBatch) {
-          this.amqpClient.channel.nack(item.amqpMessage, false, true);
+          await this.handleMessageRetry(item.amqpMessage, consumer, consumerName);
         }
       } finally {
         isProcessing = false;

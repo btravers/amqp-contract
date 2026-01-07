@@ -600,7 +600,8 @@ export function definePublisher<TMessage extends MessageDefinition>(
  *
  * @param queue - The queue definition to consume from
  * @param message - The message definition with payload schema
- * @param options - Optional consumer configuration
+ * @param options - Optional consumer configuration including retry policy
+ * @param options.retryPolicy - Retry policy for handling failed message processing
  * @returns A consumer definition with inferred message types
  *
  * @example
@@ -616,7 +617,21 @@ export function definePublisher<TMessage extends MessageDefinition>(
  *   })
  * );
  *
+ * // Basic consumer
  * const processOrderConsumer = defineConsumer(orderQueue, orderMessage);
+ *
+ * // Consumer with retry policy for production use
+ * const robustConsumer = defineConsumer(orderQueue, orderMessage, {
+ *   retryPolicy: {
+ *     maxRetries: 3,
+ *     backoff: {
+ *       type: 'exponential',
+ *       initialDelay: 1000,
+ *       maxDelay: 60000,
+ *       multiplier: 2
+ *     }
+ *   }
+ * });
  *
  * // Later, when creating a worker, you'll provide a handler for this consumer:
  * // const worker = await TypedAmqpWorker.create({
