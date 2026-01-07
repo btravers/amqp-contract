@@ -1,11 +1,11 @@
-import {
+import type {
   AsyncAPIObject,
   ChannelObject,
   ChannelsObject,
   MessageObject,
   MessagesObject,
   OperationsObject,
-} from "@asyncapi/parser/esm/spec-types/v3.js";
+} from "@asyncapi/parser/cjs/spec-types/v3";
 import { ConditionalSchemaConverter, JSONSchema } from "@orpc/openapi";
 import type {
   ContractDefinition,
