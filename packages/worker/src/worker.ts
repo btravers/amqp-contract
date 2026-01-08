@@ -522,25 +522,21 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     // This ensures the retry only affects this specific consumer, not other consumers
     // that may be bound to the same exchange.
     // Only copy user-level properties, not system fields like deliveryTag or redelivered.
-    await this.amqpClient.channel.sendToQueue(
-      queueName,
-      msg.content,
-      {
-        contentType: msg.properties.contentType,
-        contentEncoding: msg.properties.contentEncoding,
-        headers: updatedHeaders,
-        persistent: msg.properties.deliveryMode === 2,
-        priority: msg.properties.priority,
-        correlationId: msg.properties.correlationId,
-        replyTo: msg.properties.replyTo,
-        expiration: msg.properties.expiration,
-        messageId: msg.properties.messageId,
-        timestamp: msg.properties.timestamp,
-        type: msg.properties.type,
-        userId: msg.properties.userId,
-        appId: msg.properties.appId,
-      },
-    );
+    await this.amqpClient.channel.sendToQueue(queueName, msg.content, {
+      contentType: msg.properties.contentType,
+      contentEncoding: msg.properties.contentEncoding,
+      headers: updatedHeaders,
+      persistent: msg.properties.deliveryMode === 2,
+      priority: msg.properties.priority,
+      correlationId: msg.properties.correlationId,
+      replyTo: msg.properties.replyTo,
+      expiration: msg.properties.expiration,
+      messageId: msg.properties.messageId,
+      timestamp: msg.properties.timestamp,
+      type: msg.properties.type,
+      userId: msg.properties.userId,
+      appId: msg.properties.appId,
+    });
   }
 
   /**
@@ -731,7 +727,13 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           });
 
           try {
-            await this.republishForRetry(msg, consumer.queue.name, retryCount, nextRetryDelayMs, error);
+            await this.republishForRetry(
+              msg,
+              consumer.queue.name,
+              retryCount,
+              nextRetryDelayMs,
+              error,
+            );
           } catch (republishError) {
             this.logger?.error("Failed to republish message for retry, falling back to requeue", {
               consumerName: String(consumerName),
@@ -887,7 +889,13 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           });
 
           try {
-            await this.republishForRetry(item.amqpMessage, consumer.queue.name, retryCount, nextRetryDelayMs, error);
+            await this.republishForRetry(
+              item.amqpMessage,
+              consumer.queue.name,
+              retryCount,
+              nextRetryDelayMs,
+              error,
+            );
           } catch (republishError) {
             this.logger?.error(
               "Failed to republish batch message for retry, falling back to requeue",
