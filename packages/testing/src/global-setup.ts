@@ -5,6 +5,9 @@
  * a RabbitMQ container with the management plugin before tests run, and stops
  * it after all tests complete.
  *
+ * The container automatically enables the `rabbitmq_delayed_message_exchange` plugin
+ * which is required for the retry mechanism's exponential backoff functionality.
+ *
  * The RabbitMQ image can be configured via the `RABBITMQ_IMAGE` environment variable.
  * By default, it uses the public Docker Hub image (`rabbitmq:4.2.1-management-alpine`).
  *
@@ -38,6 +41,9 @@ declare module "vitest" {
  * Starts a RabbitMQ container before all tests and provides connection details
  * to tests via Vitest's provide API. The container is automatically stopped
  * and cleaned up after all tests complete.
+ *
+ * The setup automatically enables the `rabbitmq_delayed_message_exchange` plugin
+ * required for the retry mechanism with exponential backoff.
  *
  * This function should be configured in your `vitest.config.ts`:
  *
@@ -81,6 +87,24 @@ export default async function setup({ provide }: TestProject) {
     .start();
 
   console.log("✅ RabbitMQ container started");
+
+  // Enable the delayed message exchange plugin required for retry mechanism
+  console.log("🔌 Enabling rabbitmq_delayed_message_exchange plugin...");
+  const enablePluginResult = await rabbitmqContainer.exec([
+    "rabbitmq-plugins",
+    "enable",
+    "rabbitmq_delayed_message_exchange",
+  ]);
+
+  if (enablePluginResult.exitCode !== 0) {
+    console.error("❌ Failed to enable delayed message exchange plugin");
+    console.error("stdout:", enablePluginResult.output);
+    throw new Error(
+      `Failed to enable rabbitmq_delayed_message_exchange plugin: ${enablePluginResult.output}`,
+    );
+  }
+
+  console.log("✅ Delayed message exchange plugin enabled");
 
   const __TESTCONTAINERS_RABBITMQ_IP__ = rabbitmqContainer.getHost();
   const __TESTCONTAINERS_RABBITMQ_PORT_5672__ = rabbitmqContainer.getMappedPort(5672);
