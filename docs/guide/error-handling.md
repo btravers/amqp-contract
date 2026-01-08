@@ -7,8 +7,8 @@ This guide covers error handling strategies in `@amqp-contract/worker`, includin
 The worker package provides a sophisticated error handling system that automatically:
 
 - **Distinguishes** between retryable and non-retryable errors
-- **Retries** transient failures with exponential backoff
-- **Routes** permanently failed messages to Dead Letter Queues (DLQ)
+- **Retries** transient failures (only `RetryableError`) with exponential backoff
+- **Routes** failed messages to Dead Letter Queues (DLQ)
 - **Tracks** retry attempts using message headers
 - **Logs** all error events for debugging
 
@@ -46,30 +46,29 @@ try {
 - Deadlock errors
 - Circuit breaker open states
 
-### NonRetryableError
+### Regular Errors (Non-Retryable by Default)
 
-Use `NonRetryableError` for **permanent failures** that will never succeed:
+**By default, regular errors are NOT retried.** This is a safe default that prevents wasting resources on permanent failures:
 
 ```typescript
-import { NonRetryableError } from "@amqp-contract/worker";
-
-// Examples of non-retryable errors
+// Examples of errors that should NOT be retried
 try {
   await processOrder(message);
 } catch (error) {
   if (error instanceof ValidationError) {
-    throw new NonRetryableError("Invalid order data", error);
+    // Regular errors go straight to DLQ - no retry
+    throw new Error("Invalid order data");
   }
   if (error.code === "RESOURCE_NOT_FOUND") {
-    throw new NonRetryableError("Product not found", error);
+    throw new Error("Product not found");
   }
   if (error.code === "DUPLICATE_KEY") {
-    throw new NonRetryableError("Order already processed", error);
+    throw new Error("Order already processed");
   }
 }
 ```
 
-**Common use cases:**
+**Common use cases for non-retryable errors:**
 
 - Validation errors
 - Business logic violations
@@ -78,15 +77,18 @@ try {
 - Duplicate key errors
 - Malformed data
 
-### Unknown Errors
+### Default Behavior
 
-**By default, unknown errors are treated as retryable.** This is a safe default that prevents permanent data loss:
+**Important:** Only `RetryableError` instances trigger the retry mechanism. All other errors (including regular `Error`) are sent directly to the DLQ without retrying:
 
 ```typescript
 handlers: {
   processOrder: async (message) => {
-    // This will be retried
+    // This will NOT be retried - goes straight to DLQ
     throw new Error("Something went wrong");
+    
+    // This WILL be retried with exponential backoff
+    throw new RetryableError("Temporary issue");
   },
 };
 ```
@@ -182,7 +184,7 @@ Retry 5: ~13600ms (16000 × 0.85)
 Messages are sent to the DLQ when:
 
 1. **Max retries exceeded** for `RetryableError`
-2. **NonRetryableError** thrown (immediately)
+2. **Regular errors** thrown (immediately - not retried)
 3. **Validation or parsing errors** occur
 
 ### Configuring DLQ
@@ -308,10 +310,12 @@ handlers: {
         throw new RetryableError("Network error", error);
       }
       if (isValidationError(error)) {
-        throw new NonRetryableError("Invalid data", error);
+        // Regular errors are not retried
+        throw new Error("Invalid data");
       }
 
       // ❌ Bad: Re-throwing unknown error without context
+      // Note: This will NOT be retried (only RetryableError is retried)
       throw error;
     }
   },
@@ -489,10 +493,10 @@ const worker = await TypedAmqpWorker.create({
 
 **Solutions:**
 
-1. Check if you're throwing `NonRetryableError` (these skip retries)
+1. Check if you're throwing regular `Error` instead of `RetryableError` (only `RetryableError` triggers retries)
 2. Verify `maxRetries` is greater than 0
 3. Check if DLQ is configured on the queue
-4. Review worker logs for "Non-retryable error" messages
+4. Review worker logs for error messages
 
 ### Excessive Retries
 
@@ -501,7 +505,7 @@ const worker = await TypedAmqpWorker.create({
 **Solutions:**
 
 1. Reduce `maxRetries` value
-2. Check if errors are correctly classified as `NonRetryableError`
+2. Use regular `Error` instead of `RetryableError` for permanent failures
 3. Verify external services are healthy
 4. Review error logs to identify root cause
 

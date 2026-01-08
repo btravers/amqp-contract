@@ -1,4 +1,4 @@
-import { NonRetryableError, RetryableError } from "../errors.js";
+import { RetryableError } from "../errors.js";
 import {
   defineConsumer,
   defineContract,
@@ -196,7 +196,7 @@ describe("Worker Retry Mechanism", () => {
     await channel.close();
   });
 
-  it("should immediately send to DLQ on NonRetryableError", async ({
+  it("should not retry regular errors (only RetryableError is retried)", async ({
     workerFactory,
     publishMessage,
     amqpConnection,
@@ -251,7 +251,7 @@ describe("Worker Retry Mechanism", () => {
       {
         testConsumer: async () => {
           attempts++;
-          throw new NonRetryableError("Validation failed - non-retryable");
+          throw new Error("Validation failed - not retryable");
         },
       },
       {
@@ -297,9 +297,10 @@ describe("Worker Retry Mechanism", () => {
     await channel.close();
   });
 
-  it("should treat unknown errors as retryable by default", async ({
+  it("should NOT retry regular errors by default (only RetryableError retried)", async ({
     workerFactory,
     publishMessage,
+    amqpConnection,
   }) => {
     // GIVEN
     const TestMessage = z.object({
@@ -308,18 +309,30 @@ describe("Worker Retry Mechanism", () => {
     });
 
     const exchange = defineExchange("unknown-error-exchange", "topic", { durable: false });
-    const queue = defineQueue("unknown-error-queue", { durable: false });
+    const dlqExchange = defineExchange("unknown-error-dlq", "topic", { durable: false });
+    const queue = defineQueue("unknown-error-queue", {
+      durable: false,
+      deadLetter: {
+        exchange: dlqExchange,
+      },
+    });
+    const dlqQueue = defineQueue("unknown-error-dead-queue", { durable: false });
 
     const contract = defineContract({
       exchanges: {
         test: exchange,
+        dlq: dlqExchange,
       },
       queues: {
         testQueue: queue,
+        dlqQueue: dlqQueue,
       },
       bindings: {
         testBinding: defineQueueBinding(queue, exchange, {
           routingKey: "test.#",
+        }),
+        dlqBinding: defineQueueBinding(dlqQueue, dlqExchange, {
+          routingKey: "#",
         }),
       },
       publishers: {
@@ -339,9 +352,7 @@ describe("Worker Retry Mechanism", () => {
       {
         testConsumer: async () => {
           attempts++;
-          if (attempts < 2) {
-            throw new Error("Unknown error - should be retried");
-          }
+          throw new Error("Regular error - should NOT be retried");
         },
       },
       {
@@ -357,17 +368,32 @@ describe("Worker Retry Mechanism", () => {
       value: 42,
     });
 
-    // THEN - Should retry and eventually succeed
+    // THEN - Should only attempt once (no retries), then go to DLQ
     await vi.waitFor(
       () => {
-        if (attempts < 2) {
-          throw new Error("Not yet successful");
+        if (attempts < 1) {
+          throw new Error("Handler not called yet");
         }
       },
-      { timeout: 3000 },
+      { timeout: 2000 },
     );
 
-    expect(attempts).toBe(2);
+    expect(attempts).toBe(1);
+
+    // Verify message went to DLQ
+    const channel = await amqpConnection.createChannel();
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    const dlqMessage = await channel.get(dlqQueue.name, { noAck: false });
+    if (!dlqMessage) {
+      throw new Error("Expected message in DLQ queue, but none was found");
+    }
+    await channel.ack(dlqMessage);
+    const content = JSON.parse(dlqMessage.content.toString());
+    expect(content).toMatchObject({
+      id: "unknown-error-test-1",
+      value: 42,
+    });
+    await channel.close();
   });
 
   it("should track retry count in message headers", async ({

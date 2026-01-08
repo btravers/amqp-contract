@@ -9,7 +9,6 @@ import type {
 import { Future, Result } from "@swan-io/boxed";
 import {
   MessageValidationError,
-  NonRetryableError,
   RetryableError,
   TechnicalError,
 } from "./errors.js";
@@ -482,18 +481,9 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * Check if error is retryable
    */
   private isRetryableError(error: unknown): boolean {
-    // NonRetryableError always means don't retry
-    if (error instanceof NonRetryableError) {
-      return false;
-    }
-
-    // RetryableError means retry
-    if (error instanceof RetryableError) {
-      return true;
-    }
-
-    // Unknown errors are treated as retryable by default (backward compatible)
-    return true;
+    // Only RetryableError instances trigger retry logic
+    // All other errors (including unknown errors) are NOT retried by default
+    return error instanceof RetryableError;
   }
 
   /**

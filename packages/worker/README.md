@@ -78,7 +78,7 @@ You can define handlers outside of the worker creation using `defineHandler` and
 Worker handlers use standard Promise-based async/await pattern with built-in retry support:
 
 ```typescript
-import { TypedAmqpWorker, RetryableError, NonRetryableError } from "@amqp-contract/worker";
+import { TypedAmqpWorker, RetryableError } from "@amqp-contract/worker";
 
 const worker = await TypedAmqpWorker.create({
   contract,
@@ -95,7 +95,8 @@ const worker = await TypedAmqpWorker.create({
         }
         if (error instanceof ValidationError) {
           // Permanent failure - goes directly to DLQ
-          throw new NonRetryableError("Invalid payment data", error);
+          // Regular errors are NOT retried - sent directly to DLQ
+          throw new Error("Invalid payment data");
         }
         // Unknown errors are retried by default
         throw error;
@@ -118,7 +119,7 @@ const worker = await TypedAmqpWorker.create({
 **User-facing error classes** (throw these in your handlers):
 
 - `RetryableError` - Transient failures that may succeed on retry (network timeouts, rate limiting, temporary unavailability)
-- `NonRetryableError` - Permanent failures that will never succeed (validation errors, business logic violations, missing resources)
+- Regular `Error` - Not retried by default, sent directly to DLQ (validation errors, business logic violations, missing resources)
 
 **Internal error classes** (logged automatically, don't throw):
 
@@ -140,7 +141,7 @@ Configure retry behavior via the `retry` option:
 Messages are automatically routed to a Dead Letter Exchange after:
 
 - Max retries are exceeded for `RetryableError`
-- Any `NonRetryableError` is thrown (immediately)
+- Any regular error (non-RetryableError) is thrown (immediately, no retry)
 - Validation or parsing errors occur
 
 Configure DLQ at the queue level in your contract:
