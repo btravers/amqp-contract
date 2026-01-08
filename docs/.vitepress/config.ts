@@ -97,6 +97,7 @@ export default withMermaid(
               { text: "Defining Contracts", link: "/guide/defining-contracts" },
               { text: "Client Usage", link: "/guide/client-usage" },
               { text: "Worker Usage", link: "/guide/worker-usage" },
+              { text: "Error Handling", link: "/guide/error-handling" },
               { text: "Testing", link: "/guide/testing" },
             ],
           },
@@ -112,6 +113,7 @@ export default withMermaid(
             items: [
               { text: "Connection Sharing", link: "/guide/connection-sharing" },
               { text: "Channel Configuration", link: "/guide/channel-configuration" },
+              { text: "Message Compression", link: "/guide/message-compression" },
               { text: "AsyncAPI Generation", link: "/guide/asyncapi-generation" },
             ],
           },

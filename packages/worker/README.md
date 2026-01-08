@@ -75,32 +75,87 @@ You can define handlers outside of the worker creation using `defineHandler` and
 
 ## Error Handling
 
-Worker handlers use standard Promise-based async/await pattern:
+Worker handlers use standard Promise-based async/await pattern with built-in retry support:
 
 ```typescript
-handlers: {
-  processOrder: async (message) => {
-    // Standard async/await - no Result wrapping needed
-    try {
-      await process(message);
-      // Message acknowledged automatically on success
-    } catch (error) {
-      // Exception automatically caught by worker
-      // Message is requeued for retry
-      throw error;
-    }
-  };
-}
+import { TypedAmqpWorker, RetryableError, NonRetryableError } from "@amqp-contract/worker";
+
+const worker = await TypedAmqpWorker.create({
+  contract,
+  handlers: {
+    processOrder: async (message) => {
+      try {
+        await processPayment(message);
+        // Message acknowledged automatically on success
+      } catch (error) {
+        // Distinguish between retryable and non-retryable errors
+        if (error instanceof TimeoutError) {
+          // Transient failure - will be retried with exponential backoff
+          throw new RetryableError("Payment service timeout", error);
+        }
+        if (error instanceof ValidationError) {
+          // Permanent failure - goes directly to DLQ
+          throw new NonRetryableError("Invalid payment data", error);
+        }
+        // Unknown errors are retried by default
+        throw error;
+      }
+    },
+  },
+  urls: ["amqp://localhost"],
+  retry: {
+    maxRetries: 3,
+    initialDelayMs: 1000,
+    maxDelayMs: 30000,
+    backoffMultiplier: 2,
+    jitter: true,
+  },
+});
 ```
 
-**Error Types:**
+### Error Types
 
-Worker defines error classes for internal use:
+**User-facing error classes** (throw these in your handlers):
+
+- `RetryableError` - Transient failures that may succeed on retry (network timeouts, rate limiting, temporary unavailability)
+- `NonRetryableError` - Permanent failures that will never succeed (validation errors, business logic violations, missing resources)
+
+**Internal error classes** (logged automatically, don't throw):
 
 - `TechnicalError` - Runtime failures (parsing, processing)
 - `MessageValidationError` - Message fails schema validation
 
-These errors are logged but **handlers don't need to use them** - just throw standard exceptions.
+### Retry Configuration
+
+Configure retry behavior via the `retry` option:
+
+- `maxRetries` - Maximum retry attempts before sending to DLQ (default: 3)
+- `initialDelayMs` - Initial delay before first retry (default: 1000ms)
+- `maxDelayMs` - Maximum delay between retries (default: 30000ms)
+- `backoffMultiplier` - Multiplier for exponential backoff (default: 2)
+- `jitter` - Add random jitter to prevent thundering herd (default: true)
+
+### Dead Letter Queues (DLQ)
+
+Messages are automatically routed to a Dead Letter Exchange after:
+
+- Max retries are exceeded for `RetryableError`
+- Any `NonRetryableError` is thrown (immediately)
+- Validation or parsing errors occur
+
+Configure DLQ at the queue level in your contract:
+
+```typescript
+const queue = defineQueue("order-processing", {
+  durable: true,
+  deadLetter: {
+    exchange: dlqExchange,
+    routingKey: "order.failed",
+  },
+});
+```
+
+For more details, see the [Error Handling Guide](https://btravers.github.io/amqp-contract/guide/error-handling).
 
 ## API
 
