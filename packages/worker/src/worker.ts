@@ -23,6 +23,7 @@ import { decompressBuffer } from "./decompression.js";
  * Uses discriminated union to enforce mutual exclusivity:
  * - Prefetch-only mode: Cannot have batchSize or batchTimeout
  * - Batch mode: Requires batchSize, allows batchTimeout and prefetch
+ * Both modes support retryPolicy configuration.
  */
 type ConsumerOptions =
   | {
@@ -30,13 +31,17 @@ type ConsumerOptions =
       prefetch?: number;
       batchSize?: never;
       batchTimeout?: never;
+      retryPolicy?: RetryPolicy;
     }
   | {
       /** Batch-based processing */
       prefetch?: number;
       batchSize: number;
       batchTimeout?: number;
+      retryPolicy?: RetryPolicy;
     };
+
+type RetryPolicy = import("./types.js").RetryPolicy;
 
 /**
  * Options for creating a type-safe AMQP worker.
@@ -484,22 +489,37 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * @param msg - The AMQP message
    * @param consumer - The consumer definition
    * @param consumerName - The consumer name for logging
+   * @param error - The error that caused the failure (for non-retryable error detection)
    * @returns Promise that resolves when retry handling is complete
    */
   private async handleMessageRetry<TName extends InferConsumerNames<TContract>>(
     msg: Message,
     consumer: ConsumerDefinition,
     consumerName: TName,
+    error?: unknown,
   ): Promise<void> {
-    const retryPolicy = consumer.retryPolicy;
+    // Get retry policy from consumer options (worker-level configuration)
+    const retryPolicy = this.consumerOptions[consumerName]?.retryPolicy;
 
-    // Legacy behavior: no retry policy configured - use simple requeue
+    // No retry policy configured - default to single attempt (no retries)
     if (!retryPolicy) {
-      this.logger?.info("Requeuing message (legacy behavior - no retry policy)", {
+      this.logger?.info("Rejecting message (no retry policy configured, default behavior)", {
         consumerName: String(consumerName),
         queueName: consumer.queue.name,
       });
-      this.amqpClient.channel.nack(msg, false, true);
+      this.amqpClient.channel.nack(msg, false, false);
+      return;
+    }
+
+    // Check if error is non-retryable
+    if (error && isNonRetryableError(error, retryPolicy)) {
+      this.logger?.warn("Message has non-retryable error, rejecting immediately", {
+        consumerName: String(consumerName),
+        queueName: consumer.queue.name,
+        error: error instanceof Error ? error.message : String(error),
+        errorType: error instanceof Error ? error.constructor.name : typeof error,
+      });
+      this.amqpClient.channel.nack(msg, false, false);
       return;
     }
 

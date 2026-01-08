@@ -410,100 +410,6 @@ export type PublisherDefinition<TMessage extends MessageDefinition = MessageDefi
     }
 );
 
-/**
- * Retry policy configuration for handling failed message processing.
- *
- * Inspired by Temporal's retry policy design, this configuration allows
- * fine-grained control over retry behavior for failed messages.
- *
- * @example
- * ```typescript
- * const retryPolicy: RetryPolicy = {
- *   maxAttempts: 3,
- *   backoff: {
- *     type: 'exponential',
- *     initialInterval: 1000,
- *     maxInterval: 60000,
- *     coefficient: 2
- *   }
- * };
- * ```
- */
-export type RetryPolicy = {
-  /**
-   * Maximum number of attempts (initial attempt + retries).
-   * After this limit is reached, the message will be:
-   * - Sent to the dead letter exchange if configured on the queue
-   * - Rejected (nacked without requeue) if no dead letter exchange
-   *
-   * Set to 1 to process once with no retries on failure (fail fast).
-   * Set to 0 to process once with no retries (effectively same as 1).
-   * If not specified, defaults to 1 (no retries).
-   */
-  maxAttempts?: number;
-
-  /**
-   * Backoff strategy for retry intervals.
-   * Adds delay between retry attempts to avoid overwhelming the system.
-   */
-  backoff?: {
-    /**
-     * Type of backoff strategy.
-     * - `fixed`: Same interval for every retry
-     * - `exponential`: Interval increases exponentially with each retry
-     *
-     * If not specified, defaults to 'fixed'.
-     */
-    type?: "fixed" | "exponential";
-
-    /**
-     * Initial interval in milliseconds before the first retry.
-     * For exponential backoff, this is the base interval.
-     *
-     * If not specified, defaults to 1000ms (1 second).
-     */
-    initialInterval?: number;
-
-    /**
-     * Maximum interval in milliseconds between retries.
-     * Prevents exponential backoff from growing indefinitely.
-     *
-     * Only applies to exponential backoff.
-     * If not specified, defaults to 60000ms (60 seconds).
-     */
-    maxInterval?: number;
-
-    /**
-     * Multiplication coefficient for exponential backoff.
-     * Each retry interval is multiplied by this value.
-     *
-     * Formula: interval = initialInterval * (coefficient ^ attemptNumber)
-     *
-     * Only applies to exponential backoff.
-     * If not specified, defaults to 2.
-     */
-    coefficient?: number;
-  };
-
-  /**
-   * List of error types (constructor names or error messages) that should NOT be retried.
-   * Similar to Temporal's NonRetryableErrorTypes.
-   *
-   * When a handler throws an error matching one of these patterns, the message will be:
-   * - Sent to the dead letter exchange if configured on the queue
-   * - Rejected (nacked without requeue) if no dead letter exchange
-   *
-   * Patterns can be:
-   * - Error constructor name (e.g., 'ValidationError', 'TypeError')
-   * - Substring of error message (case-insensitive)
-   *
-   * @example
-   * ```typescript
-   * nonRetryableErrors: ['ValidationError', 'AuthenticationError', 'invalid format']
-   * ```
-   */
-  nonRetryableErrors?: readonly string[];
-};
 
 /**
  * Definition of a message consumer.
@@ -513,30 +419,36 @@ export type RetryPolicy = {
  * If the message is compressed (indicated by the content-encoding header), it will be
  * automatically decompressed before validation.
  *
+ * Retry policy configuration has been moved to worker-level options (similar to prefetch).
+ * This separates contract definition (message schemas) from deployment configuration (retry behavior).
+ *
  * @template TMessage - The message definition with payload schema
  *
  * @example
  * ```typescript
- * // Basic consumer
+ * // Basic consumer definition (contract-level)
  * const consumer: ConsumerDefinition = {
  *   queue: orderProcessingQueue,
  *   message: orderMessage
  * };
  *
- * // Consumer with retry policy
- * const consumerWithRetry: ConsumerDefinition = {
- *   queue: orderProcessingQueue,
- *   message: orderMessage,
- *   retryPolicy: {
- *     maxAttempts: 3,
- *     backoff: {
- *       type: 'exponential',
- *       initialInterval: 1000,
- *       maxInterval: 60000,
- *       coefficient: 2
- *     }
- *   }
- * };
+ * // Retry policy configured at worker level (deployment-level)
+ * const worker = await TypedAmqpWorker.create({
+ *   contract,
+ *   handlers: {
+ *     processOrder: [
+ *       async (message) => { ... },
+ *       {
+ *         prefetch: 10,
+ *         retryPolicy: {
+ *           maxAttempts: 3,
+ *           backoff: { type: 'exponential', initialInterval: 1000 }
+ *         }
+ *       }
+ *     ]
+ *   },
+ *   urls: ['amqp://localhost']
+ * });
  * ```
  */
 export type ConsumerDefinition<TMessage extends MessageDefinition = MessageDefinition> = {
@@ -545,19 +457,6 @@ export type ConsumerDefinition<TMessage extends MessageDefinition = MessageDefin
 
   /** The message definition including the payload schema */
   message: TMessage;
-
-  /**
-   * Retry policy for handling failed message processing.
-   *
-   * When configured, failed messages will be retried up to maxAttempts times
-   * with optional exponential backoff between attempts. After exhausting retries,
-   * messages will be sent to the dead letter exchange if configured on the queue,
-   * or rejected without requeue.
-   *
-   * If not specified, messages will be requeued indefinitely on failure (legacy behavior).
-   * **For production use, always configure a retry policy to prevent infinite loops.**
-   */
-  retryPolicy?: RetryPolicy;
 };
 
 /**

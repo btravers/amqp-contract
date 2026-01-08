@@ -598,10 +598,14 @@ export function definePublisher<TMessage extends MessageDefinition>(
  * Consumers are associated with a specific queue and message type. When you create a worker
  * with this consumer, it will process messages from the queue according to the schema.
  *
+ * **Retry policy configuration has moved to worker-level options.**
+ * This separates contract definition (what messages look like) from deployment configuration
+ * (how to handle failures). Configure retry policies when creating the worker, similar to
+ * how you configure prefetch.
+ *
  * @param queue - The queue definition to consume from
  * @param message - The message definition with payload schema
- * @param options - Optional consumer configuration including retry policy
- * @param options.retryPolicy - Retry policy for handling failed message processing
+ * @param options - Optional consumer configuration (currently unused, kept for future extensibility)
  * @returns A consumer definition with inferred message types
  *
  * @example
@@ -617,33 +621,35 @@ export function definePublisher<TMessage extends MessageDefinition>(
  *   })
  * );
  *
- * // Basic consumer
+ * // Basic consumer (contract-level definition)
  * const processOrderConsumer = defineConsumer(orderQueue, orderMessage);
  *
- * // Consumer with retry policy for production use
- * const robustConsumer = defineConsumer(orderQueue, orderMessage, {
- *   retryPolicy: {
- *     maxAttempts: 3,
- *     backoff: {
- *       type: 'exponential',
- *       initialInterval: 1000,
- *       maxInterval: 60000,
- *       coefficient: 2
- *     }
- *   }
+ * // Later, when creating a worker, configure retry policy (deployment-level):
+ * const worker = await TypedAmqpWorker.create({
+ *   contract,
+ *   handlers: {
+ *     processOrder: [
+ *       async (message) => {
+ *         // message is automatically typed based on the schema
+ *         console.log(message.orderId); // string
+ *       },
+ *       {
+ *         prefetch: 10,
+ *         retryPolicy: {
+ *           maxAttempts: 3,
+ *           backoff: {
+ *             type: 'exponential',
+ *             initialInterval: 1000,
+ *             maxInterval: 60000,
+ *             coefficient: 2
+ *           },
+ *           nonRetryableErrors: ['ValidationError']
+ *         }
+ *       }
+ *     ]
+ *   },
+ *   urls: ['amqp://localhost']
  * });
- *
- * // Later, when creating a worker, you'll provide a handler for this consumer:
- * // const worker = await TypedAmqpWorker.create({
- * //   contract,
- * //   handlers: {
- * //     processOrder: async (message) => {
- * //       // message is automatically typed based on the schema
- * //       console.log(message.orderId); // string
- * //     }
- * //   },
- * //   connection
- * // });
  * ```
  */
 export function defineConsumer<TMessage extends MessageDefinition>(
