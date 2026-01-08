@@ -518,12 +518,12 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         msg.properties.headers?.["x-first-failure-timestamp"] ?? Date.now(),
     };
 
-    // Republish the message back to the exchange it came from, using the original routing key.
-    // This ensures the message goes through the same routing path as the original message.
+    // Republish the message directly to the consumer's queue.
+    // This ensures the retry only affects this specific consumer, not other consumers
+    // that may be bound to the same exchange.
     // Only copy user-level properties, not system fields like deliveryTag or redelivered.
-    await this.amqpClient.channel.publish(
-      msg.fields.exchange,
-      msg.fields.routingKey,
+    await this.amqpClient.channel.sendToQueue(
+      queueName,
       msg.content,
       {
         contentType: msg.properties.contentType,
