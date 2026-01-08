@@ -502,7 +502,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
     // Prepare headers with retry information
     const headers = {
-      ...(msg.properties.headers ?? {}),
+      ...msg.properties.headers,
       "x-retry-count": retryCount + 1,
       "x-last-error": error instanceof Error ? error.message : String(error),
       "x-first-failure-timestamp":
@@ -621,76 +621,85 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         }
 
         // Parse and validate message
-        await this.parseAndValidateMessage(msg, consumer, consumerName)
-          .flatMapOk((validatedMessage) =>
-            Future.fromPromise(handler(validatedMessage)).tapError(async (error) => {
-              const retryCount = this.getRetryCount(msg);
-              const isRetryable = this.isRetryableError(error);
+        const validationResult = await this.parseAndValidateMessage(
+          msg,
+          consumer,
+          consumerName,
+        ).toPromise();
 
-              this.logger?.error("Error processing message", {
-                consumerName: String(consumerName),
-                queueName: consumer.queue.name,
-                retryCount,
-                isRetryable,
-                error,
-              });
+        if (validationResult.isError()) {
+          // Validation/parsing errors are already handled (nacked) in parseAndValidateMessage
+          return;
+        }
 
-              // Handle non-retryable errors immediately
-              if (!isRetryable) {
-                this.logger?.warn("Non-retryable error, sending to DLQ", {
-                  consumerName: String(consumerName),
-                  queueName: consumer.queue.name,
-                  error: error instanceof Error ? error.message : String(error),
-                });
-                this.sendToDLQ(msg);
-                return;
-              }
+        // Process message with handler
+        try {
+          await handler(validationResult.value);
 
-              // Check if we've exceeded max retries
-              if (retryCount >= this.retryConfig.maxRetries) {
-                this.logger?.error("Max retries exceeded, sending to DLQ", {
-                  consumerName: String(consumerName),
-                  queueName: consumer.queue.name,
-                  totalRetries: this.retryConfig.maxRetries,
-                  error: error instanceof Error ? error.message : String(error),
-                });
-                this.sendToDLQ(msg);
-                return;
-              }
+          // Success - acknowledge message
+          this.logger?.info("Message consumed successfully", {
+            consumerName: String(consumerName),
+            queueName: consumer.queue.name,
+          });
+          this.amqpClient.channel.ack(msg);
+        } catch (error) {
+          // Handler error - apply retry logic
+          const retryCount = this.getRetryCount(msg);
+          const isRetryable = this.isRetryableError(error);
 
-              // Calculate backoff delay and retry
-              const nextRetryDelayMs = this.calculateBackoffDelay(retryCount);
-              this.logger?.warn("Retrying message", {
-                consumerName: String(consumerName),
-                queueName: consumer.queue.name,
-                retryCount,
-                nextRetryDelayMs,
-                error: error instanceof Error ? error.message : String(error),
-              });
+          this.logger?.error("Error processing message", {
+            consumerName: String(consumerName),
+            queueName: consumer.queue.name,
+            retryCount,
+            isRetryable,
+            error,
+          });
 
-              try {
-                await this.republishForRetry(msg, consumer, retryCount, nextRetryDelayMs, error);
-              } catch (republishError) {
-                this.logger?.error("Failed to republish message for retry", {
-                  consumerName: String(consumerName),
-                  queueName: consumer.queue.name,
-                  error: republishError,
-                });
-                // If republish fails, nack with requeue as fallback
-                this.amqpClient.channel.nack(msg, false, true);
-              }
-            }),
-          )
-          .tapOk(() => {
-            this.logger?.info("Message consumed successfully", {
+          // Handle non-retryable errors immediately
+          if (!isRetryable) {
+            this.logger?.warn("Non-retryable error, sending to DLQ", {
               consumerName: String(consumerName),
               queueName: consumer.queue.name,
+              error: error instanceof Error ? error.message : String(error),
             });
+            this.sendToDLQ(msg);
+            return;
+          }
 
-            // Acknowledge message
-            this.amqpClient.channel.ack(msg);
-          })
-          .toPromise();
+          // Check if we've exceeded max retries
+          if (retryCount >= this.retryConfig.maxRetries) {
+            this.logger?.error("Max retries exceeded, sending to DLQ", {
+              consumerName: String(consumerName),
+              queueName: consumer.queue.name,
+              totalRetries: this.retryConfig.maxRetries,
+              error: error instanceof Error ? error.message : String(error),
+            });
+            this.sendToDLQ(msg);
+            return;
+          }
+
+          // Calculate backoff delay and retry
+          const nextRetryDelayMs = this.calculateBackoffDelay(retryCount);
+          this.logger?.warn("Retrying message", {
+            consumerName: String(consumerName),
+            queueName: consumer.queue.name,
+            retryCount,
+            nextRetryDelayMs,
+            error: error instanceof Error ? error.message : String(error),
+          });
+
+          try {
+            await this.republishForRetry(msg, consumer, retryCount, nextRetryDelayMs, error);
+          } catch (republishError) {
+            this.logger?.error("Failed to republish message for retry", {
+              consumerName: String(consumerName),
+              queueName: consumer.queue.name,
+              error: republishError,
+            });
+            // If republish fails, nack with requeue as fallback
+            this.amqpClient.channel.nack(msg, false, true);
+          }
+        }
       }),
     )
       .tapOk((reply) => {
