@@ -518,24 +518,29 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         msg.properties.headers?.["x-first-failure-timestamp"] ?? Date.now(),
     };
 
-    // Republish the message to the same queue with updated headers
-    // We use sendToQueue directly to ensure the message goes back to the consumer's queue
-    // Only copy user-level properties, not system fields like deliveryTag
-    await this.amqpClient.channel.sendToQueue(queueName, msg.content, {
-      contentType: msg.properties.contentType,
-      contentEncoding: msg.properties.contentEncoding,
-      headers: updatedHeaders,
-      persistent: msg.properties.deliveryMode === 2,
-      priority: msg.properties.priority,
-      correlationId: msg.properties.correlationId,
-      replyTo: msg.properties.replyTo,
-      expiration: msg.properties.expiration,
-      messageId: msg.properties.messageId,
-      timestamp: msg.properties.timestamp,
-      type: msg.properties.type,
-      userId: msg.properties.userId,
-      appId: msg.properties.appId,
-    });
+    // Republish the message back to the exchange it came from, using the original routing key.
+    // This ensures the message goes through the same routing path as the original message.
+    // Only copy user-level properties, not system fields like deliveryTag or redelivered.
+    await this.amqpClient.channel.publish(
+      msg.fields.exchange,
+      msg.fields.routingKey,
+      msg.content,
+      {
+        contentType: msg.properties.contentType,
+        contentEncoding: msg.properties.contentEncoding,
+        headers: updatedHeaders,
+        persistent: msg.properties.deliveryMode === 2,
+        priority: msg.properties.priority,
+        correlationId: msg.properties.correlationId,
+        replyTo: msg.properties.replyTo,
+        expiration: msg.properties.expiration,
+        messageId: msg.properties.messageId,
+        timestamp: msg.properties.timestamp,
+        type: msg.properties.type,
+        userId: msg.properties.userId,
+        appId: msg.properties.appId,
+      },
+    );
   }
 
   /**
