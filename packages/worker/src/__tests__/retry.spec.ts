@@ -96,7 +96,7 @@ describe("Worker Retry Mechanism", () => {
     // Verify that there was an actual delay between attempts
     // With initialDelayMs=100 and no jitter, first retry should be ~100ms after initial attempt
     if (attemptTimestamps.length >= 2) {
-      const delayBetweenAttempts = attemptTimestamps[1] - attemptTimestamps[0];
+      const delayBetweenAttempts = attemptTimestamps[1]! - attemptTimestamps[0]!;
       // Allow some tolerance (50ms to 300ms) for processing overhead
       expect(delayBetweenAttempts).toBeGreaterThanOrEqual(50);
       expect(delayBetweenAttempts).toBeLessThan(300);
