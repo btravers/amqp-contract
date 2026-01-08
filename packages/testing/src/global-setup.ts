@@ -7,9 +7,6 @@
  *
  * The RabbitMQ image can be configured via the `RABBITMQ_IMAGE` environment variable.
  * By default, it uses the public Docker Hub image (`rabbitmq:4.2.1-management-alpine`).
- * In CI environments (for example, on the main branch), you can point this variable
- * to a GitHub Container Registry image so tests run against the same image that your
- * pipeline builds and publishes.
  *
  * @module global-setup
  * @packageDocumentation
@@ -79,6 +76,8 @@ export default async function setup({ provide }: TestProject) {
       timeout: 5_000,
     })
     .withWaitStrategy(Wait.forHealthCheck())
+    .withReuse()
+    .withAutoRemove(true)
     .start();
 
   console.log("✅ RabbitMQ container started");
@@ -102,11 +101,4 @@ export default async function setup({ provide }: TestProject) {
   console.log(
     `📊 RabbitMQ management console available at http://${__TESTCONTAINERS_RABBITMQ_IP__}:${__TESTCONTAINERS_RABBITMQ_PORT_15672__}`,
   );
-
-  // Return cleanup function
-  return async () => {
-    console.log("🧹 Stopping RabbitMQ test environment...");
-    await rabbitmqContainer.stop();
-    console.log("✅ RabbitMQ test environment stopped");
-  };
 }

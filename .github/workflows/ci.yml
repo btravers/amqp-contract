@@ -108,71 +108,17 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Check if Dockerfile changed
-        id: dockerfile-changed
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E '^Dockerfile$|^\.github/workflows/docker-rabbitmq\.yml$'; then
-              echo "changed=true" >> $GITHUB_OUTPUT
-              echo "Dockerfile or docker workflow changed in this PR"
-            else
-              echo "changed=false" >> $GITHUB_OUTPUT
-              echo "Dockerfile did not change in this PR"
-            fi
-          elif [ "${{ github.event_name }}" = "push" ]; then
-            # For push events (main branch), check if Dockerfile changed in the last commit
-            if git diff --name-only HEAD^ HEAD | grep -E '^Dockerfile$|^\.github/workflows/docker-rabbitmq\.yml$'; then
-              echo "changed=true" >> $GITHUB_OUTPUT
-              echo "Dockerfile or docker workflow changed in this push"
-            else
-              echo "changed=false" >> $GITHUB_OUTPUT
-              echo "Dockerfile did not change in this push"
-            fi
-          else
-            echo "changed=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Login to GitHub Container Registry
+      - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Wait for Docker image build
-        if: steps.dockerfile-changed.outputs.changed == 'true'
-        run: |
-          echo "Waiting for Docker image to be built..."
-          # Give the Docker workflow more time to start and build the image before polling
-          sleep 180
-
-          # Determine which image tag to poll for
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            IMAGE_TAG="pr-${{ github.event.pull_request.number }}"
-          else
-            IMAGE_TAG="latest"
-          fi
-
-          # Poll for image availability
-          for i in {1..30}; do
-            if docker pull ghcr.io/${{ github.repository }}/rabbitmq:${IMAGE_TAG} 2>/dev/null; then
-              echo "Image is available"
-              exit 0
-            fi
-            echo "Waiting for image... attempt $i/30"
-            sleep 20
-          done
-          echo "Warning: Image may not be ready, will try to use it anyway"
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Setup
         uses: ./.github/actions/setup
 
       - name: Run integration tests
         run: pnpm test:integration -- --coverage --reporter=default --reporter=github-actions
-        env:
-          # Use PR-specific image if Dockerfile changed in PR, otherwise use latest
-          # For push events (main branch), always use latest
-          RABBITMQ_IMAGE: ghcr.io/${{ github.repository }}/rabbitmq:${{ github.event_name == 'pull_request' && steps.dockerfile-changed.outputs.changed == 'true' && format('pr-{0}', github.event.pull_request.number) || 'latest' }}
 
       - name: Upload Integration Coverage Report
         if: always()
