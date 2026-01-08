@@ -2,6 +2,7 @@ import type {
   BaseExchangeDefinition,
   ConsumerDefinition,
   ContractDefinition,
+  DelayedExchangeDefinition,
   DirectExchangeDefinition,
   ExchangeBindingDefinition,
   ExchangeDefinition,
@@ -100,6 +101,41 @@ export function defineExchange(
 ): TopicExchangeDefinition;
 
 /**
+ * Define a delayed message exchange.
+ *
+ * A delayed exchange uses the RabbitMQ delayed message exchange plugin to delay message delivery.
+ * Messages published with an `x-delay` header are held for the specified milliseconds before routing.
+ *
+ * **REQUIRES**: RabbitMQ delayed message exchange plugin
+ * Install with: `rabbitmq-plugins enable rabbitmq_delayed_message_exchange`
+ *
+ * @param name - The name of the exchange
+ * @param type - Must be "x-delayed-message"
+ * @param options - Required exchange configuration
+ * @param options.delayedType - The underlying routing type: "direct", "fanout", or "topic"
+ * @param options.durable - If true, the exchange survives broker restarts (default: false)
+ * @param options.autoDelete - If true, the exchange is deleted when no queues are bound (default: false)
+ * @param options.internal - If true, the exchange cannot be directly published to (default: false)
+ * @param options.arguments - Additional AMQP arguments for the exchange
+ * @returns A delayed exchange definition
+ *
+ * @example
+ * ```typescript
+ * const retryExchange = defineExchange('retry-exchange', 'x-delayed-message', {
+ *   durable: true,
+ *   delayedType: 'topic'
+ * });
+ * ```
+ */
+export function defineExchange(
+  name: string,
+  type: "x-delayed-message",
+  options: Omit<BaseExchangeDefinition, "name" | "type"> & {
+    delayedType: "direct" | "fanout" | "topic";
+  },
+): DelayedExchangeDefinition;
+
+/**
  * Define an AMQP exchange.
  *
  * An exchange receives messages from publishers and routes them to queues based on the exchange type
@@ -107,16 +143,29 @@ export function defineExchange(
  * type safety.
  *
  * @param name - The name of the exchange
- * @param type - The type of exchange: "fanout", "direct", or "topic"
+ * @param type - The type of exchange: "fanout", "direct", "topic", or "x-delayed-message"
  * @param options - Optional exchange configuration
  * @returns An exchange definition
  * @internal
  */
 export function defineExchange(
   name: string,
-  type: "fanout" | "direct" | "topic",
-  options?: Omit<BaseExchangeDefinition, "name" | "type">,
+  type: "fanout" | "direct" | "topic" | "x-delayed-message",
+  options?: Omit<BaseExchangeDefinition, "name" | "type"> & {
+    delayedType?: "direct" | "fanout" | "topic";
+  },
 ): ExchangeDefinition {
+  if (type === "x-delayed-message") {
+    if (!options?.delayedType) {
+      throw new Error("delayedType is required for x-delayed-message exchanges");
+    }
+    return {
+      name,
+      type: "x-delayed-message",
+      delayedType: options.delayedType,
+      ...options,
+    };
+  }
   return {
     name,
     type,

@@ -135,14 +135,44 @@ export type TopicExchangeDefinition = BaseExchangeDefinition & {
 };
 
 /**
+ * A delayed message exchange definition.
+ *
+ * Delayed exchanges use the RabbitMQ delayed message exchange plugin to delay message delivery.
+ * Messages published with an `x-delay` header are held by the exchange for the specified
+ * number of milliseconds before being routed to queues.
+ *
+ * **REQUIRES**: RabbitMQ delayed message exchange plugin
+ * Install with: `rabbitmq-plugins enable rabbitmq_delayed_message_exchange`
+ *
+ * The `delayedType` specifies the underlying routing behavior (direct, fanout, or topic).
+ *
+ * @example
+ * ```typescript
+ * const retryExchange: DelayedExchangeDefinition = defineExchange('retry-exchange', 'x-delayed-message', {
+ *   durable: true,
+ *   delayedType: 'topic'
+ * });
+ * ```
+ */
+export type DelayedExchangeDefinition = BaseExchangeDefinition & {
+  type: "x-delayed-message";
+  /**
+   * The underlying exchange type for routing (direct, fanout, or topic).
+   * This determines how messages are routed after the delay expires.
+   */
+  delayedType: "direct" | "fanout" | "topic";
+};
+
+/**
  * Union type of all exchange definitions.
  *
- * Represents any type of AMQP exchange: fanout, direct, or topic.
+ * Represents any type of AMQP exchange: fanout, direct, topic, or x-delayed-message.
  */
 export type ExchangeDefinition =
   | FanoutExchangeDefinition
   | DirectExchangeDefinition
-  | TopicExchangeDefinition;
+  | TopicExchangeDefinition
+  | DelayedExchangeDefinition;
 
 /**
  * Configuration for dead letter exchange (DLX) on a queue.

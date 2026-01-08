@@ -23,7 +23,10 @@ describe("Worker Retry Mechanism", () => {
       value: z.number(),
     });
 
-    const exchange = defineExchange("retry-test-exchange", "topic", { durable: false });
+    const exchange = defineExchange("retry-test-exchange", "x-delayed-message", {
+      durable: false,
+      delayedType: "topic",
+    });
     const queue = defineQueue("retry-test-queue", { durable: false });
 
     const contract = defineContract({
@@ -118,7 +121,10 @@ describe("Worker Retry Mechanism", () => {
       value: z.number(),
     });
 
-    const exchange = defineExchange("retry-dlq-exchange", "topic", { durable: false });
+    const exchange = defineExchange("retry-dlq-exchange", "x-delayed-message", {
+      durable: false,
+      delayedType: "topic",
+    });
     const dlqExchange = defineExchange("retry-dlq-dead-letter", "topic", { durable: false });
     const queue = defineQueue("retry-dlq-queue", {
       durable: false,
@@ -222,7 +228,10 @@ describe("Worker Retry Mechanism", () => {
       value: z.number(),
     });
 
-    const exchange = defineExchange("non-retry-exchange", "topic", { durable: false });
+    const exchange = defineExchange("non-retry-exchange", "x-delayed-message", {
+      durable: false,
+      delayedType: "topic",
+    });
     const dlqExchange = defineExchange("non-retry-dlq", "topic", { durable: false });
     const queue = defineQueue("non-retry-queue", {
       durable: false,
@@ -323,7 +332,10 @@ describe("Worker Retry Mechanism", () => {
       value: z.number(),
     });
 
-    const exchange = defineExchange("unknown-error-exchange", "topic", { durable: false });
+    const exchange = defineExchange("unknown-error-exchange", "x-delayed-message", {
+      durable: false,
+      delayedType: "topic",
+    });
     const dlqExchange = defineExchange("unknown-error-dlq", "topic", { durable: false });
     const queue = defineQueue("unknown-error-queue", {
       durable: false,
@@ -425,7 +437,10 @@ describe("Worker Retry Mechanism", () => {
       value: z.number(),
     });
 
-    const exchange = defineExchange("retry-headers-exchange", "topic", { durable: false });
+    const exchange = defineExchange("retry-headers-exchange", "x-delayed-message", {
+      durable: false,
+      delayedType: "topic",
+    });
     const dlqExchange = defineExchange("retry-headers-dlq", "topic", { durable: false });
     const queue = defineQueue("retry-headers-queue", {
       durable: false,
@@ -517,7 +532,10 @@ describe("Worker Retry Mechanism", () => {
       value: z.number(),
     });
 
-    const exchange = defineExchange("batch-retry-exchange", "topic", { durable: false });
+    const exchange = defineExchange("batch-retry-exchange", "x-delayed-message", {
+      durable: false,
+      delayedType: "topic",
+    });
     const queue = defineQueue("batch-retry-queue", { durable: false });
 
     const contract = defineContract({

@@ -17,12 +17,17 @@
 
 import { GenericContainer, Wait } from "testcontainers";
 import type { TestProject } from "vitest/node";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
 
 /**
  * Default RabbitMQ Docker image to use for testing.
  * Can be overridden via RABBITMQ_IMAGE environment variable.
+ *
+ * By default, we build a custom image from the Dockerfile in this package
+ * that includes the rabbitmq_delayed_message_exchange plugin.
  */
-const DEFAULT_RABBITMQ_IMAGE = "rabbitmq:4.2.1-management-alpine";
+const DEFAULT_RABBITMQ_IMAGE = process.env["RABBITMQ_IMAGE"];
 
 declare module "vitest" {
   // eslint-disable-next-line @typescript-eslint/consistent-type-definitions -- Module augmentation requires interface for declaration merging
@@ -62,29 +67,59 @@ declare module "vitest" {
  * @returns Cleanup function that stops the RabbitMQ container
  */
 export default async function setup({ provide }: TestProject) {
-  const rabbitmqImage = process.env["RABBITMQ_IMAGE"] ?? DEFAULT_RABBITMQ_IMAGE;
-
   console.log("🐳 Starting RabbitMQ test environment...");
-  console.log(`📦 Using RabbitMQ image: ${rabbitmqImage}`);
 
-  // Start RabbitMQ container with management plugin
-  const rabbitmqContainer = await new GenericContainer(rabbitmqImage)
-    .withExposedPorts(5672, 15672)
-    .withEnvironment({
-      RABBITMQ_DEFAULT_USER: "guest",
-      RABBITMQ_DEFAULT_PASS: "guest",
-    })
-    .withHealthCheck({
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"],
-      interval: 1_000,
-      retries: 30,
-      startPeriod: 3_000,
-      timeout: 5_000,
-    })
-    .withWaitStrategy(Wait.forHealthCheck())
-    .withReuse()
-    .withAutoRemove(true)
-    .start();
+  let rabbitmqContainer;
+
+  if (DEFAULT_RABBITMQ_IMAGE) {
+    // Use custom image if provided via environment variable
+    console.log(`📦 Using RabbitMQ image: ${DEFAULT_RABBITMQ_IMAGE}`);
+    rabbitmqContainer = await new GenericContainer(DEFAULT_RABBITMQ_IMAGE)
+      .withExposedPorts(5672, 15672)
+      .withEnvironment({
+        RABBITMQ_DEFAULT_USER: "guest",
+        RABBITMQ_DEFAULT_PASS: "guest",
+      })
+      .withHealthCheck({
+        test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"],
+        interval: 1_000,
+        retries: 30,
+        startPeriod: 3_000,
+        timeout: 5_000,
+      })
+      .withWaitStrategy(Wait.forHealthCheck())
+      .withReuse()
+      .withAutoRemove(true)
+      .start();
+  } else {
+    // Build custom image from Dockerfile
+    console.log("🔨 Building custom RabbitMQ image with delayed message exchange plugin...");
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const dockerfilePath = path.resolve(__dirname, "..");
+
+    rabbitmqContainer = await GenericContainer.fromDockerfile(dockerfilePath)
+      .build()
+      .then((image) =>
+        image
+          .withExposedPorts(5672, 15672)
+          .withEnvironment({
+            RABBITMQ_DEFAULT_USER: "guest",
+            RABBITMQ_DEFAULT_PASS: "guest",
+          })
+          .withHealthCheck({
+            test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"],
+            interval: 1_000,
+            retries: 30,
+            startPeriod: 3_000,
+            timeout: 5_000,
+          })
+          .withWaitStrategy(Wait.forHealthCheck())
+          .withReuse()
+          .withAutoRemove(true)
+          .start(),
+      );
+  }
 
   console.log("✅ RabbitMQ container started");
 
