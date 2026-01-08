@@ -511,7 +511,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
     // Build updated headers with retry information
     const updatedHeaders = {
-      ...(msg.properties.headers ?? {}),
+      ...msg.properties.headers,
       "x-retry-count": retryCount + 1,
       "x-last-error": error instanceof Error ? error.message : String(error),
       "x-first-failure-timestamp":
