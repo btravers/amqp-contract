@@ -86,7 +86,7 @@ handlers: {
   processOrder: async (message) => {
     // This will NOT be retried - goes straight to DLQ
     throw new Error("Something went wrong");
-    
+
     // This WILL be retried with exponential backoff
     throw new RetryableError("Temporary issue");
   },

@@ -7,11 +7,7 @@ import type {
   InferConsumerNames,
 } from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
-import {
-  MessageValidationError,
-  RetryableError,
-  TechnicalError,
-} from "./errors.js";
+import { MessageValidationError, RetryableError, TechnicalError } from "./errors.js";
 import type {
   WorkerInferConsumerBatchHandler,
   WorkerInferConsumerHandler,
