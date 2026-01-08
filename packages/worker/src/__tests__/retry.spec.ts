@@ -1,4 +1,4 @@
-/* eslint-disable sort-imports */
+/* oxlint-disable eslint/sort-imports */
 import {
   ContractDefinition,
   defineConsumer,
@@ -13,8 +13,8 @@ import { it as baseIt } from "@amqp-contract/testing/extension";
 import { describe, expect, vi } from "vitest";
 import { z } from "zod";
 import { NonRetryableError, RetryableError } from "../errors.js";
-import type { WorkerInferConsumerHandlers } from "../types.js";
 import { TypedAmqpWorker } from "../worker.js";
+import type { WorkerInferConsumerHandlers } from "../types.js";
 
 const it = baseIt.extend<{
   workerFactory: <TContract extends ContractDefinition>(
