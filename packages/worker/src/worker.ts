@@ -491,29 +491,39 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * - No additional infrastructure (delay queues) required
    * - Predictable retry timing
    * For high-throughput scenarios, consider using RabbitMQ delayed message plugin.
+   *
+   * Implementation: We acknowledge the original message, wait for the delay, then publish
+   * a new message with updated headers. This is necessary because nack doesn't preserve
+   * header modifications.
    */
   private async republishForRetry(
     msg: Message,
+    queueName: string,
     retryCount: number,
     delayMs: number,
     error: unknown,
   ): Promise<void> {
-    // Wait for the calculated delay before requeuing
+    // First, acknowledge the original message to remove it from the queue
+    this.amqpClient.channel.ack(msg);
+
+    // Wait for the calculated delay before republishing
     await new Promise((resolve) => setTimeout(resolve, delayMs));
 
-    // Update headers with retry information before requeuing
-    // Note: We modify the message headers in-place
-    if (!msg.properties.headers) {
-      msg.properties.headers = {};
-    }
-    msg.properties.headers["x-retry-count"] = retryCount + 1;
-    msg.properties.headers["x-last-error"] = error instanceof Error ? error.message : String(error);
-    msg.properties.headers["x-first-failure-timestamp"] =
-      msg.properties.headers["x-first-failure-timestamp"] ?? Date.now();
+    // Build updated headers with retry information
+    const updatedHeaders = {
+      ...(msg.properties.headers ?? {}),
+      "x-retry-count": retryCount + 1,
+      "x-last-error": error instanceof Error ? error.message : String(error),
+      "x-first-failure-timestamp":
+        msg.properties.headers?.["x-first-failure-timestamp"] ?? Date.now(),
+    };
 
-    // Requeue the message (nack with requeue=true)
-    // The message will go back to the queue with updated headers
-    this.amqpClient.channel.nack(msg, false, true);
+    // Republish the message to the same queue with updated headers
+    // We use sendToQueue directly to ensure the message goes back to the consumer's queue
+    await this.amqpClient.channel.sendToQueue(queueName, msg.content, {
+      ...msg.properties,
+      headers: updatedHeaders,
+    });
   }
 
   /**
@@ -704,7 +714,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           });
 
           try {
-            await this.republishForRetry(msg, retryCount, nextRetryDelayMs, error);
+            await this.republishForRetry(msg, consumer.queue.name, retryCount, nextRetryDelayMs, error);
           } catch (republishError) {
             this.logger?.error("Failed to republish message for retry, falling back to requeue", {
               consumerName: String(consumerName),
@@ -860,7 +870,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           });
 
           try {
-            await this.republishForRetry(item.amqpMessage, retryCount, nextRetryDelayMs, error);
+            await this.republishForRetry(item.amqpMessage, consumer.queue.name, retryCount, nextRetryDelayMs, error);
           } catch (republishError) {
             this.logger?.error(
               "Failed to republish batch message for retry, falling back to requeue",
