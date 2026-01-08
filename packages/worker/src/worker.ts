@@ -499,39 +499,22 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     delayMs: number,
     error: unknown,
   ): Promise<void> {
-    // Wait for the calculated delay before republishing
+    // Wait for the calculated delay before requeuing
     await new Promise((resolve) => setTimeout(resolve, delayMs));
 
-    // Prepare headers with retry information
-    const headers = {
-      ...msg.properties.headers,
-      "x-retry-count": retryCount + 1,
-      "x-last-error": error instanceof Error ? error.message : String(error),
-      "x-first-failure-timestamp":
-        msg.properties.headers?.["x-first-failure-timestamp"] ?? Date.now(),
-    };
+    // Update headers with retry information before requeuing
+    // Note: We modify the message headers in-place
+    if (!msg.properties.headers) {
+      msg.properties.headers = {};
+    }
+    msg.properties.headers["x-retry-count"] = retryCount + 1;
+    msg.properties.headers["x-last-error"] = error instanceof Error ? error.message : String(error);
+    msg.properties.headers["x-first-failure-timestamp"] =
+      msg.properties.headers["x-first-failure-timestamp"] ?? Date.now();
 
-    // Republish to the same queue
-    // Note: ChannelWrapper.sendToQueue() returns a Promise, unlike native amqplib
-    // Only copy user-level properties, not system fields like deliveryTag
-    await this.amqpClient.channel.sendToQueue(consumer.queue.name, msg.content, {
-      contentType: msg.properties.contentType,
-      contentEncoding: msg.properties.contentEncoding,
-      headers,
-      deliveryMode: msg.properties.deliveryMode,
-      priority: msg.properties.priority,
-      correlationId: msg.properties.correlationId,
-      replyTo: msg.properties.replyTo,
-      expiration: msg.properties.expiration,
-      messageId: msg.properties.messageId,
-      timestamp: msg.properties.timestamp,
-      type: msg.properties.type,
-      userId: msg.properties.userId,
-      appId: msg.properties.appId,
-    });
-
-    // Acknowledge the original message
-    this.amqpClient.channel.ack(msg);
+    // Requeue the message (nack with requeue=true)
+    // The message will go back to the queue with updated headers
+    this.amqpClient.channel.nack(msg, false, true);
   }
 
   /**
