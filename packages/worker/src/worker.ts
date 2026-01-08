@@ -733,7 +733,13 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           });
 
           try {
-            await this.republishForRetry(msg, consumer.queue.name, retryCount, nextRetryDelayMs, error);
+            await this.republishForRetry(
+              msg,
+              consumer.queue.name,
+              retryCount,
+              nextRetryDelayMs,
+              error,
+            );
           } catch (republishError) {
             this.logger?.error("Failed to republish message for retry, falling back to requeue", {
               consumerName: String(consumerName),
@@ -889,7 +895,13 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           });
 
           try {
-            await this.republishForRetry(item.amqpMessage, consumer.queue.name, retryCount, nextRetryDelayMs, error);
+            await this.republishForRetry(
+              item.amqpMessage,
+              consumer.queue.name,
+              retryCount,
+              nextRetryDelayMs,
+              error,
+            );
           } catch (republishError) {
             this.logger?.error(
               "Failed to republish batch message for retry, falling back to requeue",
