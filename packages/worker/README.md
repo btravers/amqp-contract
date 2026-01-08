@@ -128,6 +128,20 @@ const worker = await TypedAmqpWorker.create({
 
 ### Retry Configuration
 
+The retry mechanism provides exponential backoff with jitter for transient failures.
+
+**IMPORTANT:** Retry with exponential backoff requires the RabbitMQ delayed message exchange plugin:
+
+```bash
+# Enable the plugin on your RabbitMQ broker
+rabbitmq-plugins enable rabbitmq_delayed_message_exchange
+```
+
+Without this plugin, retry with delays will not work. The plugin is available at:
+https://github.com/rabbitmq/rabbitmq-delayed-message-exchange
+
+**Configuration options:**
+
 Configure retry behavior via the `retry` option:
 
 - `maxRetries` - Maximum retry attempts before sending to DLQ (default: 3)

@@ -98,21 +98,45 @@ handlers: {
 Configure retry behavior when creating the worker:
 
 ```typescript
+import { TypedAmqpWorker, RetryableError } from "@amqp-contract/worker";
+
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    /* ... */
+    processOrder: async (message) => {
+      try {
+        await processPayment(message);
+      } catch (error) {
+        if (error instanceof TimeoutError) {
+          throw new RetryableError("Payment timeout", error);
+        }
+        throw error; // Non-retryable
+      }
+    },
   },
   urls: ["amqp://localhost"],
   retry: {
-    maxRetries: 5, // Max retry attempts (default: 3)
-    initialDelayMs: 1000, // Initial delay in ms (default: 1000)
-    maxDelayMs: 60000, // Max delay in ms (default: 30000)
-    backoffMultiplier: 2, // Exponential multiplier (default: 2)
-    jitter: true, // Add random jitter (default: true)
+    maxRetries: 3,           // Maximum retry attempts (default: 3)
+    initialDelayMs: 1000,    // Initial delay in ms (default: 1000)
+    maxDelayMs: 30000,       // Maximum delay in ms (default: 30000)
+    backoffMultiplier: 2,    // Exponential multiplier (default: 2)
+    jitter: true,            // Add random jitter (default: true)
   },
-});
+}).resultToPromise();
 ```
+
+### RabbitMQ Plugin Requirement
+
+**IMPORTANT:** The retry mechanism with exponential backoff requires the RabbitMQ delayed message exchange plugin:
+
+```bash
+# Enable the plugin on your RabbitMQ broker
+rabbitmq-plugins enable rabbitmq_delayed_message_exchange
+```
+
+The plugin is available at: https://github.com/rabbitmq/rabbitmq-delayed-message-exchange
+
+Without this plugin, messages will be requeued immediately without delays, and the exponential backoff will not function correctly.
 
 ### Configuration Options
 

@@ -483,18 +483,17 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   }
 
   /**
-   * Republish message for retry with updated headers
+   * Republish message for retry with updated headers using RabbitMQ delayed message exchange.
    *
-   * Note: This implementation uses setTimeout for simplicity and reliability.
-   * While this blocks the event loop during the delay, it ensures:
-   * - Message order is preserved
-   * - No additional infrastructure (delay queues) required
-   * - Predictable retry timing
-   * For high-throughput scenarios, consider using RabbitMQ delayed message plugin.
+   * REQUIRES: RabbitMQ delayed message exchange plugin
+   * https://github.com/rabbitmq/rabbitmq-delayed-message-exchange
    *
-   * Implementation: We acknowledge the original message, wait for the delay, then publish
-   * a new message with updated headers. This is necessary because nack doesn't preserve
-   * header modifications.
+   * The plugin must be enabled on your RabbitMQ broker for exponential backoff to work.
+   * Without the plugin, the retry mechanism will not function correctly.
+   *
+   * Implementation: We acknowledge the original message, then publish a new message
+   * with the x-delay header. The delayed message exchange plugin will delay delivery
+   * to the queue by the specified number of milliseconds.
    */
   private async republishForRetry(
     msg: Message,
@@ -503,10 +502,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     delayMs: number,
     error: unknown,
   ): Promise<void> {
-    // Wait for the calculated delay before republishing
-    await new Promise((resolve) => setTimeout(resolve, delayMs));
-
-    // Build updated headers with retry information
+    // Build updated headers with retry information and delay
     const updatedHeaders = {
       ...msg.properties.headers,
       "x-retry-count": retryCount + 1,
@@ -514,11 +510,13 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       "x-error-name": error instanceof Error ? error.name : "UnknownError",
       "x-first-failure-timestamp":
         msg.properties.headers?.["x-first-failure-timestamp"] ?? Date.now(),
+      "x-delay": delayMs, // Delay in milliseconds for delayed message exchange plugin
     };
 
     // Republish the message directly to the consumer's queue.
     // This ensures the retry only affects this specific consumer, not other consumers
     // that may be bound to the same exchange.
+    // The x-delay header will be processed by RabbitMQ's delayed message exchange plugin.
     await this.amqpClient.channel.sendToQueue(queueName, msg.content, {
       ...msg.properties,
       headers: updatedHeaders,
