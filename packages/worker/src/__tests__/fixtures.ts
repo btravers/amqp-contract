@@ -1,8 +1,7 @@
-/* oxlint-disable eslint/sort-imports */
 import type { ContractDefinition } from "@amqp-contract/contract";
-import { it as baseIt } from "@amqp-contract/testing/extension";
 import { TypedAmqpWorker } from "../worker.js";
 import type { WorkerInferConsumerHandlers } from "../types.js";
+import { it as baseIt } from "@amqp-contract/testing/extension";
 
 /**
  * Shared test fixture for worker integration tests.

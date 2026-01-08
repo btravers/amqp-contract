@@ -1,4 +1,3 @@
-/* oxlint-disable eslint/sort-imports */
 import {
   defineConsumer,
   defineContract,
@@ -10,9 +9,9 @@ import {
   defineQueueBinding,
 } from "@amqp-contract/contract";
 import { describe, expect, vi } from "vitest";
-import { z } from "zod";
 import { TypedAmqpWorker } from "../worker.js";
 import { it } from "./fixtures.js";
+import { z } from "zod";
 
 describe("AmqpWorker Integration", () => {
   it("should consume messages from a real RabbitMQ instance", async ({
