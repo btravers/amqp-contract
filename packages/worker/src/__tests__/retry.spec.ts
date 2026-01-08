@@ -1,3 +1,4 @@
+import { NonRetryableError, RetryableError } from "../errors.js";
 import {
   defineConsumer,
   defineContract,
@@ -8,9 +9,8 @@ import {
   defineQueueBinding,
 } from "@amqp-contract/contract";
 import { describe, expect, vi } from "vitest";
-import { z } from "zod";
 import { it } from "./fixtures.js";
-import { NonRetryableError, RetryableError } from "../errors.js";
+import { z } from "zod";
 
 describe("Worker Retry Mechanism", () => {
   it("should retry on RetryableError with exponential backoff", async ({
