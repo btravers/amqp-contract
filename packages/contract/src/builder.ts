@@ -329,7 +329,7 @@ export function defineQueueBinding(
 ): Extract<QueueBindingDefinition, { exchange: FanoutExchangeDefinition }>;
 
 /**
- * Define a binding between a queue and a direct or topic exchange.
+ * Define a binding between a queue and a direct, topic, or delayed exchange.
  *
  * Binds a queue to an exchange with a specific routing key pattern.
  * Messages are only routed to the queue if the routing key matches the pattern.
@@ -338,9 +338,10 @@ export function defineQueueBinding(
  * For topic exchanges: The routing key can include wildcards:
  * - `*` matches exactly one word
  * - `#` matches zero or more words
+ * For delayed exchanges: Routing follows the delayedType behavior.
  *
  * @param queue - The queue definition to bind
- * @param exchange - The direct or topic exchange definition
+ * @param exchange - The direct, topic, or delayed exchange definition
  * @param options - Binding configuration (routingKey is required)
  * @param options.routingKey - The routing key pattern for message routing
  * @param options.arguments - Additional AMQP arguments for the binding
@@ -364,17 +365,17 @@ export function defineQueueBinding(
  */
 export function defineQueueBinding(
   queue: QueueDefinition,
-  exchange: DirectExchangeDefinition | TopicExchangeDefinition,
+  exchange: DirectExchangeDefinition | TopicExchangeDefinition | DelayedExchangeDefinition,
   options: Omit<
     Extract<
       QueueBindingDefinition,
-      { exchange: DirectExchangeDefinition | TopicExchangeDefinition }
+      { exchange: DirectExchangeDefinition | TopicExchangeDefinition | DelayedExchangeDefinition }
     >,
     "type" | "queue" | "exchange"
   >,
 ): Extract<
   QueueBindingDefinition,
-  { exchange: DirectExchangeDefinition | TopicExchangeDefinition }
+  { exchange: DirectExchangeDefinition | TopicExchangeDefinition | DelayedExchangeDefinition }
 >;
 
 /**
@@ -559,14 +560,14 @@ export function definePublisher<TMessage extends MessageDefinition>(
 ): Extract<PublisherDefinition<TMessage>, { exchange: FanoutExchangeDefinition }>;
 
 /**
- * Define a message publisher for a direct or topic exchange.
+ * Define a message publisher for a direct, topic, or delayed exchange.
  *
  * A publisher sends messages to an exchange with a specific routing key.
  * The routing key determines which queues receive the message.
  *
  * The message schema is validated when publishing to ensure type safety.
  *
- * @param exchange - The direct or topic exchange definition to publish to
+ * @param exchange - The direct, topic, or delayed exchange definition to publish to
  * @param message - The message definition with payload schema
  * @param options - Publisher configuration (routingKey is required)
  * @param options.routingKey - The routing key for message routing
@@ -594,18 +595,18 @@ export function definePublisher<TMessage extends MessageDefinition>(
  * ```
  */
 export function definePublisher<TMessage extends MessageDefinition>(
-  exchange: DirectExchangeDefinition | TopicExchangeDefinition,
+  exchange: DirectExchangeDefinition | TopicExchangeDefinition | DelayedExchangeDefinition,
   message: TMessage,
   options: Omit<
     Extract<
       PublisherDefinition<TMessage>,
-      { exchange: DirectExchangeDefinition | TopicExchangeDefinition }
+      { exchange: DirectExchangeDefinition | TopicExchangeDefinition | DelayedExchangeDefinition }
     >,
     "exchange" | "message"
   >,
 ): Extract<
   PublisherDefinition<TMessage>,
-  { exchange: DirectExchangeDefinition | TopicExchangeDefinition }
+  { exchange: DirectExchangeDefinition | TopicExchangeDefinition | DelayedExchangeDefinition }
 >;
 
 /**

@@ -1,8 +1,7 @@
+import { type RetryOptions, TypedAmqpWorker } from "../worker.js";
 import type { ContractDefinition } from "@amqp-contract/contract";
-import { it as baseIt } from "@amqp-contract/testing/extension";
 import type { WorkerInferConsumerHandlers } from "../types.js";
-import type { RetryOptions } from "../worker.js";
-import { TypedAmqpWorker } from "../worker.js";
+import { it as baseIt } from "@amqp-contract/testing/extension";
 
 /**
  * Shared test fixture for worker integration tests.
