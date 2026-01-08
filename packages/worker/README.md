@@ -142,10 +142,38 @@ The plugin intercepts messages published to exchanges with the `x-delay` header 
 **How it works:**
 
 1. When a `RetryableError` is thrown, the worker calculates a delay using exponential backoff
-2. The message is republished to the **original exchange** (not directly to the queue) with an `x-delay` header
+2. The message is republished to the **original exchange** with a queue-specific retry routing key (`<queueName>.retry`) and an `x-delay` header
 3. The delayed message exchange plugin intercepts the message and holds it for the specified delay
-4. After the delay expires, the plugin routes the message to the destination queue
+4. After the delay expires, the plugin routes the message to the destination queue via the retry binding
 5. The consumer receives and processes the retried message
+
+**Contract requirement for retry support:**
+
+Each queue that needs retry support must have a binding for its retry routing key:
+
+```typescript
+const queue = defineQueue("order-processing", { durable: true });
+const exchange = defineExchange("orders", "topic", { durable: true });
+
+const contract = defineContract({
+  exchanges: { orders: exchange },
+  queues: { orderQueue: queue },
+  bindings: {
+    // Normal binding for incoming messages
+    orderBinding: defineQueueBinding(queue, exchange, {
+      routingKey: "order.#",
+    }),
+    // Retry binding: REQUIRED for retry support
+    // Uses queue-specific routing key: <queueName>.retry
+    retryBinding: defineQueueBinding(queue, exchange, {
+      routingKey: "order-processing.retry",
+    }),
+  },
+  // ... publishers and consumers
+});
+```
+
+This queue-specific routing key ensures retries only go to the specific queue that failed, avoiding broadcast to other queues that may have succeeded.
 
 **Note:** The plugin must be enabled for delays to work. Without it, messages are still retried but without delays (immediate retry).
 

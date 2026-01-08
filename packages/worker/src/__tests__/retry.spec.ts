@@ -37,6 +37,10 @@ describe("Worker Retry Mechanism", () => {
         testBinding: defineQueueBinding(queue, exchange, {
           routingKey: "test.#",
         }),
+        // Retry binding: queue-specific routing key for retries
+        retryBinding: defineQueueBinding(queue, exchange, {
+          routingKey: "retry-test-queue.retry",
+        }),
       },
       publishers: {
         testPublisher: definePublisher(exchange, defineMessage(TestMessage), {
@@ -136,6 +140,10 @@ describe("Worker Retry Mechanism", () => {
       bindings: {
         testBinding: defineQueueBinding(queue, exchange, {
           routingKey: "test.#",
+        }),
+        // Retry binding: queue-specific routing key for retries
+        retryBinding: defineQueueBinding(queue, exchange, {
+          routingKey: "retry-dlq-queue.retry",
         }),
         dlqBinding: defineQueueBinding(dlqQueue, dlqExchange, {
           routingKey: "#",
@@ -237,6 +245,10 @@ describe("Worker Retry Mechanism", () => {
         testBinding: defineQueueBinding(queue, exchange, {
           routingKey: "test.#",
         }),
+        // Retry binding: queue-specific routing key for retries (not used in this test but required for contract)
+        retryBinding: defineQueueBinding(queue, exchange, {
+          routingKey: "non-retry-queue.retry",
+        }),
         dlqBinding: defineQueueBinding(dlqQueue, dlqExchange, {
           routingKey: "#",
         }),
@@ -333,6 +345,10 @@ describe("Worker Retry Mechanism", () => {
       bindings: {
         testBinding: defineQueueBinding(queue, exchange, {
           routingKey: "test.#",
+        }),
+        // Retry binding: queue-specific routing key for retries (not used in this test but required for contract)
+        retryBinding: defineQueueBinding(queue, exchange, {
+          routingKey: "unknown-error-queue.retry",
         }),
         dlqBinding: defineQueueBinding(dlqQueue, dlqExchange, {
           routingKey: "#",
@@ -432,6 +448,10 @@ describe("Worker Retry Mechanism", () => {
         testBinding: defineQueueBinding(queue, exchange, {
           routingKey: "test.#",
         }),
+        // Retry binding: queue-specific routing key for retries
+        retryBinding: defineQueueBinding(queue, exchange, {
+          routingKey: "retry-headers-queue.retry",
+        }),
         dlqBinding: defineQueueBinding(dlqQueue, dlqExchange, {
           routingKey: "#",
         }),
@@ -510,6 +530,10 @@ describe("Worker Retry Mechanism", () => {
       bindings: {
         testBinding: defineQueueBinding(queue, exchange, {
           routingKey: "test.#",
+        }),
+        // Retry binding: queue-specific routing key for retries
+        retryBinding: defineQueueBinding(queue, exchange, {
+          routingKey: "batch-retry-queue.retry",
         }),
       },
       publishers: {

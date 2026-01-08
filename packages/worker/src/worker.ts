@@ -492,16 +492,22 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * Without the plugin, messages will be delivered immediately without delay.
    *
    * Implementation: We acknowledge the original message, then publish a new message
-   * to the ORIGINAL EXCHANGE (not directly to queue) with the x-delay header.
-   * Publishing to an exchange allows the delayed message exchange plugin to intercept
-   * and delay delivery. The plugin processes the x-delay header and holds the message
-   * for the specified duration before routing it to the destination queue.
+   * to the ORIGINAL EXCHANGE (not directly to queue) with a queue-specific retry routing key
+   * and the x-delay header. Publishing to an exchange allows the delayed message exchange
+   * plugin to intercept and delay delivery. The plugin processes the x-delay header and holds
+   * the message for the specified duration before routing it to the destination queue.
    *
    * CRITICAL: Must use channel.publish() to an exchange, NOT sendToQueue().
    * sendToQueue() bypasses exchange routing, so x-delay has no effect.
+   *
+   * Uses a queue-specific retry routing key (<queueName>.retry) to ensure retries
+   * only go to the specific queue that failed, avoiding broadcast to other queues
+   * that may have succeeded with the same message. Each retryable queue must have
+   * a binding for "<queueName>.retry" routing pattern in the contract definition.
    */
   private async republishForRetry(
     msg: Message,
+    queueName: string,
     retryCount: number,
     delayMs: number,
     error: unknown,
@@ -522,12 +528,14 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     // Publishing directly to a queue with sendToQueue() bypasses exchange routing,
     // and the delayed message exchange plugin cannot intercept the message.
     //
-    // We use the original exchange and routing key from the message so it follows
-    // the same routing path as the original message.
+    // Use a queue-specific retry routing key to avoid broadcasting to all queues.
+    // The routing key is: <queueName>.retry
+    // This ensures only the specific failed queue receives the retry message.
+    // Each retryable queue must have a binding for "<queueName>.retry" in the contract.
     const exchangeName = msg.fields.exchange;
-    const routingKey = msg.fields.routingKey;
+    const retryRoutingKey = `${queueName}.retry`;
 
-    await this.amqpClient.channel.publish(exchangeName, routingKey, msg.content, {
+    await this.amqpClient.channel.publish(exchangeName, retryRoutingKey, msg.content, {
       ...msg.properties,
       headers: updatedHeaders,
       persistent: msg.properties.deliveryMode === 2,
@@ -725,7 +733,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           });
 
           try {
-            await this.republishForRetry(msg, retryCount, nextRetryDelayMs, error);
+            await this.republishForRetry(msg, consumer.queue.name, retryCount, nextRetryDelayMs, error);
           } catch (republishError) {
             this.logger?.error("Failed to republish message for retry, falling back to requeue", {
               consumerName: String(consumerName),
@@ -881,7 +889,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           });
 
           try {
-            await this.republishForRetry(item.amqpMessage, retryCount, nextRetryDelayMs, error);
+            await this.republishForRetry(item.amqpMessage, consumer.queue.name, retryCount, nextRetryDelayMs, error);
           } catch (republishError) {
             this.logger?.error(
               "Failed to republish batch message for retry, falling back to requeue",

@@ -139,9 +139,11 @@ The plugin is available at: https://github.com/rabbitmq/rabbitmq-delayed-message
 **How it works:**
 
 - When a `RetryableError` is thrown, the worker calculates an exponential backoff delay
-- The message is republished to the **original exchange** (not directly to the queue) with an `x-delay` header containing the delay in milliseconds
+- The message is republished to the **original exchange** with a queue-specific retry routing key (`<queueName>.retry`) and an `x-delay` header containing the delay in milliseconds
 - The delayed message exchange plugin intercepts messages with the `x-delay` header and holds them for the specified duration
-- After the delay expires, the plugin routes the message to the destination queue where it's consumed and retried
+- After the delay expires, the plugin routes the message to the destination queue via the retry binding where it's consumed and retried
+
+**Contract requirement:** Each retryable queue must have a binding for its retry routing key (`<queueName>.retry`). This ensures retries are queue-specific and don't broadcast to other queues. See the contract examples below for the binding pattern.
 
 **Without this plugin:** Messages will still be retried, but without delays (immediate retry), which may not be suitable for transient failures that need time to recover.
 
