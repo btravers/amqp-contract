@@ -503,9 +503,6 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     delayMs: number,
     error: unknown,
   ): Promise<void> {
-    // First, acknowledge the original message to remove it from the queue
-    this.amqpClient.channel.ack(msg);
-
     // Wait for the calculated delay before republishing
     await new Promise((resolve) => setTimeout(resolve, delayMs));
 
@@ -514,6 +511,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       ...msg.properties.headers,
       "x-retry-count": retryCount + 1,
       "x-last-error": error instanceof Error ? error.message : String(error),
+      "x-error-name": error instanceof Error ? error.name : "UnknownError",
       "x-first-failure-timestamp":
         msg.properties.headers?.["x-first-failure-timestamp"] ?? Date.now(),
     };
@@ -521,22 +519,14 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     // Republish the message directly to the consumer's queue.
     // This ensures the retry only affects this specific consumer, not other consumers
     // that may be bound to the same exchange.
-    // Only copy user-level properties, not system fields like deliveryTag or redelivered.
     await this.amqpClient.channel.sendToQueue(queueName, msg.content, {
-      contentType: msg.properties.contentType,
-      contentEncoding: msg.properties.contentEncoding,
+      ...msg.properties,
       headers: updatedHeaders,
       persistent: msg.properties.deliveryMode === 2,
-      priority: msg.properties.priority,
-      correlationId: msg.properties.correlationId,
-      replyTo: msg.properties.replyTo,
-      expiration: msg.properties.expiration,
-      messageId: msg.properties.messageId,
-      timestamp: msg.properties.timestamp,
-      type: msg.properties.type,
-      userId: msg.properties.userId,
-      appId: msg.properties.appId,
     });
+
+    // Acknowledge the original message after successful republish to avoid message loss
+    this.amqpClient.channel.ack(msg);
   }
 
   /**

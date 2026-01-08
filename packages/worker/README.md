@@ -98,7 +98,7 @@ const worker = await TypedAmqpWorker.create({
           // Regular errors are NOT retried - sent directly to DLQ
           throw new Error("Invalid payment data");
         }
-        // Unknown errors are retried by default
+        // Unknown errors are NOT retried by default - only RetryableError is retried
         throw error;
       }
     },
