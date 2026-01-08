@@ -447,8 +447,11 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   private calculateBackoffDelay(retryCount: number): number {
     const { initialDelayMs, maxDelayMs, backoffMultiplier, jitter } = this.retryConfig;
 
+    // Safeguard against extremely large retry counts that could cause overflow
+    const safeRetryCount = Math.min(retryCount, 20); // Cap at 20 to prevent overflow
+
     // Calculate exponential backoff: initialDelay * (multiplier ^ retryCount)
-    let delay = initialDelayMs * backoffMultiplier ** retryCount;
+    let delay = initialDelayMs * backoffMultiplier ** safeRetryCount;
 
     // Cap at max delay
     delay = Math.min(delay, maxDelayMs);
@@ -489,6 +492,13 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
   /**
    * Republish message for retry with updated headers
+   *
+   * Note: This implementation uses setTimeout for simplicity and reliability.
+   * While this blocks the event loop during the delay, it ensures:
+   * - Message order is preserved
+   * - No additional infrastructure (delay queues) required
+   * - Predictable retry timing
+   * For high-throughput scenarios, consider using RabbitMQ delayed message plugin.
    */
   private async republishForRetry(
     msg: Message,
@@ -691,12 +701,16 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           try {
             await this.republishForRetry(msg, consumer, retryCount, nextRetryDelayMs, error);
           } catch (republishError) {
-            this.logger?.error("Failed to republish message for retry", {
+            this.logger?.error("Failed to republish message for retry, falling back to requeue", {
               consumerName: String(consumerName),
               queueName: consumer.queue.name,
-              error: republishError,
+              originalError: error instanceof Error ? error.message : String(error),
+              republishError:
+                republishError instanceof Error ? republishError.message : String(republishError),
+              retryCount,
             });
             // If republish fails, nack with requeue as fallback
+            // This ensures the message is not lost but may bypass retry delays
             this.amqpClient.channel.nack(msg, false, true);
           }
         }
@@ -835,11 +849,17 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
               error,
             );
           } catch (republishError) {
-            this.logger?.error("Failed to republish message for retry", {
-              consumerName: String(consumerName),
-              queueName: consumer.queue.name,
-              error: republishError,
-            });
+            this.logger?.error(
+              "Failed to republish batch message for retry, falling back to requeue",
+              {
+                consumerName: String(consumerName),
+                queueName: consumer.queue.name,
+                originalError: error instanceof Error ? error.message : String(error),
+                republishError:
+                  republishError instanceof Error ? republishError.message : String(republishError),
+                retryCount,
+              },
+            );
             // If republish fails, nack with requeue as fallback
             this.amqpClient.channel.nack(item.amqpMessage, false, true);
           }
