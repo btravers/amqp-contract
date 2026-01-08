@@ -1,4 +1,3 @@
-/* oxlint-disable eslint/sort-imports */
 import {
   defineConsumer,
   defineContract,

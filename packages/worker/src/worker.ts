@@ -525,21 +525,10 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         msg.properties.headers?.["x-first-failure-timestamp"] ?? Date.now(),
     };
 
-    // eslint-disable-next-line no-console
-    console.log(`[WORKER] republishForRetry: setting headers=`, JSON.stringify(headers));
-
-    // Republish to the original exchange with the original routing key
-    // This ensures the message goes through normal routing to reach the queue
-    // Note: We use the exchange and routing key from the original message
-    const exchange = msg.fields.exchange || "";
-    const routingKey = msg.fields.routingKey || "";
-
-    // eslint-disable-next-line no-console
-    console.log(
-      `[WORKER] Publishing to exchange="${exchange}" routingKey="${routingKey}" queue="${consumer.queue.name}"`,
-    );
-
-    const published = await this.amqpClient.channel.publish(exchange, routingKey, msg.content, {
+    // Republish to the same queue
+    // Note: ChannelWrapper.sendToQueue() returns a Promise, unlike native amqplib
+    // Only copy user-level properties, not system fields like deliveryTag
+    await this.amqpClient.channel.sendToQueue(consumer.queue.name, msg.content, {
       contentType: msg.properties.contentType,
       contentEncoding: msg.properties.contentEncoding,
       headers,
@@ -554,9 +543,6 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       userId: msg.properties.userId,
       appId: msg.properties.appId,
     });
-
-    // eslint-disable-next-line no-console
-    console.log(`[WORKER] publish result: ${published}, acknowledging original message`);
 
     // Acknowledge the original message
     this.amqpClient.channel.ack(msg);
@@ -708,12 +694,6 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           const retryCount = this.getRetryCount(msg);
           const isRetryable = this.isRetryableError(error);
 
-          // eslint-disable-next-line no-console
-          console.log(
-            `[WORKER] Error caught: deliveryTag=${msg.fields.deliveryTag}, retryCount=${retryCount}, headers=`,
-            JSON.stringify(msg.properties.headers),
-          );
-
           this.logger?.error("Error processing message", {
             consumerName: String(consumerName),
             queueName: consumer.queue.name,
@@ -747,10 +727,6 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
           // Calculate backoff delay and retry
           const nextRetryDelayMs = this.calculateBackoffDelay(retryCount);
-          // eslint-disable-next-line no-console
-          console.log(
-            `[WORKER] Retrying message: retryCount=${retryCount}, delay=${nextRetryDelayMs}ms`,
-          );
           this.logger?.warn("Retrying message", {
             consumerName: String(consumerName),
             queueName: consumer.queue.name,
@@ -760,14 +736,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           });
 
           try {
-            // eslint-disable-next-line no-console
-            console.log("[WORKER] About to call republishForRetry");
             await this.republishForRetry(msg, consumer, retryCount, nextRetryDelayMs, error);
-            // eslint-disable-next-line no-console
-            console.log("[WORKER] republishForRetry completed successfully");
           } catch (republishError) {
-            // eslint-disable-next-line no-console
-            console.error("[WORKER] republishForRetry failed:", republishError);
             this.logger?.error("Failed to republish message for retry, falling back to requeue", {
               consumerName: String(consumerName),
               queueName: consumer.queue.name,
