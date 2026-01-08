@@ -137,8 +137,18 @@ The retry mechanism provides exponential backoff with jitter for transient failu
 rabbitmq-plugins enable rabbitmq_delayed_message_exchange
 ```
 
-Without this plugin, retry with delays will not work. The plugin is available at:
-https://github.com/rabbitmq/rabbitmq-delayed-message-exchange
+The plugin intercepts messages published to exchanges with the `x-delay` header and delays their delivery to queues. This is how exponential backoff delays work in the retry mechanism.
+
+**How it works:**
+1. When a `RetryableError` is thrown, the worker calculates a delay using exponential backoff
+2. The message is republished to the **original exchange** (not directly to the queue) with an `x-delay` header
+3. The delayed message exchange plugin intercepts the message and holds it for the specified delay
+4. After the delay expires, the plugin routes the message to the destination queue
+5. The consumer receives and processes the retried message
+
+**Note:** The plugin must be enabled for delays to work. Without it, messages are still retried but without delays (immediate retry).
+
+Plugin documentation: https://github.com/rabbitmq/rabbitmq-delayed-message-exchange
 
 **Configuration options:**
 

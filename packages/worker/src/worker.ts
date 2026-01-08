@@ -489,11 +489,16 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * https://github.com/rabbitmq/rabbitmq-delayed-message-exchange
    *
    * The plugin must be enabled on your RabbitMQ broker for exponential backoff to work.
-   * Without the plugin, the retry mechanism will not function correctly.
+   * Without the plugin, messages will be delivered immediately without delay.
    *
    * Implementation: We acknowledge the original message, then publish a new message
-   * with the x-delay header. The delayed message exchange plugin will delay delivery
-   * to the queue by the specified number of milliseconds.
+   * to the ORIGINAL EXCHANGE (not directly to queue) with the x-delay header.
+   * Publishing to an exchange allows the delayed message exchange plugin to intercept
+   * and delay delivery. The plugin processes the x-delay header and holds the message
+   * for the specified duration before routing it to the destination queue.
+   *
+   * CRITICAL: Must use channel.publish() to an exchange, NOT sendToQueue().
+   * sendToQueue() bypasses exchange routing, so x-delay has no effect.
    */
   private async republishForRetry(
     msg: Message,
@@ -513,11 +518,17 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       "x-delay": delayMs, // Delay in milliseconds for delayed message exchange plugin
     };
 
-    // Republish the message directly to the consumer's queue.
-    // This ensures the retry only affects this specific consumer, not other consumers
-    // that may be bound to the same exchange.
-    // The x-delay header will be processed by RabbitMQ's delayed message exchange plugin.
-    await this.amqpClient.channel.sendToQueue(queueName, msg.content, {
+    // CRITICAL: Publish to the EXCHANGE, not directly to the queue.
+    // The x-delay header only works when publishing through an exchange.
+    // Publishing directly to a queue with sendToQueue() bypasses exchange routing,
+    // and the delayed message exchange plugin cannot intercept the message.
+    //
+    // We use the original exchange and routing key from the message so it follows
+    // the same routing path as the original message.
+    const exchangeName = msg.fields.exchange;
+    const routingKey = msg.fields.routingKey;
+
+    await this.amqpClient.channel.publish(exchangeName, routingKey, msg.content, {
       ...msg.properties,
       headers: updatedHeaders,
       persistent: msg.properties.deliveryMode === 2,

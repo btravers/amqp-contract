@@ -50,14 +50,16 @@ describe("Worker Retry Mechanism", () => {
 
     let attempts = 0;
     const successAfterAttempts = 2;
+    const attemptTimestamps: number[] = [];
 
     await workerFactory(
       contract,
       {
         testConsumer: async (_msg) => {
           attempts++;
+          attemptTimestamps.push(Date.now());
           // eslint-disable-next-line no-console
-          console.log(`[TEST] Handler called, attempt ${attempts}`);
+          console.log(`[TEST] Handler called, attempt ${attempts} at ${Date.now()}`);
           if (attempts < successAfterAttempts) {
             throw new RetryableError("Simulated transient failure");
           }
@@ -90,6 +92,15 @@ describe("Worker Retry Mechanism", () => {
     );
 
     expect(attempts).toBe(successAfterAttempts);
+
+    // Verify that there was an actual delay between attempts
+    // With initialDelayMs=100 and no jitter, first retry should be ~100ms after initial attempt
+    if (attemptTimestamps.length >= 2) {
+      const delayBetweenAttempts = attemptTimestamps[1] - attemptTimestamps[0];
+      // Allow some tolerance (50ms to 300ms) for processing overhead
+      expect(delayBetweenAttempts).toBeGreaterThanOrEqual(50);
+      expect(delayBetweenAttempts).toBeLessThan(300);
+    }
   });
 
   it("should send to DLQ after max retries on RetryableError", async ({
