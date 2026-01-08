@@ -9,8 +9,8 @@ import {
 } from "@amqp-contract/contract";
 import { describe, expect, vi } from "vitest";
 import { z } from "zod";
-import { NonRetryableError, RetryableError } from "../errors.js";
 import { it } from "./fixtures.js";
+import { NonRetryableError, RetryableError } from "../errors.js";
 
 describe("Worker Retry Mechanism", () => {
   it("should retry on RetryableError with exponential backoff", async ({
