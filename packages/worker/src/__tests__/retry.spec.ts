@@ -57,10 +57,14 @@ describe("Worker Retry Mechanism", () => {
       {
         testConsumer: async (_msg) => {
           attempts++;
+          // eslint-disable-next-line no-console
+          console.log(`[TEST] Handler called, attempt ${attempts}`);
           if (attempts < successAfterAttempts) {
             throw new RetryableError("Simulated transient failure");
           }
           // Success on 2nd attempt
+          // eslint-disable-next-line no-console
+          console.log(`[TEST] Success on attempt ${attempts}`);
         },
       },
       {
@@ -69,6 +73,9 @@ describe("Worker Retry Mechanism", () => {
         jitter: false, // Disable jitter for predictable testing
       },
     );
+
+    // Give worker time to fully set up consumers
+    await new Promise((resolve) => setTimeout(resolve, 200));
 
     // WHEN
     publishMessage(exchange.name, "test.message", {
