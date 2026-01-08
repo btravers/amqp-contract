@@ -1,5 +1,5 @@
 import type { Message } from "amqplib";
-import type { RetryPolicy } from "@amqp-contract/contract";
+import type { RetryPolicy } from "./types.js";
 
 /**
  * Header key used to track attempt count in AMQP message headers.

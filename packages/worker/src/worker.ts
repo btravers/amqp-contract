@@ -8,7 +8,7 @@ import type {
 } from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
 import { MessageValidationError, TechnicalError } from "./errors.js";
-import { isNonRetryableError, RETRY_COUNT_HEADER, shouldRetry } from "./retry.js";
+import { RETRY_COUNT_HEADER, isNonRetryableError, shouldRetry } from "./retry.js";
 import type {
   WorkerInferConsumerBatchHandler,
   WorkerInferConsumerHandler,
@@ -516,7 +516,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       this.logger?.warn("Message has non-retryable error, rejecting immediately", {
         consumerName: String(consumerName),
         queueName: consumer.queue.name,
-        error: error instanceof Error ? error.message : String(error),
+        error,
         errorType: error instanceof Error ? error.constructor.name : typeof error,
       });
       this.amqpClient.channel.nack(msg, false, false);
@@ -556,11 +556,12 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     };
 
     // Get the exchange and routing key to use for republishing
-    // Use the original exchange and routing key to preserve routing semantics
-    // Empty string is valid for default exchange, so use nullish coalescing
-    const exchange = (headers["x-original-exchange"] as string | undefined) ?? "";
-    const routingKey =
-      (headers["x-original-routing-key"] as string | undefined) ?? consumer.queue.name;
+    // For retry, publish directly to the consumer queue to avoid broadcasting
+    // to all queues bound to the exchange. Use empty exchange (default) and queue name as routing key.
+    // TODO: Consider using RabbitMQ's delayed message exchange or similar for more robust retry
+    // handling that persists across application crashes (currently ACK then schedule in memory).
+    const exchange = "";
+    const routingKey = consumer.queue.name;
 
     // Acknowledge the original message immediately to free up the consumer
     // callback and avoid blocking the consumer while waiting for retry interval
@@ -577,7 +578,6 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
             queueName: consumer.queue.name,
             attemptCount: newAttemptCount,
             intervalMs: delay,
-            exchange,
             routingKey,
           });
 
@@ -588,12 +588,11 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
             consumerName: String(consumerName),
             queueName: consumer.queue.name,
             attemptCount: newAttemptCount,
-            exchange,
             routingKey,
           });
         }
 
-        // Republish the message with incremented attempt count
+        // Republish the message directly to the consumer queue with incremented attempt count
         const published = await this.amqpClient.channel.publish(exchange, routingKey, msg.content, {
           contentType: msg.properties.contentType,
           contentEncoding: msg.properties.contentEncoding,

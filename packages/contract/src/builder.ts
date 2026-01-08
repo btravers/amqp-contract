@@ -639,8 +639,8 @@ export function definePublisher<TMessage extends MessageDefinition>(
  *           maxAttempts: 3,
  *           backoff: {
  *             type: 'exponential',
- *             initialInterval: 1000,
- *             maxInterval: 60000,
+ *             initialInterval: 1_000,
+ *             maxInterval: 60_000,
  *             coefficient: 2
  *           },
  *           nonRetryableErrors: ['ValidationError']
@@ -649,7 +649,7 @@ export function definePublisher<TMessage extends MessageDefinition>(
  *     ]
  *   },
  *   urls: ['amqp://localhost']
- * });
+ * }).resultToPromise();
  * ```
  */
 export function defineConsumer<TMessage extends MessageDefinition>(

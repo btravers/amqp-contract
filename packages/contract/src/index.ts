@@ -38,5 +38,4 @@ export type {
   QueueDefinition,
   InferPublisherNames,
   InferConsumerNames,
-  RetryPolicy,
 } from "./types.js";

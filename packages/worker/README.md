@@ -100,26 +100,43 @@ const orderMessage = defineMessage(
   }),
 );
 
-const processOrderConsumer = defineConsumer(orderQueue, orderMessage, {
-  retryPolicy: {
-    maxAttempts: 3, // Maximum 3 attempts (initial + 2 retries)
-    backoff: {
-      type: "exponential", // or "fixed"
-      initialInterval: 1000, // Start with 1 second
-      maxInterval: 60000, // Cap at 60 seconds
-      coefficient: 2, // Double interval each retry (1s, 2s, 4s, ...)
-    },
+const processOrderConsumer = defineConsumer(orderQueue, orderMessage);
+
+// Configure retry policy at worker level, not in contract
+const worker = await TypedAmqpWorker.create({
+  contract,
+  handlers: {
+    processOrder: [
+      async (message) => {
+        /* handler */
+      },
+      {
+        prefetch: 10,
+        retryPolicy: {
+          maxAttempts: 3, // Maximum 3 attempts (initial + 2 retries)
+          backoff: {
+            type: "exponential", // or "fixed"
+            initialInterval: 1_000, // Start with 1 second
+            maxInterval: 60_000, // Cap at 60 seconds
+            coefficient: 2, // Double interval each retry (1s, 2s, 4s, ...)
+          },
+          nonRetryableErrors: ["ValidationError", "AuthenticationError"],
+        },
+      },
+    ],
   },
-});
+  urls: ["amqp://localhost"],
+}).resultToPromise();
 ```
 
 **Retry Policy Options:**
 
-- `maxAttempts`: Maximum number of attempts (initial + retries, set to `0` for fail-fast behavior)
+- `maxAttempts`: Maximum number of attempts (initial + retries, defaults to 1 if not specified)
 - `backoff.type`: `"fixed"` (same interval) or `"exponential"` (increasing interval)
-- `backoff.initialInterval`: Interval in milliseconds before first retry (default: 1000)
-- `backoff.maxInterval`: Maximum interval for exponential backoff (default: 60000)
+- `backoff.initialInterval`: Interval in milliseconds before first retry (default: 1_000)
+- `backoff.maxInterval`: Maximum interval for exponential backoff (default: 60_000)
 - `backoff.coefficient`: Multiplier for exponential backoff (default: 2)
+- `nonRetryableErrors`: Array of error constructor names or message substrings that should not be retried
 
 **Behavior:**
 
@@ -127,6 +144,7 @@ const processOrderConsumer = defineConsumer(orderQueue, orderMessage, {
 - Attempt count is tracked in message headers (`x-retry-count`)
 - After exhausting attempts, messages are sent to the dead letter exchange (if configured)
 - If no DLX is configured, messages are rejected without requeue
+- Errors matching `nonRetryableErrors` are immediately rejected (not retried)
 
 ### Basic Error Handling
 
@@ -159,12 +177,12 @@ These errors are logged but **handlers don't need to use them** - just throw sta
 
 ### Migration from Legacy Behavior
 
-If you have existing consumers without retry policies, they will continue to work with the legacy behavior (infinite retries). However, **this is not recommended for production** as it can lead to infinite retry loops.
+**BREAKING CHANGE**: The default behavior has changed. Previously, consumers without retry policies would retry infinitely. Now they default to 1 attempt (no retries) to prevent infinite loops.
 
 To migrate:
 
 1. Add a dead letter exchange to your queue configuration (optional but recommended)
-2. Configure a retry policy on your consumer definition
+2. Configure a retry policy at the worker level in your handler options (not in contract definition)
 3. Test with your actual failure scenarios to tune the retry parameters
 
 ## API

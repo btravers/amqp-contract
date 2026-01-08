@@ -410,7 +410,6 @@ export type PublisherDefinition<TMessage extends MessageDefinition = MessageDefi
     }
 );
 
-
 /**
  * Definition of a message consumer.
  *
@@ -442,13 +441,13 @@ export type PublisherDefinition<TMessage extends MessageDefinition = MessageDefi
  *         prefetch: 10,
  *         retryPolicy: {
  *           maxAttempts: 3,
- *           backoff: { type: 'exponential', initialInterval: 1000 }
+ *           backoff: { type: 'exponential', initialInterval: 1_000 }
  *         }
  *       }
  *     ]
  *   },
  *   urls: ['amqp://localhost']
- * });
+ * }).resultToPromise();
  * ```
  */
 export type ConsumerDefinition<TMessage extends MessageDefinition = MessageDefinition> = {

@@ -160,7 +160,7 @@ export type WorkerInferConsumerBatchHandler<
 /**
  * Infer handler entry for a consumer - either a function or a tuple of [handler, options].
  *
- * Four patterns are supported:
+ * Three patterns are supported:
  * 1. Simple handler: `async (message) => { ... }`
  * 2. Handler with options: `[async (message) => { ... }, { prefetch: 10, retryPolicy: {...} }]`
  * 3. Batch handler: `[async (messages) => { ... }, { batchSize: 5, batchTimeout: 1000, retryPolicy: {...} }]`

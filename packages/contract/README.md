@@ -77,20 +77,9 @@ const contract = defineContract({
 
 ## Error Handling & Retry Policies
 
-Configure retry policies on consumers to prevent infinite retry loops and handle permanent failures gracefully. Supports exponential backoff and dead letter exchange integration.
+Error handling and retry policies are configured at the **worker level**, not in contracts. Contracts define message schemas and topology, while workers control retry behavior (including exponential backoff and dead letter integration) during message processing.
 
-**Quick Example:**
-
-```typescript
-const consumer = defineConsumer(queue, message, {
-  retryPolicy: {
-    maxAttempts: 3,
-    backoff: { type: "exponential", initialInterval: 1000 },
-  },
-});
-```
-
-📖 **[Learn more about retry policies and error handling →](https://btravers.github.io/amqp-contract/guide/worker-usage.html#retry-policies)**
+📖 **[Learn more about retry policies and error handling in workers →](https://btravers.github.io/amqp-contract/guide/worker-usage.html#retry-policies)**
 
 ## Documentation
 
