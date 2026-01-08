@@ -137,6 +137,7 @@ rabbitmq-plugins enable rabbitmq_delayed_message_exchange
 The plugin is available at: https://github.com/rabbitmq/rabbitmq-delayed-message-exchange
 
 **How it works:**
+
 - When a `RetryableError` is thrown, the worker calculates an exponential backoff delay
 - The message is republished to the **original exchange** (not directly to the queue) with an `x-delay` header containing the delay in milliseconds
 - The delayed message exchange plugin intercepts messages with the `x-delay` header and holds them for the specified duration

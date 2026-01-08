@@ -140,6 +140,7 @@ rabbitmq-plugins enable rabbitmq_delayed_message_exchange
 The plugin intercepts messages published to exchanges with the `x-delay` header and delays their delivery to queues. This is how exponential backoff delays work in the retry mechanism.
 
 **How it works:**
+
 1. When a `RetryableError` is thrown, the worker calculates a delay using exponential backoff
 2. The message is republished to the **original exchange** (not directly to the queue) with an `x-delay` header
 3. The delayed message exchange plugin intercepts the message and holds it for the specified delay
