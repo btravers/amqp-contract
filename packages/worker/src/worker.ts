@@ -526,9 +526,22 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     };
 
     // Republish to the same queue
+    // Note: ChannelWrapper.sendToQueue() returns a Promise, unlike native amqplib
+    // Only copy user-level properties, not system fields like deliveryTag
     await this.amqpClient.channel.sendToQueue(consumer.queue.name, msg.content, {
-      ...msg.properties,
+      contentType: msg.properties.contentType,
+      contentEncoding: msg.properties.contentEncoding,
       headers,
+      deliveryMode: msg.properties.deliveryMode,
+      priority: msg.properties.priority,
+      correlationId: msg.properties.correlationId,
+      replyTo: msg.properties.replyTo,
+      expiration: msg.properties.expiration,
+      messageId: msg.properties.messageId,
+      timestamp: msg.properties.timestamp,
+      type: msg.properties.type,
+      userId: msg.properties.userId,
+      appId: msg.properties.appId,
     });
 
     // Acknowledge the original message
