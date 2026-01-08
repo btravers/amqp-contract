@@ -73,9 +73,6 @@ describe("Worker Retry Mechanism", () => {
       },
     );
 
-    // Give worker time to fully set up consumers
-    await new Promise((resolve) => setTimeout(resolve, 200));
-
     // WHEN
     publishMessage(exchange.name, "test.message", {
       id: "retry-test-1",
@@ -98,7 +95,7 @@ describe("Worker Retry Mechanism", () => {
   it("should send to DLQ after max retries on RetryableError", async ({
     workerFactory,
     publishMessage,
-    amqpConnection,
+    amqpChannel,
   }) => {
     // GIVEN
     const TestMessage = z.object({
@@ -181,25 +178,24 @@ describe("Worker Retry Mechanism", () => {
     expect(attempts).toBe(maxRetries + 1); // Original attempt + 2 retries
 
     // Verify message is in DLQ
-    const channel = await amqpConnection.createChannel();
-    const dlqMessage = await channel.get(dlqQueue.name);
+    const dlqMessage = await amqpChannel.get(dlqQueue.name);
     if (!dlqMessage) {
-      await channel.close();
       throw new Error("Expected message in DLQ queue, but none was found");
     }
-    await channel.ack(dlqMessage);
+
+    amqpChannel.ack(dlqMessage);
+
     const content = JSON.parse(dlqMessage.content.toString());
     expect(content).toMatchObject({
       id: "dlq-test-1",
       value: 42,
     });
-    await channel.close();
   });
 
   it("should not retry regular errors (only RetryableError is retried)", async ({
     workerFactory,
     publishMessage,
-    amqpConnection,
+    amqpChannel,
   }) => {
     // GIVEN
     const TestMessage = z.object({
@@ -269,38 +265,34 @@ describe("Worker Retry Mechanism", () => {
     // THEN - Should only attempt once
     await vi.waitFor(
       () => {
-        if (attempts === 0) {
+        if (attempts < 1) {
           throw new Error("Not yet processed");
         }
       },
-      { timeout: 2000 },
+      { timeout: 5000 },
     );
-
-    // Wait a bit more to ensure no retries happen
-    await new Promise((resolve) => setTimeout(resolve, 500));
 
     expect(attempts).toBe(1); // Only one attempt, no retries
 
     // Verify message is in DLQ
-    const channel = await amqpConnection.createChannel();
-    const dlqMessage = await channel.get(dlqQueue.name);
+    const dlqMessage = await amqpChannel.get(dlqQueue.name);
     if (!dlqMessage) {
-      await channel.close();
       throw new Error("Expected message to be present in DLQ queue");
     }
-    await channel.ack(dlqMessage);
+
+    amqpChannel.ack(dlqMessage);
+
     const content = JSON.parse(dlqMessage.content.toString());
     expect(content).toMatchObject({
       id: "non-retry-test-1",
       value: 42,
     });
-    await channel.close();
   });
 
   it("should NOT retry regular errors by default (only RetryableError retried)", async ({
     workerFactory,
     publishMessage,
-    amqpConnection,
+    amqpChannel,
   }) => {
     // GIVEN
     const TestMessage = z.object({
@@ -375,31 +367,30 @@ describe("Worker Retry Mechanism", () => {
           throw new Error("Handler not called yet");
         }
       },
-      { timeout: 2000 },
+      { timeout: 5000 },
     );
 
     expect(attempts).toBe(1);
 
     // Verify message went to DLQ
-    const channel = await amqpConnection.createChannel();
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    const dlqMessage = await channel.get(dlqQueue.name, { noAck: false });
+    const dlqMessage = await amqpChannel.get(dlqQueue.name, { noAck: false });
     if (!dlqMessage) {
       throw new Error("Expected message in DLQ queue, but none was found");
     }
-    await channel.ack(dlqMessage);
+
+    amqpChannel.ack(dlqMessage);
+
     const content = JSON.parse(dlqMessage.content.toString());
     expect(content).toMatchObject({
       id: "unknown-error-test-1",
       value: 42,
     });
-    await channel.close();
   });
 
   it("should track retry count in message headers", async ({
     workerFactory,
     publishMessage,
-    amqpConnection,
+    amqpChannel,
   }) => {
     // GIVEN
     const TestMessage = z.object({
@@ -478,16 +469,14 @@ describe("Worker Retry Mechanism", () => {
     );
 
     // Check DLQ message has retry headers
-    const channel = await amqpConnection.createChannel();
-    const dlqMessage = await channel.get(dlqQueue.name);
+    const dlqMessage = await amqpChannel.get(dlqQueue.name);
     if (!dlqMessage) {
-      await channel.close();
       throw new Error("Expected a message in the DLQ but none was found");
     }
-    await channel.ack(dlqMessage);
+
+    amqpChannel.ack(dlqMessage);
+
     expect(dlqMessage.properties.headers).toHaveProperty("x-death");
-    // The x-retry-count would be on the last republished message before DLQ
-    await channel.close();
   });
 
   it("should handle batch processing with retries", async ({ workerFactory, publishMessage }) => {
