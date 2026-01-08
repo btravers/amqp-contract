@@ -510,7 +510,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     const updatedHeaders = {
       ...msg.properties.headers,
       "x-retry-count": retryCount + 1,
-      "x-last-error": error instanceof Error ? error.message : String(error),
+      "x-error-message": error instanceof Error ? error.message : String(error),
       "x-error-name": error instanceof Error ? error.name : "UnknownError",
       "x-first-failure-timestamp":
         msg.properties.headers?.["x-first-failure-timestamp"] ?? Date.now(),

@@ -234,7 +234,8 @@ Messages in the DLQ include metadata about the failure:
 
 - `x-death` - Array of death history (added by RabbitMQ)
 - `x-first-failure-timestamp` - Unix timestamp of first failure
-- `x-last-error` - Error message from last failure attempt
+- `x-error-message` - Error message from last failure attempt
+- `x-error-name` - Error name/type from last failure attempt
 
 ### Processing DLQ Messages
 
@@ -285,13 +286,21 @@ Unix timestamp (milliseconds) when the message first failed.
 - Set on first failure
 - Preserved across retries
 
-### `x-last-error`
+### `x-error-message`
 
 Error message from the most recent failure.
 
 - Type: `string`
 - Updated on each retry
 - Helps with debugging
+
+### `x-error-name`
+
+Error name/type from the most recent failure.
+
+- Type: `string`
+- Updated on each retry
+- Examples: `RetryableError`, `TypeError`, `UnknownError`
 
 ## Best Practices
 
