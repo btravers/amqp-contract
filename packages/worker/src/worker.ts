@@ -8,7 +8,7 @@ import type {
 } from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
 import { MessageValidationError, TechnicalError } from "./errors.js";
-import { RETRY_COUNT_HEADER, shouldRetry } from "./retry.js";
+import { isNonRetryableError, RETRY_COUNT_HEADER, shouldRetry } from "./retry.js";
 import type {
   WorkerInferConsumerBatchHandler,
   WorkerInferConsumerHandler,
@@ -659,7 +659,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
               });
 
               // Handle retry logic based on retry policy
-              await this.handleMessageRetry(msg, consumer, consumerName);
+              await this.handleMessageRetry(msg, consumer, consumerName, error);
             }),
           )
           .tapOk(() => {
@@ -774,7 +774,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
          * so this loop completes quickly without blocking on retry intervals.
          */
         for (const item of currentBatch) {
-          await this.handleMessageRetry(item.amqpMessage, consumer, consumerName);
+          await this.handleMessageRetry(item.amqpMessage, consumer, consumerName, error);
         }
       } finally {
         isProcessing = false;

@@ -438,7 +438,7 @@ export type RetryPolicy = {
    *
    * Set to 1 to process once with no retries on failure (fail fast).
    * Set to 0 to process once with no retries (effectively same as 1).
-   * If not specified, retries infinitely (not recommended for production).
+   * If not specified, defaults to 1 (no retries).
    */
   maxAttempts?: number;
 
@@ -484,6 +484,25 @@ export type RetryPolicy = {
      */
     coefficient?: number;
   };
+
+  /**
+   * List of error types (constructor names or error messages) that should NOT be retried.
+   * Similar to Temporal's NonRetryableErrorTypes.
+   *
+   * When a handler throws an error matching one of these patterns, the message will be:
+   * - Sent to the dead letter exchange if configured on the queue
+   * - Rejected (nacked without requeue) if no dead letter exchange
+   *
+   * Patterns can be:
+   * - Error constructor name (e.g., 'ValidationError', 'TypeError')
+   * - Substring of error message (case-insensitive)
+   *
+   * @example
+   * ```typescript
+   * nonRetryableErrors: ['ValidationError', 'AuthenticationError', 'invalid format']
+   * ```
+   */
+  nonRetryableErrors?: readonly string[];
 };
 
 /**

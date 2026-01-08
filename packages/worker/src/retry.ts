@@ -49,6 +49,34 @@ export function calculateBackoffDelay(attemptNumber: number, policy: RetryPolicy
 }
 
 /**
+ * Check if an error is non-retryable based on the retry policy.
+ * @param error - The error that was thrown
+ * @param policy - The retry policy configuration (optional)
+ * @returns True if the error should not be retried
+ * @internal
+ */
+export function isNonRetryableError(error: unknown, policy: RetryPolicy | undefined): boolean {
+  if (!policy?.nonRetryableErrors || policy.nonRetryableErrors.length === 0) {
+    return false;
+  }
+
+  const errorName = error instanceof Error ? error.constructor.name : "";
+  const errorMessage = error instanceof Error ? error.message : String(error);
+
+  return policy.nonRetryableErrors.some((pattern) => {
+    // Match against error constructor name
+    if (errorName === pattern) {
+      return true;
+    }
+    // Match against error message (case-insensitive substring)
+    if (errorMessage.toLowerCase().includes(pattern.toLowerCase())) {
+      return true;
+    }
+    return false;
+  });
+}
+
+/**
  * Check if a message should be retried based on the retry policy.
  * @param msg - The AMQP message
  * @param policy - The retry policy configuration (optional)
@@ -59,13 +87,9 @@ export function shouldRetry(
   msg: Message,
   policy: RetryPolicy | undefined,
 ): { shouldRetry: boolean; delay: number; currentRetryCount: number } {
-  // If no policy is configured, use legacy behavior (infinite retries)
-  if (!policy) {
-    return { shouldRetry: true, delay: 0, currentRetryCount: 0 };
-  }
-
   const currentRetryCount = getRetryCount(msg);
-  const maxAttempts = policy.maxAttempts ?? Number.POSITIVE_INFINITY;
+  // Default to 1 attempt (no retries) if no policy or maxAttempts specified
+  const maxAttempts = policy?.maxAttempts ?? 1;
 
   // Check if performing the next attempt would exceed the attempt limit
   if (currentRetryCount + 1 >= maxAttempts) {
@@ -73,7 +97,7 @@ export function shouldRetry(
   }
 
   // Calculate backoff interval for this retry attempt
-  const delay = calculateBackoffDelay(currentRetryCount, policy);
+  const delay = policy ? calculateBackoffDelay(currentRetryCount, policy) : 0;
 
   return { shouldRetry: true, delay, currentRetryCount };
 }
