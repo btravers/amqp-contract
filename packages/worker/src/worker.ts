@@ -163,7 +163,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   private readonly consumerOptions: Partial<Record<InferConsumerNames<TContract>, ConsumerOptions>>;
   private readonly batchTimers: Map<string, NodeJS.Timeout> = new Map();
   private readonly consumerTags: Set<string> = new Set();
-  private readonly retryConfig: Required<RetryOptions>;
+  private readonly retryConfig: Required<RetryOptions> | null;
 
   private constructor(
     private readonly contract: TContract,
@@ -172,14 +172,17 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     private readonly logger?: Logger,
     retryOptions?: RetryOptions,
   ) {
-    // Set default retry configuration
-    this.retryConfig = {
-      maxRetries: retryOptions?.maxRetries ?? 3,
-      initialDelayMs: retryOptions?.initialDelayMs ?? 1000,
-      maxDelayMs: retryOptions?.maxDelayMs ?? 30000,
-      backoffMultiplier: retryOptions?.backoffMultiplier ?? 2,
-      jitter: retryOptions?.jitter ?? true,
-    };
+    // Set retry configuration only if provided (opt-in behavior)
+    // When retryOptions is undefined, retryConfig is null and old behavior is maintained
+    this.retryConfig = retryOptions
+      ? {
+          maxRetries: retryOptions.maxRetries ?? 3,
+          initialDelayMs: retryOptions.initialDelayMs ?? 1000,
+          maxDelayMs: retryOptions.maxDelayMs ?? 30000,
+          backoffMultiplier: retryOptions.backoffMultiplier ?? 2,
+          jitter: retryOptions.jitter ?? true,
+        }
+      : null;
 
     // Extract handlers and options from the handlers object
     this.actualHandlers = {};
@@ -445,6 +448,9 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * Calculate exponential backoff delay with optional jitter
    */
   private calculateBackoffDelay(retryCount: number): number {
+    if (!this.retryConfig) {
+      return 0;
+    }
     const { initialDelayMs, maxDelayMs, backoffMultiplier, jitter } = this.retryConfig;
 
     // Safeguard against extremely large retry counts that could cause overflow
@@ -531,8 +537,15 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
   /**
    * Send message to Dead Letter Queue by nacking without requeue
+   * Note: This requires the queue to have a Dead Letter Exchange configured.
+   * Without DLX configuration, the message will be permanently lost.
    */
   private sendToDLQ(msg: Message): void {
+    this.logger?.warn("Sending message to DLQ (nack without requeue)", {
+      exchange: msg.fields.exchange,
+      routingKey: msg.fields.routingKey,
+      deliveryTag: msg.fields.deliveryTag,
+    });
     // Nack without requeue - RabbitMQ will route to DLX if configured
     this.amqpClient.channel.nack(msg, false, false);
   }
@@ -653,6 +666,17 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           });
           this.amqpClient.channel.ack(msg);
         } catch (error) {
+          // If retry is not configured, use old behavior: requeue immediately
+          if (!this.retryConfig) {
+            this.logger?.error("Error processing message, requeuing", {
+              consumerName: String(consumerName),
+              queueName: consumer.queue.name,
+              error,
+            });
+            this.amqpClient.channel.nack(msg, false, true);
+            return;
+          }
+
           // Handler error - apply retry logic
           const retryCount = this.getRetryCount(msg);
           const isRetryable = this.isRetryableError(error);
@@ -790,6 +814,20 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           batchSize: currentBatch.length,
         });
       } catch (error) {
+        // If retry is not configured, use old behavior: requeue all messages immediately
+        if (!this.retryConfig) {
+          this.logger?.error("Error processing batch, requeuing all messages", {
+            consumerName: String(consumerName),
+            queueName: consumer.queue.name,
+            batchSize: currentBatch.length,
+            error,
+          });
+          for (const item of currentBatch) {
+            this.amqpClient.channel.nack(item.amqpMessage, false, true);
+          }
+          return;
+        }
+
         const isRetryable = this.isRetryableError(error);
 
         this.logger?.error("Error processing batch", {

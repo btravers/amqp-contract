@@ -478,6 +478,7 @@ const worker = await TypedAmqpWorker.create({
   urls: ["amqp://localhost"],
   // No retry config = old behavior
 });
+});
 ```
 
 ## Troubleshooting

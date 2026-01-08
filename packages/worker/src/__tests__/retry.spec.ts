@@ -237,15 +237,16 @@ describe("Worker Retry Mechanism", () => {
     // Verify message is in DLQ
     const channel = await amqpConnection.createChannel();
     const dlqMessage = await channel.get(dlqQueue.name);
-    expect(dlqMessage).not.toBe(false);
-    if (dlqMessage) {
-      await channel.ack(dlqMessage);
-      const content = JSON.parse(dlqMessage.content.toString());
-      expect(content).toMatchObject({
-        id: "dlq-test-1",
-        value: 42,
-      });
+    if (!dlqMessage) {
+      await channel.close();
+      throw new Error("Expected message in DLQ queue, but none was found");
     }
+    await channel.ack(dlqMessage);
+    const content = JSON.parse(dlqMessage.content.toString());
+    expect(content).toMatchObject({
+      id: "dlq-test-1",
+      value: 42,
+    });
     await channel.close();
   });
 
@@ -337,15 +338,16 @@ describe("Worker Retry Mechanism", () => {
     // Verify message is in DLQ
     const channel = await amqpConnection.createChannel();
     const dlqMessage = await channel.get(dlqQueue.name);
-    expect(dlqMessage).not.toBe(false);
-    if (dlqMessage) {
-      await channel.ack(dlqMessage);
-      const content = JSON.parse(dlqMessage.content.toString());
-      expect(content).toMatchObject({
-        id: "non-retry-test-1",
-        value: 42,
-      });
+    if (!dlqMessage) {
+      await channel.close();
+      throw new Error("Expected message to be present in DLQ queue");
     }
+    await channel.ack(dlqMessage);
+    const content = JSON.parse(dlqMessage.content.toString());
+    expect(content).toMatchObject({
+      id: "non-retry-test-1",
+      value: 42,
+    });
     await channel.close();
   });
 
@@ -434,8 +436,13 @@ describe("Worker Retry Mechanism", () => {
     });
 
     const exchange = defineExchange("retry-headers-exchange", "topic", { durable: false });
-    const queue = defineQueue("retry-headers-queue", { durable: false });
     const dlqExchange = defineExchange("retry-headers-dlq", "topic", { durable: false });
+    const queue = defineQueue("retry-headers-queue", {
+      durable: false,
+      deadLetter: {
+        exchange: dlqExchange,
+      },
+    });
     const dlqQueue = defineQueue("retry-headers-dead-queue", { durable: false });
 
     const contract = defineContract({
@@ -444,12 +451,7 @@ describe("Worker Retry Mechanism", () => {
         dlq: dlqExchange,
       },
       queues: {
-        testQueue: defineQueue("retry-headers-queue", {
-          durable: false,
-          deadLetter: {
-            exchange: dlqExchange,
-          },
-        }),
+        testQueue: queue,
         dlqQueue: dlqQueue,
       },
       bindings: {
@@ -506,12 +508,13 @@ describe("Worker Retry Mechanism", () => {
     // Check DLQ message has retry headers
     const channel = await amqpConnection.createChannel();
     const dlqMessage = await channel.get(dlqQueue.name);
-    expect(dlqMessage).not.toBe(false);
-    if (dlqMessage) {
-      await channel.ack(dlqMessage);
-      expect(dlqMessage.properties.headers).toHaveProperty("x-death");
-      // The x-retry-count would be on the last republished message before DLQ
+    if (!dlqMessage) {
+      await channel.close();
+      throw new Error("Expected a message in the DLQ but none was found");
     }
+    await channel.ack(dlqMessage);
+    expect(dlqMessage.properties.headers).toHaveProperty("x-death");
+    // The x-retry-count would be on the last republished message before DLQ
     await channel.close();
   });
 
