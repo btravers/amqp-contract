@@ -7,7 +7,12 @@ import type {
   InferConsumerNames,
 } from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
-import { MessageValidationError, TechnicalError } from "./errors.js";
+import {
+  MessageValidationError,
+  NonRetryableError,
+  RetryableError,
+  TechnicalError,
+} from "./errors.js";
 import type {
   WorkerInferConsumerBatchHandler,
   WorkerInferConsumerHandler,
@@ -36,6 +41,24 @@ type ConsumerOptions =
       batchSize: number;
       batchTimeout?: number;
     };
+
+/**
+ * Retry configuration options for handling transient failures.
+ * When enabled, the worker will automatically retry failed messages with exponential backoff
+ * and route them to a Dead Letter Queue (DLQ) after exhausting all retries.
+ */
+export type RetryOptions = {
+  /** Maximum number of retry attempts before sending to DLQ (default: 3) */
+  maxRetries?: number;
+  /** Initial delay in milliseconds before first retry (default: 1000) */
+  initialDelayMs?: number;
+  /** Maximum delay in milliseconds between retries (default: 30000) */
+  maxDelayMs?: number;
+  /** Multiplier for exponential backoff (default: 2) */
+  backoffMultiplier?: number;
+  /** Add random jitter to prevent thundering herd (default: true) */
+  jitter?: boolean;
+};
 
 /**
  * Options for creating a type-safe AMQP worker.
@@ -85,6 +108,8 @@ export type CreateWorkerOptions<TContract extends ContractDefinition> = {
   connectionOptions?: AmqpConnectionManagerOptions | undefined;
   /** Optional logger for logging message consumption and errors */
   logger?: Logger | undefined;
+  /** Retry configuration for handling transient failures */
+  retry?: RetryOptions | undefined;
 };
 
 /**
@@ -138,13 +163,24 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   private readonly consumerOptions: Partial<Record<InferConsumerNames<TContract>, ConsumerOptions>>;
   private readonly batchTimers: Map<string, NodeJS.Timeout> = new Map();
   private readonly consumerTags: Set<string> = new Set();
+  private readonly retryConfig: Required<RetryOptions>;
 
   private constructor(
     private readonly contract: TContract,
     private readonly amqpClient: AmqpClient,
     handlers: WorkerInferConsumerHandlers<TContract>,
     private readonly logger?: Logger,
+    retryOptions?: RetryOptions,
   ) {
+    // Set default retry configuration
+    this.retryConfig = {
+      maxRetries: retryOptions?.maxRetries ?? 3,
+      initialDelayMs: retryOptions?.initialDelayMs ?? 1000,
+      maxDelayMs: retryOptions?.maxDelayMs ?? 30000,
+      backoffMultiplier: retryOptions?.backoffMultiplier ?? 2,
+      jitter: retryOptions?.jitter ?? true,
+    };
+
     // Extract handlers and options from the handlers object
     this.actualHandlers = {};
     this.consumerOptions = {};
@@ -204,6 +240,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     urls,
     connectionOptions,
     logger,
+    retry,
   }: CreateWorkerOptions<TContract>): Future<Result<TypedAmqpWorker<TContract>, TechnicalError>> {
     const worker = new TypedAmqpWorker(
       contract,
@@ -213,6 +250,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       }),
       handlers,
       logger,
+      retry,
     );
 
     return worker
@@ -404,6 +442,92 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   }
 
   /**
+   * Calculate exponential backoff delay with optional jitter
+   */
+  private calculateBackoffDelay(retryCount: number): number {
+    const { initialDelayMs, maxDelayMs, backoffMultiplier, jitter } = this.retryConfig;
+
+    // Calculate exponential backoff: initialDelay * (multiplier ^ retryCount)
+    let delay = initialDelayMs * backoffMultiplier ** retryCount;
+
+    // Cap at max delay
+    delay = Math.min(delay, maxDelayMs);
+
+    // Apply jitter if enabled: multiply by random value between 0.5 and 1.0
+    if (jitter) {
+      delay = delay * (0.5 + Math.random() * 0.5);
+    }
+
+    return Math.floor(delay);
+  }
+
+  /**
+   * Get retry count from message headers
+   */
+  private getRetryCount(msg: Message): number {
+    const retryCount = msg.properties.headers?.["x-retry-count"];
+    return typeof retryCount === "number" ? retryCount : 0;
+  }
+
+  /**
+   * Check if error is retryable
+   */
+  private isRetryableError(error: unknown): boolean {
+    // NonRetryableError always means don't retry
+    if (error instanceof NonRetryableError) {
+      return false;
+    }
+
+    // RetryableError means retry
+    if (error instanceof RetryableError) {
+      return true;
+    }
+
+    // Unknown errors are treated as retryable by default (backward compatible)
+    return true;
+  }
+
+  /**
+   * Republish message for retry with updated headers
+   */
+  private async republishForRetry(
+    msg: Message,
+    consumer: ConsumerDefinition,
+    retryCount: number,
+    delayMs: number,
+    error: unknown,
+  ): Promise<void> {
+    // Wait for the calculated delay before republishing
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+
+    // Prepare headers with retry information
+    const headers = {
+      ...(msg.properties.headers ?? {}),
+      "x-retry-count": retryCount + 1,
+      "x-last-error": error instanceof Error ? error.message : String(error),
+      "x-first-failure-timestamp":
+        msg.properties.headers?.["x-first-failure-timestamp"] ?? Date.now(),
+    };
+
+    // Republish to the same queue
+    await this.amqpClient.channel.sendToQueue(consumer.queue.name, msg.content, {
+      ...msg.properties,
+      headers,
+    });
+
+    // Acknowledge the original message
+    this.amqpClient.channel.ack(msg);
+  }
+
+  /**
+   * Send message to Dead Letter Queue by nacking without requeue
+   */
+  private sendToDLQ(msg: Message): void {
+    // Nack without requeue - RabbitMQ will route to DLX if configured
+    this.amqpClient.channel.nack(msg, false, false);
+  }
+
+  /**
    * Parse and validate a message from AMQP
    * @returns Future<Result<validated message, void>> - Ok with validated message, or Error (already handled with nack)
    */
@@ -499,20 +623,62 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         // Parse and validate message
         await this.parseAndValidateMessage(msg, consumer, consumerName)
           .flatMapOk((validatedMessage) =>
-            Future.fromPromise(handler(validatedMessage)).tapError((error) => {
+            Future.fromPromise(handler(validatedMessage)).tapError(async (error) => {
+              const retryCount = this.getRetryCount(msg);
+              const isRetryable = this.isRetryableError(error);
+
               this.logger?.error("Error processing message", {
                 consumerName: String(consumerName),
                 queueName: consumer.queue.name,
+                retryCount,
+                isRetryable,
                 error,
               });
 
-              // Requeue failed messages for retry
-              // NOTE: This strategy assumes transient failures that may succeed on retry.
-              // For production use, consider:
-              // - Implementing retry limits to prevent infinite loops
-              // - Using dead letter exchanges for permanently failed messages
-              // - Adding exponential backoff between retries
-              this.amqpClient.channel.nack(msg, false, true);
+              // Handle non-retryable errors immediately
+              if (!isRetryable) {
+                this.logger?.warn("Non-retryable error, sending to DLQ", {
+                  consumerName: String(consumerName),
+                  queueName: consumer.queue.name,
+                  error: error instanceof Error ? error.message : String(error),
+                });
+                this.sendToDLQ(msg);
+                return;
+              }
+
+              // Check if we've exceeded max retries
+              if (retryCount >= this.retryConfig.maxRetries) {
+                this.logger?.error("Max retries exceeded, sending to DLQ", {
+                  consumerName: String(consumerName),
+                  queueName: consumer.queue.name,
+                  totalRetries: this.retryConfig.maxRetries,
+                  error: error instanceof Error ? error.message : String(error),
+                });
+                this.sendToDLQ(msg);
+                return;
+              }
+
+              // Calculate backoff delay and retry
+              const nextRetryDelayMs = this.calculateBackoffDelay(retryCount);
+              this.logger?.warn("Retrying message", {
+                consumerName: String(consumerName),
+                queueName: consumer.queue.name,
+                retryCount,
+                nextRetryDelayMs,
+                error: error instanceof Error ? error.message : String(error),
+              });
+
+              try {
+                await this.republishForRetry(msg, consumer, retryCount, nextRetryDelayMs, error);
+              } catch (republishError) {
+                this.logger?.error("Failed to republish message for retry", {
+                  consumerName: String(consumerName),
+                  queueName: consumer.queue.name,
+                  error: republishError,
+                });
+                // If republish fails, nack with requeue as fallback
+                this.amqpClient.channel.nack(msg, false, true);
+              }
             }),
           )
           .tapOk(() => {
@@ -601,22 +767,73 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           batchSize: currentBatch.length,
         });
       } catch (error) {
+        const isRetryable = this.isRetryableError(error);
+
         this.logger?.error("Error processing batch", {
           consumerName: String(consumerName),
           queueName: consumer.queue.name,
           batchSize: currentBatch.length,
+          isRetryable,
           error,
         });
 
-        // Requeue all failed messages for retry
-        // NOTE: This strategy assumes transient failures that may succeed on retry.
-        // For production use, consider:
-        // - Implementing retry limits to prevent infinite loops
-        // - Using dead letter exchanges for permanently failed messages
-        // - Adding exponential backoff between retries
-        // - Implementing partial batch success handling
+        // Handle non-retryable errors - send all messages to DLQ
+        if (!isRetryable) {
+          this.logger?.warn("Non-retryable error in batch, sending all messages to DLQ", {
+            consumerName: String(consumerName),
+            queueName: consumer.queue.name,
+            batchSize: currentBatch.length,
+            error: error instanceof Error ? error.message : String(error),
+          });
+          for (const item of currentBatch) {
+            this.sendToDLQ(item.amqpMessage);
+          }
+          return;
+        }
+
+        // For retryable errors, handle each message individually
         for (const item of currentBatch) {
-          this.amqpClient.channel.nack(item.amqpMessage, false, true);
+          const retryCount = this.getRetryCount(item.amqpMessage);
+
+          // Check if we've exceeded max retries
+          if (retryCount >= this.retryConfig.maxRetries) {
+            this.logger?.error("Max retries exceeded for message in batch, sending to DLQ", {
+              consumerName: String(consumerName),
+              queueName: consumer.queue.name,
+              totalRetries: this.retryConfig.maxRetries,
+              error: error instanceof Error ? error.message : String(error),
+            });
+            this.sendToDLQ(item.amqpMessage);
+            continue;
+          }
+
+          // Calculate backoff delay and retry
+          const nextRetryDelayMs = this.calculateBackoffDelay(retryCount);
+          this.logger?.warn("Retrying message from batch", {
+            consumerName: String(consumerName),
+            queueName: consumer.queue.name,
+            retryCount,
+            nextRetryDelayMs,
+            error: error instanceof Error ? error.message : String(error),
+          });
+
+          try {
+            await this.republishForRetry(
+              item.amqpMessage,
+              consumer,
+              retryCount,
+              nextRetryDelayMs,
+              error,
+            );
+          } catch (republishError) {
+            this.logger?.error("Failed to republish message for retry", {
+              consumerName: String(consumerName),
+              queueName: consumer.queue.name,
+              error: republishError,
+            });
+            // If republish fails, nack with requeue as fallback
+            this.amqpClient.channel.nack(item.amqpMessage, false, true);
+          }
         }
       } finally {
         isProcessing = false;
