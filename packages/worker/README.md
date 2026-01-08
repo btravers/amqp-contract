@@ -110,7 +110,7 @@ const worker = await TypedAmqpWorker.create({
     backoffMultiplier: 2,
     jitter: true,
   },
-});
+}).resultToPromise();
 ```
 
 ### Error Types

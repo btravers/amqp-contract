@@ -1,6 +1,5 @@
 /* oxlint-disable eslint/sort-imports */
 import {
-  ContractDefinition,
   defineConsumer,
   defineContract,
   defineExchange,
@@ -9,69 +8,10 @@ import {
   defineQueue,
   defineQueueBinding,
 } from "@amqp-contract/contract";
-import { it as baseIt } from "@amqp-contract/testing/extension";
 import { describe, expect, vi } from "vitest";
 import { z } from "zod";
 import { NonRetryableError, RetryableError } from "../errors.js";
-import { TypedAmqpWorker } from "../worker.js";
-import type { WorkerInferConsumerHandlers } from "../types.js";
-
-const it = baseIt.extend<{
-  workerFactory: <TContract extends ContractDefinition>(
-    contract: TContract,
-    handlers: WorkerInferConsumerHandlers<TContract>,
-    retryOptions?: {
-      maxRetries?: number;
-      initialDelayMs?: number;
-      maxDelayMs?: number;
-      backoffMultiplier?: number;
-      jitter?: boolean;
-    },
-  ) => Promise<TypedAmqpWorker<TContract>>;
-}>({
-  workerFactory: async ({ amqpConnectionUrl }, use) => {
-    const workers: Array<TypedAmqpWorker<ContractDefinition>> = [];
-
-    try {
-      await use(
-        async <TContract extends ContractDefinition>(
-          contract: TContract,
-          handlers: WorkerInferConsumerHandlers<TContract>,
-          retryOptions?: {
-            maxRetries?: number;
-            initialDelayMs?: number;
-            maxDelayMs?: number;
-            backoffMultiplier?: number;
-            jitter?: boolean;
-          },
-        ) => {
-          const worker = await TypedAmqpWorker.create({
-            contract,
-            handlers,
-            urls: [amqpConnectionUrl],
-            retry: retryOptions,
-          }).resultToPromise();
-
-          workers.push(worker);
-          return worker;
-        },
-      );
-    } finally {
-      // Clean up all workers before fixture cleanup
-      await Promise.all(
-        workers.map(async (worker) => {
-          try {
-            await worker.close().resultToPromise();
-          } catch (error) {
-            // Swallow errors during cleanup to avoid unhandled rejections
-            // eslint-disable-next-line no-console
-            console.error("Failed to close worker during fixture cleanup:", error);
-          }
-        }),
-      );
-    }
-  },
-});
+import { it } from "./fixtures.js";
 
 describe("Worker Retry Mechanism", () => {
   it("should retry on RetryableError with exponential backoff", async ({
