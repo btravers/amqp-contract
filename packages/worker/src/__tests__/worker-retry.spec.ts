@@ -1,4 +1,3 @@
-import { RetryableError } from "../errors.js";
 import {
   defineConsumer,
   defineContract,
@@ -8,6 +7,7 @@ import {
   defineQueueBinding,
 } from "@amqp-contract/contract";
 import { describe, expect, vi } from "vitest";
+import { RetryableError } from "../errors.js";
 import { it } from "./fixture.js";
 import { z } from "zod";
 
