@@ -347,9 +347,9 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   }
 
   private waitForConnectionReady(): Future<Result<void, TechnicalError>> {
-    return Future.fromPromise(this.amqpClient.channel.waitForConnect()).mapError(
-      (error) => new TechnicalError("Failed to wait for connection ready", error),
-    );
+    return Future.fromPromise(this.amqpClient.channel.waitForConnect())
+      .mapOk(() => undefined)
+      .mapError((error) => new TechnicalError("Failed to wait for connection ready", error));
   }
 
   /**
@@ -508,7 +508,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    */
   private async nackForRetry(
     msg: Message,
-    queueName: string,
+    _queueName: string,
     retryCount: number,
     delayMs: number,
     error: unknown,
@@ -537,15 +537,15 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
   /**
    * Send message to Dead Letter Queue by publishing to DLX with DLQ routing key
-   * 
+   *
    * When max retries are exceeded, we need to route to the DLQ instead of retrying.
    * Since nack uses the queue's configured deadLetter.routingKey (which routes back to the queue),
    * we instead publish directly to the DLX with a DLQ-specific routing key.
-   * 
+   *
    * The DLX routing key pattern:
    * - Retry: {queueName} (configured in queue's deadLetter.routingKey)
    * - DLQ: {queueName}-dlq (used when publishing directly for max retries)
-   * 
+   *
    * Note: This requires the DLX to have a binding for the DLQ routing key.
    */
   private async sendToDLQ(msg: Message, queueName: string): Promise<void> {
@@ -557,7 +557,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     });
 
     // Get the queue's DLX configuration from the contract
-    const consumerEntry = Object.entries(this.contract.consumers).find(
+    const consumerEntry = Object.entries(this.contract.consumers ?? {}).find(
       ([, consumer]) => consumer.queue.name === queueName,
     );
     if (!consumerEntry) {
@@ -676,8 +676,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     handler: (message: WorkerInferConsumerInput<TContract, TName>) => Promise<void>,
   ): Future<Result<void, TechnicalError>> {
     // Start consuming
-    return Future.fromPromise(
-      this.amqpClient.channel.consume(consumer.queue.name, async (msg) => {
+    return Future.fromPromise<{ consumerTag: string }>(
+      this.amqpClient.channel.consume(consumer.queue.name, async (msg: Message | null) => {
         // Handle null messages (consumer cancellation)
         if (msg === null) {
           this.logger?.warn("Consumer cancelled by server", {
@@ -767,20 +767,13 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           });
 
           try {
-            await this.nackForRetry(
-              msg,
-              consumer.queue.name,
-              retryCount,
-              nextRetryDelayMs,
-              error,
-            );
+            await this.nackForRetry(msg, consumer.queue.name, retryCount, nextRetryDelayMs, error);
           } catch (nackError) {
             this.logger?.error("Failed to nack message for retry, falling back to requeue", {
               consumerName: String(consumerName),
               queueName: consumer.queue.name,
               originalError: error instanceof Error ? error.message : String(error),
-              republishError:
-                republishError instanceof Error ? republishError.message : String(republishError),
+              nackError: nackError instanceof Error ? nackError.message : String(nackError),
               retryCount,
             });
             // If republish fails, nack with requeue as fallback
@@ -790,7 +783,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         }
       }),
     )
-      .tapOk((reply) => {
+      .tapOk((reply: { consumerTag: string }) => {
         // Store consumer tag for later cancellation
         this.consumerTags.add(reply.consumerTag);
       })
@@ -943,8 +936,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
                 consumerName: String(consumerName),
                 queueName: consumer.queue.name,
                 originalError: error instanceof Error ? error.message : String(error),
-                republishError:
-                  republishError instanceof Error ? republishError.message : String(republishError),
+                nackError: nackError instanceof Error ? nackError.message : String(nackError),
                 retryCount,
               },
             );
@@ -983,8 +975,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     };
 
     // Start consuming
-    return Future.fromPromise(
-      this.amqpClient.channel.consume(consumer.queue.name, async (msg) => {
+    return Future.fromPromise<{ consumerTag: string }>(
+      this.amqpClient.channel.consume(consumer.queue.name, async (msg: Message | null) => {
         // Handle null messages (consumer cancellation)
         if (msg === null) {
           this.logger?.warn("Consumer cancelled by server", {
@@ -1030,7 +1022,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         }
       }),
     )
-      .tapOk((reply) => {
+      .tapOk((reply: { consumerTag: string }) => {
         // Store consumer tag for later cancellation
         this.consumerTags.add(reply.consumerTag);
       })

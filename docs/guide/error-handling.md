@@ -151,6 +151,7 @@ The retry mechanism uses RabbitMQ's Dead Letter Exchange pattern combined with d
 **Contract requirement:** Queues that need retry support must be configured with a Dead Letter Exchange of type `x-delayed-message`. See the examples below for the complete pattern.
 
 **Benefits of this architecture:**
+
 - Simpler contracts: No retry-specific routing keys needed on main exchanges
 - Standard RabbitMQ pattern: Uses DLX which is well-established for failure handling
 - Clean separation: Main exchanges stay as their natural type (topic, direct, etc.)
@@ -292,6 +293,7 @@ const contract = defineContract({
 ```
 
 **How it works:**
+
 1. Failed messages are nacked and routed to the DLX
 2. DLX holds the message for the delay period (from `x-delay` header)
 3. After delay: DLX routes back to main queue (for retry) or to DLQ (if max retries exceeded)
