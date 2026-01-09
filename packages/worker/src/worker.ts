@@ -967,8 +967,26 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     // Acknowledge original message
     this.amqpClient.channel.ack(msg);
 
+    // Parse the message content to republish it as a JavaScript object
+    // This prevents double JSON serialization (Buffer -> JSON string -> Buffer with type:"Buffer")
+    // When amqp-connection-manager receives a Buffer, it serializes it as JSON, which creates
+    // the unwanted {"type":"Buffer","data":[...]} representation
+    let content: Buffer | unknown = msg.content;
+
+    // If message is not compressed (no contentEncoding), parse it to get the original object
+    if (!msg.properties.contentEncoding) {
+      try {
+        content = JSON.parse(msg.content.toString());
+      } catch (err) {
+        this.logger?.warn("Failed to parse message for retry, using original buffer", {
+          queueName,
+          error: err,
+        });
+      }
+    }
+
     // Publish to DLX with wait routing key
-    const published = this.amqpClient.channel.publish(dlxName, waitRoutingKey, msg.content, {
+    const published = await this.amqpClient.channel.publish(dlxName, waitRoutingKey, content, {
       ...msg.properties,
       expiration: delayMs.toString(), // Per-message TTL
       headers: {

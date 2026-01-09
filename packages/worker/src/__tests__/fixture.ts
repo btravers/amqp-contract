@@ -25,6 +25,7 @@ export const it = baseIt.extend<{
             handlers,
             urls: [amqpConnectionUrl],
             retry: retryOptions,
+            logger: console,
           }).resultToPromise();
 
           workers.push(worker);
