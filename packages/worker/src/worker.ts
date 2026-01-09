@@ -536,18 +536,62 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   }
 
   /**
-   * Send message to Dead Letter Queue by nacking without requeue
-   * Note: This requires the queue to have a Dead Letter Exchange configured.
-   * Without DLX configuration, the message will be permanently lost.
+   * Send message to Dead Letter Queue by publishing to DLX with DLQ routing key
+   * 
+   * When max retries are exceeded, we need to route to the DLQ instead of retrying.
+   * Since nack uses the queue's configured deadLetter.routingKey (which routes back to the queue),
+   * we instead publish directly to the DLX with a DLQ-specific routing key.
+   * 
+   * The DLX routing key pattern:
+   * - Retry: {queueName} (configured in queue's deadLetter.routingKey)
+   * - DLQ: {queueName}-dlq (used when publishing directly for max retries)
+   * 
+   * Note: This requires the DLX to have a binding for the DLQ routing key.
    */
-  private sendToDLQ(msg: Message): void {
-    this.logger?.warn("Sending message to DLQ (nack without requeue)", {
+  private async sendToDLQ(msg: Message, queueName: string): Promise<void> {
+    this.logger?.warn("Sending message to DLQ via DLX", {
+      queueName,
       exchange: msg.fields.exchange,
       routingKey: msg.fields.routingKey,
       deliveryTag: msg.fields.deliveryTag,
     });
-    // Nack without requeue - RabbitMQ will route to DLX if configured
-    this.amqpClient.channel.nack(msg, false, false);
+
+    // Get the queue's DLX configuration from the contract
+    const consumerEntry = Object.entries(this.contract.consumers).find(
+      ([, consumer]) => consumer.queue.name === queueName,
+    );
+    if (!consumerEntry) {
+      throw new TechnicalError(`Consumer not found for queue: ${queueName}`);
+    }
+    const [, consumer] = consumerEntry;
+
+    if (!consumer.queue.deadLetter?.exchange) {
+      this.logger?.error("Queue has no DLX configured, message will be lost", { queueName });
+      // Nack without requeue as fallback - message will be lost without DLX
+      this.amqpClient.channel.nack(msg, false, false);
+      return;
+    }
+
+    // Build DLQ routing key: {queueName}-dlq
+    const dlqRoutingKey = `${queueName}-dlq`;
+
+    // Add failure metadata headers
+    const updatedHeaders = {
+      ...msg.properties.headers,
+      "x-death-reason": "max-retries-exceeded",
+      "x-final-retry-count": msg.properties.headers?.["x-retry-count"] ?? 0,
+    };
+
+    // Publish to DLX with DLQ routing key
+    const dlxName = consumer.queue.deadLetter.exchange.name;
+    this.amqpClient.channel.publish(dlxName, dlqRoutingKey, msg.content, {
+      ...msg.properties,
+      headers: updatedHeaders,
+      persistent: msg.properties.deliveryMode === 2,
+    });
+
+    // Ack the original message since we've handled it
+    this.amqpClient.channel.ack(msg);
   }
 
   /**
@@ -696,7 +740,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
               queueName: consumer.queue.name,
               error: error instanceof Error ? error.message : String(error),
             });
-            this.sendToDLQ(msg);
+            await this.sendToDLQ(msg, consumer.queue.name);
             return;
           }
 
@@ -708,7 +752,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
               totalRetries: this.retryConfig.maxRetries,
               error: error instanceof Error ? error.message : String(error),
             });
-            this.sendToDLQ(msg);
+            await this.sendToDLQ(msg, consumer.queue.name);
             return;
           }
 
@@ -853,7 +897,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
             error: error instanceof Error ? error.message : String(error),
           });
           for (const item of currentBatch) {
-            this.sendToDLQ(item.amqpMessage);
+            await this.sendToDLQ(item.amqpMessage, consumer.queue.name);
           }
           return;
         }
@@ -870,7 +914,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
               totalRetries: this.retryConfig.maxRetries,
               error: error instanceof Error ? error.message : String(error),
             });
-            this.sendToDLQ(item.amqpMessage);
+            await this.sendToDLQ(item.amqpMessage, consumer.queue.name);
             continue;
           }
 
