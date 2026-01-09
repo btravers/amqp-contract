@@ -29,6 +29,23 @@ export const it = baseIt.extend<{
             handlers,
             urls: [amqpConnectionUrl],
             retry: retryOptions,
+            logger: {
+              debug: (message, context) => {
+                console.debug(message, context);
+              },
+
+              info: (message, context) => {
+                console.info(message, context);
+              },
+
+              warn: (message, context) => {
+                console.warn(message, context);
+              },
+
+              error: (message, context) => {
+                console.error(message, context);
+              },
+            },
           }).resultToPromise();
 
           workers.push(worker);
