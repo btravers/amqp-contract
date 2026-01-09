@@ -85,11 +85,11 @@ const worker = await TypedAmqpWorker.create({
   },
   urls: ["amqp://localhost"],
   retry: {
-    maxRetries: 3,           // Retry up to 3 times
-    initialDelayMs: 1000,    // Start with 1 second delay
-    maxDelayMs: 30000,       // Max 30 seconds between retries
-    backoffMultiplier: 2,    // Double the delay each time
-    jitter: true,            // Add randomness to prevent thundering herd
+    maxRetries: 3, // Retry up to 3 times
+    initialDelayMs: 1000, // Start with 1 second delay
+    maxDelayMs: 30000, // Max 30 seconds between retries
+    backoffMultiplier: 2, // Double the delay each time
+    jitter: true, // Add randomness to prevent thundering herd
   },
 });
 ```

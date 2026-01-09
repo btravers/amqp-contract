@@ -493,11 +493,11 @@ const worker = await TypedAmqpWorker.create({
   },
   urls: ["amqp://localhost"],
   retry: {
-    maxRetries: 3,           // Maximum retry attempts (default: 3)
-    initialDelayMs: 1000,    // Initial delay before first retry (default: 1000ms)
-    maxDelayMs: 30000,       // Maximum delay between retries (default: 30000ms)
-    backoffMultiplier: 2,    // Exponential backoff multiplier (default: 2)
-    jitter: true,            // Add random jitter to prevent thundering herd (default: true)
+    maxRetries: 3, // Maximum retry attempts (default: 3)
+    initialDelayMs: 1000, // Initial delay before first retry (default: 1000ms)
+    maxDelayMs: 30000, // Maximum delay between retries (default: 30000ms)
+    backoffMultiplier: 2, // Exponential backoff multiplier (default: 2)
+    jitter: true, // Add random jitter to prevent thundering herd (default: true)
   },
 }).resultToPromise();
 ```
@@ -594,6 +594,7 @@ const worker = await TypedAmqpWorker.create({
 ```
 
 **Legacy behavior:**
+
 - Messages that fail are immediately requeued
 - No delay between retries
 - No automatic DLQ routing after max attempts
@@ -631,6 +632,7 @@ const worker = await TypedAmqpWorker.create({
 ```
 
 **When to use `RetryableError`:**
+
 - To explicitly document that an error is expected and should be retried
 - To provide additional context about why retry is appropriate
 - For consistency across your codebase
@@ -699,7 +701,12 @@ These headers can be useful for monitoring and debugging:
 
 ```typescript
 import { TypedAmqpWorker, RetryableError } from "@amqp-contract/worker";
-import { defineContract, defineQueue, defineExchange, defineQueueBinding } from "@amqp-contract/contract";
+import {
+  defineContract,
+  defineQueue,
+  defineExchange,
+  defineQueueBinding,
+} from "@amqp-contract/contract";
 
 // Define contract with DLX
 const dlxExchange = defineExchange("orders-dlx", "topic", { durable: true });

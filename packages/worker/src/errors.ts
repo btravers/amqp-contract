@@ -45,7 +45,7 @@ export class MessageValidationError extends WorkerError {
 /**
  * Retryable errors - transient failures that may succeed on retry
  * Examples: network timeouts, rate limiting, temporary service unavailability
- * 
+ *
  * Note: When retry is configured, all errors are retryable by default.
  * This class is provided for explicit signaling but is not required.
  */
