@@ -863,7 +863,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     // Max retries exceeded -> DLQ
     // retryConfig is guaranteed to be non-null at this point
     const config = this.retryConfig!;
-    if (retryCount >= config.maxRetries!) {
+    if (retryCount >= config.maxRetries) {
       this.logger?.error("Max retries exceeded, sending to DLQ", {
         consumerName,
         retryCount,
@@ -894,7 +894,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     const config = this.retryConfig!;
     const { initialDelayMs, maxDelayMs, backoffMultiplier, jitter } = config;
 
-    let delay = Math.min(initialDelayMs! * Math.pow(backoffMultiplier!, retryCount), maxDelayMs!);
+    let delay = Math.min(initialDelayMs * Math.pow(backoffMultiplier, retryCount), maxDelayMs);
 
     if (jitter) {
       // Add jitter: random value between 50% and 100% of calculated delay
@@ -911,7 +911,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * │ Retry Flow (Native RabbitMQ TTL + DLX Pattern)                   │
    * ├─────────────────────────────────────────────────────────────────┤
    * │                                                                   │
-   * │ 1. Handler throws RetryableError                                 │
+   * │ 1. Handler throws Error (except NonRetryableError)               │
    * │    ↓                                                              │
    * │ 2. Worker publishes to DLX with routing key: {queue}-wait        │
    * │    ↓                                                              │
@@ -940,7 +940,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     const deadLetter = consumer.queue.deadLetter;
 
     if (!deadLetter) {
-      this.logger?.error(
+      this.logger?.warn(
         "Cannot retry: queue does not have DLX configured, falling back to nack with requeue",
         {
           queueName,
