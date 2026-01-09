@@ -138,26 +138,32 @@ The plugin is available at: https://github.com/rabbitmq/rabbitmq-delayed-message
 
 ### Architecture: Dead Letter Exchange (DLX) Pattern
 
-The retry mechanism uses RabbitMQ's Dead Letter Exchange pattern combined with delayed message exchange:
+The retry mechanism uses RabbitMQ's standard Dead Letter Exchange (DLX) pattern combined with per-message TTL and automatically managed "wait" queues:
 
-1. When a `RetryableError` is thrown, the worker nacks the message (without requeue)
-2. The message is routed to the queue's Dead Letter Exchange (DLX), which must be of type `x-delayed-message`
-3. The worker adds retry metadata headers including `x-delay` (calculated using exponential backoff)
-4. The DLX holds the message for the delay period specified in the `x-delay` header
-5. After the delay expires, the DLX routes the message:
-   - Back to the original queue (if retries remain)
-   - To the Dead Letter Queue/DLQ (if max retries exceeded or non-retryable error)
+1. When a `RetryableError` is thrown, the worker publishes the message to the Dead Letter Exchange (DLX) with a wait queue routing key.
+2. Based on the current attempt count and backoff configuration, the worker sets an `expiration` (per-message TTL) for the computed delay.
+3. The DLX routes the message to an automatically created **wait queue** (named `{queueName}-wait`) which holds the message during the TTL period.
+4. These wait queues are created and managed automatically by the worker; you do not need to declare them manually in your contract.
+5. When the TTL on the wait queue expires, RabbitMQ dead-letters the message back to the DLX:
+   - The DLX routes it back to the original processing queue (if retries remain)
+   - Or to the Dead Letter Queue/DLQ (if the maximum number of retries is exceeded or a non-retryable error is encountered)
 
-**Contract requirement:** Queues that need retry support must be configured with a Dead Letter Exchange of type `x-delayed-message`. See the examples below for the complete pattern.
+**Contract requirement:** Queues that need retry support must be configured with a Dead Letter Exchange. The DLX can be any standard exchange type (direct, topic, fanout) - **no plugin required**.
 
 **Benefits of this architecture:**
 
-- Simpler contracts: No retry-specific routing keys needed on main exchanges
-- Standard RabbitMQ pattern: Uses DLX which is well-established for failure handling
-- Clean separation: Main exchanges stay as their natural type (topic, direct, etc.)
-- Only the DLX needs to be `x-delayed-message` type
+- **No deprecated plugin**: Uses only native RabbitMQ features (per-message TTL + DLX)
+- **Future-proof**: Works with all RabbitMQ versions
+- **Standard pattern**: DLX is well-established for failure handling
+- **Clean separation**: Main exchanges stay as their natural type; DLX uses standard types too
+- **Automatic management**: Wait queues are created and configured by the worker automatically
 
-**Without this plugin:** Messages will still be retried, but without delays (immediate retry), which may not be suitable for transient failures that need time to recover.
+**How wait queues work:**
+
+- Each retryable queue gets its own wait queue (e.g., `order-processing` → `order-processing-wait`)
+- Wait queues are automatically bound to the DLX with routing key `{queueName}-wait`
+- Wait queues have their own DLX configuration to route expired messages back to the main queue
+- You don't need to define wait queues or their bindings in your contract
 
 ### Configuration Options
 
@@ -234,7 +240,7 @@ Messages are sent to the DLQ when:
 
 ### Configuring DLQ with Retry Support
 
-To enable retry with exponential backoff, configure your queues with a Dead Letter Exchange (DLX) of type `x-delayed-message`:
+To enable retry with exponential backoff, configure your queues with a Dead Letter Exchange (DLX). The DLX can be any standard exchange type:
 
 ```typescript
 import {
@@ -244,10 +250,9 @@ import {
   defineQueueBinding,
 } from "@amqp-contract/contract";
 
-// DLX (Dead Letter Exchange) with delayed message type for retry delays
-const dlx = defineExchange("orders-dlx", "x-delayed-message", {
+// DLX (Dead Letter Exchange) - can be any standard type (direct, topic, fanout)
+const dlx = defineExchange("orders-dlx", "direct", {
   durable: true,
-  delayedType: "direct", // The underlying routing type
 });
 
 // Main exchange can be any type (topic, direct, fanout)
@@ -258,7 +263,7 @@ const orderQueue = defineQueue("order-processing", {
   durable: true,
   deadLetter: {
     exchange: dlx,
-    routingKey: "order-processing", // Route back to same queue name for retries
+    routingKey: "order-processing", // Route back to same queue name after wait queue TTL expires
   },
 });
 
@@ -279,10 +284,13 @@ const contract = defineContract({
     mainBinding: defineQueueBinding(orderQueue, mainExchange, {
       routingKey: "order.#",
     }),
-    // DLX routes back to main queue for retries
+    // DLX routes back to main queue after wait queue TTL expires (for retries)
     retryBinding: defineQueueBinding(orderQueue, dlx, {
       routingKey: "order-processing",
     }),
+    // DLX routes to wait queue for delayed retry (automatically created by worker)
+    // No need to define wait queue bindings - worker manages them automatically
+    
     // DLX routes to DLQ for failed messages (max retries exceeded)
     dlqBinding: defineQueueBinding(dlqQueue, dlx, {
       routingKey: "order-processing-dlq",
@@ -294,9 +302,11 @@ const contract = defineContract({
 
 **How it works:**
 
-1. Failed messages are nacked and routed to the DLX
-2. DLX holds the message for the delay period (from `x-delay` header)
-3. After delay: DLX routes back to main queue (for retry) or to DLQ (if max retries exceeded)
+1. Failed messages are published to the DLX with wait queue routing key (`{queueName}-wait`) and per-message TTL
+2. DLX routes to an automatically created wait queue (e.g., `order-processing-wait`)
+3. Message remains in wait queue during the delay period (per-message TTL via `expiration` property)
+4. When TTL expires, message dead-letters from wait queue back to DLX
+5. DLX routes back to main queue (for retry) or to DLQ (if max retries exceeded)
 
 **Simple configuration (without retry delays):**
 

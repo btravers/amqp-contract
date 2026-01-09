@@ -448,7 +448,7 @@ describe("Worker Retry Mechanism", () => {
       { timeout: 5000 },
     );
 
-    // Check DLQ message has retry headers
+    // Check DLQ message has retry metadata headers
     const dlqMessage = await amqpChannel.get(dlqQueue.name);
     if (!dlqMessage) {
       throw new Error("Expected a message in the DLQ but none was found");
@@ -456,24 +456,43 @@ describe("Worker Retry Mechanism", () => {
 
     amqpChannel.ack(dlqMessage);
 
+    // Verify RabbitMQ's x-death header (automatically added)
     expect(dlqMessage.properties.headers).toHaveProperty("x-death");
+    
+    // Verify worker's custom retry metadata headers
+    expect(dlqMessage.properties.headers).toHaveProperty("x-death-reason", "max-retries-exceeded");
+    expect(dlqMessage.properties.headers).toHaveProperty("x-final-retry-count");
+    expect(dlqMessage.properties.headers).toHaveProperty("x-error-message");
+    expect(dlqMessage.properties.headers).toHaveProperty("x-error-name");
+    expect(dlqMessage.properties.headers).toHaveProperty("x-first-failure-timestamp");
   });
 
   it("should handle batch processing with retries", async ({ workerFactory, publishMessage }) => {
-    // GIVEN
+    // GIVEN - Note: This test succeeds before max retries, so DLX is not strictly required
+    // However, in a production scenario, you should configure DLX for complete retry support
     const TestMessage = z.object({
       id: z.string(),
       value: z.number(),
     });
 
+    const dlx = defineExchange("batch-retry-dlx", "direct", {
+      durable: false,
+    });
     const exchange = defineExchange("batch-retry-exchange", "topic", {
       durable: false,
     });
-    const queue = defineQueue("batch-retry-queue", { durable: false });
+    const queue = defineQueue("batch-retry-queue", {
+      durable: false,
+      deadLetter: {
+        exchange: dlx,
+        routingKey: "batch-retry-queue",
+      },
+    });
 
     const contract = defineContract({
       exchanges: {
         test: exchange,
+        dlx: dlx,
       },
       queues: {
         testQueue: queue,
@@ -482,9 +501,9 @@ describe("Worker Retry Mechanism", () => {
         testBinding: defineQueueBinding(queue, exchange, {
           routingKey: "test.#",
         }),
-        // Retry binding: queue-specific routing key for retries
-        retryBinding: defineQueueBinding(queue, exchange, {
-          routingKey: "batch-retry-queue.retry",
+        // DLX routes back to main queue after wait queue TTL
+        retryBinding: defineQueueBinding(queue, dlx, {
+          routingKey: "batch-retry-queue",
         }),
       },
       publishers: {

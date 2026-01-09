@@ -484,23 +484,27 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   }
 
   /**
-   * Nack message with retry headers to route through Dead Letter Exchange (DLX) for delayed retry.
+   * Retry message by routing it through Dead Letter Exchange (DLX) and a wait queue for delayed retry.
    *
    * ARCHITECTURE: Uses RabbitMQ's native per-message TTL + Dead Letter Exchange (DLX) pattern.
    *
    * How it works:
-   * 1. Message is nacked (not requeued) which routes it to the queue's Dead Letter Exchange (DLX)
-   * 2. DLX routes message to a temporary "wait" queue configured for this main queue
-   * 3. Message is published with per-message TTL via the `expiration` property
-   * 4. After TTL expires, message dead-letters from wait queue back to main queue via DLX
-   * 5. If max retries exceeded, message routes to Dead Letter Queue (DLQ) instead
+   * 1. Handler decides to retry and message is published to the queue's Dead Letter Exchange (DLX)
+   *    using the wait queue routing key and retry headers.
+   * 2. The original message from the main queue is ACKed (it is not nacked or requeued).
+   * 3. DLX routes the published message to a dedicated "wait" queue configured for this main queue.
+   * 4. Message remains in the wait queue and expires according to its TTL configuration.
+   * 5. After TTL expires, the message dead-letters from the wait queue back to the main queue via DLX.
+   * 6. If max retries are exceeded, DLX routes the message to a Dead Letter Queue (DLQ) instead of the main queue.
    *
-   * NO PLUGIN REQUIRED: Uses only native RabbitMQ features (per-message TTL + DLX)
+   * NO PLUGIN REQUIRED: Uses only native RabbitMQ features (TTL + DLX)
    *
    * REQUIRES:
-   * - Queue configured with deadLetter.exchange (can be any standard exchange type)
-   * - DLX has bindings to route to wait queue, main queue, and DLQ
-   * - Wait queue configured with DLX to route expired messages back to main queue
+   * - Queue configured with deadLetter.exchange (can be any standard exchange type: direct, topic, fanout)
+   * - DLX has bindings to route to:
+   *   - Wait queues (routing key: {queueName}-wait) - automatically created by worker
+   *   - Main queue (routing key: configured in queue's deadLetter.routingKey)
+   *   - DLQ (routing key: {dlqQueueName} from contract)
    *
    * BENEFITS:
    * - No deprecated plugin: Uses only native RabbitMQ features
@@ -510,7 +514,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    *
    * TRADE-OFFS:
    * - FIFO constraint: Messages expire from queue head only (standard RabbitMQ behavior)
-   * - Additional wait queues needed (one per retryable queue)
+   * - Additional wait queues needed (one per retryable queue, automatically managed)
    */
   private async nackForRetry(
     msg: Message,
@@ -554,12 +558,24 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
     // Publish to DLX with wait queue routing key and per-message TTL
     // After TTL expires, message routes back to main queue via wait queue's DLX
-    await this.amqpClient.channel.publish(dlxName, waitRoutingKey, msg.content, {
+    const publishOk = this.amqpClient.channel.publish(dlxName, waitRoutingKey, msg.content, {
       ...msg.properties,
       headers: updatedHeaders,
       persistent: msg.properties.deliveryMode === 2,
       expiration: String(delayMs), // Per-message TTL in milliseconds
     });
+
+    if (!publishOk) {
+      this.logger?.error("DLX publish returned false (channel buffer full), nacking message", {
+        queueName,
+        exchange: dlxName,
+        routingKey: waitRoutingKey,
+        deliveryTag: msg.fields.deliveryTag,
+      });
+      // Nack without requeue to let broker handle dead-lettering
+      this.amqpClient.channel.nack(msg, false, false);
+      return;
+    }
 
     // Ack the original message after successful republish to wait queue
     this.amqpClient.channel.ack(msg);
@@ -568,14 +584,15 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   /**
    * Ensure wait queue exists for delayed retry messages.
    *
-   * Wait queues are temporary queues used to hold messages during the TTL delay period.
+   * Wait queues are automatically created by the worker to hold messages during the TTL delay period.
    * Each retryable queue gets its own wait queue to avoid cross-queue interference.
    *
    * Wait queue configuration:
    * - Name: {queueName}-wait
    * - DLX: Same DLX as main queue, routes back to main queue after TTL expires
    * - TTL: Per-message via expiration property (not queue-level)
-   * - Durable: Same as main queue
+   * - Durable: Matches main queue durability setting from contract
+   * - Binding: Bound to DLX with routing key {queueName}-wait
    */
   private async ensureWaitQueue(
     mainQueueName: string,
@@ -588,9 +605,15 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       return;
     }
 
+    // Derive wait queue durability from main queue configuration (default to true)
+    const mainQueueDefinition = Object.values(this.contract.queues ?? {}).find(
+      (q) => q.name === mainQueueName,
+    );
+    const waitQueueDurable = (mainQueueDefinition?.options?.durable as boolean | undefined) ?? true;
+
     // Assert wait queue with DLX configuration
     await this.amqpClient.channel.assertQueue(waitQueueName, {
-      durable: true, // Match main queue durability
+      durable: waitQueueDurable, // Match main queue durability
       deadLetterExchange: dlxName,
       deadLetterRoutingKey: mainQueueName, // Route back to main queue after TTL
     });
@@ -603,11 +626,11 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   }
 
   /**
-   * Send message to Dead Letter Queue by publishing to DLX with DLQ routing key
+   * Send message to Dead Letter Queue by publishing to DLX with DLQ routing key.
    *
    * When max retries are exceeded, we need to route to the DLQ instead of retrying.
    * Since nack uses the queue's configured deadLetter.routingKey (which routes back to the queue),
-   * we instead publish directly to the DLX with a DLQ-specific routing key.
+   * we instead publish directly to the DLX with the DLQ's routing key from the contract.
    *
    * The DLX routing key pattern:
    * - Retry: {queueName} (configured in queue's deadLetter.routingKey)
@@ -639,8 +662,27 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       return;
     }
 
-    // Build DLQ routing key: {queueName}-dlq
-    const dlqRoutingKey = `${queueName}-dlq`;
+    // Get DLQ routing key from contract bindings
+    // Look for bindings from DLX to DLQ to determine the routing key
+    const dlxName = consumer.queue.deadLetter.exchange.name;
+    let dlqRoutingKey = `${queueName}-dlq`; // Default fallback pattern
+
+    // Try to find the DLQ routing key from contract bindings
+    if (this.contract.bindings) {
+      for (const binding of Object.values(this.contract.bindings)) {
+        // Check if this binding is from the DLX and looks like a DLQ binding
+        const bindingExchangeName =
+          typeof binding.exchange === "string" ? binding.exchange : binding.exchange.name;
+        const bindingQueueName =
+          typeof binding.queue === "string" ? binding.queue : binding.queue.name;
+
+        // If binding is from DLX and queue name suggests it's a DLQ
+        if (bindingExchangeName === dlxName && bindingQueueName.includes("dlq")) {
+          dlqRoutingKey = binding.routingKey ?? dlqRoutingKey;
+          break;
+        }
+      }
+    }
 
     // Add failure metadata headers
     const updatedHeaders = {
@@ -650,12 +692,23 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     };
 
     // Publish to DLX with DLQ routing key
-    const dlxName = consumer.queue.deadLetter.exchange.name;
-    this.amqpClient.channel.publish(dlxName, dlqRoutingKey, msg.content, {
+    const publishOk = this.amqpClient.channel.publish(dlxName, dlqRoutingKey, msg.content, {
       ...msg.properties,
       headers: updatedHeaders,
       persistent: msg.properties.deliveryMode === 2,
     });
+
+    if (!publishOk) {
+      this.logger?.error("DLX publish returned false (channel buffer full), nacking message", {
+        queueName,
+        exchange: dlxName,
+        routingKey: dlqRoutingKey,
+        deliveryTag: msg.fields.deliveryTag,
+      });
+      // Nack without requeue to let broker handle dead-lettering
+      this.amqpClient.channel.nack(msg, false, false);
+      return;
+    }
 
     // Ack the original message since we've handled it
     this.amqpClient.channel.ack(msg);
