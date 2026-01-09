@@ -1,8 +1,7 @@
-/* eslint-disable sort-imports */
-import type { CompressionAlgorithm } from "@amqp-contract/contract";
 import { deflate, gzip } from "node:zlib";
-import { promisify } from "node:util";
+import type { CompressionAlgorithm } from "@amqp-contract/contract";
 import { match } from "ts-pattern";
+import { promisify } from "node:util";
 
 const gzipAsync = promisify(gzip);
 const deflateAsync = promisify(deflate);
