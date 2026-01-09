@@ -142,7 +142,6 @@ describe("Worker Retry Mechanism", () => {
     // DLX (Dead Letter Exchange) - uses standard exchange for DLX
     const dlx = defineExchange("retry-dlq-dlx", "direct", {
       durable: false,
-      ,
     });
 
     // Main exchange
@@ -261,7 +260,6 @@ describe("Worker Retry Mechanism", () => {
     // DLX
     const dlx = defineExchange("non-retry-dlx", "direct", {
       durable: false,
-      ,
     });
 
     // Main exchange
@@ -376,7 +374,6 @@ describe("Worker Retry Mechanism", () => {
 
     const exchange = defineExchange("retry-headers-exchange", "topic", {
       durable: false,
-      ,
     });
     const dlqExchange = defineExchange("retry-headers-dlq", "topic", { durable: false });
     const queue = defineQueue("retry-headers-queue", {
@@ -471,7 +468,6 @@ describe("Worker Retry Mechanism", () => {
 
     const exchange = defineExchange("batch-retry-exchange", "topic", {
       durable: false,
-      ,
     });
     const queue = defineQueue("batch-retry-queue", { durable: false });
 

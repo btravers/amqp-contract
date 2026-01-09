@@ -520,9 +520,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     error: unknown,
   ): Promise<void> {
     // Get the queue's configured DLX from the contract
-    const queueDef = Object.values(this.contract.queues ?? {}).find(
-      (q) => q.name === queueName,
-    );
+    const queueDef = Object.values(this.contract.queues ?? {}).find((q) => q.name === queueName);
 
     if (!queueDef?.deadLetter?.exchange) {
       throw new Error(
@@ -556,17 +554,12 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
     // Publish to DLX with wait queue routing key and per-message TTL
     // After TTL expires, message routes back to main queue via wait queue's DLX
-    await this.amqpClient.channel.publish(
-      dlxName,
-      waitRoutingKey,
-      msg.content,
-      {
-        ...msg.properties,
-        headers: updatedHeaders,
-        persistent: msg.properties.deliveryMode === 2,
-        expiration: String(delayMs), // Per-message TTL in milliseconds
-      },
-    );
+    await this.amqpClient.channel.publish(dlxName, waitRoutingKey, msg.content, {
+      ...msg.properties,
+      headers: updatedHeaders,
+      persistent: msg.properties.deliveryMode === 2,
+      expiration: String(delayMs), // Per-message TTL in milliseconds
+    });
 
     // Ack the original message after successful republish to wait queue
     this.amqpClient.channel.ack(msg);
@@ -603,11 +596,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     });
 
     // Bind wait queue to DLX so messages can be routed to it
-    await this.amqpClient.channel.bindQueue(
-      waitQueueName,
-      dlxName,
-      `${mainQueueName}-wait`,
-    );
+    await this.amqpClient.channel.bindQueue(waitQueueName, dlxName, `${mainQueueName}-wait`);
 
     // Cache that we've declared this queue
     this.declaredResources.add(cacheKey);
