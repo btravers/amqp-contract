@@ -280,14 +280,12 @@ describe("Worker Retry Mechanism", () => {
             }
 
             const expectedDelay = expectedDelays[i]!; // Safe: i is within array bounds
-            const expiration = Number.parseInt(waitMsg.properties.expiration ?? "0", 10);
             expect(waitMsg.properties).toMatchObject({
               expiration: expectedDelay.toString(),
               headers: expect.objectContaining({
                 "x-retry-count": i + 1,
               }),
             });
-            expect(expiration).toBe(expectedDelay);
 
             // Nack to trigger next retry
             amqpChannel.nack(waitMsg, false, false);
