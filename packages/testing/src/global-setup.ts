@@ -2,14 +2,14 @@
  * Global setup module for starting RabbitMQ test containers
  *
  * This module provides a Vitest globalSetup function that automatically starts
- * a standard RabbitMQ container with the management plugin before tests run,
- * and stops it after all tests complete.
+ * a RabbitMQ container with the management plugin before tests run, and stops
+ * it after all tests complete.
  *
- * The retry mechanism uses RabbitMQ's native per-message TTL + DLX pattern,
- * so no plugins are required.
+ * The container automatically enables the `rabbitmq_delayed_message_exchange` plugin
+ * which is required for the retry mechanism's exponential backoff functionality.
  *
  * The RabbitMQ image can be configured via the `RABBITMQ_IMAGE` environment variable.
- * By default, it uses `rabbitmq:3.13-management-alpine`.
+ * By default, it uses the public Docker Hub image (`rabbitmq:4.2.1-management-alpine`).
  *
  * @module global-setup
  * @packageDocumentation
@@ -17,6 +17,8 @@
 
 import { GenericContainer, Wait } from "testcontainers";
 import type { TestProject } from "vitest/node";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
 
 /**
  * Default RabbitMQ Docker image to use for testing.
@@ -67,29 +69,77 @@ declare module "vitest" {
 export default async function setup({ provide }: TestProject) {
   console.log("🐳 Starting RabbitMQ test environment...");
 
-  // Use standard RabbitMQ image - no plugin required for TTL+DLX pattern
-  const imageTag = DEFAULT_RABBITMQ_IMAGE || "rabbitmq:3.13-management-alpine";
-  console.log(`📦 Using RabbitMQ image: ${imageTag}`);
+  let rabbitmqContainer;
 
-  const rabbitmqContainer = await new GenericContainer(imageTag)
-    .withExposedPorts(5672, 15672)
-    .withEnvironment({
-      RABBITMQ_DEFAULT_USER: "guest",
-      RABBITMQ_DEFAULT_PASS: "guest",
-    })
-    .withHealthCheck({
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"],
-      interval: 1_000,
-      retries: 30,
-      startPeriod: 3_000,
-      timeout: 5_000,
-    })
-    .withWaitStrategy(Wait.forHealthCheck())
-    .withReuse()
-    .withAutoRemove(true)
-    .start();
+  if (DEFAULT_RABBITMQ_IMAGE) {
+    // Use custom image if provided via environment variable
+    console.log(`📦 Using RabbitMQ image: ${DEFAULT_RABBITMQ_IMAGE}`);
+    rabbitmqContainer = await new GenericContainer(DEFAULT_RABBITMQ_IMAGE)
+      .withExposedPorts(5672, 15672)
+      .withEnvironment({
+        RABBITMQ_DEFAULT_USER: "guest",
+        RABBITMQ_DEFAULT_PASS: "guest",
+      })
+      .withHealthCheck({
+        test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"],
+        interval: 1_000,
+        retries: 30,
+        startPeriod: 3_000,
+        timeout: 5_000,
+      })
+      .withWaitStrategy(Wait.forHealthCheck())
+      .withReuse()
+      .withAutoRemove(true)
+      .start();
+  } else {
+    // Build custom image from Dockerfile
+    console.log("🔨 Building custom RabbitMQ image with delayed message exchange plugin...");
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const dockerfilePath = path.resolve(__dirname, "..");
 
-  console.log("✅ RabbitMQ container started (using native TTL+DLX pattern - no plugin required)");
+    rabbitmqContainer = await GenericContainer.fromDockerfile(dockerfilePath)
+      .build()
+      .then((image) =>
+        image
+          .withExposedPorts(5672, 15672)
+          .withEnvironment({
+            RABBITMQ_DEFAULT_USER: "guest",
+            RABBITMQ_DEFAULT_PASS: "guest",
+          })
+          .withHealthCheck({
+            test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"],
+            interval: 1_000,
+            retries: 30,
+            startPeriod: 3_000,
+            timeout: 5_000,
+          })
+          .withWaitStrategy(Wait.forHealthCheck())
+          .withReuse()
+          .withAutoRemove(true)
+          .start(),
+      );
+  }
+
+  console.log("✅ RabbitMQ container started");
+
+  // Enable the delayed message exchange plugin required for retry mechanism
+  console.log("🔌 Enabling rabbitmq_delayed_message_exchange plugin...");
+  const enablePluginResult = await rabbitmqContainer.exec([
+    "rabbitmq-plugins",
+    "enable",
+    "rabbitmq_delayed_message_exchange",
+  ]);
+
+  if (enablePluginResult.exitCode !== 0) {
+    console.error("❌ Failed to enable delayed message exchange plugin");
+    console.error("stdout:", enablePluginResult.output);
+    throw new Error(
+      `Failed to enable rabbitmq_delayed_message_exchange plugin: ${enablePluginResult.output}`,
+    );
+  }
+
+  console.log("✅ Delayed message exchange plugin enabled");
 
   const __TESTCONTAINERS_RABBITMQ_IP__ = rabbitmqContainer.getHost();
   const __TESTCONTAINERS_RABBITMQ_PORT_5672__ = rabbitmqContainer.getMappedPort(5672);

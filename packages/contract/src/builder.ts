@@ -316,17 +316,17 @@ export function defineQueueBinding(
  */
 export function defineQueueBinding(
   queue: QueueDefinition,
-  exchange: DirectExchangeDefinition | TopicExchangeDefinition | DelayedExchangeDefinition,
+  exchange: DirectExchangeDefinition | TopicExchangeDefinition,
   options: Omit<
     Extract<
       QueueBindingDefinition,
-      { exchange: DirectExchangeDefinition | TopicExchangeDefinition | DelayedExchangeDefinition }
+      { exchange: DirectExchangeDefinition | TopicExchangeDefinition }
     >,
     "type" | "queue" | "exchange"
   >,
 ): Extract<
   QueueBindingDefinition,
-  { exchange: DirectExchangeDefinition | TopicExchangeDefinition | DelayedExchangeDefinition }
+  { exchange: DirectExchangeDefinition | TopicExchangeDefinition }
 >;
 
 /**
@@ -546,18 +546,18 @@ export function definePublisher<TMessage extends MessageDefinition>(
  * ```
  */
 export function definePublisher<TMessage extends MessageDefinition>(
-  exchange: DirectExchangeDefinition | TopicExchangeDefinition | DelayedExchangeDefinition,
+  exchange: DirectExchangeDefinition | TopicExchangeDefinition,
   message: TMessage,
   options: Omit<
     Extract<
       PublisherDefinition<TMessage>,
-      { exchange: DirectExchangeDefinition | TopicExchangeDefinition | DelayedExchangeDefinition }
+      { exchange: DirectExchangeDefinition | TopicExchangeDefinition }
     >,
     "exchange" | "message"
   >,
 ): Extract<
   PublisherDefinition<TMessage>,
-  { exchange: DirectExchangeDefinition | TopicExchangeDefinition | DelayedExchangeDefinition }
+  { exchange: DirectExchangeDefinition | TopicExchangeDefinition }
 >;
 
 /**
