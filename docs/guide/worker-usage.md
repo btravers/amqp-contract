@@ -468,6 +468,324 @@ handlers: {
 5. **Idempotency** - Handlers should be safe to retry since messages may be redelivered
 6. **Dead Letters** - Configure DLQ for failed messages to avoid infinite retry loops
 
+## Error Handling and Retry
+
+The worker supports automatic retry with exponential backoff using RabbitMQ's native TTL (Time To Live) and Dead Letter Exchange (DLX) pattern.
+
+### Basic Retry Configuration
+
+Enable retry by providing a `retry` configuration when creating the worker:
+
+```typescript
+import { TypedAmqpWorker, RetryableError } from "@amqp-contract/worker";
+
+const worker = await TypedAmqpWorker.create({
+  contract,
+  handlers: {
+    processOrder: async (message) => {
+      try {
+        await processPayment(message);
+      } catch (error) {
+        // Throw to trigger retry
+        throw new Error("Payment processing failed");
+      }
+    },
+  },
+  urls: ["amqp://localhost"],
+  retry: {
+    maxRetries: 3, // Maximum retry attempts (default: 3)
+    initialDelayMs: 1000, // Initial delay before first retry (default: 1000ms)
+    maxDelayMs: 30000, // Maximum delay between retries (default: 30000ms)
+    backoffMultiplier: 2, // Exponential backoff multiplier (default: 2)
+    jitter: true, // Add random jitter to prevent thundering herd (default: true)
+  },
+}).resultToPromise();
+```
+
+### How Retry Works
+
+When retry is configured and a handler throws an error:
+
+1. **Message is acknowledged** - The worker acks the original message
+2. **Published to wait queue** - Message is republished to a wait queue with a TTL
+3. **Wait in queue** - Message sits in the wait queue for the calculated delay
+4. **Dead-lettered back** - After TTL expires, message is automatically routed back to the main queue
+5. **Retry processing** - Worker processes the message again
+6. **Repeat or DLQ** - Process repeats until success or max retries reached, then sent to Dead Letter Queue (DLQ)
+
+This approach uses native RabbitMQ features and doesn't block the consumer during retry delays.
+
+### Exponential Backoff
+
+Retry delays increase exponentially to give downstream services time to recover:
+
+```typescript
+// With default settings (initialDelayMs: 1000, backoffMultiplier: 2):
+// Attempt 1: 1000ms delay
+// Attempt 2: 2000ms delay
+// Attempt 3: 4000ms delay
+// After 3 attempts: Message sent to DLQ
+```
+
+**With jitter enabled** (default), a random factor (50-100% of calculated delay) is added to prevent all retried messages from hitting the system simultaneously.
+
+### Queue Configuration for Retry
+
+For retry to work, your queues must be configured with a Dead Letter Exchange (DLX):
+
+```typescript
+import { defineQueue, defineExchange } from "@amqp-contract/contract";
+
+// Define the Dead Letter Exchange
+const dlxExchange = defineExchange("orders-dlx", "topic", { durable: true });
+
+// Define the Dead Letter Queue
+const dlq = defineQueue("orders-dlq", { durable: true });
+
+// Define your main queue with deadLetter configuration
+const ordersQueue = defineQueue("orders", {
+  durable: true,
+  deadLetter: {
+    exchange: dlxExchange,
+    routingKey: "orders.failed",
+  },
+});
+
+// Bind the DLQ to the DLX
+const contract = defineContract({
+  exchanges: {
+    main: mainExchange,
+    dlx: dlxExchange,
+  },
+  queues: {
+    orders: ordersQueue,
+    ordersDlq: dlq,
+  },
+  bindings: {
+    // ... main queue bindings
+    dlqBinding: defineQueueBinding(dlq, dlxExchange, {
+      routingKey: "orders.failed",
+    }),
+  },
+  // ... rest of contract
+});
+```
+
+::: warning Queue DLX Required
+If retry is enabled but a queue doesn't have `deadLetter` configured, the worker will log a warning and fall back to immediate requeue (legacy behavior). For proper retry functionality, always configure DLX on your queues.
+:::
+
+### Legacy Behavior (No Retry)
+
+If you don't provide a `retry` configuration, the worker uses the legacy behavior:
+
+```typescript
+const worker = await TypedAmqpWorker.create({
+  contract,
+  handlers: {
+    processOrder: async (message) => {
+      // If this throws, message is immediately requeued
+      await processPayment(message);
+    },
+  },
+  urls: ["amqp://localhost"],
+  // No retry config - uses legacy immediate requeue
+}).resultToPromise();
+```
+
+**Legacy behavior:**
+
+- Messages that fail are immediately requeued
+- No delay between retries
+- No automatic DLQ routing after max attempts
+- Can lead to rapid retry loops
+
+::: tip Migration from Legacy
+If you're upgrading from the legacy behavior, add the `retry` configuration and ensure your queues have DLX configured. The worker will automatically handle the rest.
+:::
+
+### Retry Error Classes
+
+The `RetryableError` class is provided for explicit signaling but is **optional**:
+
+```typescript
+import { RetryableError } from "@amqp-contract/worker";
+
+const worker = await TypedAmqpWorker.create({
+  contract,
+  handlers: {
+    processOrder: async (message) => {
+      try {
+        await externalApiCall(message);
+      } catch (error) {
+        // Explicitly signal this should be retried
+        throw new RetryableError("External API temporarily unavailable", error);
+      }
+    },
+  },
+  urls: ["amqp://localhost"],
+  retry: {
+    maxRetries: 5,
+    initialDelayMs: 2000,
+  },
+}).resultToPromise();
+```
+
+**When to use `RetryableError`:**
+
+- To explicitly document that an error is expected and should be retried
+- To provide additional context about why retry is appropriate
+- For consistency across your codebase
+
+**Remember:** When retry is configured, **all errors are retryable by default**. You don't need to use `RetryableError` unless you want to be explicit about the retry intent.
+
+### Retry with Batch Processing
+
+Retry works with batch processing. If a batch handler throws an error, all messages in the batch are retried:
+
+```typescript
+const worker = await TypedAmqpWorker.create({
+  contract,
+  handlers: {
+    processOrders: [
+      async (messages) => {
+        try {
+          await db.orders.insertMany(messages);
+        } catch (error) {
+          // All messages in batch will be retried
+          throw new Error("Batch insert failed");
+        }
+      },
+      { batchSize: 10, batchTimeout: 1000 },
+    ],
+  },
+  urls: ["amqp://localhost"],
+  retry: {
+    maxRetries: 3,
+    initialDelayMs: 1000,
+  },
+}).resultToPromise();
+```
+
+::: warning Batch Retry Behavior
+All messages in a failed batch are treated the same way - they all get the same retry count and delay. For partial batch success handling, consider processing messages individually instead.
+:::
+
+### Monitoring Retry Headers
+
+The worker adds headers to track retry information:
+
+- `x-retry-count` - Number of times this message has been retried
+- `x-last-error` - Error message from the last failed attempt
+- `x-first-failure-timestamp` - Timestamp of the first failure
+
+These headers can be useful for monitoring and debugging:
+
+```typescript
+// Example: Log retry information (requires custom message access)
+// Note: Standard handlers don't expose raw message properties
+// This is for illustration of what the worker tracks internally
+```
+
+### Best Practices for Retry
+
+1. **Configure appropriate delays** - Start with 1-2 seconds, max out at 30-60 seconds
+2. **Use jitter** - Keep jitter enabled (default) to prevent thundering herd
+3. **Set reasonable max retries** - 3-5 retries is usually sufficient
+4. **Configure DLX on all queues** - Ensures proper retry behavior and DLQ routing
+5. **Make handlers idempotent** - Messages may be processed multiple times
+6. **Monitor DLQ** - Set up alerts for messages reaching the DLQ
+7. **Handle transient vs permanent failures** - Use retry for transient failures (network issues, rate limits), handle permanent failures (validation errors) before throwing
+
+### Example: Complete Retry Setup
+
+```typescript
+import { TypedAmqpWorker, RetryableError } from "@amqp-contract/worker";
+import {
+  defineContract,
+  defineQueue,
+  defineExchange,
+  defineQueueBinding,
+} from "@amqp-contract/contract";
+
+// Define contract with DLX
+const dlxExchange = defineExchange("orders-dlx", "topic", { durable: true });
+const ordersQueue = defineQueue("orders", {
+  durable: true,
+  deadLetter: {
+    exchange: dlxExchange,
+    routingKey: "orders.failed",
+  },
+});
+const dlq = defineQueue("orders-dlq", { durable: true });
+
+const contract = defineContract({
+  exchanges: {
+    main: mainExchange,
+    dlx: dlxExchange,
+  },
+  queues: {
+    orders: ordersQueue,
+    ordersDlq: dlq,
+  },
+  bindings: {
+    mainBinding: defineQueueBinding(ordersQueue, mainExchange, {
+      routingKey: "order.#",
+    }),
+    dlqBinding: defineQueueBinding(dlq, dlxExchange, {
+      routingKey: "orders.failed",
+    }),
+  },
+  consumers: {
+    processOrder: defineConsumer(ordersQueue, orderMessage),
+  },
+  // ... rest of contract
+});
+
+// Create worker with retry
+const worker = await TypedAmqpWorker.create({
+  contract,
+  handlers: {
+    processOrder: async (message) => {
+      try {
+        // Validate before processing (don't retry validation errors)
+        if (!message.amount || message.amount <= 0) {
+          throw new Error("Invalid order amount");
+        }
+
+        // Process with external service (retry on failure)
+        await paymentService.charge(message);
+        await inventoryService.reserve(message);
+        await notificationService.send(message);
+      } catch (error) {
+        // All errors will be retried
+        console.error("Order processing failed:", error);
+        throw error;
+      }
+    },
+  },
+  urls: ["amqp://localhost"],
+  retry: {
+    maxRetries: 3,
+    initialDelayMs: 1000,
+    maxDelayMs: 30000,
+    backoffMultiplier: 2,
+    jitter: true,
+  },
+}).resultToPromise();
+
+console.log("✅ Worker ready with retry enabled!");
+```
+
+## Best Practices
+
+1. **Handle Errors** - Always wrap business logic in try-catch
+2. **Use Prefetch** - Limit concurrent messages with `prefetch` option to control memory usage
+3. **Batch for Throughput** - Use batch processing for bulk operations (database inserts, API calls)
+4. **Graceful Shutdown** - Properly close connections to finish processing in-flight messages
+5. **Idempotency** - Handlers should be safe to retry since messages may be redelivered
+6. **Dead Letters** - Configure DLQ for failed messages to avoid infinite retry loops
+
 ## Next Steps
 
 - Learn about [Client Usage](/guide/client-usage)

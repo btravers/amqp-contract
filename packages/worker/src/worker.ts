@@ -38,6 +38,36 @@ type ConsumerOptions =
     };
 
 /**
+ * Retry configuration options for handling failed message processing.
+ *
+ * When enabled, the worker will automatically retry failed messages using
+ * RabbitMQ's native TTL + Dead Letter Exchange (DLX) pattern.
+ */
+export type RetryOptions = {
+  /** Maximum retry attempts before sending to DLQ (default: 3) */
+  maxRetries?: number;
+  /** Initial delay in ms before first retry (default: 1000) */
+  initialDelayMs?: number;
+  /** Maximum delay in ms between retries (default: 30000) */
+  maxDelayMs?: number;
+  /** Exponential backoff multiplier (default: 2) */
+  backoffMultiplier?: number;
+  /** Add jitter to prevent thundering herd (default: true) */
+  jitter?: boolean;
+};
+
+/**
+ * Internal retry configuration with all values resolved.
+ */
+type ResolvedRetryConfig = {
+  maxRetries: number;
+  initialDelayMs: number;
+  maxDelayMs: number;
+  backoffMultiplier: number;
+  jitter: boolean;
+};
+
+/**
  * Options for creating a type-safe AMQP worker.
  *
  * @typeParam TContract - The contract definition type
@@ -70,7 +100,14 @@ type ConsumerOptions =
  *   connectionOptions: {
  *     heartbeatIntervalInSeconds: 30
  *   },
- *   logger: myLogger
+ *   logger: myLogger,
+ *   retry: {
+ *     maxRetries: 3,
+ *     initialDelayMs: 1000,
+ *     maxDelayMs: 30000,
+ *     backoffMultiplier: 2,
+ *     jitter: true
+ *   }
  * };
  * ```
  */
@@ -85,6 +122,8 @@ export type CreateWorkerOptions<TContract extends ContractDefinition> = {
   connectionOptions?: AmqpConnectionManagerOptions | undefined;
   /** Optional logger for logging message consumption and errors */
   logger?: Logger | undefined;
+  /** Retry configuration - when undefined, uses legacy behavior (immediate requeue) */
+  retry?: RetryOptions | undefined;
 };
 
 /**
@@ -138,12 +177,14 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   private readonly consumerOptions: Partial<Record<InferConsumerNames<TContract>, ConsumerOptions>>;
   private readonly batchTimers: Map<string, NodeJS.Timeout> = new Map();
   private readonly consumerTags: Set<string> = new Set();
+  private readonly retryConfig: ResolvedRetryConfig | null;
 
   private constructor(
     private readonly contract: TContract,
     private readonly amqpClient: AmqpClient,
     handlers: WorkerInferConsumerHandlers<TContract>,
     private readonly logger?: Logger,
+    retryOptions?: RetryOptions,
   ) {
     // Extract handlers and options from the handlers object
     this.actualHandlers = {};
@@ -170,6 +211,20 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           | WorkerInferConsumerHandler<TContract, InferConsumerNames<TContract>>
           | WorkerInferConsumerBatchHandler<TContract, InferConsumerNames<TContract>>;
       }
+    }
+
+    // Initialize retry configuration
+    if (retryOptions === undefined) {
+      this.retryConfig = null; // Legacy behavior
+    } else {
+      // Set defaults for retry options
+      this.retryConfig = {
+        maxRetries: retryOptions.maxRetries ?? 3,
+        initialDelayMs: retryOptions.initialDelayMs ?? 1000,
+        maxDelayMs: retryOptions.maxDelayMs ?? 30000,
+        backoffMultiplier: retryOptions.backoffMultiplier ?? 2,
+        jitter: retryOptions.jitter ?? true,
+      };
     }
   }
 
@@ -204,6 +259,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     urls,
     connectionOptions,
     logger,
+    retry,
   }: CreateWorkerOptions<TContract>): Future<Result<TypedAmqpWorker<TContract>, TechnicalError>> {
     const worker = new TypedAmqpWorker(
       contract,
@@ -213,10 +269,12 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       }),
       handlers,
       logger,
+      retry,
     );
 
     return worker
       .waitForConnectionReady()
+      .flatMapOk(() => worker.setupWaitQueues())
       .flatMapOk(() => worker.consumeAll())
       .mapOk(() => worker);
   }
@@ -261,6 +319,74 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       })
       .flatMapOk(() => Future.fromPromise(this.amqpClient.close()))
       .mapError((error) => new TechnicalError("Failed to close AMQP connection", error))
+      .mapOk(() => undefined);
+  }
+
+  /**
+   * Set up wait queues for retry mechanism.
+   * Creates and binds wait queues for each consumer queue that has DLX configuration.
+   */
+  private setupWaitQueues(): Future<Result<void, TechnicalError>> {
+    // Skip if retry is not configured
+    if (this.retryConfig === null) {
+      return Future.value(Result.Ok(undefined));
+    }
+
+    if (!this.contract.consumers || !this.contract.queues) {
+      return Future.value(Result.Ok(undefined));
+    }
+
+    const setupTasks: Array<Future<Result<void, TechnicalError>>> = [];
+
+    for (const consumerName of Object.keys(
+      this.contract.consumers,
+    ) as InferConsumerNames<TContract>[]) {
+      const consumer = this.contract.consumers[consumerName as string];
+      if (!consumer) continue;
+
+      const queue = consumer.queue;
+      const deadLetter = queue.deadLetter;
+
+      // Only create wait queues for queues with DLX configuration
+      if (!deadLetter) continue;
+
+      const queueName = queue.name;
+      const waitQueueName = `${queueName}-wait`;
+      const dlxName = deadLetter.exchange.name;
+
+      const setupTask = Future.fromPromise(
+        this.amqpClient.channel.addSetup(async (channel: Channel) => {
+          // Create wait queue with DLX pointing back to the main queue
+          await channel.assertQueue(waitQueueName, {
+            durable: queue.durable ?? false,
+            deadLetterExchange: dlxName,
+            deadLetterRoutingKey: queueName,
+          });
+
+          // Bind wait queue to DLX with routing key pattern
+          await channel.bindQueue(waitQueueName, dlxName, `${queueName}-wait`);
+
+          this.logger?.info("Wait queue created and bound", {
+            consumerName: String(consumerName),
+            queueName,
+            waitQueueName,
+            dlxName,
+          });
+        }),
+      ).mapError(
+        (error) =>
+          new TechnicalError(`Failed to setup wait queue for "${String(consumerName)}"`, error),
+      );
+
+      setupTasks.push(setupTask);
+    }
+
+    if (setupTasks.length === 0) {
+      return Future.value(Result.Ok(undefined));
+    }
+
+    return Future.all(setupTasks)
+      .map(Result.all)
       .mapOk(() => undefined);
   }
 
@@ -415,7 +541,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     // Decompress message if needed
     const decompressMessage = Future.fromPromise(
       decompressBuffer(msg.content, msg.properties.contentEncoding),
-    ).mapError((error) => {
+    ).tapError((error) => {
       this.logger?.error("Error decompressing message", {
         consumerName: String(consumerName),
         queueName: consumer.queue.name,
@@ -425,7 +551,6 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
       // Reject message with no requeue (decompression failed)
       this.amqpClient.channel.nack(msg, false, false);
-      return undefined;
     });
 
     // Parse message
@@ -499,31 +624,30 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         // Parse and validate message
         await this.parseAndValidateMessage(msg, consumer, consumerName)
           .flatMapOk((validatedMessage) =>
-            Future.fromPromise(handler(validatedMessage)).tapError((error) => {
-              this.logger?.error("Error processing message", {
-                consumerName: String(consumerName),
-                queueName: consumer.queue.name,
-                error,
-              });
+            Future.fromPromise(handler(validatedMessage))
+              .mapOk(() => {
+                this.logger?.info("Message consumed successfully", {
+                  consumerName: String(consumerName),
+                  queueName: consumer.queue.name,
+                });
 
-              // Requeue failed messages for retry
-              // NOTE: This strategy assumes transient failures that may succeed on retry.
-              // For production use, consider:
-              // - Implementing retry limits to prevent infinite loops
-              // - Using dead letter exchanges for permanently failed messages
-              // - Adding exponential backoff between retries
-              this.amqpClient.channel.nack(msg, false, true);
-            }),
+                // Acknowledge message on success
+                this.amqpClient.channel.ack(msg);
+                return undefined;
+              })
+              .tapError((error) => {
+                this.logger?.error("Error processing message", {
+                  consumerName: String(consumerName),
+                  queueName: consumer.queue.name,
+                  error,
+                });
+              })
+              .flatMapError((error) => {
+                // Use retry mechanism - handleError will manage ack/nack
+                const errorObj = error instanceof Error ? error : new Error(String(error));
+                return this.handleError(errorObj, msg, String(consumerName), consumer);
+              }),
           )
-          .tapOk(() => {
-            this.logger?.info("Message consumed successfully", {
-              consumerName: String(consumerName),
-              queueName: consumer.queue.name,
-            });
-
-            // Acknowledge message
-            this.amqpClient.channel.ack(msg);
-          })
           .toPromise();
       }),
     )
@@ -535,6 +659,26 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         (error) =>
           new TechnicalError(`Failed to start consuming for "${String(consumerName)}"`, error),
       )
+      .mapOk(() => undefined);
+  }
+
+  /**
+   * Handle batch processing error by applying error handling to all messages.
+   */
+  private handleBatchError(
+    error: unknown,
+    currentBatch: Array<{ amqpMessage: Message }>,
+    consumerName: string,
+    consumer: ConsumerDefinition,
+  ): Future<Result<void, TechnicalError>> {
+    const errorObj = error instanceof Error ? error : new Error(String(error));
+
+    return Future.all(
+      currentBatch.map((item) =>
+        this.handleError(errorObj, item.amqpMessage, consumerName, consumer),
+      ),
+    )
+      .map(Result.all)
       .mapOk(() => undefined);
   }
 
@@ -561,10 +705,10 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     // Track if batch processing is currently in progress to avoid race conditions
     let isProcessing = false;
 
-    const processBatch = async () => {
+    const processBatch = (): Future<Result<void, TechnicalError>> => {
       // Prevent concurrent batch processing
       if (isProcessing || batch.length === 0) {
-        return;
+        return Future.value(Result.Ok(undefined));
       }
 
       isProcessing = true;
@@ -587,40 +731,37 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         batchSize: currentBatch.length,
       });
 
-      try {
-        await handler(messages);
+      return Future.fromPromise(handler(messages))
+        .mapOk(() => {
+          // Acknowledge all messages in the batch on success
+          for (const item of currentBatch) {
+            this.amqpClient.channel.ack(item.amqpMessage);
+          }
 
-        // Acknowledge all messages in the batch
-        for (const item of currentBatch) {
-          this.amqpClient.channel.ack(item.amqpMessage);
-        }
-
-        this.logger?.info("Batch processed successfully", {
-          consumerName: String(consumerName),
-          queueName: consumer.queue.name,
-          batchSize: currentBatch.length,
+          this.logger?.info("Batch processed successfully", {
+            consumerName: String(consumerName),
+            queueName: consumer.queue.name,
+            batchSize: currentBatch.length,
+          });
+          return undefined;
+        })
+        .tapError((error) => {
+          this.logger?.error("Error processing batch", {
+            consumerName: String(consumerName),
+            queueName: consumer.queue.name,
+            batchSize: currentBatch.length,
+            error,
+          });
+        })
+        .flatMapError((error) => {
+          // Handle error for each message in the batch - handleBatchError will manage ack/nack
+          // NOTE: All messages in the batch are treated the same way.
+          // For partial batch success handling, consider implementing message-level error tracking.
+          return this.handleBatchError(error, currentBatch, String(consumerName), consumer);
+        })
+        .tap(() => {
+          isProcessing = false;
         });
-      } catch (error) {
-        this.logger?.error("Error processing batch", {
-          consumerName: String(consumerName),
-          queueName: consumer.queue.name,
-          batchSize: currentBatch.length,
-          error,
-        });
-
-        // Requeue all failed messages for retry
-        // NOTE: This strategy assumes transient failures that may succeed on retry.
-        // For production use, consider:
-        // - Implementing retry limits to prevent infinite loops
-        // - Using dead letter exchanges for permanently failed messages
-        // - Adding exponential backoff between retries
-        // - Implementing partial batch success handling
-        for (const item of currentBatch) {
-          this.amqpClient.channel.nack(item.amqpMessage, false, true);
-        }
-      } finally {
-        isProcessing = false;
-      }
     };
 
     const scheduleBatchProcessing = () => {
@@ -637,12 +778,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
       // Schedule new timer and track it
       const timer = setTimeout(() => {
-        processBatch().catch((error) => {
-          this.logger?.error("Unexpected error in batch processing", {
-            consumerName: String(consumerName),
-            error,
-          });
-        });
+        processBatch().toPromise();
       }, batchTimeout);
 
       this.batchTimers.set(timerKey, timer);
@@ -658,7 +794,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
             queueName: consumer.queue.name,
           });
           // Process any remaining messages in the batch
-          await processBatch();
+          await processBatch().toPromise();
           return;
         }
 
@@ -682,7 +818,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
         // Process batch if full
         if (batch.length >= batchSize) {
-          await processBatch();
+          await processBatch().toPromise();
           // After processing a full batch, schedule timer for any subsequent messages
           // This ensures that if more messages arrive at a slow rate, they won't be held indefinitely
           if (batch.length > 0 && !this.batchTimers.has(timerKey)) {
@@ -705,5 +841,212 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           new TechnicalError(`Failed to start consuming for "${String(consumerName)}"`, error),
       )
       .mapOk(() => undefined);
+  }
+
+  /**
+   * Handle error in message processing with retry logic.
+   *
+   * Flow:
+   * 1. If no retry config -> legacy behavior (immediate requeue)
+   * 2. If max retries exceeded -> send to DLQ
+   * 3. Otherwise -> publish to wait queue with TTL for retry
+   */
+  private handleError(
+    error: Error,
+    msg: Message,
+    consumerName: string,
+    consumer: ConsumerDefinition,
+  ): Future<Result<void, TechnicalError>> {
+    // If no retry config, use legacy behavior
+    if (this.retryConfig === null) {
+      this.logger?.warn("Error in handler (legacy mode: immediate requeue)", {
+        consumerName,
+        error: error.message,
+      });
+      this.amqpClient.channel.nack(msg, false, true); // Requeue immediately
+      return Future.value(Result.Ok(undefined));
+    }
+
+    // Get retry count from headers
+    const retryCount = (msg.properties.headers?.["x-retry-count"] as number) ?? 0;
+
+    // Max retries exceeded -> DLQ
+    // retryConfig is guaranteed to be non-null at this point
+    const config = this.retryConfig as ResolvedRetryConfig;
+    if (retryCount >= config.maxRetries) {
+      this.logger?.error("Max retries exceeded, sending to DLQ", {
+        consumerName,
+        retryCount,
+        maxRetries: config.maxRetries,
+        error: error.message,
+      });
+      this.sendToDLQ(msg, consumer);
+      return Future.value(Result.Ok(undefined));
+    }
+
+    // Retry with exponential backoff
+    const delayMs = this.calculateRetryDelay(retryCount);
+    this.logger?.warn("Retrying message", {
+      consumerName,
+      retryCount: retryCount + 1,
+      delayMs,
+      error: error.message,
+    });
+
+    return this.publishForRetry(msg, consumer, retryCount + 1, delayMs, error);
+  }
+
+  /**
+   * Calculate retry delay with exponential backoff and optional jitter.
+   */
+  private calculateRetryDelay(retryCount: number): number {
+    // retryConfig is guaranteed to be non-null when this method is called
+    const config = this.retryConfig as ResolvedRetryConfig;
+    const { initialDelayMs, maxDelayMs, backoffMultiplier, jitter } = config;
+
+    let delay = Math.min(initialDelayMs * Math.pow(backoffMultiplier, retryCount), maxDelayMs);
+
+    if (jitter) {
+      // Add jitter: random value between 50% and 100% of calculated delay
+      delay = delay * (0.5 + Math.random() * 0.5);
+    }
+
+    return Math.floor(delay);
+  }
+
+  /**
+   * Parse message content for republishing.
+   * Prevents double JSON serialization by converting Buffer to object when possible.
+   */
+  private parseMessageContentForRetry(msg: Message, queueName: string): Buffer | unknown {
+    let content: Buffer | unknown = msg.content;
+
+    // If message is not compressed (no contentEncoding), parse it to get the original object
+    if (!msg.properties.contentEncoding) {
+      try {
+        content = JSON.parse(msg.content.toString());
+      } catch (err) {
+        this.logger?.warn("Failed to parse message for retry, using original buffer", {
+          queueName,
+          error: err,
+        });
+      }
+    }
+
+    return content;
+  }
+
+  /**
+   * Publish message to wait queue for retry after TTL expires.
+   *
+   * ┌─────────────────────────────────────────────────────────────────┐
+   * │ Retry Flow (Native RabbitMQ TTL + DLX Pattern)                   │
+   * ├─────────────────────────────────────────────────────────────────┤
+   * │                                                                   │
+   * │ 1. Handler throws any Error                                      │
+   * │    ↓                                                              │
+   * │ 2. Worker publishes to DLX with routing key: {queue}-wait        │
+   * │    ↓                                                              │
+   * │ 3. DLX routes to wait queue: {queue}-wait                        │
+   * │    (with expiration: calculated backoff delay)                   │
+   * │    ↓                                                              │
+   * │ 4. Message waits in queue until TTL expires                      │
+   * │    ↓                                                              │
+   * │ 5. Expired message dead-lettered to DLX                          │
+   * │    (with routing key: {queue})                                   │
+   * │    ↓                                                              │
+   * │ 6. DLX routes back to main queue → RETRY                         │
+   * │    ↓                                                              │
+   * │ 7. If retries exhausted: nack without requeue → DLQ              │
+   * │                                                                   │
+   * └─────────────────────────────────────────────────────────────────┘
+   */
+  private publishForRetry(
+    msg: Message,
+    consumer: ConsumerDefinition,
+    newRetryCount: number,
+    delayMs: number,
+    error: Error,
+  ): Future<Result<void, TechnicalError>> {
+    const queueName = consumer.queue.name;
+    const deadLetter = consumer.queue.deadLetter;
+
+    if (!deadLetter) {
+      this.logger?.warn(
+        "Cannot retry: queue does not have DLX configured, falling back to nack with requeue",
+        {
+          queueName,
+        },
+      );
+      this.amqpClient.channel.nack(msg, false, true);
+      return Future.value(Result.Ok(undefined));
+    }
+
+    const dlxName = deadLetter.exchange.name;
+    const waitRoutingKey = `${queueName}-wait`;
+
+    // Acknowledge original message
+    this.amqpClient.channel.ack(msg);
+
+    const content = this.parseMessageContentForRetry(msg, queueName);
+
+    // Publish to DLX with wait routing key
+    return Future.fromPromise(
+      this.amqpClient.channel.publish(dlxName, waitRoutingKey, content, {
+        ...msg.properties,
+        expiration: delayMs.toString(), // Per-message TTL
+        headers: {
+          ...msg.properties.headers,
+          "x-retry-count": newRetryCount,
+          "x-last-error": error.message,
+          "x-first-failure-timestamp":
+            msg.properties.headers?.["x-first-failure-timestamp"] ?? Date.now(),
+        },
+      }),
+    )
+      .mapError((error) => new TechnicalError("Failed to publish message for retry", error))
+      .mapOkToResult((published) => {
+        if (!published) {
+          this.logger?.error("Failed to publish message for retry (write buffer full)", {
+            queueName,
+            waitRoutingKey,
+            retryCount: newRetryCount,
+          });
+          return Result.Error(
+            new TechnicalError("Failed to publish message for retry (write buffer full)"),
+          );
+        }
+
+        this.logger?.info("Message published for retry", {
+          queueName,
+          waitRoutingKey,
+          retryCount: newRetryCount,
+          delayMs,
+        });
+        return Result.Ok(undefined);
+      });
+  }
+
+  /**
+   * Send message to dead letter queue.
+   * Nacks the message without requeue, relying on DLX configuration.
+   */
+  private sendToDLQ(msg: Message, consumer: ConsumerDefinition): void {
+    const queueName = consumer.queue.name;
+    const hasDeadLetter = consumer.queue.deadLetter !== undefined;
+
+    if (!hasDeadLetter) {
+      this.logger?.warn("Queue does not have DLX configured - message will be lost on nack", {
+        queueName,
+      });
+    }
+
+    this.logger?.info("Sending message to DLQ", {
+      queueName,
+      deliveryTag: msg.fields.deliveryTag,
+    });
+
+    // Nack without requeue - relies on DLX configuration
+    this.amqpClient.channel.nack(msg, false, false);
   }
 }

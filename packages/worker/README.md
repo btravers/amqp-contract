@@ -20,6 +20,7 @@ pnpm add @amqp-contract/worker
 
 - ✅ **Type-safe message consumption** — Handlers are fully typed based on your contract
 - ✅ **Automatic validation** — Messages are validated before reaching your handlers
+- ✅ **Automatic retry with exponential backoff** — Built-in retry mechanism using RabbitMQ TTL+DLX pattern
 - ✅ **Prefetch configuration** — Control message flow with per-consumer prefetch settings
 - ✅ **Batch processing** — Process multiple messages at once for better throughput
 - ✅ **Automatic reconnection** — Built-in connection management with failover support
@@ -67,7 +68,33 @@ const worker = await TypedAmqpWorker.create({
 
 ### Advanced Features
 
-For advanced features like prefetch configuration and batch processing, see the [Worker Usage Guide](https://btravers.github.io/amqp-contract/guide/worker-usage).
+For advanced features like prefetch configuration, batch processing, and **automatic retry with exponential backoff**, see the [Worker Usage Guide](https://btravers.github.io/amqp-contract/guide/worker-usage).
+
+#### Retry with Exponential Backoff
+
+Enable automatic retry for failed messages:
+
+```typescript
+const worker = await TypedAmqpWorker.create({
+  contract,
+  handlers: {
+    processOrder: async (message) => {
+      // If this throws, message is automatically retried with exponential backoff
+      await processPayment(message);
+    },
+  },
+  urls: ["amqp://localhost"],
+  retry: {
+    maxRetries: 3, // Retry up to 3 times
+    initialDelayMs: 1000, // Start with 1 second delay
+    maxDelayMs: 30000, // Max 30 seconds between retries
+    backoffMultiplier: 2, // Double the delay each time
+    jitter: true, // Add randomness to prevent thundering herd
+  },
+});
+```
+
+The retry mechanism uses RabbitMQ's native TTL and Dead Letter Exchange pattern, so it doesn't block the consumer during retry delays. See the [Error Handling and Retry](https://btravers.github.io/amqp-contract/guide/worker-usage#error-handling-and-retry) section in the guide for complete details.
 
 ## Defining Handlers Externally
 
@@ -86,7 +113,8 @@ handlers: {
       // Message acknowledged automatically on success
     } catch (error) {
       // Exception automatically caught by worker
-      // Message is requeued for retry
+      // With retry configured: message is retried with exponential backoff
+      // Without retry: message is immediately requeued
       throw error;
     }
   };
@@ -95,12 +123,13 @@ handlers: {
 
 **Error Types:**
 
-Worker defines error classes for internal use:
+Worker defines error classes:
 
 - `TechnicalError` - Runtime failures (parsing, processing)
 - `MessageValidationError` - Message fails schema validation
+- `RetryableError` - Optional error class for explicit retry signaling (all errors are retryable by default when retry is configured)
 
-These errors are logged but **handlers don't need to use them** - just throw standard exceptions.
+**Handlers don't need to use these error classes** - just throw standard exceptions. The worker handles retry automatically based on your configuration.
 
 ## API
 

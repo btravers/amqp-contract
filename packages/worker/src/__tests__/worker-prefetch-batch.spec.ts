@@ -1,6 +1,4 @@
-/* oxlint-disable eslint/sort-imports */
 import {
-  ContractDefinition,
   defineConsumer,
   defineContract,
   defineExchange,
@@ -11,51 +9,8 @@ import {
 } from "@amqp-contract/contract";
 import { describe, expect, vi } from "vitest";
 import { TypedAmqpWorker } from "../worker.js";
-import { it as baseIt } from "@amqp-contract/testing/extension";
+import { it } from "./fixture.js";
 import { z } from "zod";
-import type { WorkerInferConsumerHandlers } from "../types.js";
-
-const it = baseIt.extend<{
-  workerFactory: <TContract extends ContractDefinition>(
-    contract: TContract,
-    handlers: WorkerInferConsumerHandlers<TContract>,
-  ) => Promise<TypedAmqpWorker<TContract>>;
-}>({
-  workerFactory: async ({ amqpConnectionUrl }, use) => {
-    const workers: Array<TypedAmqpWorker<ContractDefinition>> = [];
-
-    try {
-      await use(
-        async <TContract extends ContractDefinition>(
-          contract: TContract,
-          handlers: WorkerInferConsumerHandlers<TContract>,
-        ) => {
-          const worker = await TypedAmqpWorker.create({
-            contract,
-            handlers,
-            urls: [amqpConnectionUrl],
-          }).resultToPromise();
-
-          workers.push(worker);
-          return worker;
-        },
-      );
-    } finally {
-      // Clean up all workers before fixture cleanup (which deletes the vhost)
-      await Promise.all(
-        workers.map(async (worker) => {
-          try {
-            await worker.close().resultToPromise();
-          } catch (error) {
-            // Swallow errors during cleanup to avoid unhandled rejections
-            // eslint-disable-next-line no-console
-            console.error("Failed to close TypedAmqpWorker during fixture cleanup:", error);
-          }
-        }),
-      );
-    }
-  },
-});
 
 describe("AmqpWorker Prefetch and Batch Integration", () => {
   it("should apply prefetch configuration to consumer", async ({
