@@ -75,175 +75,32 @@ You can define handlers outside of the worker creation using `defineHandler` and
 
 ## Error Handling
 
-Worker handlers use standard Promise-based async/await pattern with built-in retry support:
+Worker handlers use standard Promise-based async/await pattern:
 
 ```typescript
-import { TypedAmqpWorker, RetryableError } from "@amqp-contract/worker";
-
-const worker = await TypedAmqpWorker.create({
-  contract,
-  handlers: {
-    processOrder: async (message) => {
-      try {
-        await processPayment(message);
-        // Message acknowledged automatically on success
-      } catch (error) {
-        // Distinguish between retryable and non-retryable errors
-        if (error instanceof TimeoutError) {
-          // Transient failure - will be retried with exponential backoff
-          throw new RetryableError("Payment service timeout", error);
-        }
-        if (error instanceof ValidationError) {
-          // Permanent failure - goes directly to DLQ
-          // Regular errors are NOT retried - sent directly to DLQ
-          throw new Error("Invalid payment data");
-        }
-        // Unknown errors are NOT retried by default - only RetryableError is retried
-        throw error;
-      }
-    },
-  },
-  urls: ["amqp://localhost"],
-  retry: {
-    maxRetries: 3,
-    initialDelayMs: 1000,
-    maxDelayMs: 30000,
-    backoffMultiplier: 2,
-    jitter: true,
-  },
-}).resultToPromise();
+handlers: {
+  processOrder: async (message) => {
+    // Standard async/await - no Result wrapping needed
+    try {
+      await process(message);
+      // Message acknowledged automatically on success
+    } catch (error) {
+      // Exception automatically caught by worker
+      // Message is requeued for retry
+      throw error;
+    }
+  };
+}
 ```
 
-### Error Types
+**Error Types:**
 
-**User-facing error classes** (throw these in your handlers):
-
-- `RetryableError` - Transient failures that may succeed on retry (network timeouts, rate limiting, temporary unavailability)
-- Regular `Error` - Not retried by default, sent directly to DLQ (validation errors, business logic violations, missing resources)
-
-**Internal error classes** (logged automatically, don't throw):
+Worker defines error classes for internal use:
 
 - `TechnicalError` - Runtime failures (parsing, processing)
 - `MessageValidationError` - Message fails schema validation
 
-### Retry Configuration
-
-The retry mechanism provides exponential backoff with jitter for transient failures.
-
-**IMPORTANT:** Retry with exponential backoff requires the RabbitMQ delayed message exchange plugin:
-
-```bash
-# Enable the plugin on your RabbitMQ broker
-rabbitmq-plugins enable rabbitmq_delayed_message_exchange
-```
-
-**Architecture: Dead Letter Exchange (DLX) Pattern**
-
-The retry mechanism uses RabbitMQ's Dead Letter Exchange pattern with delayed message exchange:
-
-1. When a `RetryableError` is thrown, the worker nacks the message (without requeue)
-2. The message is routed to the queue's Dead Letter Exchange (DLX), which must be of type `x-delayed-message`
-3. The worker adds retry metadata headers including `x-delay` (calculated using exponential backoff)
-4. The DLX holds the message for the delay period specified in the `x-delay` header
-5. After the delay expires, the DLX routes the message:
-   - Back to the original queue (if retries remain)
-   - To the Dead Letter Queue/DLQ (if max retries exceeded or non-retryable error)
-
-**Contract requirement for retry support:**
-
-Queues that need retry support must be configured with a Dead Letter Exchange of type `x-delayed-message`:
-
-```typescript
-// Define DLX (Dead Letter Exchange) with delayed message type
-const dlx = defineExchange("orders-dlx", "x-delayed-message", {
-  durable: true,
-  delayedType: "direct", // The underlying routing type
-});
-
-// Main exchange can be any type (topic, direct, fanout)
-const exchange = defineExchange("orders", "topic", { durable: true });
-
-// Main queue with DLX configuration
-const queue = defineQueue("order-processing", {
-  durable: true,
-  deadLetter: {
-    exchange: dlx,
-    routingKey: "order-processing", // Route back to same queue name
-  },
-});
-
-// DLQ for messages that exceed max retries
-const dlq = defineQueue("order-processing-dlq", { durable: true });
-
-const contract = defineContract({
-  exchanges: {
-    orders: exchange,
-    dlx: dlx,
-  },
-  queues: {
-    orderQueue: queue,
-    dlq: dlq,
-  },
-  bindings: {
-    // Normal binding for incoming messages
-    orderBinding: defineQueueBinding(queue, exchange, {
-      routingKey: "order.#",
-    }),
-    // DLX routes back to main queue for retries
-    retryBinding: defineQueueBinding(queue, dlx, {
-      routingKey: "order-processing",
-    }),
-    // DLX routes to DLQ for failed messages (max retries exceeded)
-    dlqBinding: defineQueueBinding(dlq, dlx, {
-      routingKey: "order-processing-dlq",
-    }),
-  },
-  // ... publishers and consumers
-});
-```
-
-**Benefits of this architecture:**
-
-- **Simpler contracts**: No retry-specific routing keys needed on main exchanges
-- **Standard RabbitMQ pattern**: Uses DLX which is well-established for failure handling
-- **Clean separation**: Main exchanges stay as their natural type (topic, direct, etc.) - only DLX needs to be `x-delayed-message`
-- **More robust**: DLX pattern is designed specifically for failure handling
-
-**Note:** The plugin must be enabled for delays to work. Without it, messages are still retried but without delays (immediate retry).
-
-Plugin documentation: https://github.com/rabbitmq/rabbitmq-delayed-message-exchange
-
-**Configuration options:**
-
-Configure retry behavior via the `retry` option:
-
-- `maxRetries` - Maximum retry attempts before sending to DLQ (default: 3)
-- `initialDelayMs` - Initial delay before first retry (default: 1000ms)
-- `maxDelayMs` - Maximum delay between retries (default: 30000ms)
-- `backoffMultiplier` - Multiplier for exponential backoff (default: 2)
-- `jitter` - Add random jitter to prevent thundering herd (default: true)
-
-### Dead Letter Queues (DLQ)
-
-Messages are automatically routed to a Dead Letter Exchange after:
-
-- Max retries are exceeded for `RetryableError`
-- Any regular error (non-RetryableError) is thrown (immediately, no retry)
-- Validation or parsing errors occur
-
-Configure DLQ at the queue level in your contract:
-
-```typescript
-const queue = defineQueue("order-processing", {
-  durable: true,
-  deadLetter: {
-    exchange: dlqExchange,
-    routingKey: "order.failed",
-  },
-});
-```
-
-For more details, see the [Error Handling Guide](https://btravers.github.io/amqp-contract/guide/error-handling).
+These errors are logged but **handlers don't need to use them** - just throw standard exceptions.
 
 ## API
 
