@@ -611,15 +611,22 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     );
     const waitQueueDurable = mainQueueDefinition?.durable ?? true;
 
+    // Get the queue's configured dead letter routing key for retry
+    const mainQueueDef = Object.values(this.contract.queues ?? {}).find(
+      (q) => q.name === mainQueueName,
+    );
+    const deadLetterRoutingKey = mainQueueDef?.deadLetter?.routingKey ?? mainQueueName;
+
     // Assert wait queue with DLX configuration
     await this.amqpClient.channel.assertQueue(waitQueueName, {
       durable: waitQueueDurable, // Match main queue durability
       deadLetterExchange: dlxName,
-      deadLetterRoutingKey: mainQueueName, // Route back to main queue after TTL
+      deadLetterRoutingKey: deadLetterRoutingKey, // Use configured DL routing key
     });
 
     // Bind wait queue to DLX so messages can be routed to it
-    await this.amqpClient.channel.bindQueue(waitQueueName, dlxName, `${mainQueueName}-wait`);
+    // The routing key for publishing to wait queue is {queueName}-wait
+    await this.amqpClient.channel.bindQueue(waitQueueName, dlxName, waitQueueName);
 
     // Cache that we've declared this queue
     this.declaredResources.add(cacheKey);
