@@ -17,7 +17,7 @@ describe("Worker Retry Mechanism", () => {
       workerFactory,
       publishMessage,
     }) => {
-      // GIVEN
+      // GIVEN a worker without retry configuration
       const TestMessage = z.object({ id: z.string() });
 
       const exchange = defineExchange("legacy-exchange", "topic", { durable: false });
@@ -67,10 +67,10 @@ describe("Worker Retry Mechanism", () => {
         undefined, // No retry config - legacy mode
       );
 
-      // WHEN
+      // WHEN publishing a message that fails on first attempt
       publishMessage(exchange.name, "test.message", { id: "legacy-1" });
 
-      // THEN - Message should be requeued immediately and succeed on second attempt
+      // THEN message should be requeued immediately and succeed on second attempt
       await vi.waitFor(
         () => {
           if (attemptCount < 2) {
@@ -90,7 +90,7 @@ describe("Worker Retry Mechanism", () => {
       publishMessage,
       amqpChannel,
     }) => {
-      // GIVEN
+      // GIVEN a worker with retry configuration
       const TestMessage = z.object({ id: z.string() });
 
       const exchange = defineExchange("retry-flow-exchange", "topic", { durable: false });
@@ -154,10 +154,10 @@ describe("Worker Retry Mechanism", () => {
       const waitQueue = await amqpChannel.checkQueue("retry-flow-queue-wait");
       expect(waitQueue.queue).toBe("retry-flow-queue-wait");
 
-      // WHEN
+      // WHEN publishing a message that fails on first attempt
       publishMessage(exchange.name, "test.message", { id: "retry-1" });
 
-      // THEN - Wait for first processing attempt
+      // THEN wait for first processing attempt
       await vi.waitFor(
         () => {
           if (attemptCount < 1) {
@@ -169,24 +169,30 @@ describe("Worker Retry Mechanism", () => {
 
       expect(attemptCount).toBe(1);
 
-      // Verify message appears in wait queue
+      // AND message should appear in wait queue with correct headers and TTL
       await vi.waitFor(
         async () => {
           const waitMsg = await amqpChannel.get("retry-flow-queue-wait", { noAck: false });
           if (!waitMsg) {
             throw new Error("Message not in wait queue");
           }
-          expect(waitMsg.properties.expiration).toBeDefined();
-          expect(waitMsg.properties.headers?.["x-retry-count"]).toBe(1);
-          expect(waitMsg.properties.headers?.["x-last-error"]).toBe("First attempt failed");
+
+          expect(waitMsg.properties).toMatchObject({
+            expiration: "500",
+            headers: expect.objectContaining({
+              "x-retry-count": 1,
+              "x-last-error": "First attempt failed",
+            }),
+          });
           expect(waitMsg.properties.headers?.["x-first-failure-timestamp"]).toBeDefined();
+
           // Nack to return message for retry
           amqpChannel.nack(waitMsg, false, true);
         },
         { timeout: 2000 },
       );
 
-      // Wait for TTL to expire and message to be retried
+      // AND after TTL expires, message should be retried successfully
       await vi.waitFor(
         () => {
           if (attemptCount < 2) {
@@ -204,7 +210,7 @@ describe("Worker Retry Mechanism", () => {
       publishMessage,
       amqpChannel,
     }) => {
-      // GIVEN
+      // GIVEN a worker with custom backoff configuration
       const TestMessage = z.object({ id: z.string() });
 
       const exchange = defineExchange("backoff-exchange", "topic", { durable: false });
@@ -259,10 +265,10 @@ describe("Worker Retry Mechanism", () => {
         },
       );
 
-      // WHEN
+      // WHEN publishing a message that always fails
       publishMessage(exchange.name, "test.message", { id: "backoff-1" });
 
-      // THEN - Check TTL values for each retry
+      // THEN each retry should have exponentially increasing TTL: 100, 300, 900
       const expectedDelays = [100, 300, 900]; // 100 * 3^0, 100 * 3^1, 100 * 3^2
 
       for (let i = 0; i < expectedDelays.length; i++) {
@@ -272,9 +278,17 @@ describe("Worker Retry Mechanism", () => {
             if (!waitMsg) {
               throw new Error(`Retry ${i + 1} not in wait queue`);
             }
+
+            const expectedDelay = expectedDelays[i]!; // Safe: i is within array bounds
             const expiration = Number.parseInt(waitMsg.properties.expiration ?? "0", 10);
-            expect(expiration).toBe(expectedDelays[i]);
-            expect(waitMsg.properties.headers?.["x-retry-count"]).toBe(i + 1);
+            expect(waitMsg.properties).toMatchObject({
+              expiration: expectedDelay.toString(),
+              headers: expect.objectContaining({
+                "x-retry-count": i + 1,
+              }),
+            });
+            expect(expiration).toBe(expectedDelay);
+
             // Nack to trigger next retry
             amqpChannel.nack(waitMsg, false, false);
           },
@@ -282,7 +296,7 @@ describe("Worker Retry Mechanism", () => {
         );
       }
 
-      // After max retries, message should go to DLQ
+      // AND after max retries, message should go to DLQ
       await vi.waitFor(
         async () => {
           const dlqMsg = await amqpChannel.get("backoff-dlq", { noAck: false });
@@ -297,12 +311,12 @@ describe("Worker Retry Mechanism", () => {
   });
 
   describe("NonRetryableError Handling", () => {
-    it("should send NonRetryableError directly to DLQ", async ({
+    it("should send NonRetryableError directly to DLQ without retries", async ({
       workerFactory,
       publishMessage,
       amqpChannel,
     }) => {
-      // GIVEN
+      // GIVEN a worker that throws NonRetryableError
       const TestMessage = z.object({ id: z.string() });
 
       const exchange = defineExchange("nonretry-exchange", "topic", { durable: false });
@@ -353,10 +367,10 @@ describe("Worker Retry Mechanism", () => {
         },
       );
 
-      // WHEN
+      // WHEN publishing a message that throws NonRetryableError
       publishMessage(exchange.name, "test.message", { id: "nonretry-1" });
 
-      // THEN - Message should go directly to DLQ without retries
+      // THEN message should go directly to DLQ without retries
       await vi.waitFor(
         async () => {
           const dlqMsg = await amqpChannel.get("nonretry-dlq", { noAck: false });
@@ -370,10 +384,10 @@ describe("Worker Retry Mechanism", () => {
         { timeout: 2000 },
       );
 
-      // Verify it was only attempted once
+      // AND it should only be attempted once
       expect(attemptCount).toBe(1);
 
-      // Verify wait queue is empty
+      // AND wait queue should be empty
       const waitMsg = await amqpChannel.get("nonretry-queue-wait", { noAck: false });
       expect(waitMsg).toBe(false);
     });
@@ -385,7 +399,7 @@ describe("Worker Retry Mechanism", () => {
       publishMessage,
       amqpChannel,
     }) => {
-      // GIVEN
+      // GIVEN a worker with maxRetries set to 2
       const TestMessage = z.object({ id: z.string() });
 
       const exchange = defineExchange("maxretry-exchange", "topic", { durable: false });
@@ -442,11 +456,10 @@ describe("Worker Retry Mechanism", () => {
         },
       );
 
-      // WHEN
+      // WHEN publishing a message that always fails
       publishMessage(exchange.name, "test.message", { id: "maxretry-1" });
 
-      // THEN - Should retry exactly maxRetries times, then go to DLQ
-      // Initial attempt + 2 retries = 3 total attempts
+      // THEN should retry exactly maxRetries times (initial attempt + 2 retries = 3 total)
       await vi.waitFor(
         () => {
           if (attemptCount < 3) {
@@ -458,7 +471,7 @@ describe("Worker Retry Mechanism", () => {
 
       expect(attemptCount).toBe(3);
 
-      // Verify message ends up in DLQ
+      // AND message should end up in DLQ
       await vi.waitFor(
         async () => {
           const dlqMsg = await amqpChannel.get("maxretry-dlq", { noAck: false });
@@ -480,7 +493,7 @@ describe("Worker Retry Mechanism", () => {
       publishMessage,
       amqpChannel,
     }) => {
-      // GIVEN
+      // GIVEN a worker that always fails
       const TestMessage = z.object({ id: z.string() });
 
       const exchange = defineExchange("headers-exchange", "topic", { durable: false });
@@ -533,11 +546,11 @@ describe("Worker Retry Mechanism", () => {
         },
       );
 
-      // WHEN
+      // WHEN publishing a message that fails
       const startTime = Date.now();
       publishMessage(exchange.name, "test.message", { id: "headers-1" });
 
-      // THEN - Check headers in wait queue
+      // THEN message in wait queue should have retry tracking headers
       await vi.waitFor(
         async () => {
           const waitMsg = await amqpChannel.get("headers-queue-wait", { noAck: false });
@@ -545,14 +558,13 @@ describe("Worker Retry Mechanism", () => {
             throw new Error("Message not in wait queue");
           }
 
-          expect(waitMsg.properties.headers?.["x-retry-count"]).toBe(1);
-          expect(waitMsg.properties.headers?.["x-last-error"]).toBe("Test error message");
-          expect(waitMsg.properties.headers?.["x-first-failure-timestamp"]).toBeGreaterThanOrEqual(
-            startTime,
-          );
-          expect(waitMsg.properties.headers?.["x-first-failure-timestamp"]).toBeLessThanOrEqual(
-            Date.now(),
-          );
+          const firstFailureTimestamp = waitMsg.properties.headers?.["x-first-failure-timestamp"];
+          expect(waitMsg.properties.headers).toMatchObject({
+            "x-retry-count": 1,
+            "x-last-error": "Test error message",
+          });
+          expect(firstFailureTimestamp).toBeGreaterThanOrEqual(startTime);
+          expect(firstFailureTimestamp).toBeLessThanOrEqual(Date.now());
 
           // Nack to let it go to DLQ
           amqpChannel.nack(waitMsg, false, false);
@@ -564,7 +576,7 @@ describe("Worker Retry Mechanism", () => {
 
   describe("Batch Processing with Retry", () => {
     it("should retry all messages in a failed batch", async ({ workerFactory, publishMessage }) => {
-      // GIVEN
+      // GIVEN a batch consumer that fails on first attempt
       const TestMessage = z.object({ id: z.string() });
 
       const exchange = defineExchange("batch-retry-exchange", "topic", { durable: false });
@@ -625,12 +637,12 @@ describe("Worker Retry Mechanism", () => {
         },
       );
 
-      // WHEN - Publish 3 messages to form a batch
+      // WHEN publishing 3 messages to form a batch
       publishMessage(exchange.name, "test.message", { id: "batch-1" });
       publishMessage(exchange.name, "test.message", { id: "batch-2" });
       publishMessage(exchange.name, "test.message", { id: "batch-3" });
 
-      // THEN - Wait for retry to succeed
+      // THEN batch should be retried and succeed on second attempt
       await vi.waitFor(
         () => {
           if (batchAttemptCount < 2) {
@@ -649,7 +661,7 @@ describe("Worker Retry Mechanism", () => {
       workerFactory,
       publishMessage,
     }) => {
-      // GIVEN
+      // GIVEN a queue without dead letter exchange configuration
       const TestMessage = z.object({ id: z.string() });
 
       const exchange = defineExchange("nodlx-exchange", "topic", { durable: false });
@@ -692,10 +704,10 @@ describe("Worker Retry Mechanism", () => {
         },
       );
 
-      // WHEN
+      // WHEN publishing a message that fails on first attempt
       publishMessage(exchange.name, "test.message", { id: "nodlx-1" });
 
-      // THEN - Should fallback to requeue and eventually succeed
+      // THEN should fallback to legacy requeue behavior and eventually succeed
       await vi.waitFor(
         () => {
           if (attemptCount < 2) {
