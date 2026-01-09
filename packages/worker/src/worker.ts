@@ -556,13 +556,15 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         msg.properties.headers?.["x-first-failure-timestamp"] ?? Date.now(),
     };
 
-    this.logger?.debug("Publishing retry message to DLX for wait queue", {
+    this.logger?.info("Publishing retry message to DLX for wait queue", {
       queueName,
       waitQueueName,
       dlxName,
       waitRoutingKey,
       delayMs,
       retryCount: retryCount + 1,
+      messageId: msg.properties.messageId,
+      deliveryTag: msg.fields.deliveryTag,
     });
 
     // Publish to DLX with wait queue routing key and per-message TTL
@@ -572,6 +574,13 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       headers: updatedHeaders,
       persistent: msg.properties.deliveryMode === 2,
       expiration: String(delayMs), // Per-message TTL in milliseconds
+    });
+
+    this.logger?.info("Retry message published to DLX", {
+      publishOk,
+      dlxName,
+      waitRoutingKey,
+      expiration: delayMs,
     });
 
     if (!publishOk) {
@@ -626,7 +635,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     );
     const deadLetterRoutingKey = mainQueueDef?.deadLetter?.routingKey ?? mainQueueName;
 
-    this.logger?.debug("Creating wait queue for retry mechanism", {
+    this.logger?.info("Creating wait queue for retry mechanism", {
       mainQueueName,
       waitQueueName,
       dlxName,
@@ -635,10 +644,16 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     });
 
     // Assert wait queue with DLX configuration
-    await this.amqpClient.channel.assertQueue(waitQueueName, {
+    const queueOk = await this.amqpClient.channel.assertQueue(waitQueueName, {
       durable: waitQueueDurable, // Match main queue durability
       deadLetterExchange: dlxName,
       deadLetterRoutingKey: deadLetterRoutingKey, // Use configured DL routing key
+    });
+
+    this.logger?.info("Wait queue asserted", {
+      queue: queueOk.queue,
+      messageCount: queueOk.messageCount,
+      consumerCount: queueOk.consumerCount,
     });
 
     // Bind wait queue to DLX so messages can be routed to it
@@ -650,6 +665,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       dlxName,
       bindingRoutingKey: waitQueueName,
       deadLetterRoutingKey,
+      flow: `DLX(${dlxName}) --[${waitQueueName}]--> WaitQueue(${waitQueueName}) --[expires after TTL]--> DLX(${dlxName}) --[${deadLetterRoutingKey}]--> MainQueue(${mainQueueName})`,
     });
 
     // Cache that we've declared this queue
