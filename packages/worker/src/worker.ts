@@ -7,12 +7,7 @@ import type {
   InferConsumerNames,
 } from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
-import {
-  MessageValidationError,
-  NonRetryableError,
-  RetryableError,
-  TechnicalError,
-} from "./errors.js";
+import { MessageValidationError, NonRetryableError, TechnicalError } from "./errors.js";
 import type {
   WorkerInferConsumerBatchHandler,
   WorkerInferConsumerHandler,
@@ -369,10 +364,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         }),
       ).mapError(
         (error) =>
-          new TechnicalError(
-            `Failed to setup wait queue for "${String(consumerName)}"`,
-            error,
-          ),
+          new TechnicalError(`Failed to setup wait queue for "${String(consumerName)}"`, error),
       );
 
       setupTasks.push(setupTask);
@@ -630,7 +622,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
               });
 
               // Use new retry mechanism
-              await this.handleError(error, msg, String(consumerName), consumer);
+              const errorObj = error instanceof Error ? error : new Error(String(error));
+              await this.handleError(errorObj, msg, String(consumerName), consumer);
             }),
           )
           .tapOk(() => {
@@ -868,11 +861,13 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     }
 
     // Max retries exceeded -> DLQ
-    if (retryCount >= this.retryConfig.maxRetries) {
+    // retryConfig is guaranteed to be non-null at this point
+    const config = this.retryConfig!;
+    if (retryCount >= config.maxRetries!) {
       this.logger?.error("Max retries exceeded, sending to DLQ", {
         consumerName,
         retryCount,
-        maxRetries: this.retryConfig.maxRetries,
+        maxRetries: config.maxRetries,
         error: error.message,
       });
       this.sendToDLQ(msg, consumer);
@@ -895,12 +890,11 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * Calculate retry delay with exponential backoff and optional jitter.
    */
   private calculateRetryDelay(retryCount: number): number {
-    const { initialDelayMs, maxDelayMs, backoffMultiplier, jitter } = this.retryConfig!;
+    // retryConfig is guaranteed to be non-null when this method is called
+    const config = this.retryConfig!;
+    const { initialDelayMs, maxDelayMs, backoffMultiplier, jitter } = config;
 
-    let delay = Math.min(
-      initialDelayMs * Math.pow(backoffMultiplier, retryCount),
-      maxDelayMs,
-    );
+    let delay = Math.min(initialDelayMs! * Math.pow(backoffMultiplier!, retryCount), maxDelayMs!);
 
     if (jitter) {
       // Add jitter: random value between 50% and 100% of calculated delay
@@ -963,22 +957,17 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     this.amqpClient.channel.ack(msg);
 
     // Publish to DLX with wait routing key
-    const published = this.amqpClient.channel.publish(
-      dlxName,
-      waitRoutingKey,
-      msg.content,
-      {
-        ...msg.properties,
-        expiration: delayMs.toString(), // Per-message TTL
-        headers: {
-          ...msg.properties.headers,
-          "x-retry-count": newRetryCount,
-          "x-last-error": error.message,
-          "x-first-failure-timestamp":
-            msg.properties.headers?.["x-first-failure-timestamp"] ?? Date.now(),
-        },
+    const published = this.amqpClient.channel.publish(dlxName, waitRoutingKey, msg.content, {
+      ...msg.properties,
+      expiration: delayMs.toString(), // Per-message TTL
+      headers: {
+        ...msg.properties.headers,
+        "x-retry-count": newRetryCount,
+        "x-last-error": error.message,
+        "x-first-failure-timestamp":
+          msg.properties.headers?.["x-first-failure-timestamp"] ?? Date.now(),
       },
-    );
+    });
 
     if (!published) {
       this.logger?.error("Failed to publish message for retry (write buffer full)", {
