@@ -57,6 +57,17 @@ export type RetryOptions = {
 };
 
 /**
+ * Internal retry configuration with all values resolved.
+ */
+type ResolvedRetryConfig = {
+  maxRetries: number;
+  initialDelayMs: number;
+  maxDelayMs: number;
+  backoffMultiplier: number;
+  jitter: boolean;
+};
+
+/**
  * Options for creating a type-safe AMQP worker.
  *
  * @typeParam TContract - The contract definition type
@@ -166,7 +177,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   private readonly consumerOptions: Partial<Record<InferConsumerNames<TContract>, ConsumerOptions>>;
   private readonly batchTimers: Map<string, NodeJS.Timeout> = new Map();
   private readonly consumerTags: Set<string> = new Set();
-  private readonly retryConfig: RetryOptions | null;
+  private readonly retryConfig: ResolvedRetryConfig | null;
 
   private constructor(
     private readonly contract: TContract,
@@ -862,7 +873,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
     // Max retries exceeded -> DLQ
     // retryConfig is guaranteed to be non-null at this point
-    const config = this.retryConfig!;
+    const config = this.retryConfig as ResolvedRetryConfig;
     if (retryCount >= config.maxRetries) {
       this.logger?.error("Max retries exceeded, sending to DLQ", {
         consumerName,
@@ -891,7 +902,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    */
   private calculateRetryDelay(retryCount: number): number {
     // retryConfig is guaranteed to be non-null when this method is called
-    const config = this.retryConfig!;
+    const config = this.retryConfig as ResolvedRetryConfig;
     const { initialDelayMs, maxDelayMs, backoffMultiplier, jitter } = config;
 
     let delay = Math.min(initialDelayMs * Math.pow(backoffMultiplier, retryCount), maxDelayMs);
