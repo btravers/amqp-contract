@@ -541,7 +541,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     // Decompress message if needed
     const decompressMessage = Future.fromPromise(
       decompressBuffer(msg.content, msg.properties.contentEncoding),
-    ).mapError((error) => {
+    ).tapError((error) => {
       this.logger?.error("Error decompressing message", {
         consumerName: String(consumerName),
         queueName: consumer.queue.name,
@@ -551,7 +551,6 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
       // Reject message with no requeue (decompression failed)
       this.amqpClient.channel.nack(msg, false, false);
-      return undefined;
     });
 
     // Parse message
@@ -625,27 +624,30 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         // Parse and validate message
         await this.parseAndValidateMessage(msg, consumer, consumerName)
           .flatMapOk((validatedMessage) =>
-            Future.fromPromise(handler(validatedMessage)).tapError(async (error) => {
-              this.logger?.error("Error processing message", {
-                consumerName: String(consumerName),
-                queueName: consumer.queue.name,
-                error,
-              });
+            Future.fromPromise(handler(validatedMessage))
+              .mapOk(() => {
+                this.logger?.info("Message consumed successfully", {
+                  consumerName: String(consumerName),
+                  queueName: consumer.queue.name,
+                });
 
-              // Use new retry mechanism
-              const errorObj = error instanceof Error ? error : new Error(String(error));
-              await this.handleError(errorObj, msg, String(consumerName), consumer);
-            }),
+                // Acknowledge message on success
+                this.amqpClient.channel.ack(msg);
+                return undefined;
+              })
+              .tapError((error) => {
+                this.logger?.error("Error processing message", {
+                  consumerName: String(consumerName),
+                  queueName: consumer.queue.name,
+                  error,
+                });
+              })
+              .flatMapError((error) => {
+                // Use retry mechanism - handleError will manage ack/nack
+                const errorObj = error instanceof Error ? error : new Error(String(error));
+                return this.handleError(errorObj, msg, String(consumerName), consumer);
+              }),
           )
-          .tapOk(() => {
-            this.logger?.info("Message consumed successfully", {
-              consumerName: String(consumerName),
-              queueName: consumer.queue.name,
-            });
-
-            // Acknowledge message
-            this.amqpClient.channel.ack(msg);
-          })
           .toPromise();
       }),
     )
@@ -657,6 +659,26 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         (error) =>
           new TechnicalError(`Failed to start consuming for "${String(consumerName)}"`, error),
       )
+      .mapOk(() => undefined);
+  }
+
+  /**
+   * Handle batch processing error by applying error handling to all messages.
+   */
+  private handleBatchError(
+    error: unknown,
+    currentBatch: Array<{ amqpMessage: Message }>,
+    consumerName: string,
+    consumer: ConsumerDefinition,
+  ): Future<Result<void, TechnicalError>> {
+    const errorObj = error instanceof Error ? error : new Error(String(error));
+
+    return Future.all(
+      currentBatch.map((item) =>
+        this.handleError(errorObj, item.amqpMessage, consumerName, consumer),
+      ),
+    )
+      .map(Result.all)
       .mapOk(() => undefined);
   }
 
@@ -683,10 +705,10 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     // Track if batch processing is currently in progress to avoid race conditions
     let isProcessing = false;
 
-    const processBatch = async () => {
+    const processBatch = (): Future<Result<void, TechnicalError>> => {
       // Prevent concurrent batch processing
       if (isProcessing || batch.length === 0) {
-        return;
+        return Future.value(Result.Ok(undefined));
       }
 
       isProcessing = true;
@@ -709,44 +731,37 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         batchSize: currentBatch.length,
       });
 
-      try {
-        await handler(messages);
-
-        // Acknowledge all messages in the batch
-        for (const item of currentBatch) {
-          this.amqpClient.channel.ack(item.amqpMessage);
-        }
-
-        this.logger?.info("Batch processed successfully", {
-          consumerName: String(consumerName),
-          queueName: consumer.queue.name,
-          batchSize: currentBatch.length,
-        });
-      } catch (error) {
-        this.logger?.error("Error processing batch", {
-          consumerName: String(consumerName),
-          queueName: consumer.queue.name,
-          batchSize: currentBatch.length,
-          error,
-        });
-
-        // Handle error for each message in the batch
-        // NOTE: All messages in the batch are treated the same way.
-        // For partial batch success handling, consider implementing message-level error tracking.
-        if (error instanceof Error) {
+      return Future.fromPromise(handler(messages))
+        .mapOk(() => {
+          // Acknowledge all messages in the batch on success
           for (const item of currentBatch) {
-            await this.handleError(error, item.amqpMessage, String(consumerName), consumer);
+            this.amqpClient.channel.ack(item.amqpMessage);
           }
-        } else {
-          // Unknown error type - treat as generic error
-          const genericError = new Error(String(error));
-          for (const item of currentBatch) {
-            await this.handleError(genericError, item.amqpMessage, String(consumerName), consumer);
-          }
-        }
-      } finally {
-        isProcessing = false;
-      }
+
+          this.logger?.info("Batch processed successfully", {
+            consumerName: String(consumerName),
+            queueName: consumer.queue.name,
+            batchSize: currentBatch.length,
+          });
+          return undefined;
+        })
+        .tapError((error) => {
+          this.logger?.error("Error processing batch", {
+            consumerName: String(consumerName),
+            queueName: consumer.queue.name,
+            batchSize: currentBatch.length,
+            error,
+          });
+        })
+        .flatMapError((error) => {
+          // Handle error for each message in the batch - handleBatchError will manage ack/nack
+          // NOTE: All messages in the batch are treated the same way.
+          // For partial batch success handling, consider implementing message-level error tracking.
+          return this.handleBatchError(error, currentBatch, String(consumerName), consumer);
+        })
+        .tap(() => {
+          isProcessing = false;
+        });
     };
 
     const scheduleBatchProcessing = () => {
@@ -763,12 +778,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
       // Schedule new timer and track it
       const timer = setTimeout(() => {
-        processBatch().catch((error) => {
-          this.logger?.error("Unexpected error in batch processing", {
-            consumerName: String(consumerName),
-            error,
-          });
-        });
+        processBatch().toPromise();
       }, batchTimeout);
 
       this.batchTimers.set(timerKey, timer);
@@ -784,7 +794,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
             queueName: consumer.queue.name,
           });
           // Process any remaining messages in the batch
-          await processBatch();
+          await processBatch().toPromise();
           return;
         }
 
@@ -808,7 +818,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
         // Process batch if full
         if (batch.length >= batchSize) {
-          await processBatch();
+          await processBatch().toPromise();
           // After processing a full batch, schedule timer for any subsequent messages
           // This ensures that if more messages arrive at a slow rate, they won't be held indefinitely
           if (batch.length > 0 && !this.batchTimers.has(timerKey)) {
@@ -842,12 +852,12 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * 3. If max retries exceeded -> send to DLQ
    * 4. Otherwise -> publish to wait queue with TTL for retry
    */
-  private async handleError(
+  private handleError(
     error: Error,
     msg: Message,
     consumerName: string,
     consumer: ConsumerDefinition,
-  ): Promise<void> {
+  ): Future<Result<void, TechnicalError>> {
     // If no retry config, use legacy behavior
     if (this.retryConfig === null) {
       this.logger?.warn("Error in handler (legacy mode: immediate requeue)", {
@@ -855,7 +865,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         error: error.message,
       });
       this.amqpClient.channel.nack(msg, false, true); // Requeue immediately
-      return;
+      return Future.value(Result.Ok(undefined));
     }
 
     // Get retry count from headers
@@ -868,7 +878,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         error: error.message,
       });
       this.sendToDLQ(msg, consumer);
-      return;
+      return Future.value(Result.Ok(undefined));
     }
 
     // Max retries exceeded -> DLQ
@@ -882,7 +892,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         error: error.message,
       });
       this.sendToDLQ(msg, consumer);
-      return;
+      return Future.value(Result.Ok(undefined));
     }
 
     // Retry with exponential backoff
@@ -894,7 +904,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       error: error.message,
     });
 
-    await this.publishForRetry(msg, consumer, retryCount + 1, delayMs, error);
+    return this.publishForRetry(msg, consumer, retryCount + 1, delayMs, error);
   }
 
   /**
@@ -913,6 +923,28 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     }
 
     return Math.floor(delay);
+  }
+
+  /**
+   * Parse message content for republishing.
+   * Prevents double JSON serialization by converting Buffer to object when possible.
+   */
+  private parseMessageContentForRetry(msg: Message, queueName: string): Buffer | unknown {
+    let content: Buffer | unknown = msg.content;
+
+    // If message is not compressed (no contentEncoding), parse it to get the original object
+    if (!msg.properties.contentEncoding) {
+      try {
+        content = JSON.parse(msg.content.toString());
+      } catch (err) {
+        this.logger?.warn("Failed to parse message for retry, using original buffer", {
+          queueName,
+          error: err,
+        });
+      }
+    }
+
+    return content;
   }
 
   /**
@@ -940,13 +972,13 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * │                                                                   │
    * └─────────────────────────────────────────────────────────────────┘
    */
-  private async publishForRetry(
+  private publishForRetry(
     msg: Message,
     consumer: ConsumerDefinition,
     newRetryCount: number,
     delayMs: number,
     error: Error,
-  ): Promise<void> {
+  ): Future<Result<void, TechnicalError>> {
     const queueName = consumer.queue.name;
     const deadLetter = consumer.queue.deadLetter;
 
@@ -958,7 +990,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         },
       );
       this.amqpClient.channel.nack(msg, false, true);
-      return;
+      return Future.value(Result.Ok(undefined));
     }
 
     const dlxName = deadLetter.exchange.name;
@@ -967,51 +999,43 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     // Acknowledge original message
     this.amqpClient.channel.ack(msg);
 
-    // Parse the message content to republish it as a JavaScript object
-    // This prevents double JSON serialization (Buffer -> JSON string -> Buffer with type:"Buffer")
-    // When amqp-connection-manager receives a Buffer, it serializes it as JSON, which creates
-    // the unwanted {"type":"Buffer","data":[...]} representation
-    let content: Buffer | unknown = msg.content;
-
-    // If message is not compressed (no contentEncoding), parse it to get the original object
-    if (!msg.properties.contentEncoding) {
-      try {
-        content = JSON.parse(msg.content.toString());
-      } catch (err) {
-        this.logger?.warn("Failed to parse message for retry, using original buffer", {
-          queueName,
-          error: err,
-        });
-      }
-    }
+    const content = this.parseMessageContentForRetry(msg, queueName);
 
     // Publish to DLX with wait routing key
-    const published = await this.amqpClient.channel.publish(dlxName, waitRoutingKey, content, {
-      ...msg.properties,
-      expiration: delayMs.toString(), // Per-message TTL
-      headers: {
-        ...msg.properties.headers,
-        "x-retry-count": newRetryCount,
-        "x-last-error": error.message,
-        "x-first-failure-timestamp":
-          msg.properties.headers?.["x-first-failure-timestamp"] ?? Date.now(),
-      },
-    });
+    return Future.fromPromise(
+      this.amqpClient.channel.publish(dlxName, waitRoutingKey, content, {
+        ...msg.properties,
+        expiration: delayMs.toString(), // Per-message TTL
+        headers: {
+          ...msg.properties.headers,
+          "x-retry-count": newRetryCount,
+          "x-last-error": error.message,
+          "x-first-failure-timestamp":
+            msg.properties.headers?.["x-first-failure-timestamp"] ?? Date.now(),
+        },
+      }),
+    )
+      .mapError((error) => new TechnicalError("Failed to publish message for retry", error))
+      .mapOkToResult((published) => {
+        if (!published) {
+          this.logger?.error("Failed to publish message for retry (write buffer full)", {
+            queueName,
+            waitRoutingKey,
+            retryCount: newRetryCount,
+          });
+          return Result.Error(
+            new TechnicalError("Failed to publish message for retry (write buffer full)"),
+          );
+        }
 
-    if (!published) {
-      this.logger?.error("Failed to publish message for retry (write buffer full)", {
-        queueName,
-        waitRoutingKey,
-        retryCount: newRetryCount,
+        this.logger?.info("Message published for retry", {
+          queueName,
+          waitRoutingKey,
+          retryCount: newRetryCount,
+          delayMs,
+        });
+        return Result.Ok(undefined);
       });
-    } else {
-      this.logger?.info("Message published for retry", {
-        queueName,
-        waitRoutingKey,
-        retryCount: newRetryCount,
-        delayMs,
-      });
-    }
   }
 
   /**
