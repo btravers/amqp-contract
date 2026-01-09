@@ -458,7 +458,7 @@ describe("Worker Retry Mechanism", () => {
 
     // Verify RabbitMQ's x-death header (automatically added)
     expect(dlqMessage.properties.headers).toHaveProperty("x-death");
-    
+
     // Verify worker's custom retry metadata headers
     expect(dlqMessage.properties.headers).toHaveProperty("x-death-reason", "max-retries-exceeded");
     expect(dlqMessage.properties.headers).toHaveProperty("x-final-retry-count");

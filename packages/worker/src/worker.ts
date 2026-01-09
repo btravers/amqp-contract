@@ -609,7 +609,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     const mainQueueDefinition = Object.values(this.contract.queues ?? {}).find(
       (q) => q.name === mainQueueName,
     );
-    const waitQueueDurable = (mainQueueDefinition?.options?.durable as boolean | undefined) ?? true;
+    const waitQueueDurable = mainQueueDefinition?.durable ?? true;
 
     // Assert wait queue with DLX configuration
     await this.amqpClient.channel.assertQueue(waitQueueName, {
@@ -670,6 +670,11 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     // Try to find the DLQ routing key from contract bindings
     if (this.contract.bindings) {
       for (const binding of Object.values(this.contract.bindings)) {
+        // Check if this is a queue binding (not an exchange-to-exchange binding)
+        if (binding.type !== "queue") {
+          continue;
+        }
+
         // Check if this binding is from the DLX and looks like a DLQ binding
         const bindingExchangeName =
           typeof binding.exchange === "string" ? binding.exchange : binding.exchange.name;

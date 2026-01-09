@@ -290,7 +290,7 @@ const contract = defineContract({
     }),
     // DLX routes to wait queue for delayed retry (automatically created by worker)
     // No need to define wait queue bindings - worker manages them automatically
-    
+
     // DLX routes to DLQ for failed messages (max retries exceeded)
     dlqBinding: defineQueueBinding(dlqQueue, dlx, {
       routingKey: "order-processing-dlq",
