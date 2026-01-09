@@ -483,36 +483,38 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   }
 
   /**
-   * Republish message for retry with updated headers using RabbitMQ delayed message exchange.
+   * Nack message with retry headers to route through Dead Letter Exchange (DLX) for delayed retry.
    *
-   * REQUIRES: RabbitMQ delayed message exchange plugin
-   * https://github.com/rabbitmq/rabbitmq-delayed-message-exchange
+   * ARCHITECTURE: Uses RabbitMQ Dead Letter Exchange (DLX) pattern with delayed message exchange plugin.
    *
-   * The plugin must be enabled on your RabbitMQ broker for exponential backoff to work.
-   * Without the plugin, messages will be delivered immediately without delay.
+   * How it works:
+   * 1. Message is nacked (not requeued) which routes it to the queue's Dead Letter Exchange (DLX)
+   * 2. The DLX must be of type 'x-delayed-message' with the delayed message exchange plugin
+   * 3. We add retry metadata headers (retry count, delay, error info) to the message
+   * 4. The DLX intercepts the message and holds it for the duration specified in x-delay header
+   * 5. After delay expires, DLX routes the message back to the original queue (using x-dead-letter-routing-key)
+   * 6. If max retries exceeded, the message goes to the Dead Letter Queue (DLQ) instead
    *
-   * Implementation: We acknowledge the original message, then publish a new message
-   * to the ORIGINAL EXCHANGE (not directly to queue) with a queue-specific retry routing key
-   * and the x-delay header. Publishing to an exchange allows the delayed message exchange
-   * plugin to intercept and delay delivery. The plugin processes the x-delay header and holds
-   * the message for the specified duration before routing it to the destination queue.
+   * REQUIRES:
+   * - RabbitMQ delayed message exchange plugin: rabbitmq-plugins enable rabbitmq_delayed_message_exchange
+   * - Queue configured with deadLetter.exchange of type 'x-delayed-message'
+   * - DLX has bindings to route back to original queue (for retries) and to DLQ (for failures)
    *
-   * CRITICAL: Must use channel.publish() to an exchange, NOT sendToQueue().
-   * sendToQueue() bypasses exchange routing, so x-delay has no effect.
-   *
-   * Uses a queue-specific retry routing key (<queueName>.retry) to ensure retries
-   * only go to the specific queue that failed, avoiding broadcast to other queues
-   * that may have succeeded with the same message. Each retryable queue must have
-   * a binding for "<queueName>.retry" routing pattern in the contract definition.
+   * BENEFITS over previous approach:
+   * - Simpler contracts: No retry-specific routing keys needed on main exchanges
+   * - Standard RabbitMQ pattern: Uses DLX which is well-established
+   * - Only DLX needs to be x-delayed-message type, main exchanges stay as their natural type
+   * - More robust: DLX pattern is designed for failure handling
    */
-  private async republishForRetry(
+  private async nackForRetry(
     msg: Message,
     queueName: string,
     retryCount: number,
     delayMs: number,
     error: unknown,
   ): Promise<void> {
-    // Build updated headers with retry information and delay
+    // Add retry metadata headers
+    // The x-delay header tells the DLX (delayed message exchange) how long to hold the message
     const updatedHeaders = {
       ...msg.properties.headers,
       "x-retry-count": retryCount + 1,
@@ -523,26 +525,14 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       "x-delay": delayMs, // Delay in milliseconds for delayed message exchange plugin
     };
 
-    // CRITICAL: Publish to the EXCHANGE, not directly to the queue.
-    // The x-delay header only works when publishing through an exchange.
-    // Publishing directly to a queue with sendToQueue() bypasses exchange routing,
-    // and the delayed message exchange plugin cannot intercept the message.
-    //
-    // Use a queue-specific retry routing key to avoid broadcasting to all queues.
-    // The routing key is: <queueName>.retry
-    // This ensures only the specific failed queue receives the retry message.
-    // Each retryable queue must have a binding for "<queueName>.retry" in the contract.
-    const exchangeName = msg.fields.exchange;
-    const retryRoutingKey = `${queueName}.retry`;
+    // Update message properties with retry headers
+    msg.properties.headers = updatedHeaders;
 
-    await this.amqpClient.channel.publish(exchangeName, retryRoutingKey, msg.content, {
-      ...msg.properties,
-      headers: updatedHeaders,
-      persistent: msg.properties.deliveryMode === 2,
-    });
-
-    // Acknowledge the original message after successful republish to avoid message loss
-    this.amqpClient.channel.ack(msg);
+    // Nack without requeue - this routes the message to the Dead Letter Exchange
+    // The DLX will delay the message and then route it based on its bindings:
+    // - If retries remain: route back to original queue
+    // - If max retries exceeded: route to Dead Letter Queue
+    this.amqpClient.channel.nack(msg, false, false);
   }
 
   /**
@@ -733,15 +723,15 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           });
 
           try {
-            await this.republishForRetry(
+            await this.nackForRetry(
               msg,
               consumer.queue.name,
               retryCount,
               nextRetryDelayMs,
               error,
             );
-          } catch (republishError) {
-            this.logger?.error("Failed to republish message for retry, falling back to requeue", {
+          } catch (nackError) {
+            this.logger?.error("Failed to nack message for retry, falling back to requeue", {
               consumerName: String(consumerName),
               queueName: consumer.queue.name,
               originalError: error instanceof Error ? error.message : String(error),
@@ -895,14 +885,14 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           });
 
           try {
-            await this.republishForRetry(
+            await this.nackForRetry(
               item.amqpMessage,
               consumer.queue.name,
               retryCount,
               nextRetryDelayMs,
               error,
             );
-          } catch (republishError) {
+          } catch (nackError) {
             this.logger?.error(
               "Failed to republish batch message for retry, falling back to requeue",
               {

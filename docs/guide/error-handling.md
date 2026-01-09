@@ -136,14 +136,25 @@ rabbitmq-plugins enable rabbitmq_delayed_message_exchange
 
 The plugin is available at: https://github.com/rabbitmq/rabbitmq-delayed-message-exchange
 
-**How it works:**
+### Architecture: Dead Letter Exchange (DLX) Pattern
 
-- When a `RetryableError` is thrown, the worker calculates an exponential backoff delay
-- The message is republished to the **original exchange** with a queue-specific retry routing key (`<queueName>.retry`) and an `x-delay` header containing the delay in milliseconds
-- The delayed message exchange plugin intercepts messages with the `x-delay` header and holds them for the specified duration
-- After the delay expires, the plugin routes the message to the destination queue via the retry binding where it's consumed and retried
+The retry mechanism uses RabbitMQ's Dead Letter Exchange pattern combined with delayed message exchange:
 
-**Contract requirement:** Each retryable queue must have a binding for its retry routing key (`<queueName>.retry`). This ensures retries are queue-specific and don't broadcast to other queues. See the contract examples below for the binding pattern.
+1. When a `RetryableError` is thrown, the worker nacks the message (without requeue)
+2. The message is routed to the queue's Dead Letter Exchange (DLX), which must be of type `x-delayed-message`
+3. The worker adds retry metadata headers including `x-delay` (calculated using exponential backoff)
+4. The DLX holds the message for the delay period specified in the `x-delay` header
+5. After the delay expires, the DLX routes the message:
+   - Back to the original queue (if retries remain)
+   - To the Dead Letter Queue/DLQ (if max retries exceeded or non-retryable error)
+
+**Contract requirement:** Queues that need retry support must be configured with a Dead Letter Exchange of type `x-delayed-message`. See the examples below for the complete pattern.
+
+**Benefits of this architecture:**
+- Simpler contracts: No retry-specific routing keys needed on main exchanges
+- Standard RabbitMQ pattern: Uses DLX which is well-established for failure handling
+- Clean separation: Main exchanges stay as their natural type (topic, direct, etc.)
+- Only the DLX needs to be `x-delayed-message` type
 
 **Without this plugin:** Messages will still be retried, but without delays (immediate retry), which may not be suitable for transient failures that need time to recover.
 
@@ -220,14 +231,76 @@ Messages are sent to the DLQ when:
 2. **Regular errors** thrown (immediately - not retried)
 3. **Validation or parsing errors** occur
 
-### Configuring DLQ
+### Configuring DLQ with Retry Support
 
-Define a Dead Letter Exchange in your contract:
+To enable retry with exponential backoff, configure your queues with a Dead Letter Exchange (DLX) of type `x-delayed-message`:
 
 ```typescript
-import { defineContract, defineExchange, defineQueue } from "@amqp-contract/contract";
+import {
+  defineContract,
+  defineExchange,
+  defineQueue,
+  defineQueueBinding,
+} from "@amqp-contract/contract";
 
+// DLX (Dead Letter Exchange) with delayed message type for retry delays
+const dlx = defineExchange("orders-dlx", "x-delayed-message", {
+  durable: true,
+  delayedType: "direct", // The underlying routing type
+});
+
+// Main exchange can be any type (topic, direct, fanout)
 const mainExchange = defineExchange("orders", "topic", { durable: true });
+
+// Main queue with DLX configuration
+const orderQueue = defineQueue("order-processing", {
+  durable: true,
+  deadLetter: {
+    exchange: dlx,
+    routingKey: "order-processing", // Route back to same queue name for retries
+  },
+});
+
+// DLQ for messages that exceed max retries
+const dlqQueue = defineQueue("order-processing-dlq", { durable: true });
+
+const contract = defineContract({
+  exchanges: {
+    main: mainExchange,
+    dlx: dlx,
+  },
+  queues: {
+    orders: orderQueue,
+    dlq: dlqQueue,
+  },
+  bindings: {
+    // Normal binding for incoming messages
+    mainBinding: defineQueueBinding(orderQueue, mainExchange, {
+      routingKey: "order.#",
+    }),
+    // DLX routes back to main queue for retries
+    retryBinding: defineQueueBinding(orderQueue, dlx, {
+      routingKey: "order-processing",
+    }),
+    // DLX routes to DLQ for failed messages (max retries exceeded)
+    dlqBinding: defineQueueBinding(dlqQueue, dlx, {
+      routingKey: "order-processing-dlq",
+    }),
+  },
+  // ... publishers and consumers
+});
+```
+
+**How it works:**
+1. Failed messages are nacked and routed to the DLX
+2. DLX holds the message for the delay period (from `x-delay` header)
+3. After delay: DLX routes back to main queue (for retry) or to DLQ (if max retries exceeded)
+
+**Simple configuration (without retry delays):**
+
+If you don't need exponential backoff delays, you can use a regular exchange for DLX:
+
+```typescript
 const dlqExchange = defineExchange("orders-dlq", "topic", { durable: true });
 
 const orderQueue = defineQueue("order-processing", {
@@ -240,25 +313,7 @@ const orderQueue = defineQueue("order-processing", {
 
 const dlqQueue = defineQueue("order-dlq", { durable: true });
 
-const contract = defineContract({
-  exchanges: {
-    main: mainExchange,
-    dlq: dlqExchange,
-  },
-  queues: {
-    orders: orderQueue,
-    dlq: dlqQueue,
-  },
-  bindings: {
-    mainBinding: defineQueueBinding(orderQueue, mainExchange, {
-      routingKey: "order.#",
-    }),
-    dlqBinding: defineQueueBinding(dlqQueue, dlqExchange, {
-      routingKey: "#",
-    }),
-  },
-  // ... publishers and consumers
-});
+// ... bindings for dlqQueue to dlqExchange
 ```
 
 ### DLQ Message Headers
@@ -269,6 +324,7 @@ Messages in the DLQ include metadata about the failure:
 - `x-first-failure-timestamp` - Unix timestamp of first failure
 - `x-error-message` - Error message from last failure attempt
 - `x-error-name` - Error name/type from last failure attempt
+- `x-retry-count` - Number of retry attempts made
 
 ### Processing DLQ Messages
 

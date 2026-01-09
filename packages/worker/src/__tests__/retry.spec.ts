@@ -23,26 +23,50 @@ describe("Worker Retry Mechanism", () => {
       value: z.number(),
     });
 
-    const exchange = defineExchange("retry-test-exchange", "x-delayed-message", {
+    // Create DLX (Dead Letter Exchange) of type x-delayed-message for retry delays
+    const dlx = defineExchange("retry-test-dlx", "x-delayed-message", {
       durable: false,
-      delayedType: "topic",
+      delayedType: "direct",
     });
-    const queue = defineQueue("retry-test-queue", { durable: false });
+
+    // Main exchange can be any type (topic in this case)
+    const exchange = defineExchange("retry-test-exchange", "topic", {
+      durable: false,
+    });
+
+    // Main queue configured with DLX
+    const queue = defineQueue("retry-test-queue", {
+      durable: false,
+      deadLetter: {
+        exchange: dlx,
+        routingKey: "retry-test-queue", // Route back to same queue name
+      },
+    });
+
+    // DLQ (Dead Letter Queue) for messages that exceed max retries
+    const dlq = defineQueue("retry-test-dlq", { durable: false });
 
     const contract = defineContract({
       exchanges: {
-        test: exchange,
+        main: exchange,
+        dlx: dlx,
       },
       queues: {
-        testQueue: queue,
+        mainQueue: queue,
+        dlq: dlq,
       },
       bindings: {
-        testBinding: defineQueueBinding(queue, exchange, {
+        // Normal binding for incoming messages
+        mainBinding: defineQueueBinding(queue, exchange, {
           routingKey: "test.#",
         }),
-        // Retry binding: queue-specific routing key for retries
-        retryBinding: defineQueueBinding(queue, exchange, {
-          routingKey: "retry-test-queue.retry",
+        // DLX routes back to main queue for retries
+        retryBinding: defineQueueBinding(queue, dlx, {
+          routingKey: "retry-test-queue",
+        }),
+        // DLX routes to DLQ for failed messages (optional - if DLQ binding not present, messages are dropped)
+        dlqBinding: defineQueueBinding(dlq, dlx, {
+          routingKey: "retry-test-dlq",
         }),
       },
       publishers: {
@@ -116,38 +140,50 @@ describe("Worker Retry Mechanism", () => {
       value: z.number(),
     });
 
-    const exchange = defineExchange("retry-dlq-exchange", "x-delayed-message", {
+    // DLX (Dead Letter Exchange) of type x-delayed-message for retry delays
+    const dlx = defineExchange("retry-dlq-dlx", "x-delayed-message", {
       durable: false,
-      delayedType: "topic",
+      delayedType: "direct",
     });
-    const dlqExchange = defineExchange("retry-dlq-dead-letter", "topic", { durable: false });
+
+    // Main exchange
+    const exchange = defineExchange("retry-dlq-exchange", "topic", {
+      durable: false,
+    });
+
+    // Main queue with DLX configuration
     const queue = defineQueue("retry-dlq-queue", {
       durable: false,
       deadLetter: {
-        exchange: dlqExchange,
+        exchange: dlx,
+        routingKey: "retry-dlq-queue",
       },
     });
+
+    // DLQ for messages that exceed max retries
     const dlqQueue = defineQueue("retry-dlq-dead-queue", { durable: false });
 
     const contract = defineContract({
       exchanges: {
-        test: exchange,
-        dlq: dlqExchange,
+        main: exchange,
+        dlx: dlx,
       },
       queues: {
-        testQueue: queue,
+        mainQueue: queue,
         dlqQueue: dlqQueue,
       },
       bindings: {
-        testBinding: defineQueueBinding(queue, exchange, {
+        // Normal binding for incoming messages
+        mainBinding: defineQueueBinding(queue, exchange, {
           routingKey: "test.#",
         }),
-        // Retry binding: queue-specific routing key for retries
-        retryBinding: defineQueueBinding(queue, exchange, {
-          routingKey: "retry-dlq-queue.retry",
+        // DLX routes back to main queue for retries
+        retryBinding: defineQueueBinding(queue, dlx, {
+          routingKey: "retry-dlq-queue",
         }),
-        dlqBinding: defineQueueBinding(dlqQueue, dlqExchange, {
-          routingKey: "#",
+        // DLX routes to DLQ for failed messages
+        dlqBinding: defineQueueBinding(dlqQueue, dlx, {
+          routingKey: "retry-dlq-dead-queue",
         }),
       },
       publishers: {
@@ -223,38 +259,50 @@ describe("Worker Retry Mechanism", () => {
       value: z.number(),
     });
 
-    const exchange = defineExchange("non-retry-exchange", "x-delayed-message", {
+    // DLX of type x-delayed-message
+    const dlx = defineExchange("non-retry-dlx", "x-delayed-message", {
       durable: false,
-      delayedType: "topic",
+      delayedType: "direct",
     });
-    const dlqExchange = defineExchange("non-retry-dlq", "topic", { durable: false });
+
+    // Main exchange
+    const exchange = defineExchange("non-retry-exchange", "topic", {
+      durable: false,
+    });
+
+    // Main queue with DLX configuration
     const queue = defineQueue("non-retry-queue", {
       durable: false,
       deadLetter: {
-        exchange: dlqExchange,
+        exchange: dlx,
+        routingKey: "non-retry-queue",
       },
     });
+
+    // DLQ
     const dlqQueue = defineQueue("non-retry-dead-queue", { durable: false });
 
     const contract = defineContract({
       exchanges: {
-        test: exchange,
-        dlq: dlqExchange,
+        main: exchange,
+        dlx: dlx,
       },
       queues: {
-        testQueue: queue,
+        mainQueue: queue,
         dlqQueue: dlqQueue,
       },
       bindings: {
-        testBinding: defineQueueBinding(queue, exchange, {
+        // Normal binding for incoming messages
+        mainBinding: defineQueueBinding(queue, exchange, {
           routingKey: "test.#",
         }),
-        // Retry binding: queue-specific routing key for retries (not used in this test but required for contract)
-        retryBinding: defineQueueBinding(queue, exchange, {
-          routingKey: "non-retry-queue.retry",
+        // DLX routes back to main queue for retries (not used in this test)
+        retryBinding: defineQueueBinding(queue, dlx, {
+          routingKey: "non-retry-queue",
         }),
-        dlqBinding: defineQueueBinding(dlqQueue, dlqExchange, {
-          routingKey: "#",
+        // DLX routes to DLQ for failed messages
+        dlqBinding: defineQueueBinding(dlqQueue, dlx, {
+          routingKey: "non-retry-dead-queue",
         }),
       },
       publishers: {

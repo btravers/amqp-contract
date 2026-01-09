@@ -137,43 +137,77 @@ The retry mechanism provides exponential backoff with jitter for transient failu
 rabbitmq-plugins enable rabbitmq_delayed_message_exchange
 ```
 
-The plugin intercepts messages published to exchanges with the `x-delay` header and delays their delivery to queues. This is how exponential backoff delays work in the retry mechanism.
+**Architecture: Dead Letter Exchange (DLX) Pattern**
 
-**How it works:**
+The retry mechanism uses RabbitMQ's Dead Letter Exchange pattern with delayed message exchange:
 
-1. When a `RetryableError` is thrown, the worker calculates a delay using exponential backoff
-2. The message is republished to the **original exchange** with a queue-specific retry routing key (`<queueName>.retry`) and an `x-delay` header
-3. The delayed message exchange plugin intercepts the message and holds it for the specified delay
-4. After the delay expires, the plugin routes the message to the destination queue via the retry binding
-5. The consumer receives and processes the retried message
+1. When a `RetryableError` is thrown, the worker nacks the message (without requeue)
+2. The message is routed to the queue's Dead Letter Exchange (DLX), which must be of type `x-delayed-message`
+3. The worker adds retry metadata headers including `x-delay` (calculated using exponential backoff)
+4. The DLX holds the message for the delay period specified in the `x-delay` header
+5. After the delay expires, the DLX routes the message:
+   - Back to the original queue (if retries remain)
+   - To the Dead Letter Queue/DLQ (if max retries exceeded or non-retryable error)
 
 **Contract requirement for retry support:**
 
-Each queue that needs retry support must have a binding for its retry routing key:
+Queues that need retry support must be configured with a Dead Letter Exchange of type `x-delayed-message`:
 
 ```typescript
-const queue = defineQueue("order-processing", { durable: true });
+// Define DLX (Dead Letter Exchange) with delayed message type
+const dlx = defineExchange("orders-dlx", "x-delayed-message", {
+  durable: true,
+  delayedType: "direct", // The underlying routing type
+});
+
+// Main exchange can be any type (topic, direct, fanout)
 const exchange = defineExchange("orders", "topic", { durable: true });
 
+// Main queue with DLX configuration
+const queue = defineQueue("order-processing", {
+  durable: true,
+  deadLetter: {
+    exchange: dlx,
+    routingKey: "order-processing", // Route back to same queue name
+  },
+});
+
+// DLQ for messages that exceed max retries
+const dlq = defineQueue("order-processing-dlq", { durable: true });
+
 const contract = defineContract({
-  exchanges: { orders: exchange },
-  queues: { orderQueue: queue },
+  exchanges: {
+    orders: exchange,
+    dlx: dlx,
+  },
+  queues: {
+    orderQueue: queue,
+    dlq: dlq,
+  },
   bindings: {
     // Normal binding for incoming messages
     orderBinding: defineQueueBinding(queue, exchange, {
       routingKey: "order.#",
     }),
-    // Retry binding: REQUIRED for retry support
-    // Uses queue-specific routing key: <queueName>.retry
-    retryBinding: defineQueueBinding(queue, exchange, {
-      routingKey: "order-processing.retry",
+    // DLX routes back to main queue for retries
+    retryBinding: defineQueueBinding(queue, dlx, {
+      routingKey: "order-processing",
+    }),
+    // DLX routes to DLQ for failed messages (max retries exceeded)
+    dlqBinding: defineQueueBinding(dlq, dlx, {
+      routingKey: "order-processing-dlq",
     }),
   },
   // ... publishers and consumers
 });
 ```
 
-This queue-specific routing key ensures retries only go to the specific queue that failed, avoiding broadcast to other queues that may have succeeded.
+**Benefits of this architecture:**
+
+- **Simpler contracts**: No retry-specific routing keys needed on main exchanges
+- **Standard RabbitMQ pattern**: Uses DLX which is well-established for failure handling
+- **Clean separation**: Main exchanges stay as their natural type (topic, direct, etc.) - only DLX needs to be `x-delayed-message`
+- **More robust**: DLX pattern is designed specifically for failure handling
 
 **Note:** The plugin must be enabled for delays to work. Without it, messages are still retried but without delays (immediate retry).
 
