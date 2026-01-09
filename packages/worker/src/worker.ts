@@ -159,6 +159,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   private readonly batchTimers: Map<string, NodeJS.Timeout> = new Map();
   private readonly consumerTags: Set<string> = new Set();
   private readonly retryConfig: Required<RetryOptions> | null;
+  private readonly declaredResources: Set<string> = new Set();
 
   private constructor(
     private readonly contract: TContract,
@@ -485,36 +486,65 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   /**
    * Nack message with retry headers to route through Dead Letter Exchange (DLX) for delayed retry.
    *
-   * ARCHITECTURE: Uses RabbitMQ Dead Letter Exchange (DLX) pattern with delayed message exchange plugin.
+   * ARCHITECTURE: Uses RabbitMQ's native per-message TTL + Dead Letter Exchange (DLX) pattern.
    *
    * How it works:
    * 1. Message is nacked (not requeued) which routes it to the queue's Dead Letter Exchange (DLX)
-   * 2. The DLX must be of type 'x-delayed-message' with the delayed message exchange plugin
-   * 3. We add retry metadata headers (retry count, delay, error info) to the message
-   * 4. The DLX intercepts the message and holds it for the duration specified in x-delay header
-   * 5. After delay expires, DLX routes the message back to the original queue (using x-dead-letter-routing-key)
-   * 6. If max retries exceeded, the message goes to the Dead Letter Queue (DLQ) instead
+   * 2. DLX routes message to a temporary "wait" queue configured for this main queue
+   * 3. Message is published with per-message TTL via the `expiration` property
+   * 4. After TTL expires, message dead-letters from wait queue back to main queue via DLX
+   * 5. If max retries exceeded, message routes to Dead Letter Queue (DLQ) instead
+   *
+   * NO PLUGIN REQUIRED: Uses only native RabbitMQ features (per-message TTL + DLX)
    *
    * REQUIRES:
-   * - RabbitMQ delayed message exchange plugin: rabbitmq-plugins enable rabbitmq_delayed_message_exchange
-   * - Queue configured with deadLetter.exchange of type 'x-delayed-message'
-   * - DLX has bindings to route back to original queue (for retries) and to DLQ (for failures)
+   * - Queue configured with deadLetter.exchange (can be any standard exchange type)
+   * - DLX has bindings to route to wait queue, main queue, and DLQ
+   * - Wait queue configured with DLX to route expired messages back to main queue
    *
-   * BENEFITS over previous approach:
-   * - Simpler contracts: No retry-specific routing keys needed on main exchanges
-   * - Standard RabbitMQ pattern: Uses DLX which is well-established
-   * - Only DLX needs to be x-delayed-message type, main exchanges stay as their natural type
-   * - More robust: DLX pattern is designed for failure handling
+   * BENEFITS:
+   * - No deprecated plugin: Uses only native RabbitMQ features
+   * - Future-proof: Works with all RabbitMQ versions
+   * - Standard pattern: Recommended by RabbitMQ for delayed message processing
+   * - More robust: Uses RabbitMQ's built-in dead lettering
+   *
+   * TRADE-OFFS:
+   * - FIFO constraint: Messages expire from queue head only (standard RabbitMQ behavior)
+   * - Additional wait queues needed (one per retryable queue)
    */
   private async nackForRetry(
     msg: Message,
-    _queueName: string,
+    queueName: string,
     retryCount: number,
     delayMs: number,
     error: unknown,
   ): Promise<void> {
+    // Get the queue's configured DLX from the contract
+    const queueDef = Object.values(this.contract.queues ?? {}).find(
+      (q) => q.name === queueName,
+    );
+
+    if (!queueDef?.deadLetter?.exchange) {
+      throw new Error(
+        `Queue "${queueName}" does not have a dead letter exchange configured. ` +
+          `Retry requires a DLX to be configured in the contract.`,
+      );
+    }
+
+    const dlxName =
+      typeof queueDef.deadLetter.exchange === "string"
+        ? queueDef.deadLetter.exchange
+        : queueDef.deadLetter.exchange.name;
+
+    // Publish message to wait queue via DLX with per-message TTL
+    // The wait queue name pattern: {queueName}-wait
+    const waitQueueName = `${queueName}-wait`;
+    const waitRoutingKey = `${queueName}-wait`;
+
+    // Ensure wait queue exists with proper DLX configuration
+    await this.ensureWaitQueue(queueName, waitQueueName, dlxName);
+
     // Add retry metadata headers
-    // The x-delay header tells the DLX (delayed message exchange) how long to hold the message
     const updatedHeaders = {
       ...msg.properties.headers,
       "x-retry-count": retryCount + 1,
@@ -522,17 +552,65 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       "x-error-name": error instanceof Error ? error.name : "UnknownError",
       "x-first-failure-timestamp":
         msg.properties.headers?.["x-first-failure-timestamp"] ?? Date.now(),
-      "x-delay": delayMs, // Delay in milliseconds for delayed message exchange plugin
     };
 
-    // Update message properties with retry headers
-    msg.properties.headers = updatedHeaders;
+    // Publish to DLX with wait queue routing key and per-message TTL
+    // After TTL expires, message routes back to main queue via wait queue's DLX
+    await this.amqpClient.channel.publish(
+      dlxName,
+      waitRoutingKey,
+      msg.content,
+      {
+        ...msg.properties,
+        headers: updatedHeaders,
+        persistent: msg.properties.deliveryMode === 2,
+        expiration: String(delayMs), // Per-message TTL in milliseconds
+      },
+    );
 
-    // Nack without requeue - this routes the message to the Dead Letter Exchange
-    // The DLX will delay the message and then route it based on its bindings:
-    // - If retries remain: route back to original queue
-    // - If max retries exceeded: route to Dead Letter Queue
-    this.amqpClient.channel.nack(msg, false, false);
+    // Ack the original message after successful republish to wait queue
+    this.amqpClient.channel.ack(msg);
+  }
+
+  /**
+   * Ensure wait queue exists for delayed retry messages.
+   *
+   * Wait queues are temporary queues used to hold messages during the TTL delay period.
+   * Each retryable queue gets its own wait queue to avoid cross-queue interference.
+   *
+   * Wait queue configuration:
+   * - Name: {queueName}-wait
+   * - DLX: Same DLX as main queue, routes back to main queue after TTL expires
+   * - TTL: Per-message via expiration property (not queue-level)
+   * - Durable: Same as main queue
+   */
+  private async ensureWaitQueue(
+    mainQueueName: string,
+    waitQueueName: string,
+    dlxName: string,
+  ): Promise<void> {
+    // Check if we've already created this wait queue in this session
+    const cacheKey = `wait:${waitQueueName}`;
+    if (this.declaredResources.has(cacheKey)) {
+      return;
+    }
+
+    // Assert wait queue with DLX configuration
+    await this.amqpClient.channel.assertQueue(waitQueueName, {
+      durable: true, // Match main queue durability
+      deadLetterExchange: dlxName,
+      deadLetterRoutingKey: mainQueueName, // Route back to main queue after TTL
+    });
+
+    // Bind wait queue to DLX so messages can be routed to it
+    await this.amqpClient.channel.bindQueue(
+      waitQueueName,
+      dlxName,
+      `${mainQueueName}-wait`,
+    );
+
+    // Cache that we've declared this queue
+    this.declaredResources.add(cacheKey);
   }
 
   /**

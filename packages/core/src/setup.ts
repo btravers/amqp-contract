@@ -28,20 +28,11 @@ export async function setupAmqpTopology(
   // Setup exchanges
   const exchangeResults = await Promise.allSettled(
     Object.values(contract.exchanges ?? {}).map((exchange) => {
-      // For delayed exchanges, add x-delayed-type argument
-      const exchangeArguments =
-        exchange.type === "x-delayed-message"
-          ? {
-              ...exchange.arguments,
-              "x-delayed-type": (exchange as { delayedType: string }).delayedType,
-            }
-          : exchange.arguments;
-
       return channel.assertExchange(exchange.name, exchange.type, {
         durable: exchange.durable,
         autoDelete: exchange.autoDelete,
         internal: exchange.internal,
-        arguments: exchangeArguments,
+        arguments: exchange.arguments,
       });
     }),
   );

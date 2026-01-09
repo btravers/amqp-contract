@@ -23,10 +23,9 @@ describe("Worker Retry Mechanism", () => {
       value: z.number(),
     });
 
-    // Create DLX (Dead Letter Exchange) of type x-delayed-message for retry delays
-    const dlx = defineExchange("retry-test-dlx", "x-delayed-message", {
+    // Create DLX (Dead Letter Exchange) - can be any standard type
+    const dlx = defineExchange("retry-test-dlx", "direct", {
       durable: false,
-      delayedType: "direct",
     });
 
     // Main exchange can be any type (topic in this case)
@@ -140,10 +139,10 @@ describe("Worker Retry Mechanism", () => {
       value: z.number(),
     });
 
-    // DLX (Dead Letter Exchange) of type x-delayed-message for retry delays
-    const dlx = defineExchange("retry-dlq-dlx", "x-delayed-message", {
+    // DLX (Dead Letter Exchange) - uses standard exchange for DLX
+    const dlx = defineExchange("retry-dlq-dlx", "direct", {
       durable: false,
-      delayedType: "direct",
+      ,
     });
 
     // Main exchange
@@ -259,10 +258,10 @@ describe("Worker Retry Mechanism", () => {
       value: z.number(),
     });
 
-    // DLX of type x-delayed-message
-    const dlx = defineExchange("non-retry-dlx", "x-delayed-message", {
+    // DLX
+    const dlx = defineExchange("non-retry-dlx", "direct", {
       durable: false,
-      delayedType: "direct",
+      ,
     });
 
     // Main exchange
@@ -375,9 +374,9 @@ describe("Worker Retry Mechanism", () => {
       value: z.number(),
     });
 
-    const exchange = defineExchange("retry-headers-exchange", "x-delayed-message", {
+    const exchange = defineExchange("retry-headers-exchange", "topic", {
       durable: false,
-      delayedType: "topic",
+      ,
     });
     const dlqExchange = defineExchange("retry-headers-dlq", "topic", { durable: false });
     const queue = defineQueue("retry-headers-queue", {
@@ -470,9 +469,9 @@ describe("Worker Retry Mechanism", () => {
       value: z.number(),
     });
 
-    const exchange = defineExchange("batch-retry-exchange", "x-delayed-message", {
+    const exchange = defineExchange("batch-retry-exchange", "topic", {
       durable: false,
-      delayedType: "topic",
+      ,
     });
     const queue = defineQueue("batch-retry-queue", { durable: false });
 
