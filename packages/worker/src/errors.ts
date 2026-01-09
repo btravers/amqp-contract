@@ -45,6 +45,9 @@ export class MessageValidationError extends WorkerError {
 /**
  * Retryable errors - transient failures that may succeed on retry
  * Examples: network timeouts, rate limiting, temporary service unavailability
+ * 
+ * Note: When retry is configured, all errors are retryable by default.
+ * This class is provided for explicit signaling but is not required.
  */
 export class RetryableError extends WorkerError {
   constructor(
@@ -53,19 +56,5 @@ export class RetryableError extends WorkerError {
   ) {
     super(message);
     this.name = "RetryableError";
-  }
-}
-
-/**
- * Non-retryable errors - permanent failures
- * Examples: validation errors, business logic violations, missing resources
- */
-export class NonRetryableError extends WorkerError {
-  constructor(
-    message: string,
-    public override readonly cause?: unknown,
-  ) {
-    super(message);
-    this.name = "NonRetryableError";
   }
 }

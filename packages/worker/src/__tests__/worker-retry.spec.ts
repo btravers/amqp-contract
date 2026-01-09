@@ -1,4 +1,4 @@
-import { NonRetryableError, RetryableError } from "../errors.js";
+import { RetryableError } from "../errors.js";
 import {
   defineConsumer,
   defineContract,
@@ -307,89 +307,6 @@ describe("Worker Retry Mechanism", () => {
         },
         { timeout: 2000 },
       );
-    });
-  });
-
-  describe("NonRetryableError Handling", () => {
-    it("should send NonRetryableError directly to DLQ without retries", async ({
-      workerFactory,
-      publishMessage,
-      amqpChannel,
-    }) => {
-      // GIVEN a worker that throws NonRetryableError
-      const TestMessage = z.object({ id: z.string() });
-
-      const exchange = defineExchange("nonretry-exchange", "topic", { durable: false });
-      const dlx = defineExchange("nonretry-dlx", "topic", { durable: false });
-      const queue = defineQueue("nonretry-queue", {
-        durable: false,
-        deadLetter: {
-          exchange: dlx,
-          routingKey: "nonretry-queue.dlq",
-        },
-      });
-      const dlq = defineQueue("nonretry-dlq", { durable: false });
-
-      const contract = defineContract({
-        exchanges: {
-          main: exchange,
-          dlx,
-        },
-        queues: {
-          main: queue,
-          dlq,
-        },
-        bindings: {
-          mainBinding: defineQueueBinding(queue, exchange, {
-            routingKey: "test.#",
-          }),
-          dlqBinding: defineQueueBinding(dlq, dlx, {
-            routingKey: "nonretry-queue.dlq",
-          }),
-        },
-        consumers: {
-          testConsumer: defineConsumer(queue, defineMessage(TestMessage)),
-        },
-      });
-
-      let attemptCount = 0;
-      await workerFactory(
-        contract,
-        {
-          testConsumer: async () => {
-            attemptCount++;
-            throw new NonRetryableError("Validation failed - cannot retry");
-          },
-        },
-        {
-          maxRetries: 3,
-          initialDelayMs: 1000,
-        },
-      );
-
-      // WHEN publishing a message that throws NonRetryableError
-      publishMessage(exchange.name, "test.message", { id: "nonretry-1" });
-
-      // THEN message should go directly to DLQ without retries
-      await vi.waitFor(
-        async () => {
-          const dlqMsg = await amqpChannel.get("nonretry-dlq", { noAck: false });
-          if (!dlqMsg) {
-            throw new Error("Message not in DLQ");
-          }
-          const content = JSON.parse(dlqMsg.content.toString());
-          expect(content).toEqual({ id: "nonretry-1" });
-          amqpChannel.ack(dlqMsg);
-        },
-        { timeout: 2000 },
-      );
-
-      // AND it should only be attempted once
-      expect(attemptCount).toBe(1);
-
-      // AND wait queue should be empty
-      const waitMsg = await amqpChannel.get("nonretry-queue-wait", { noAck: false });
-      expect(waitMsg).toBe(false);
     });
   });
 

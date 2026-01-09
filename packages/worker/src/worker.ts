@@ -7,7 +7,7 @@ import type {
   InferConsumerNames,
 } from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
-import { MessageValidationError, NonRetryableError, TechnicalError } from "./errors.js";
+import { MessageValidationError, TechnicalError } from "./errors.js";
 import type {
   WorkerInferConsumerBatchHandler,
   WorkerInferConsumerHandler,
@@ -848,9 +848,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    *
    * Flow:
    * 1. If no retry config -> legacy behavior (immediate requeue)
-   * 2. If NonRetryableError -> send to DLQ
-   * 3. If max retries exceeded -> send to DLQ
-   * 4. Otherwise -> publish to wait queue with TTL for retry
+   * 2. If max retries exceeded -> send to DLQ
+   * 3. Otherwise -> publish to wait queue with TTL for retry
    */
   private handleError(
     error: Error,
@@ -870,16 +869,6 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
     // Get retry count from headers
     const retryCount = (msg.properties.headers?.["x-retry-count"] as number) ?? 0;
-
-    // NonRetryableError -> immediate DLQ
-    if (error instanceof NonRetryableError) {
-      this.logger?.error("Non-retryable error, sending to DLQ", {
-        consumerName,
-        error: error.message,
-      });
-      this.sendToDLQ(msg, consumer);
-      return Future.value(Result.Ok(undefined));
-    }
 
     // Max retries exceeded -> DLQ
     // retryConfig is guaranteed to be non-null at this point
@@ -954,7 +943,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * │ Retry Flow (Native RabbitMQ TTL + DLX Pattern)                   │
    * ├─────────────────────────────────────────────────────────────────┤
    * │                                                                   │
-   * │ 1. Handler throws Error (except NonRetryableError)               │
+   * │ 1. Handler throws any Error                                      │
    * │    ↓                                                              │
    * │ 2. Worker publishes to DLX with routing key: {queue}-wait        │
    * │    ↓                                                              │
