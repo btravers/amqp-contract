@@ -97,7 +97,7 @@ function wrapUnsafeHandler<TInput>(
  * @template TName - The consumer name from the contract
  * @param contract - The contract definition containing the consumer
  * @param consumerName - The name of the consumer from the contract
- * @param handler - The handler function that returns Future<Result<void, HandlerError>>
+ * @param handler - The handler function that returns `Future<Result<void, HandlerError>>`
  * @param options - Optional consumer options (prefetch, batchSize, batchTimeout)
  * @returns A type-safe handler that can be used with TypedAmqpWorker
  *
@@ -122,7 +122,7 @@ function wrapUnsafeHandler<TInput>(
  *   orderContract,
  *   'validateOrder',
  *   (message) => {
- *     if (message.amount <= 0) {
+ *     if (message.amount < 1) {
  *       // Won't be retried - goes directly to DLQ
  *       return Future.value(Result.Error(new NonRetryableError('Invalid order amount')));
  *     }
@@ -236,7 +236,7 @@ type UnsafeBatchHandler<
 /**
  * Define an unsafe handler for a specific consumer in a contract.
  *
- * @deprecated Use `defineHandler` instead for explicit error handling with Future<Result>.
+ * @deprecated Use `defineHandler` instead for explicit error handling with `Future<Result>`.
  *
  * **Warning:** Unsafe handlers use exception-based error handling:
  * - All thrown errors are treated as retryable by default
@@ -342,7 +342,7 @@ type UnsafeHandlers<TContract extends ContractDefinition> = {
 /**
  * Define multiple unsafe handlers for consumers in a contract.
  *
- * @deprecated Use `defineHandlers` instead for explicit error handling with Future<Result>.
+ * @deprecated Use `defineHandlers` instead for explicit error handling with `Future<Result>`.
  *
  * **Warning:** Unsafe handlers use exception-based error handling.
  * Consider migrating to safe handlers for better error control.

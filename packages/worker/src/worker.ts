@@ -117,7 +117,7 @@ export type CreateWorkerOptions<TContract extends ContractDefinition> = {
   contract: TContract;
   /**
    * Handlers for each consumer defined in the contract.
-   * Handlers must return Future<Result<void, HandlerError>> for explicit error handling.
+   * Handlers must return `Future<Result<void, HandlerError>>` for explicit error handling.
    * Use defineHandler() to create safe handlers, or defineUnsafeHandler() which wraps
    * Promise-based handlers into safe handlers internally.
    */
@@ -174,7 +174,7 @@ export type CreateWorkerOptions<TContract extends ContractDefinition> = {
  */
 export class TypedAmqpWorker<TContract extends ContractDefinition> {
   /**
-   * Internal handler type - always safe handlers (Future<Result>).
+   * Internal handler type - always safe handlers (`Future<Result>`).
    * Unsafe handlers are wrapped into safe handlers by defineUnsafeHandler/defineUnsafeHandlers.
    */
   private readonly actualHandlers: Partial<
@@ -541,7 +541,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
   /**
    * Parse and validate a message from AMQP
-   * @returns Future<Result<validated message, void>> - Ok with validated message, or Error (already handled with nack)
+   * @returns `Future<Result<validated message, void>>` - Ok with validated message, or Error (already handled with nack)
    */
   private parseAndValidateMessage<TName extends InferConsumerNames<TContract>>(
     msg: Message,
