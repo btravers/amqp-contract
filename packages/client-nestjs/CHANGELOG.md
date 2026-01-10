@@ -1,5 +1,12 @@
 # @amqp-contract/client-nestjs
 
+## 0.8.0
+
+### Patch Changes
+
+- @amqp-contract/client@0.8.0
+- @amqp-contract/contract@0.8.0
+
 ## 0.7.0
 
 ### Minor Changes
