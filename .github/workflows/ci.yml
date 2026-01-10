@@ -127,3 +127,16 @@ jobs:
           name: integration-coverage-report
           path: ./**/coverage/
           retention-days: 30
+
+  build-docs:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      - name: Build documentation
+        run: pnpm --filter ./docs exec turbo build

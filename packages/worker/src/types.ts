@@ -44,13 +44,13 @@ export type WorkerInferConsumerInput<
 // =============================================================================
 // Safe Handler Types (Recommended)
 // =============================================================================
-// These handlers return Future<Result<void, HandlerError>> for explicit error handling.
+// These handlers return `Future<Result<void, HandlerError>>` for explicit error handling.
 // This approach forces the handler to explicitly handle success/failure cases,
 // making the code more robust and easier to reason about.
 
 /**
  * Safe consumer handler type for a specific consumer.
- * Returns a Future<Result<void, HandlerError>> for explicit error handling.
+ * Returns a `Future<Result<void, HandlerError>>` for explicit error handling.
  *
  * **Recommended over unsafe handlers** for better error control:
  * - RetryableError: Message will be retried with exponential backoff
@@ -69,7 +69,7 @@ export type WorkerInferSafeConsumerHandler<
 
 /**
  * Safe consumer handler type for batch processing.
- * Returns a Future<Result<void, HandlerError>> for explicit error handling.
+ * Returns a `Future<Result<void, HandlerError>>` for explicit error handling.
  *
  * @example
  * ```typescript
@@ -108,7 +108,7 @@ export type WorkerInferSafeConsumerHandlerEntry<
 
 /**
  * Safe consumer handlers for a contract.
- * All handlers return Future<Result<void, HandlerError>> for explicit error control.
+ * All handlers return `Future<Result<void, HandlerError>>` for explicit error control.
  */
 export type WorkerInferSafeConsumerHandlers<TContract extends ContractDefinition> = {
   [K in InferConsumerNames<TContract>]: WorkerInferSafeConsumerHandlerEntry<TContract, K>;
@@ -123,10 +123,10 @@ export type WorkerInferSafeConsumerHandlers<TContract extends ContractDefinition
 
 /**
  * Unsafe consumer handler type for a specific consumer.
- * Returns a Promise<void> - throws exceptions on error.
+ * Returns a `Promise<void>` - throws exceptions on error.
  *
  * @deprecated Prefer using safe handlers (WorkerInferSafeConsumerHandler) that return
- * Future<Result<void, HandlerError>> for better error handling.
+ * `Future<Result<void, HandlerError>>` for better error handling.
  *
  * **Note:** When using unsafe handlers:
  * - All thrown errors are treated as retryable by default (when retry is configured)
@@ -139,10 +139,10 @@ export type WorkerInferUnsafeConsumerHandler<
 
 /**
  * Unsafe consumer handler type for batch processing.
- * Returns a Promise<void> - throws exceptions on error.
+ * Returns a `Promise<void>` - throws exceptions on error.
  *
  * @deprecated Prefer using safe handlers (WorkerInferSafeConsumerBatchHandler) that return
- * Future<Result<void, HandlerError>> for better error handling.
+ * `Future<Result<void, HandlerError>>` for better error handling.
  */
 export type WorkerInferUnsafeConsumerBatchHandler<
   TContract extends ContractDefinition,
