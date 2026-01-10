@@ -12,9 +12,13 @@
     "tools/*": {
       "entry": ["*.json"]
     },
+    "packages/core": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"],
+      "ignoreDependencies": ["@opentelemetry/api"]
+    },
     "tests": {
-      "entry": ["src/**/*.spec.ts"],
-      "ignoreDependencies": ["@vitest/coverage-v8"]
+      "entry": ["src/**/*.spec.ts"]
     },
     "docs": {
       "ignoreDependencies": [
