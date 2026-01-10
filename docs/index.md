@@ -12,8 +12,8 @@ hero:
     alt: amqp-contract
   actions:
     - theme: brand
-      text: Quick Start
-      link: /guide/quick-start
+      text: Get Started
+      link: /guide/getting-started
     - theme: alt
       text: Why amqp-contract?
       link: /guide/why-amqp-contract

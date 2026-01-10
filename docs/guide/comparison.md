@@ -428,7 +428,7 @@ It works **alongside** tools like tRPC (for frontend APIs) and complements your 
 
 Ready to get started?
 
-- **[Quick Start →](/guide/quick-start)** - Get running in 5 minutes
+- **[Getting Started →](/guide/getting-started)** - Get running in 5 minutes
 - **[Why amqp-contract? →](/guide/why-amqp-contract)** - Learn more about the benefits
 - **[Core Concepts →](/guide/core-concepts)** - Understand the fundamentals
 - **[Examples →](/examples/)** - See real-world usage
