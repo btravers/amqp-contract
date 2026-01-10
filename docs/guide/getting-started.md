@@ -5,7 +5,7 @@ description: Learn how to build type-safe AMQP messaging applications with amqp-
 
 # Getting Started
 
-Welcome to **amqp-contract**! This guide will help you build type-safe AMQP messaging in minutes.
+Get **amqp-contract** running in 5 minutes with a complete working example.
 
 ## What is amqp-contract?
 
@@ -13,30 +13,78 @@ amqp-contract brings end-to-end type safety to [AMQP](https://www.amqp.org/)/[Ra
 
 ## Prerequisites
 
-- Node.js 18 or higher
-- [RabbitMQ](https://www.rabbitmq.com/) or another AMQP 0.9.1 broker
+- **Node.js 18+** - [Download Node.js](https://nodejs.org/)
+- **RabbitMQ running locally** - We'll use Docker (see below)
+- **Basic TypeScript knowledge** - Understanding of TypeScript syntax
 
-## Installation
+## Step 1: Start RabbitMQ
 
-### Core Packages
+Use Docker to run RabbitMQ with the management plugin:
 
-Install the essentials:
+```bash
+docker run -d \
+  --name rabbitmq \
+  -p 5672:5672 \
+  -p 15672:15672 \
+  rabbitmq:4-management
+```
+
+**Verify it's running:**
+
+- Open [http://localhost:15672](http://localhost:15672)
+- Login with `guest` / `guest`
+
+::: tip
+If you already have RabbitMQ running locally, you can skip this step!
+:::
+
+### Manual Installation
+
+Follow the [official RabbitMQ installation guide](https://www.rabbitmq.com/docs/download).
+
+## Step 2: Install Packages
+
+Create a new project and install dependencies:
 
 ::: code-group
 
 ```bash [pnpm]
+# Create project
+mkdir amqp-demo && cd amqp-demo
+npm init -y
+
+# Install dependencies
 pnpm add @amqp-contract/contract @amqp-contract/client @amqp-contract/worker amqplib zod
-pnpm add -D @types/amqplib
+pnpm add -D @types/amqplib typescript tsx
+
+# Initialize TypeScript
+npx tsc --init --target ES2022 --module NodeNext --moduleResolution NodeNext
 ```
 
 ```bash [npm]
+# Create project
+mkdir amqp-demo && cd amqp-demo
+npm init -y
+
+# Install dependencies
 npm install @amqp-contract/contract @amqp-contract/client @amqp-contract/worker amqplib zod
-npm install -D @types/amqplib
+npm install -D @types/amqplib typescript tsx
+
+# Initialize TypeScript
+npx tsc --init --target ES2022 --module NodeNext --moduleResolution NodeNext
 ```
 
 ```bash [yarn]
+# Create project
+mkdir amqp-demo && cd amqp-demo
+npm init -y
+
+# Install dependencies
 yarn add @amqp-contract/contract @amqp-contract/client @amqp-contract/worker amqplib zod
-yarn add -D @types/amqplib
+yarn add -D @types/amqplib typescript tsx
+
+# Initialize TypeScript
+npx tsc --init --target ES2022 --module NodeNext --moduleResolution NodeNext
 ```
 
 :::
@@ -93,29 +141,9 @@ pnpm add valibot
 pnpm add arktype
 ```
 
-## RabbitMQ Setup
+## Step 3: Create Contract
 
-### Using Docker (Recommended)
-
-```bash
-docker run -d \
-  --name rabbitmq \
-  -p 5672:5672 \
-  -p 15672:15672 \
-  rabbitmq:4-management
-```
-
-Access the management UI at `http://localhost:15672` (guest/guest).
-
-### Manual Installation
-
-Follow the [official RabbitMQ installation guide](https://www.rabbitmq.com/docs/download).
-
-## Quick Start
-
-### Step 1: Define Your Contract
-
-Create a contract that defines your AMQP resources and message schemas:
+Create `contract.ts` - this defines your message schema and AMQP topology:
 
 ```typescript
 // contract.ts
@@ -123,127 +151,220 @@ import {
   defineContract,
   defineExchange,
   defineQueue,
-  definePublisherFirst,
+  defineQueueBinding,
+  definePublisher,
+  defineConsumer,
   defineMessage,
 } from "@amqp-contract/contract";
 import { z } from "zod";
 
 // 1. Define resources
-const ordersExchange = defineExchange("orders", "topic", { durable: true });
-const orderProcessingQueue = defineQueue("order-processing", { durable: true });
+const notificationsExchange = defineExchange("notifications", "direct", {
+  durable: true,
+});
 
-// 2. Define message
-const orderMessage = defineMessage(
+const emailQueue = defineQueue("email-notifications", {
+  durable: true,
+});
+
+// 2. Define message schema with Zod
+const emailMessage = defineMessage(
   z.object({
-    orderId: z.string(),
-    customerId: z.string(),
-    amount: z.number().positive(),
-    items: z.array(
-      z.object({
-        productId: z.string(),
-        quantity: z.number().int().positive(),
-      }),
-    ),
+    to: z.string().email(),
+    subject: z.string(),
+    body: z.string(),
   }),
+  {
+    summary: "Email notification message",
+    description: "Sent when an email needs to be delivered",
+  },
 );
 
-// 3. Publisher-first pattern for event-oriented messaging
-const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } =
-  definePublisherFirst(ordersExchange, orderMessage, { routingKey: "order.created" });
-
-// 4. Create consumer from the event (ensures consistency)
-const { consumer: processOrderConsumer, binding: orderBinding } =
-  createOrderCreatedConsumer(orderProcessingQueue);
-
-// 5. Compose contract
+// 3. Compose contract
 export const contract = defineContract({
   exchanges: {
-    orders: ordersExchange,
+    notifications: notificationsExchange,
   },
   queues: {
-    orderProcessing: orderProcessingQueue,
+    email: emailQueue,
   },
   bindings: {
-    orderBinding,
+    emailBinding: defineQueueBinding(emailQueue, notificationsExchange, {
+      routingKey: "email",
+    }),
   },
   publishers: {
-    orderCreated: orderCreatedPublisher,
+    sendEmail: definePublisher(notificationsExchange, emailMessage, {
+      routingKey: "email",
+    }),
   },
   consumers: {
-    processOrder: processOrderConsumer,
+    processEmail: defineConsumer(emailQueue, emailMessage),
   },
 });
 ```
 
-### Step 2: Publish Messages
+## Step 4: Publisher
 
-Use the type-safe client to publish messages:
+Create `publisher.ts` - publishes a message:
 
 ```typescript
 // publisher.ts
 import { TypedAmqpClient } from "@amqp-contract/client";
-import { contract } from "./contract";
+import { contract } from "./contract.js";
 
 async function main() {
+  console.log("🚀 Starting publisher...");
+
+  // Create client
   const client = await TypedAmqpClient.create({
     contract,
     urls: ["amqp://localhost"],
   }).resultToPromise();
 
-  const result = await client.publish("orderCreated", {
-    orderId: "ORD-123",
-    customerId: "CUST-456",
-    amount: 99.99,
-    items: [
-      { productId: "PROD-A", quantity: 2 },
-      { productId: "PROD-B", quantity: 1 },
-    ],
+  console.log("✅ Connected to RabbitMQ");
+
+  // Publish message - fully typed!
+  const result = await client.publish("sendEmail", {
+    to: "user@example.com",
+    subject: "Welcome to amqp-contract!",
+    body: "This is a type-safe message from amqp-contract.",
   });
 
   result.match({
-    Ok: () => console.log("✅ Order published!"),
+    Ok: () => console.log("📧 Email message published!"),
     Error: (error) => console.error("❌ Failed:", error.message),
   });
 
+  // Clean up
   await client.close();
+  console.log("👋 Publisher closed");
 }
 
-main();
+main().catch(console.error);
 ```
 
-### Step 3: Consume Messages
+## Step 5: Consumer
 
-Create a worker with type-safe message handlers:
+Create `consumer.ts` - processes messages:
 
 ```typescript
 // consumer.ts
 import { TypedAmqpWorker } from "@amqp-contract/worker";
-import { contract } from "./contract";
+import { contract } from "./contract.js";
 
 async function main() {
+  console.log("⚙️ Starting worker...");
+
+  // Create worker with handlers
   const worker = await TypedAmqpWorker.create({
     contract,
     handlers: {
-      processOrder: async (message) => {
+      processEmail: async (message) => {
         // Message is fully typed!
-        console.log(`Processing order: ${message.orderId}`);
-        console.log(`Customer: ${message.customerId}`);
-        console.log(`Amount: $${message.amount}`);
-        console.log(`Items: ${message.items.length}`);
+        console.log("\n📬 Received email:");
+        console.log(`  To: ${message.to}`);
+        console.log(`  Subject: ${message.subject}`);
+        console.log(`  Body: ${message.body}`);
 
-        for (const item of message.items) {
-          console.log(`  - ${item.productId} x${item.quantity}`);
-        }
+        // Simulate sending email
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        console.log("✅ Email sent successfully!");
       },
     },
     urls: ["amqp://localhost"],
   }).resultToPromise();
 
-  console.log("✅ Worker ready, waiting for messages...");
+  console.log("✅ Worker ready, waiting for messages...\n");
+  console.log("Press Ctrl+C to stop\n");
+
+  // Handle graceful shutdown
+  process.on("SIGINT", async () => {
+    console.log("\n👋 Shutting down...");
+    await worker.close();
+    process.exit(0);
+  });
 }
 
-main();
+main().catch(console.error);
 ```
+
+## Step 6: Run It
+
+Open **two terminal windows**:
+
+**Terminal 1 - Start the consumer:**
+
+```bash
+npx tsx consumer.ts
+```
+
+You should see:
+
+```
+⚙️ Starting worker...
+✅ Worker ready, waiting for messages...
+
+Press Ctrl+C to stop
+```
+
+**Terminal 2 - Run the publisher:**
+
+```bash
+npx tsx publisher.ts
+```
+
+## Expected Output
+
+**Publisher terminal:**
+
+```
+🚀 Starting publisher...
+✅ Connected to RabbitMQ
+📧 Email message published!
+👋 Publisher closed
+```
+
+**Consumer terminal:**
+
+```
+📬 Received email:
+  To: user@example.com
+  Subject: Welcome to amqp-contract!
+  Body: This is a type-safe message from amqp-contract.
+✅ Email sent successfully!
+```
+
+**🎉 Success!** You've just sent and received your first type-safe AMQP message!
+
+## What Just Happened?
+
+1. **Contract Definition** - You defined the message schema with Zod and AMQP topology
+2. **Type Safety** - TypeScript enforced the message structure at compile time
+3. **Automatic Validation** - Zod validated the message at runtime
+4. **Publisher** - The client published a message to RabbitMQ
+5. **Consumer** - The worker received and processed the message
+
+## Try This Next
+
+**Experiment with type safety:**
+
+In `publisher.ts`, try to publish an invalid message:
+
+```typescript
+// ❌ This will cause a TypeScript error!
+await client.publish("sendEmail", {
+  to: "not-an-email", // Invalid email format
+  subject: "Test",
+  // Missing 'body' field
+});
+```
+
+**Notice:**
+
+- TypeScript shows errors immediately
+- Your IDE provides autocomplete for message fields
+- You can't send invalid messages!
 
 ## Key Benefits
 
@@ -253,9 +374,82 @@ main();
 - ✅ **Better DX** - Autocomplete, refactoring, inline docs
 - ✅ **Explicit Errors** - Result types for predictable error handling
 
+## Common Issues
+
+### "Connection refused" or "ECONNREFUSED"
+
+**Cause:** RabbitMQ is not running or not accessible
+
+**Solution:**
+
+```bash
+# Check if RabbitMQ container is running
+docker ps | grep rabbitmq
+
+# If not running, start it:
+docker start rabbitmq
+
+# Or create a new one:
+docker run -d --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:4-management
+```
+
+### "Cannot find module" errors
+
+**Cause:** Missing dependencies or incorrect import extensions
+
+**Solution:**
+
+```bash
+# Reinstall dependencies
+rm -rf node_modules package-lock.json
+npm install
+
+# Ensure you're using .js extensions in imports
+# import { contract } from "./contract.js";  ✅
+# import { contract } from "./contract";     ❌
+```
+
+### TypeScript errors about module resolution
+
+**Cause:** Incorrect TypeScript configuration
+
+**Solution:** Update `tsconfig.json`:
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "esModuleInterop": true,
+    "strict": true
+  }
+}
+```
+
+### Messages not being consumed
+
+**Cause:** Consumer not running or binding mismatch
+
+**Solution:**
+
+1. Ensure consumer is running in a separate terminal
+2. Check that routing keys match between publisher and binding
+3. Verify RabbitMQ management UI shows the queue has bindings
+
 ## Next Steps
 
-- Learn about [Core Concepts](/guide/core-concepts)
-- Explore [Client Usage](/guide/client-usage) and [Worker Usage](/guide/worker-usage)
-- Check out [Examples](/examples/)
-- For NestJS: See [NestJS Client](/guide/client-nestjs-usage) and [NestJS Worker](/guide/worker-nestjs-usage)
+Now that you have amqp-contract working, explore more:
+
+- **[Core Concepts](/guide/core-concepts)** - Understand the architecture and patterns
+- **[Defining Contracts](/guide/defining-contracts)** - Learn advanced contract features
+- **[Basic Order Processing Example](/examples/basic-order-processing)** - See a complete real-world example
+- **[NestJS Integration](/guide/client-nestjs-usage)** - Use with NestJS framework
+- **[Testing](/guide/testing)** - Write tests for your AMQP code
+
+::: tip Need Help?
+
+- Check the [Troubleshooting Guide](/guide/troubleshooting)
+- Browse [GitHub Issues](https://github.com/btravers/amqp-contract/issues)
+- Read more [Examples](/examples/)
+  :::

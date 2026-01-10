@@ -85,7 +85,6 @@ export default withMermaid(
             text: "Getting Started",
             items: [
               { text: "Why amqp-contract?", link: "/guide/why-amqp-contract" },
-              { text: "Quick Start", link: "/guide/quick-start" },
               { text: "Getting Started", link: "/guide/getting-started" },
               { text: "Core Concepts", link: "/guide/core-concepts" },
               { text: "Comparison", link: "/guide/comparison" },
