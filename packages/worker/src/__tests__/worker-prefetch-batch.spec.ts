@@ -9,6 +9,7 @@ import {
   defineQueueBinding,
 } from "@amqp-contract/contract";
 import { describe, expect, vi } from "vitest";
+import { RetryableError } from "../errors.js";
 import { TypedAmqpWorker } from "../worker.js";
 import { defineHandler } from "../handlers.js";
 import { it } from "./fixture.js";
@@ -60,7 +61,7 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
           // Simulate slow processing to test prefetch
           return Future.fromPromise(new Promise((resolve) => setTimeout(resolve, 100)))
             .mapOk(() => undefined)
-            .mapError(() => undefined);
+            .mapError((error) => new RetryableError("Processing failed", error));
         },
         { prefetch: 5 },
       ),
