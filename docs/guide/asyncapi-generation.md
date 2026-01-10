@@ -222,6 +222,5 @@ console.log("   Operations:", Object.keys(spec.operations).length);
 
 ## Next Steps
 
-- See the [AsyncAPI Generation Example](/examples/asyncapi-generation)
 - Learn about [Defining Contracts](/guide/defining-contracts)
 - Explore [AsyncAPI Specification](https://www.asyncapi.com/docs/reference/specification/v3.0.0)

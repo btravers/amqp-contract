@@ -55,4 +55,6 @@ pnpm --filter @amqp-contract-samples/basic-order-processing-client-nestjs dev
 | [Basic Order Processing - Client (NestJS)](./basic-order-processing-client-nestjs) | NestJS client with dependency injection         |
 | [Basic Order Processing - Worker (NestJS)](./basic-order-processing-worker-nestjs) | NestJS worker with modular handlers             |
 
+> **Note:** The previous `asyncapi-generation` sample has been removed. AsyncAPI generation is now provided by the `@amqp-contract/asyncapi` package and documented on the main website.
+
 For detailed documentation, examples, and tutorials, visit the **[amqp-contract website](https://btravers.github.io/amqp-contract/)**.

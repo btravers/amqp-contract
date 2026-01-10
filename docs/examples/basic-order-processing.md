@@ -447,5 +447,4 @@ The complete source code is available in the repository:
 
 - Try modifying the routing keys
 - Add new publishers or consumers
-- Explore [AsyncAPI Generation](/examples/asyncapi-generation)
 - Learn about [Client Usage](/guide/client-usage) and [Worker Usage](/guide/worker-usage)

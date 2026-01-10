@@ -325,8 +325,6 @@ const spec = await generator.generate(contract, {
 });
 ```
 
-📖 **[Learn more about AsyncAPI Generation →](/guide/asyncapi-generation)**
-
 ## Inspiration
 
 This project was inspired by the contract-first approach of [tRPC](https://trpc.io/), [oRPC](https://orpc.dev/), and [ts-rest](https://ts-rest.com/). We've adapted their excellent ideas of end-to-end type safety and schema-driven development to the world of [RabbitMQ](https://www.rabbitmq.com/) and AMQP messaging.
