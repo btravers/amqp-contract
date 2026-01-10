@@ -201,15 +201,15 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     // Validate message using schema
     return validateMessage()
       .flatMapOk((validatedMessage) => publishMessage(validatedMessage))
-      .tap((result) => {
+      .tapOk(() => {
         const durationMs = Date.now() - startTime;
-        if (result.isOk()) {
-          endSpanSuccess(span);
-          recordPublishMetric(this.telemetry, exchangeName, routingKey, true, durationMs);
-        } else {
-          endSpanError(span, result.error);
-          recordPublishMetric(this.telemetry, exchangeName, routingKey, false, durationMs);
-        }
+        endSpanSuccess(span);
+        recordPublishMetric(this.telemetry, exchangeName, routingKey, true, durationMs);
+      })
+      .tapError((error) => {
+        const durationMs = Date.now() - startTime;
+        endSpanError(span, error);
+        recordPublishMetric(this.telemetry, exchangeName, routingKey, false, durationMs);
       });
   }
 
