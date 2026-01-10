@@ -1,0 +1,26 @@
+{
+  "name": "@amqp-contract-examples/basic-order-processing-worker",
+  "private": true,
+  "description": "Worker application for order processing example",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "test:integration": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@amqp-contract-examples/basic-order-processing-contract": "workspace:*",
+    "@amqp-contract/worker": "workspace:*",
+    "pino": "catalog:",
+    "pino-pretty": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@amqp-contract/testing": "workspace:*",
+    "@amqp-contract/tsconfig": "workspace:*",
+    "@vitest/coverage-v8": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

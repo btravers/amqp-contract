@@ -17,7 +17,7 @@ A complete example demonstrating:
 
 ## Running Examples
 
-All examples are in the `samples/` directory.
+All examples are in the `examples/` directory.
 
 ### Prerequisites
 
@@ -37,10 +37,10 @@ pnpm build
 
 ```bash
 # Terminal 1: Start the worker
-pnpm --filter @amqp-contract-samples/basic-order-processing-worker dev
+pnpm --filter @amqp-contract-examples/basic-order-processing-worker dev
 
 # Terminal 2: Run the client
-pnpm --filter @amqp-contract-samples/basic-order-processing-client dev
+pnpm --filter @amqp-contract-examples/basic-order-processing-client dev
 ```
 
 ## Example Structure
@@ -48,7 +48,7 @@ pnpm --filter @amqp-contract-samples/basic-order-processing-client dev
 The basic order processing example uses three packages:
 
 ```
-samples/
+examples/
 ├── basic-order-processing-contract/
 │   └── src/index.ts       # Shared contract
 ├── basic-order-processing-client/

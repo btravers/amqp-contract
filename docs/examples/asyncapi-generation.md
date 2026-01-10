@@ -75,7 +75,7 @@ pnpm build
 Run the generation script:
 
 ```bash
-pnpm --filter @amqp-contract-samples/asyncapi-generation generate
+pnpm --filter @amqp-contract-examples/asyncapi-generation generate
 ```
 
 This creates two files:
@@ -567,7 +567,7 @@ flowchart TB
 
 The complete source code is available in the repository:
 
-- [AsyncAPI Generation Sample](https://github.com/btravers/amqp-contract/tree/main/samples/asyncapi-generation)
+- [AsyncAPI Generation Example](https://github.com/btravers/amqp-contract/tree/main/examples/asyncapi-generation)
 
 ## Next Steps
 

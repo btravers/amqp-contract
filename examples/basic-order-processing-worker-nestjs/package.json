@@ -1,0 +1,31 @@
+{
+  "name": "@amqp-contract-examples/basic-order-processing-worker-nestjs",
+  "private": true,
+  "description": "NestJS worker application for order processing example",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "test:integration": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@amqp-contract-examples/basic-order-processing-contract": "workspace:*",
+    "@amqp-contract/worker": "workspace:*",
+    "@amqp-contract/worker-nestjs": "workspace:*",
+    "@nestjs/common": "catalog:",
+    "@nestjs/config": "catalog:",
+    "@nestjs/core": "catalog:",
+    "pino-pretty": "catalog:",
+    "reflect-metadata": "catalog:",
+    "rxjs": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@amqp-contract/testing": "workspace:*",
+    "@amqp-contract/tsconfig": "workspace:*",
+    "@vitest/coverage-v8": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

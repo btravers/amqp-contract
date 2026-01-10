@@ -149,13 +149,13 @@ Open two terminals:
 **Terminal 1 - Start the worker:**
 
 ```bash
-pnpm --filter @amqp-contract-samples/basic-order-processing-worker dev
+pnpm --filter @amqp-contract-examples/basic-order-processing-worker dev
 ```
 
 **Terminal 2 - Run the client:**
 
 ```bash
-pnpm --filter @amqp-contract-samples/basic-order-processing-client dev
+pnpm --filter @amqp-contract-examples/basic-order-processing-client dev
 ```
 
 ### Expected Output
@@ -207,7 +207,7 @@ Subscribed to:
 
 ## Contract Definition
 
-The contract is defined in a separate package (`@amqp-contract-samples/basic-order-processing-contract`) that is shared between the client and worker.
+The contract is defined in a separate package (`@amqp-contract-examples/basic-order-processing-contract`) that is shared between the client and worker.
 
 ### Message Schemas
 
@@ -307,11 +307,11 @@ export const orderContract = defineContract({
 
 ## Client Implementation
 
-The client is in a separate package (`@amqp-contract-samples/basic-order-processing-client`) that imports the contract:
+The client is in a separate package (`@amqp-contract-examples/basic-order-processing-client`) that imports the contract:
 
 ```typescript
 import { TypedAmqpClient } from "@amqp-contract/client";
-import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
+import { orderContract } from "@amqp-contract-examples/basic-order-processing-contract";
 
 const client = await TypedAmqpClient.create({
   contract: orderContract,
@@ -350,12 +350,12 @@ updateResult.match({
 
 ## Worker Implementation
 
-The worker is in a separate package (`@amqp-contract-samples/basic-order-processing-worker`) that imports the contract:
+The worker is in a separate package (`@amqp-contract-examples/basic-order-processing-worker`) that imports the contract:
 
 ```typescript
 import { TypedAmqpWorker } from "@amqp-contract/worker";
 import { connect } from "amqplib";
-import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
+import { orderContract } from "@amqp-contract-examples/basic-order-processing-contract";
 
 const connection = await connect("amqp://localhost");
 
@@ -439,9 +439,9 @@ sequenceDiagram
 
 The complete source code is available in the repository:
 
-- [Contract](https://github.com/btravers/amqp-contract/tree/main/samples/basic-order-processing-contract)
-- [Client](https://github.com/btravers/amqp-contract/tree/main/samples/basic-order-processing-client)
-- [Worker](https://github.com/btravers/amqp-contract/tree/main/samples/basic-order-processing-worker)
+- [Contract](https://github.com/btravers/amqp-contract/tree/main/examples/basic-order-processing-contract)
+- [Client](https://github.com/btravers/amqp-contract/tree/main/examples/basic-order-processing-client)
+- [Worker](https://github.com/btravers/amqp-contract/tree/main/examples/basic-order-processing-worker)
 
 ## Next Steps
 
