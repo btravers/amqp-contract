@@ -11,7 +11,9 @@ import { MODULE_OPTIONS_TOKEN } from "./worker.module-definition.js";
  *
  * @example
  * ```typescript
- * import { defineUnsafeHandlers } from '@amqp-contract/worker';
+ * import { defineHandlers, defineUnsafeHandlers } from '@amqp-contract/worker';
+ * import { Future, Result } from '@swan-io/boxed';
+ * import { RetryableError } from '@amqp-contract/worker';
  *
  * // Using safe handlers (recommended)
  * const options: AmqpWorkerModuleOptions<typeof contract> = {
@@ -19,8 +21,8 @@ import { MODULE_OPTIONS_TOKEN } from "./worker.module-definition.js";
  *   handlers: defineHandlers(myContract, {
  *     processOrder: (message) =>
  *       Future.fromPromise(processPayment(message))
- *         .mapOk(() => undefined)
- *         .mapError((error) => new RetryableError('Payment failed', error))
+ *         .mapOk(() => Result.Ok(undefined))
+ *         .mapError((error) => Result.Error(new RetryableError('Payment failed', error)))
  *   }),
  *   urls: ['amqp://localhost'],
  * };

@@ -10,6 +10,7 @@ import { describe, expect, vi } from "vitest";
 import { AmqpWorkerModule } from "../worker.module.js";
 import { Module } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
+import { defineUnsafeHandlers } from "@amqp-contract/worker";
 import { it } from "@amqp-contract/testing/extension";
 import { z } from "zod";
 
@@ -53,9 +54,9 @@ describe("AmqpWorkerModule Integration", () => {
         imports: [
           AmqpWorkerModule.forRoot({
             contract: testContract,
-            handlers: {
+            handlers: defineUnsafeHandlers(testContract, {
               testConsumer: handler,
-            },
+            }),
             urls: [amqpConnectionUrl],
           }),
         ],
@@ -81,9 +82,9 @@ describe("AmqpWorkerModule Integration", () => {
         imports: [
           AmqpWorkerModule.forRoot({
             contract: testContract,
-            handlers: {
+            handlers: defineUnsafeHandlers(testContract, {
               testConsumer: handler,
-            },
+            }),
             urls: [amqpConnectionUrl],
           }),
         ],
@@ -123,9 +124,9 @@ describe("AmqpWorkerModule Integration", () => {
         imports: [
           AmqpWorkerModule.forRoot({
             contract: testContract,
-            handlers: {
+            handlers: defineUnsafeHandlers(testContract, {
               testConsumer: handler,
-            },
+            }),
             urls: [amqpConnectionUrl],
           }),
         ],
@@ -162,9 +163,9 @@ describe("AmqpWorkerModule Integration", () => {
           AmqpWorkerModule.forRootAsync({
             useFactory: () => ({
               contract: testContract,
-              handlers: {
+              handlers: defineUnsafeHandlers(testContract, {
                 testConsumer: handler,
-              },
+              }),
               urls: [amqpConnectionUrl],
             }),
           }),
@@ -204,9 +205,9 @@ describe("AmqpWorkerModule Integration", () => {
             imports: [ConfigModule],
             useFactory: (configService: ConfigService) => ({
               contract: testContract,
-              handlers: {
+              handlers: defineUnsafeHandlers(testContract, {
                 testConsumer: handler,
-              },
+              }),
               urls: configService.getAmqpUrls(),
             }),
             inject: [ConfigService],

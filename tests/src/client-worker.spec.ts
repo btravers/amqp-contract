@@ -8,7 +8,11 @@ import {
   defineQueue,
   defineQueueBinding,
 } from "@amqp-contract/contract";
-import { TypedAmqpWorker, type WorkerInferConsumerHandlers } from "@amqp-contract/worker";
+import {
+  TypedAmqpWorker,
+  type WorkerInferUnsafeConsumerHandlers,
+  defineUnsafeHandlers,
+} from "@amqp-contract/worker";
 import { describe, expect, vi } from "vitest";
 import { Result } from "@swan-io/boxed";
 import { TypedAmqpClient } from "@amqp-contract/client";
@@ -21,7 +25,7 @@ const it = baseIt.extend<{
   ) => Promise<TypedAmqpClient<TContract>>;
   workerFactory: <TContract extends ContractDefinition>(
     contract: TContract,
-    handlers: Parameters<typeof TypedAmqpWorker.create<TContract>>[0]["handlers"],
+    handlers: WorkerInferUnsafeConsumerHandlers<TContract>,
   ) => Promise<TypedAmqpWorker<TContract>>;
 }>({
   clientFactory: async ({ amqpConnectionUrl }, use) => {
@@ -58,11 +62,11 @@ const it = baseIt.extend<{
       await use(
         async <TContract extends ContractDefinition>(
           contract: TContract,
-          handlers: WorkerInferConsumerHandlers<TContract>,
+          handlers: WorkerInferUnsafeConsumerHandlers<TContract>,
         ) => {
           const worker = await TypedAmqpWorker.create({
             contract,
-            handlers,
+            handlers: defineUnsafeHandlers(contract, handlers),
             urls: [amqpConnectionUrl],
           }).resultToPromise();
 

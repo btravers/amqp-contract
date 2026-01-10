@@ -146,16 +146,16 @@ import { defineHandlers, RetryableError } from "@amqp-contract/worker";
 import { Future, Result } from "@swan-io/boxed";
 import { contract } from "./contract";
 
-// Safe handlers (recommended)
+// Safe handlers (recommended) - for async operations use Future.fromPromise
 const handlers = defineHandlers(contract, {
-  processOrder: (message) => {
-    processPayment(message);
-    return Future.value(Result.Ok(undefined));
-  },
-  notifyOrder: (message) => {
-    sendEmail(message);
-    return Future.value(Result.Ok(undefined));
-  },
+  processOrder: (message) =>
+    Future.fromPromise(processPayment(message))
+      .mapOk(() => Result.Ok(undefined))
+      .mapError((error) => Result.Error(new RetryableError("Payment failed", error))),
+  notifyOrder: (message) =>
+    Future.fromPromise(sendEmail(message))
+      .mapOk(() => Result.Ok(undefined))
+      .mapError((error) => Result.Error(new RetryableError("Email failed", error))),
 });
 
 // Or use unsafe handlers for simpler code
