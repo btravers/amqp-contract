@@ -150,12 +150,12 @@ import { contract } from "./contract";
 const handlers = defineHandlers(contract, {
   processOrder: (message) =>
     Future.fromPromise(processPayment(message))
-      .mapOk(() => Result.Ok(undefined))
-      .mapError((error) => Result.Error(new RetryableError("Payment failed", error))),
+      .mapOk(() => undefined)
+      .mapError((error) => new RetryableError("Payment failed", error)),
   notifyOrder: (message) =>
     Future.fromPromise(sendEmail(message))
-      .mapOk(() => Result.Ok(undefined))
-      .mapError((error) => Result.Error(new RetryableError("Email failed", error))),
+      .mapOk(() => undefined)
+      .mapError((error) => new RetryableError("Email failed", error)),
 });
 
 // Or use unsafe handlers for simpler code

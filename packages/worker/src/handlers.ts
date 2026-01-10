@@ -62,7 +62,7 @@ function wrapUnsafeHandler<TInput>(
 ): (input: TInput) => Future<Result<void, HandlerError>> {
   return (input: TInput): Future<Result<void, HandlerError>> => {
     return Future.fromPromise(handler(input))
-      .flatMapOk(() => Future.value(Result.Ok<void, HandlerError>(undefined)))
+      .mapOkToResult(() => Result.Ok<void, HandlerError>(undefined))
       .flatMapError((error) => {
         // Check if error is already a HandlerError type
         if (error instanceof NonRetryableError || error instanceof RetryableError) {

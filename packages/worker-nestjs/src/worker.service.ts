@@ -21,8 +21,8 @@ import { MODULE_OPTIONS_TOKEN } from "./worker.module-definition.js";
  *   handlers: defineHandlers(myContract, {
  *     processOrder: (message) =>
  *       Future.fromPromise(processPayment(message))
- *         .mapOk(() => Result.Ok(undefined))
- *         .mapError((error) => Result.Error(new RetryableError('Payment failed', error)))
+ *         .mapOk(() => undefined)
+ *         .mapError((error) => new RetryableError('Payment failed', error))
  *   }),
  *   urls: ['amqp://localhost'],
  * };
