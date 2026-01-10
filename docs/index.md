@@ -112,13 +112,3 @@ const worker = await TypedAmqpWorker.create({
 ```
 
 :::
-
-## Installation
-
-```bash
-pnpm add @amqp-contract/contract @amqp-contract/client @amqp-contract/worker
-```
-
-<div style="text-align: center; margin: 2rem 0;">
-  <a href="/guide/quick-start" style="display: inline-block; padding: 0.75rem 1.5rem; background: var(--vp-c-brand-1); color: white; border-radius: 8px; text-decoration: none; font-weight: 500;">Get Started →</a>
-</div>
