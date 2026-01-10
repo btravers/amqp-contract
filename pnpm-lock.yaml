@@ -739,25 +739,22 @@ importers:
 
   samples/basic-order-processing-contract:
     dependencies:
-      '@amqp-contract/asyncapi':
-        specifier: workspace:*
-        version: link:../../packages/asyncapi
       '@amqp-contract/contract':
         specifier: workspace:*
         version: link:../../packages/contract
-      '@orpc/zod':
-        specifier: 'catalog:'
-        version: 1.13.2(@orpc/contract@1.13.2)(@orpc/server@1.13.2)(zod@4.3.5)
-      yaml:
-        specifier: 'catalog:'
-        version: 2.7.1
       zod:
         specifier: 'catalog:'
         version: 4.3.5
     devDependencies:
+      '@amqp-contract/asyncapi':
+        specifier: workspace:*
+        version: link:../../packages/asyncapi
       '@amqp-contract/tsconfig':
         specifier: workspace:*
         version: link:../../tools/tsconfig
+      '@orpc/zod':
+        specifier: 'catalog:'
+        version: 1.13.2(@orpc/contract@1.13.2)(@orpc/server@1.13.2)(zod@4.3.5)
       '@types/node':
         specifier: 'catalog:'
         version: 25.0.3
@@ -770,6 +767,9 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
+      yaml:
+        specifier: 'catalog:'
+        version: 2.7.1
 
   samples/basic-order-processing-worker:
     dependencies:

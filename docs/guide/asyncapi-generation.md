@@ -230,7 +230,7 @@ The `samples/basic-order-processing-contract` package includes scripts for gener
 pnpm --filter @amqp-contract-samples/basic-order-processing-contract generate:asyncapi:json
 ```
 
-This runs `src/generate-asyncapi-json.ts` and outputs `asyncapi.json`.
+This runs `scripts/generate-asyncapi-json.ts` and outputs `asyncapi.json`.
 
 ### Generate YAML Specification
 
@@ -238,7 +238,7 @@ This runs `src/generate-asyncapi-json.ts` and outputs `asyncapi.json`.
 pnpm --filter @amqp-contract-samples/basic-order-processing-contract generate:asyncapi:yaml
 ```
 
-This runs `src/generate-asyncapi-yaml.ts` and outputs `asyncapi.yaml`.
+This runs `scripts/generate-asyncapi-yaml.ts` and outputs `asyncapi.yaml`.
 
 ### Turborepo Integration
 

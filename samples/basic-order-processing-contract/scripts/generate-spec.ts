@@ -1,14 +1,12 @@
 import { AsyncAPIGenerator } from "@amqp-contract/asyncapi";
-import YAML from "yaml";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
-import { orderContract } from "./index.js";
-import { writeFileSync } from "node:fs";
+import { orderContract } from "../src/index.js";
 
 const generator = new AsyncAPIGenerator({
   schemaConverters: [new ZodToJsonSchemaConverter()],
 });
 
-const spec = await generator.generate(orderContract, {
+export const spec = await generator.generate(orderContract, {
   info: {
     title: "Order Processing API",
     version: "1.0.0",
@@ -27,10 +25,3 @@ const spec = await generator.generate(orderContract, {
     },
   },
 });
-
-const outputPath = "asyncapi.yaml";
-writeFileSync(outputPath, YAML.stringify(spec));
-
-console.log(`✅ Generated AsyncAPI spec: ${outputPath}`);
-console.log(`   Channels: ${Object.keys(spec.channels ?? {}).length}`);
-console.log(`   Operations: ${Object.keys(spec.operations ?? {}).length}`);
