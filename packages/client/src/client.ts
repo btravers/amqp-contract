@@ -1,4 +1,13 @@
-import { AmqpClient, type Logger } from "@amqp-contract/core";
+import {
+  AmqpClient,
+  type Logger,
+  type TelemetryProvider,
+  defaultTelemetryProvider,
+  endSpanError,
+  endSpanSuccess,
+  recordPublishMetric,
+  startPublishSpan,
+} from "@amqp-contract/core";
 import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
 import type {
   CompressionAlgorithm,
@@ -31,6 +40,12 @@ export type CreateClientOptions<TContract extends ContractDefinition> = {
   urls: ConnectionUrl[];
   connectionOptions?: AmqpConnectionManagerOptions | undefined;
   logger?: Logger | undefined;
+  /**
+   * Optional telemetry provider for tracing and metrics.
+   * If not provided, uses the default provider which attempts to load OpenTelemetry.
+   * OpenTelemetry instrumentation is automatically enabled if @opentelemetry/api is installed.
+   */
+  telemetry?: TelemetryProvider | undefined;
 };
 
 /**
@@ -41,6 +56,7 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     private readonly contract: TContract,
     private readonly amqpClient: AmqpClient,
     private readonly logger?: Logger,
+    private readonly telemetry: TelemetryProvider = defaultTelemetryProvider,
   ) {}
 
   /**
@@ -58,11 +74,13 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     urls,
     connectionOptions,
     logger,
+    telemetry,
   }: CreateClientOptions<TContract>): Future<Result<TypedAmqpClient<TContract>, TechnicalError>> {
     const client = new TypedAmqpClient(
       contract,
       new AmqpClient(contract, { urls, connectionOptions }),
       logger,
+      telemetry ?? defaultTelemetryProvider,
     );
 
     return client.waitForConnectionReady().mapOk(() => client);
@@ -87,6 +105,7 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     message: ClientInferPublisherInput<TContract, TName>,
     options?: PublishOptions,
   ): Future<Result<void, TechnicalError | MessageValidationError>> {
+    const startTime = Date.now();
     const publishers = this.contract.publishers;
     if (!publishers) {
       return Future.value(Result.Error(new TechnicalError("No publishers defined in contract")));
@@ -100,6 +119,14 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
         ),
       );
     }
+
+    const exchangeName = publisher.exchange.name;
+    const routingKey = publisher.routingKey;
+
+    // Start telemetry span
+    const span = startPublishSpan(this.telemetry, exchangeName, routingKey, {
+      "amqp.publisher.name": String(publisherName),
+    });
 
     const validateMessage = () => {
       const validationResult = publisher.message.payload["~standard"].validate(message);
@@ -172,7 +199,18 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     };
 
     // Validate message using schema
-    return validateMessage().flatMapOk((validatedMessage) => publishMessage(validatedMessage));
+    return validateMessage()
+      .flatMapOk((validatedMessage) => publishMessage(validatedMessage))
+      .tap((result) => {
+        const durationMs = Date.now() - startTime;
+        if (result.isOk()) {
+          endSpanSuccess(span);
+          recordPublishMetric(this.telemetry, exchangeName, routingKey, true, durationMs);
+        } else {
+          endSpanError(span, result.error);
+          recordPublishMetric(this.telemetry, exchangeName, routingKey, false, durationMs);
+        }
+      });
   }
 
   /**

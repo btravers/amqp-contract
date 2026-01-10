@@ -1,4 +1,13 @@
-import { AmqpClient, type Logger } from "@amqp-contract/core";
+import {
+  AmqpClient,
+  type Logger,
+  type TelemetryProvider,
+  defaultTelemetryProvider,
+  endSpanError,
+  endSpanSuccess,
+  recordConsumeMetric,
+  startConsumeSpan,
+} from "@amqp-contract/core";
 import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
 import type { Channel, Message } from "amqplib";
 import type {
@@ -130,6 +139,12 @@ export type CreateWorkerOptions<TContract extends ContractDefinition> = {
   logger?: Logger | undefined;
   /** Retry configuration - when undefined, uses legacy behavior (immediate requeue) */
   retry?: RetryOptions | undefined;
+  /**
+   * Optional telemetry provider for tracing and metrics.
+   * If not provided, uses the default provider which attempts to load OpenTelemetry.
+   * OpenTelemetry instrumentation is automatically enabled if @opentelemetry/api is installed.
+   */
+  telemetry?: TelemetryProvider | undefined;
 };
 
 /**
@@ -188,6 +203,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   private readonly batchTimers: Map<string, NodeJS.Timeout> = new Map();
   private readonly consumerTags: Set<string> = new Set();
   private readonly retryConfig: ResolvedRetryConfig | null;
+  private readonly telemetry: TelemetryProvider;
 
   private constructor(
     private readonly contract: TContract,
@@ -195,7 +211,10 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     handlers: WorkerInferSafeConsumerHandlers<TContract>,
     private readonly logger?: Logger,
     retryOptions?: RetryOptions,
+    telemetry?: TelemetryProvider,
   ) {
+    this.telemetry = telemetry ?? defaultTelemetryProvider;
+
     // Extract handlers and options from the handlers object
     this.actualHandlers = {};
     this.consumerOptions = {};
@@ -268,6 +287,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     connectionOptions,
     logger,
     retry,
+    telemetry,
   }: CreateWorkerOptions<TContract>): Future<Result<TypedAmqpWorker<TContract>, TechnicalError>> {
     const worker = new TypedAmqpWorker(
       contract,
@@ -278,6 +298,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       handlers,
       logger,
       retry,
+      telemetry,
     );
 
     return worker
@@ -621,17 +642,24 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       message: WorkerInferConsumerInput<TContract, TName>,
     ) => Future<Result<void, HandlerError>>,
   ): Future<Result<void, TechnicalError>> {
+    const queueName = consumer.queue.name;
+
     // Start consuming
     return Future.fromPromise(
-      this.amqpClient.channel.consume(consumer.queue.name, async (msg) => {
+      this.amqpClient.channel.consume(queueName, async (msg) => {
         // Handle null messages (consumer cancellation)
         if (msg === null) {
           this.logger?.warn("Consumer cancelled by server", {
             consumerName: String(consumerName),
-            queueName: consumer.queue.name,
+            queueName,
           });
           return;
         }
+
+        const startTime = Date.now();
+        const span = startConsumeSpan(this.telemetry, queueName, String(consumerName), {
+          "messaging.rabbitmq.message.delivery_tag": msg.fields.deliveryTag,
+        });
 
         // Parse and validate message
         await this.parseAndValidateMessage(msg, consumer, consumerName)
@@ -640,25 +668,58 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
               .flatMapOk(() => {
                 this.logger?.info("Message consumed successfully", {
                   consumerName: String(consumerName),
-                  queueName: consumer.queue.name,
+                  queueName,
                 });
                 // Acknowledge message on success
                 this.amqpClient.channel.ack(msg);
+
+                // Record telemetry success
+                const durationMs = Date.now() - startTime;
+                endSpanSuccess(span);
+                recordConsumeMetric(
+                  this.telemetry,
+                  queueName,
+                  String(consumerName),
+                  true,
+                  durationMs,
+                );
+
                 return Future.value(Result.Ok<void, HandlerError>(undefined));
               })
               .flatMapError((handlerError: HandlerError) => {
                 // Handler returned an error
                 this.logger?.error("Error processing message", {
                   consumerName: String(consumerName),
-                  queueName: consumer.queue.name,
+                  queueName,
                   errorType: handlerError.name,
                   error: handlerError.message,
                 });
+
+                // Record telemetry failure
+                const durationMs = Date.now() - startTime;
+                endSpanError(span, handlerError);
+                recordConsumeMetric(
+                  this.telemetry,
+                  queueName,
+                  String(consumerName),
+                  false,
+                  durationMs,
+                );
 
                 // Handle the error using retry mechanism
                 return this.handleError(handlerError, msg, String(consumerName), consumer);
               }),
           )
+          .tapError(() => {
+            // Record telemetry failure for validation errors
+            const durationMs = Date.now() - startTime;
+            const validationError = new MessageValidationError(
+              String(consumerName),
+              "Validation failed during message processing",
+            );
+            endSpanError(span, validationError);
+            recordConsumeMetric(this.telemetry, queueName, String(consumerName), false, durationMs);
+          })
           .toPromise();
       }),
     )
@@ -703,6 +764,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     const batchSize = options.batchSize!;
     const batchTimeout = options.batchTimeout ?? 1000;
     const timerKey = String(consumerName);
+    const queueName = consumer.queue.name;
 
     // Note: Prefetch is handled globally in consumeAll()
     // Batch accumulation state
@@ -733,11 +795,18 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       }
 
       const messages = currentBatch.map((item) => item.message);
+      const batchCount = currentBatch.length;
+
+      // Start telemetry span for batch processing
+      const startTime = Date.now();
+      const span = startConsumeSpan(this.telemetry, queueName, String(consumerName), {
+        "amqp.batch.size": batchCount,
+      });
 
       this.logger?.info("Processing batch", {
         consumerName: String(consumerName),
-        queueName: consumer.queue.name,
-        batchSize: currentBatch.length,
+        queueName,
+        batchSize: batchCount,
       });
 
       return handler(messages)
@@ -749,20 +818,31 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
           this.logger?.info("Batch processed successfully", {
             consumerName: String(consumerName),
-            queueName: consumer.queue.name,
-            batchSize: currentBatch.length,
+            queueName,
+            batchSize: batchCount,
           });
+
+          // Record telemetry success
+          const durationMs = Date.now() - startTime;
+          endSpanSuccess(span);
+          recordConsumeMetric(this.telemetry, queueName, String(consumerName), true, durationMs);
+
           return Future.value(Result.Ok<void, TechnicalError>(undefined));
         })
         .flatMapError((handlerError: HandlerError) => {
           // Handler returned an error - log it
           this.logger?.error("Error processing batch", {
             consumerName: String(consumerName),
-            queueName: consumer.queue.name,
-            batchSize: currentBatch.length,
+            queueName,
+            batchSize: batchCount,
             errorType: handlerError.name,
             error: handlerError.message,
           });
+
+          // Record telemetry failure
+          const durationMs = Date.now() - startTime;
+          endSpanError(span, handlerError);
+          recordConsumeMetric(this.telemetry, queueName, String(consumerName), false, durationMs);
 
           // Handle error for each message in the batch
           return this.handleBatchError(handlerError, currentBatch, String(consumerName), consumer);
@@ -794,12 +874,12 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
     // Start consuming
     return Future.fromPromise(
-      this.amqpClient.channel.consume(consumer.queue.name, async (msg) => {
+      this.amqpClient.channel.consume(queueName, async (msg) => {
         // Handle null messages (consumer cancellation)
         if (msg === null) {
           this.logger?.warn("Consumer cancelled by server", {
             consumerName: String(consumerName),
-            queueName: consumer.queue.name,
+            queueName,
           });
           // Process any remaining messages in the batch
           await processBatch().toPromise();
