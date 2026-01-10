@@ -101,16 +101,11 @@ import { defineHandler, RetryableError, NonRetryableError } from "@amqp-contract
 import { Future, Result } from "@swan-io/boxed";
 import { contract } from "./contract";
 
-const processOrderHandler = defineHandler(contract, "processOrder", (message) => {
-  try {
-    console.log("Processing:", message.orderId);
-    saveToDatabase(message);
-    return Future.value(Result.Ok(undefined));
-  } catch (error) {
-    // Explicit error handling - will be retried
-    return Future.value(Result.Error(new RetryableError("Database error", error)));
-  }
-});
+const processOrderHandler = defineHandler(contract, "processOrder", (message) =>
+  Future.fromPromise(saveToDatabase(message))
+    .mapOk(() => undefined)
+    .mapError((error) => new RetryableError("Database error", error)),
+);
 
 // Non-retryable errors go directly to DLQ
 const validateOrderHandler = defineHandler(contract, "validateOrder", (message) => {
@@ -199,34 +194,23 @@ Create a dedicated module for handlers with explicit error handling:
 
 ```typescript
 // handlers/order-handlers.ts
-import {
-  defineHandler,
-  defineHandlers,
-  RetryableError,
-  NonRetryableError,
-} from "@amqp-contract/worker";
-import { Future, Result } from "@swan-io/boxed";
+import { defineHandler, defineHandlers, RetryableError } from "@amqp-contract/worker";
+import { Future } from "@swan-io/boxed";
 import { orderContract } from "../contract";
 import { processPayment } from "../services/payment";
 import { sendEmail } from "../services/email";
 
-export const processOrderHandler = defineHandler(orderContract, "processOrder", (message) => {
-  try {
-    processPayment(message);
-    return Future.value(Result.Ok(undefined));
-  } catch (error) {
-    return Future.value(Result.Error(new RetryableError("Payment failed", error)));
-  }
-});
+export const processOrderHandler = defineHandler(orderContract, "processOrder", (message) =>
+  Future.fromPromise(processPayment(message))
+    .mapOk(() => undefined)
+    .mapError((error) => new RetryableError("Payment failed", error)),
+);
 
-export const notifyOrderHandler = defineHandler(orderContract, "notifyOrder", (message) => {
-  try {
-    sendEmail(message);
-    return Future.value(Result.Ok(undefined));
-  } catch (error) {
-    return Future.value(Result.Error(new RetryableError("Email failed", error)));
-  }
-});
+export const notifyOrderHandler = defineHandler(orderContract, "notifyOrder", (message) =>
+  Future.fromPromise(sendEmail(message))
+    .mapOk(() => undefined)
+    .mapError((error) => new RetryableError("Email failed", error)),
+);
 
 // Export all handlers together
 export const orderHandlers = defineHandlers(orderContract, {
@@ -773,6 +757,7 @@ For the most explicit error handling, use safe handlers that return `Future<Resu
 ```typescript
 import { defineHandler, RetryableError, NonRetryableError } from "@amqp-contract/worker";
 import { Future, Result } from "@swan-io/boxed";
+import { match } from "ts-pattern";
 
 const worker = await TypedAmqpWorker.create({
   contract,
@@ -783,13 +768,16 @@ const worker = await TypedAmqpWorker.create({
         return Future.value(Result.Error(new NonRetryableError("Invalid amount")));
       }
 
-      try {
-        processPayment(message);
-        return Future.value(Result.Ok(undefined));
-      } catch (error) {
-        // Transient failure - retryable
-        return Future.value(Result.Error(new RetryableError("Payment failed", error)));
-      }
+      return Future.fromPromise(processPayment(message))
+        .mapOk(() => undefined)
+        .mapError((error) =>
+          match(error)
+            .when(
+              (e) => e instanceof PaymentDeclinedError,
+              () => new NonRetryableError("Payment declined", error),
+            )
+            .otherwise(() => new RetryableError("Payment failed", error)),
+        );
     }),
   },
   urls: ["amqp://localhost"],

@@ -37,7 +37,7 @@ describe("handlers", () => {
   });
 
   describe("defineUnsafeHandler", () => {
-    it("should create a simple handler without options", () => {
+    it("should create a wrapped safe handler without options", () => {
       // GIVEN
       const handler = async (message: { id: string; data: string }) => {
         console.log(message.id);
@@ -46,11 +46,12 @@ describe("handlers", () => {
       // WHEN
       const result = defineUnsafeHandler(testContract, "testConsumer", handler);
 
-      // THEN
-      expect(result).toBe(handler);
+      // THEN - result is a wrapped function, not the original
+      expect(typeof result).toBe("function");
+      expect(result).not.toBe(handler);
     });
 
-    it("should create a handler with prefetch option", () => {
+    it("should create a wrapped safe handler with prefetch option", () => {
       // GIVEN
       const handler = async (message: { id: string; data: string }) => {
         console.log(message.id);
@@ -59,11 +60,15 @@ describe("handlers", () => {
       // WHEN
       const result = defineUnsafeHandler(testContract, "testConsumer", handler, { prefetch: 10 });
 
-      // THEN
-      expect(result).toEqual([handler, { prefetch: 10 }]);
+      // THEN - result is a tuple with wrapped handler and options
+      expect(Array.isArray(result)).toBe(true);
+      const [wrappedHandler, options] = result as [unknown, unknown];
+      expect(typeof wrappedHandler).toBe("function");
+      expect(wrappedHandler).not.toBe(handler);
+      expect(options).toEqual({ prefetch: 10 });
     });
 
-    it("should create a batch handler with batchSize", () => {
+    it("should create a wrapped batch handler with batchSize", () => {
       // GIVEN
       const batchHandler = async (messages: Array<{ id: string; data: string }>) => {
         console.log(messages.length);
@@ -75,8 +80,12 @@ describe("handlers", () => {
         batchTimeout: 1000,
       });
 
-      // THEN
-      expect(result).toEqual([batchHandler, { batchSize: 5, batchTimeout: 1000 }]);
+      // THEN - result is a tuple with wrapped handler and options
+      expect(Array.isArray(result)).toBe(true);
+      const [wrappedHandler, options] = result as [unknown, unknown];
+      expect(typeof wrappedHandler).toBe("function");
+      expect(wrappedHandler).not.toBe(batchHandler);
+      expect(options).toEqual({ batchSize: 5, batchTimeout: 1000 });
     });
 
     it("should throw error if consumer not found in contract", () => {
@@ -110,10 +119,48 @@ describe("handlers", () => {
         (defineUnsafeHandler as any)(emptyContract, "testConsumer", handler);
       }).toThrow('Consumer "testConsumer" not found in contract. Available consumers: none');
     });
+
+    it("should wrap errors in RetryableError by default", async () => {
+      // GIVEN
+      const handler = async (_message: { id: string; data: string }) => {
+        throw new Error("Test error");
+      };
+
+      // WHEN
+      const result = defineUnsafeHandler(testContract, "testConsumer", handler);
+      const wrappedResult = await (
+        result as (input: { id: string; data: string }) => Future<Result<void, unknown>>
+      )({ id: "1", data: "test" }).toPromise();
+
+      // THEN
+      expect(wrappedResult.isError()).toBe(true);
+      if (wrappedResult.isError()) {
+        expect(wrappedResult.getError()).toBeInstanceOf(RetryableError);
+      }
+    });
+
+    it("should preserve NonRetryableError thrown by handler", async () => {
+      // GIVEN
+      const handler = async (_message: { id: string; data: string }) => {
+        throw new NonRetryableError("Invalid data");
+      };
+
+      // WHEN
+      const result = defineUnsafeHandler(testContract, "testConsumer", handler);
+      const wrappedResult = await (
+        result as (input: { id: string; data: string }) => Future<Result<void, unknown>>
+      )({ id: "1", data: "test" }).toPromise();
+
+      // THEN
+      expect(wrappedResult.isError()).toBe(true);
+      if (wrappedResult.isError()) {
+        expect(wrappedResult.getError()).toBeInstanceOf(NonRetryableError);
+      }
+    });
   });
 
   describe("defineUnsafeHandlers", () => {
-    it("should create multiple handlers", () => {
+    it("should create wrapped safe handlers", () => {
       // GIVEN
       const handlers = {
         testConsumer: async (message: { id: string; data: string }) => {
@@ -127,11 +174,15 @@ describe("handlers", () => {
       // WHEN
       const result = defineUnsafeHandlers(testContract, handlers);
 
-      // THEN
-      expect(result).toBe(handlers);
+      // THEN - result contains wrapped functions, not the originals
+      expect(result).not.toBe(handlers);
+      expect(typeof result.testConsumer).toBe("function");
+      expect(typeof result.anotherConsumer).toBe("function");
+      expect(result.testConsumer).not.toBe(handlers.testConsumer);
+      expect(result.anotherConsumer).not.toBe(handlers.anotherConsumer);
     });
 
-    it("should create handlers with mixed options", () => {
+    it("should create wrapped handlers with mixed options", () => {
       // GIVEN
       const handler1 = async (message: { id: string; data: string }) => {
         console.log(message.id);
@@ -148,11 +199,12 @@ describe("handlers", () => {
       // WHEN
       const result = defineUnsafeHandlers(testContract, handlers);
 
-      // THEN
-      expect(result).toEqual({
-        testConsumer: handler1,
-        anotherConsumer: [handler2, { prefetch: 5 }],
-      });
+      // THEN - result contains wrapped handlers
+      expect(typeof result.testConsumer).toBe("function");
+      expect(Array.isArray(result.anotherConsumer)).toBe(true);
+      const [wrappedHandler2, options] = result.anotherConsumer as [unknown, unknown];
+      expect(typeof wrappedHandler2).toBe("function");
+      expect(options).toEqual({ prefetch: 5 });
     });
 
     it("should throw error if handler references non-existent consumer", () => {

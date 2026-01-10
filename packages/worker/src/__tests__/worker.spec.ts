@@ -9,8 +9,9 @@ import {
   defineQueueBinding,
 } from "@amqp-contract/contract";
 import { describe, expect, vi } from "vitest";
-import { TypedAmqpWorker } from "../worker.js";
+import { defineUnsafeHandler } from "../handlers.js";
 import { it } from "./fixture.js";
+import { TypedAmqpWorker } from "../worker.js";
 import { z } from "zod";
 
 describe("AmqpWorker Integration", () => {
@@ -571,9 +572,9 @@ describe("AmqpWorker Integration", () => {
     const worker = await TypedAmqpWorker.create({
       contract,
       handlers: {
-        testConsumer: (_msg) => {
-          return Promise.resolve();
-        },
+        testConsumer: defineUnsafeHandler(contract, "testConsumer", async (_msg) => {
+          // No-op handler
+        }),
       },
       urls: [amqpConnectionUrl],
       logger: mockLogger,

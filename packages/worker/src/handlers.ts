@@ -1,14 +1,14 @@
 import type { ContractDefinition, InferConsumerNames } from "@amqp-contract/contract";
+import { Future, Result } from "@swan-io/boxed";
+import { NonRetryableError, RetryableError } from "./errors.js";
 import type {
+  WorkerInferConsumerInput,
   WorkerInferSafeConsumerBatchHandler,
   WorkerInferSafeConsumerHandler,
   WorkerInferSafeConsumerHandlerEntry,
   WorkerInferSafeConsumerHandlers,
-  WorkerInferUnsafeConsumerBatchHandler,
-  WorkerInferUnsafeConsumerHandler,
-  WorkerInferUnsafeConsumerHandlerEntry,
-  WorkerInferUnsafeConsumerHandlers,
 } from "./types.js";
+import type { HandlerError } from "./errors.js";
 
 // =============================================================================
 // Helper Functions
@@ -53,6 +53,31 @@ function validateHandlers<TContract extends ContractDefinition>(
   }
 }
 
+/**
+ * Wrap a Promise-based handler into a Future-based safe handler.
+ * This is used internally by defineUnsafeHandler to convert Promise handlers to Future handlers.
+ */
+function wrapUnsafeHandler<TInput>(
+  handler: (input: TInput) => Promise<void>,
+): (input: TInput) => Future<Result<void, HandlerError>> {
+  return (input: TInput): Future<Result<void, HandlerError>> => {
+    return Future.fromPromise(handler(input))
+      .flatMapOk(() => Future.value(Result.Ok<void, HandlerError>(undefined)))
+      .flatMapError((error) => {
+        // Check if error is already a HandlerError type
+        if (error instanceof NonRetryableError || error instanceof RetryableError) {
+          return Future.value(Result.Error<void, HandlerError>(error));
+        }
+        // Wrap other errors as RetryableError
+        const retryableError = new RetryableError(
+          error instanceof Error ? error.message : String(error),
+          error,
+        );
+        return Future.value(Result.Error<void, HandlerError>(retryableError));
+      });
+  };
+}
+
 // =============================================================================
 // Safe Handler Definitions (Recommended)
 // =============================================================================
@@ -82,19 +107,14 @@ function validateHandlers<TContract extends ContractDefinition>(
  * import { Future, Result } from '@swan-io/boxed';
  * import { orderContract } from './contract';
  *
- * // Simple handler with explicit error handling
+ * // Simple handler with explicit error handling using mapError
  * const processOrderHandler = defineHandler(
  *   orderContract,
  *   'processOrder',
- *   (message) => {
- *     try {
- *       await processPayment(message);
- *       return Future.value(Result.Ok(undefined));
- *     } catch (error) {
- *       // Explicit error type - will be retried
- *       return Future.value(Result.Error(new RetryableError('Payment service unavailable', error)));
- *     }
- *   }
+ *   (message) =>
+ *     Future.fromPromise(processPayment(message))
+ *       .mapOk(() => undefined)
+ *       .mapError((error) => new RetryableError('Payment failed', error))
  * );
  *
  * // Handler with validation (non-retryable error)
@@ -169,23 +189,19 @@ export function defineHandler<
  *
  * @example
  * ```typescript
- * import { defineHandlers, RetryableError, NonRetryableError } from '@amqp-contract/worker';
- * import { Future, Result } from '@swan-io/boxed';
+ * import { defineHandlers, RetryableError } from '@amqp-contract/worker';
+ * import { Future } from '@swan-io/boxed';
  * import { orderContract } from './contract';
  *
  * const handlers = defineHandlers(orderContract, {
- *   processOrder: (message) => {
- *     try {
- *       await processPayment(message);
- *       return Future.value(Result.Ok(undefined));
- *     } catch (error) {
- *       return Future.value(Result.Error(new RetryableError('Failed', error)));
- *     }
- *   },
- *   notifyOrder: (message) => {
- *     await sendNotification(message);
- *     return Future.value(Result.Ok(undefined));
- *   },
+ *   processOrder: (message) =>
+ *     Future.fromPromise(processPayment(message))
+ *       .mapOk(() => undefined)
+ *       .mapError((error) => new RetryableError('Payment failed', error)),
+ *   notifyOrder: (message) =>
+ *     Future.fromPromise(sendNotification(message))
+ *       .mapOk(() => undefined)
+ *       .mapError((error) => new RetryableError('Notification failed', error)),
  * });
  * ```
  */
@@ -202,6 +218,22 @@ export function defineHandlers<TContract extends ContractDefinition>(
 // =============================================================================
 
 /**
+ * Unsafe handler type for single messages (internal use).
+ */
+type UnsafeHandler<
+  TContract extends ContractDefinition,
+  TName extends InferConsumerNames<TContract>,
+> = (message: WorkerInferConsumerInput<TContract, TName>) => Promise<void>;
+
+/**
+ * Unsafe handler type for batch messages (internal use).
+ */
+type UnsafeBatchHandler<
+  TContract extends ContractDefinition,
+  TName extends InferConsumerNames<TContract>,
+> = (messages: Array<WorkerInferConsumerInput<TContract, TName>>) => Promise<void>;
+
+/**
  * Define an unsafe handler for a specific consumer in a contract.
  *
  * @deprecated Use `defineHandler` instead for explicit error handling with Future<Result>.
@@ -210,6 +242,9 @@ export function defineHandlers<TContract extends ContractDefinition>(
  * - All thrown errors are treated as retryable by default
  * - Harder to reason about which errors should be retried
  * - May lead to unexpected retry behavior
+ *
+ * **Note:** Internally, this function wraps the Promise-based handler into a Future-based
+ * safe handler for consistent processing in the worker.
  *
  * @template TContract - The contract definition type
  * @template TName - The consumer name from the contract
@@ -240,44 +275,69 @@ export function defineUnsafeHandler<
 >(
   contract: TContract,
   consumerName: TName,
-  handler: WorkerInferUnsafeConsumerHandler<TContract, TName>,
-): WorkerInferUnsafeConsumerHandlerEntry<TContract, TName>;
+  handler: UnsafeHandler<TContract, TName>,
+): WorkerInferSafeConsumerHandlerEntry<TContract, TName>;
 export function defineUnsafeHandler<
   TContract extends ContractDefinition,
   TName extends InferConsumerNames<TContract>,
 >(
   contract: TContract,
   consumerName: TName,
-  handler: WorkerInferUnsafeConsumerHandler<TContract, TName>,
+  handler: UnsafeHandler<TContract, TName>,
   options: { prefetch?: number; batchSize?: never; batchTimeout?: never },
-): WorkerInferUnsafeConsumerHandlerEntry<TContract, TName>;
+): WorkerInferSafeConsumerHandlerEntry<TContract, TName>;
 export function defineUnsafeHandler<
   TContract extends ContractDefinition,
   TName extends InferConsumerNames<TContract>,
 >(
   contract: TContract,
   consumerName: TName,
-  handler: WorkerInferUnsafeConsumerBatchHandler<TContract, TName>,
+  handler: UnsafeBatchHandler<TContract, TName>,
   options: { prefetch?: number; batchSize: number; batchTimeout?: number },
-): WorkerInferUnsafeConsumerHandlerEntry<TContract, TName>;
+): WorkerInferSafeConsumerHandlerEntry<TContract, TName>;
 export function defineUnsafeHandler<
   TContract extends ContractDefinition,
   TName extends InferConsumerNames<TContract>,
 >(
   contract: TContract,
   consumerName: TName,
-  handler:
-    | WorkerInferUnsafeConsumerHandler<TContract, TName>
-    | WorkerInferUnsafeConsumerBatchHandler<TContract, TName>,
+  handler: UnsafeHandler<TContract, TName> | UnsafeBatchHandler<TContract, TName>,
   options?: { prefetch?: number; batchSize?: number; batchTimeout?: number },
-): WorkerInferUnsafeConsumerHandlerEntry<TContract, TName> {
+): WorkerInferSafeConsumerHandlerEntry<TContract, TName> {
   validateConsumerExists(contract, String(consumerName));
 
+  // Wrap the Promise-based handler into a Future-based handler
+  const wrappedHandler = wrapUnsafeHandler(handler as (input: unknown) => Promise<void>);
+
   if (options) {
-    return [handler, options] as WorkerInferUnsafeConsumerHandlerEntry<TContract, TName>;
+    return [wrappedHandler, options] as WorkerInferSafeConsumerHandlerEntry<TContract, TName>;
   }
-  return handler as WorkerInferUnsafeConsumerHandlerEntry<TContract, TName>;
+  return wrappedHandler as WorkerInferSafeConsumerHandlerEntry<TContract, TName>;
 }
+
+/**
+ * Unsafe handler entry type for internal use.
+ */
+type UnsafeHandlerEntry<
+  TContract extends ContractDefinition,
+  TName extends InferConsumerNames<TContract>,
+> =
+  | UnsafeHandler<TContract, TName>
+  | readonly [
+      UnsafeHandler<TContract, TName>,
+      { prefetch?: number; batchSize?: never; batchTimeout?: never },
+    ]
+  | readonly [
+      UnsafeBatchHandler<TContract, TName>,
+      { prefetch?: number; batchSize: number; batchTimeout?: number },
+    ];
+
+/**
+ * Unsafe handlers object type for internal use.
+ */
+type UnsafeHandlers<TContract extends ContractDefinition> = {
+  [K in InferConsumerNames<TContract>]: UnsafeHandlerEntry<TContract, K>;
+};
 
 /**
  * Define multiple unsafe handlers for consumers in a contract.
@@ -286,6 +346,9 @@ export function defineUnsafeHandler<
  *
  * **Warning:** Unsafe handlers use exception-based error handling.
  * Consider migrating to safe handlers for better error control.
+ *
+ * **Note:** Internally, this function wraps all Promise-based handlers into Future-based
+ * safe handlers for consistent processing in the worker.
  *
  * @template TContract - The contract definition type
  * @param contract - The contract definition containing the consumers
@@ -309,8 +372,25 @@ export function defineUnsafeHandler<
  */
 export function defineUnsafeHandlers<TContract extends ContractDefinition>(
   contract: TContract,
-  handlers: WorkerInferUnsafeConsumerHandlers<TContract>,
-): WorkerInferUnsafeConsumerHandlers<TContract> {
+  handlers: UnsafeHandlers<TContract>,
+): WorkerInferSafeConsumerHandlers<TContract> {
   validateHandlers(contract, handlers as unknown as Record<string, unknown>);
-  return handlers;
+
+  // Transform all handlers
+  const result: Record<string, unknown> = {};
+  for (const [name, entry] of Object.entries(handlers)) {
+    if (Array.isArray(entry)) {
+      // Tuple format: [handler, options]
+      const [handler, options] = entry as [
+        (input: unknown) => Promise<void>,
+        { prefetch?: number; batchSize?: number; batchTimeout?: number },
+      ];
+      result[name] = [wrapUnsafeHandler(handler), options];
+    } else {
+      // Direct function format
+      result[name] = wrapUnsafeHandler(entry as (input: unknown) => Promise<void>);
+    }
+  }
+
+  return result as WorkerInferSafeConsumerHandlers<TContract>;
 }

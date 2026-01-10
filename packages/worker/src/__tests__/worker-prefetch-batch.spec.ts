@@ -8,8 +8,9 @@ import {
   defineQueueBinding,
 } from "@amqp-contract/contract";
 import { describe, expect, vi } from "vitest";
-import { TypedAmqpWorker } from "../worker.js";
+import { Future, Result } from "@swan-io/boxed";
 import { it } from "./fixture.js";
+import { TypedAmqpWorker } from "../worker.js";
 import { z } from "zod";
 
 describe("AmqpWorker Prefetch and Batch Integration", () => {
@@ -265,7 +266,7 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
       const result = await TypedAmqpWorker.create({
         contract,
         handlers: {
-          testConsumer: [async () => {}, { prefetch: 0 }],
+          testConsumer: [() => Future.value(Result.Ok(undefined)), { prefetch: 0 }],
         },
         urls: [amqpConnectionUrl],
       }).toPromise();
@@ -301,7 +302,7 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
       const result = await TypedAmqpWorker.create({
         contract,
         handlers: {
-          testConsumer: [async () => {}, { prefetch: -5 }],
+          testConsumer: [() => Future.value(Result.Ok(undefined)), { prefetch: -5 }],
         },
         urls: [amqpConnectionUrl],
       }).toPromise();
@@ -336,7 +337,7 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
       const result = await TypedAmqpWorker.create({
         contract,
         handlers: {
-          testConsumer: [async () => {}, { batchSize: 0 }],
+          testConsumer: [() => Future.value(Result.Ok(undefined)), { batchSize: 0 }],
         },
         urls: [amqpConnectionUrl],
       }).toPromise();
@@ -372,7 +373,10 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
       const result = await TypedAmqpWorker.create({
         contract,
         handlers: {
-          testConsumer: [async () => {}, { batchSize: 5, batchTimeout: -100 }],
+          testConsumer: [
+            () => Future.value(Result.Ok(undefined)),
+            { batchSize: 5, batchTimeout: -100 },
+          ],
         },
         urls: [amqpConnectionUrl],
       }).toPromise();
@@ -408,7 +412,10 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
       const result = await TypedAmqpWorker.create({
         contract,
         handlers: {
-          testConsumer: [async () => {}, { batchSize: 5, batchTimeout: 0 }],
+          testConsumer: [
+            () => Future.value(Result.Ok(undefined)),
+            { batchSize: 5, batchTimeout: 0 },
+          ],
         },
         urls: [amqpConnectionUrl],
       }).toPromise();
