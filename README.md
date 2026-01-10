@@ -167,7 +167,6 @@ export class AppModule {}
 - [Core Concepts](https://btravers.github.io/amqp-contract/guide/core-concepts)
 - [NestJS Client Usage](https://btravers.github.io/amqp-contract/guide/client-nestjs-usage)
 - [NestJS Worker Usage](https://btravers.github.io/amqp-contract/guide/worker-nestjs-usage)
-- [AsyncAPI Generation](https://btravers.github.io/amqp-contract/guide/asyncapi-generation)
 - [API Reference](https://btravers.github.io/amqp-contract/api/)
 - [Examples](https://btravers.github.io/amqp-contract/examples/)
 

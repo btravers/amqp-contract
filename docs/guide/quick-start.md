@@ -378,7 +378,6 @@ Now that you have amqp-contract working, explore more:
 - **[Basic Order Processing Example](/examples/basic-order-processing)** - See a complete real-world example
 - **[NestJS Integration](/guide/client-nestjs-usage)** - Use with NestJS framework
 - **[Testing](/guide/testing)** - Write tests for your AMQP code
-- **[AsyncAPI Generation](/guide/asyncapi-generation)** - Generate API documentation
 
 ::: tip Need Help?
 

@@ -673,7 +673,6 @@ If your problem isn't listed here:
 
 3. **Check Examples:**
    - [Basic Order Processing](/examples/basic-order-processing)
-   - [AsyncAPI Generation](/examples/asyncapi-generation)
 
 4. **Debug Mode:**
 
