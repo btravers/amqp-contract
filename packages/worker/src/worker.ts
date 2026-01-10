@@ -712,12 +712,10 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           )
           .tapError(() => {
             // Record telemetry failure for validation errors
+            // Note: The actual validation error is logged in parseAndValidateMessage,
+            // here we just record that validation failed for telemetry purposes
             const durationMs = Date.now() - startTime;
-            const validationError = new MessageValidationError(
-              String(consumerName),
-              "Validation failed during message processing",
-            );
-            endSpanError(span, validationError);
+            endSpanError(span, new Error("Message validation failed"));
             recordConsumeMetric(this.telemetry, queueName, String(consumerName), false, durationMs);
           })
           .toPromise();
