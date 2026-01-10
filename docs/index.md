@@ -61,14 +61,6 @@ import { defineMessage } from "@amqp-contract/contract";
 import { contract } from "./contract"; // Your contract definition
 import { z } from "zod";
 
-// Define message with schema validation
-const orderMessage = defineMessage(
-  z.object({
-    orderId: z.string(),
-    amount: z.number(),
-  }),
-);
-
 // Publishing: TypeScript knows the exact shape
 const client = await TypedAmqpClient.create({
   contract,
