@@ -1,188 +1,44 @@
 import type { ContractDefinition, InferConsumerNames } from "@amqp-contract/contract";
 import type {
-  WorkerInferConsumerBatchHandler,
-  WorkerInferConsumerHandler,
-  WorkerInferConsumerHandlerEntry,
-  WorkerInferConsumerHandlers,
+  WorkerInferSafeConsumerBatchHandler,
+  WorkerInferSafeConsumerHandler,
+  WorkerInferSafeConsumerHandlerEntry,
+  WorkerInferSafeConsumerHandlers,
+  WorkerInferUnsafeConsumerBatchHandler,
+  WorkerInferUnsafeConsumerHandler,
+  WorkerInferUnsafeConsumerHandlerEntry,
+  WorkerInferUnsafeConsumerHandlers,
 } from "./types.js";
 
+// =============================================================================
+// Helper Functions
+// =============================================================================
+
 /**
- * Define a type-safe handler for a specific consumer in a contract.
- *
- * This utility allows you to define handlers outside of the worker creation,
- * providing better code organization and reusability.
- *
- * Supports three patterns:
- * 1. Simple handler: just the function (single message handler)
- * 2. Handler with prefetch: [handler, { prefetch: 10 }] (single message handler with config)
- * 3. Batch handler: [batchHandler, { batchSize: 5, batchTimeout: 1000 }] (REQUIRES batchSize config)
- *
- * **Important**: Batch handlers (handlers that accept an array of messages) MUST include
- * batchSize configuration. You cannot create a batch handler without specifying batchSize.
- *
- * @template TContract - The contract definition type
- * @template TName - The consumer name from the contract
- * @param contract - The contract definition containing the consumer
- * @param consumerName - The name of the consumer from the contract
- * @param handler - The async handler function that processes messages (single or batch)
- * @param options - Optional consumer options (prefetch, batchSize, batchTimeout)
- *   - For single-message handlers: { prefetch?: number } is optional
- *   - For batch handlers: { batchSize: number, batchTimeout?: number } is REQUIRED
- * @returns A type-safe handler that can be used with TypedAmqpWorker
- *
- * @example
- * ```typescript
- * import { defineHandler } from '@amqp-contract/worker';
- * import { orderContract } from './contract';
- *
- * // Simple single-message handler without options
- * const processOrderHandler = defineHandler(
- *   orderContract,
- *   'processOrder',
- *   async (message) => {
- *     console.log('Processing order:', message.orderId);
- *     await processPayment(message);
- *   }
- * );
- *
- * // Single-message handler with prefetch
- * const processOrderWithPrefetch = defineHandler(
- *   orderContract,
- *   'processOrder',
- *   async (message) => {
- *     await processOrder(message);
- *   },
- *   { prefetch: 10 }
- * );
- *
- * // Batch handler - MUST include batchSize
- * const processBatchOrders = defineHandler(
- *   orderContract,
- *   'processOrders',
- *   async (messages) => {
- *     // messages is an array - batchSize configuration is REQUIRED
- *     await db.insertMany(messages);
- *   },
- *   { batchSize: 5, batchTimeout: 1000 }
- * );
- * ```
+ * Validate that a consumer exists in the contract
  */
-export function defineHandler<
-  TContract extends ContractDefinition,
-  TName extends InferConsumerNames<TContract>,
->(
+function validateConsumerExists<TContract extends ContractDefinition>(
   contract: TContract,
-  consumerName: TName,
-  handler: WorkerInferConsumerHandler<TContract, TName>,
-): WorkerInferConsumerHandlerEntry<TContract, TName>;
-export function defineHandler<
-  TContract extends ContractDefinition,
-  TName extends InferConsumerNames<TContract>,
->(
-  contract: TContract,
-  consumerName: TName,
-  handler: WorkerInferConsumerHandler<TContract, TName>,
-  options: { prefetch?: number; batchSize?: never; batchTimeout?: never },
-): WorkerInferConsumerHandlerEntry<TContract, TName>;
-export function defineHandler<
-  TContract extends ContractDefinition,
-  TName extends InferConsumerNames<TContract>,
->(
-  contract: TContract,
-  consumerName: TName,
-  handler: WorkerInferConsumerBatchHandler<TContract, TName>,
-  options: { prefetch?: number; batchSize: number; batchTimeout?: number },
-): WorkerInferConsumerHandlerEntry<TContract, TName>;
-export function defineHandler<
-  TContract extends ContractDefinition,
-  TName extends InferConsumerNames<TContract>,
->(
-  contract: TContract,
-  consumerName: TName,
-  handler:
-    | WorkerInferConsumerHandler<TContract, TName>
-    | WorkerInferConsumerBatchHandler<TContract, TName>,
-  options?: { prefetch?: number; batchSize?: number; batchTimeout?: number },
-): WorkerInferConsumerHandlerEntry<TContract, TName> {
-  // Validate that the consumer exists in the contract
+  consumerName: string,
+): void {
   const consumers = contract.consumers;
 
   if (!consumers || !(consumerName in consumers)) {
     const availableConsumers = consumers ? Object.keys(consumers) : [];
     const available = availableConsumers.length > 0 ? availableConsumers.join(", ") : "none";
     throw new Error(
-      `Consumer "${String(consumerName)}" not found in contract. Available consumers: ${available}`,
+      `Consumer "${consumerName}" not found in contract. Available consumers: ${available}`,
     );
   }
-
-  // Return the handler with options if provided, otherwise just the handler
-  if (options) {
-    return [handler, options] as WorkerInferConsumerHandlerEntry<TContract, TName>;
-  }
-  return handler as WorkerInferConsumerHandlerEntry<TContract, TName>;
 }
 
 /**
- * Define multiple type-safe handlers for consumers in a contract.
- *
- * This utility allows you to define all handlers at once outside of the worker creation,
- * ensuring type safety and providing better code organization.
- *
- * @template TContract - The contract definition type
- * @param contract - The contract definition containing the consumers
- * @param handlers - An object with async handler functions for each consumer
- * @returns A type-safe handlers object that can be used with TypedAmqpWorker
- *
- * @example
- * ```typescript
- * import { defineHandlers } from '@amqp-contract/worker';
- * import { orderContract } from './contract';
- *
- * // Define all handlers at once
- * const handlers = defineHandlers(orderContract, {
- *   processOrder: async (message) => {
- *     // message is fully typed based on the contract
- *     console.log('Processing order:', message.orderId);
- *     await processPayment(message);
- *   },
- *   notifyOrder: async (message) => {
- *     await sendNotification(message);
- *   },
- *   shipOrder: async (message) => {
- *     await prepareShipment(message);
- *   },
- * });
- *
- * // Use the handlers in worker
- * const worker = await TypedAmqpWorker.create({
- *   contract: orderContract,
- *   handlers,
- *   connection: 'amqp://localhost',
- * });
- * ```
- *
- * @example
- * ```typescript
- * // Separate handler definitions for better organization
- * async function handleProcessOrder(message: WorkerInferConsumerInput<typeof orderContract, 'processOrder'>) {
- *   await processOrder(message);
- * }
- *
- * async function handleNotifyOrder(message: WorkerInferConsumerInput<typeof orderContract, 'notifyOrder'>) {
- *   await sendNotification(message);
- * }
- *
- * const handlers = defineHandlers(orderContract, {
- *   processOrder: handleProcessOrder,
- *   notifyOrder: handleNotifyOrder,
- * });
- * ```
+ * Validate that all handlers reference valid consumers
  */
-export function defineHandlers<TContract extends ContractDefinition>(
+function validateHandlers<TContract extends ContractDefinition>(
   contract: TContract,
-  handlers: WorkerInferConsumerHandlers<TContract>,
-): WorkerInferConsumerHandlers<TContract> {
-  // Validate that all consumers in handlers exist in the contract
+  handlers: Record<string, unknown>,
+): void {
   const consumers = contract.consumers;
   const availableConsumers = Object.keys(consumers ?? {});
   const availableConsumerNames =
@@ -195,7 +51,266 @@ export function defineHandlers<TContract extends ContractDefinition>(
       );
     }
   }
+}
 
-  // Return the handlers as-is, with type checking enforced
+// =============================================================================
+// Safe Handler Definitions (Recommended)
+// =============================================================================
+
+/**
+ * Define a type-safe handler for a specific consumer in a contract.
+ *
+ * **Recommended:** This function creates handlers that return `Future<Result<void, HandlerError>>`,
+ * providing explicit error handling and better control over retry behavior.
+ *
+ * Supports three patterns:
+ * 1. Simple handler: just the function (single message handler)
+ * 2. Handler with prefetch: [handler, { prefetch: 10 }] (single message handler with config)
+ * 3. Batch handler: [batchHandler, { batchSize: 5, batchTimeout: 1000 }] (REQUIRES batchSize config)
+ *
+ * @template TContract - The contract definition type
+ * @template TName - The consumer name from the contract
+ * @param contract - The contract definition containing the consumer
+ * @param consumerName - The name of the consumer from the contract
+ * @param handler - The handler function that returns Future<Result<void, HandlerError>>
+ * @param options - Optional consumer options (prefetch, batchSize, batchTimeout)
+ * @returns A type-safe handler that can be used with TypedAmqpWorker
+ *
+ * @example
+ * ```typescript
+ * import { defineHandler, RetryableError, NonRetryableError } from '@amqp-contract/worker';
+ * import { Future, Result } from '@swan-io/boxed';
+ * import { orderContract } from './contract';
+ *
+ * // Simple handler with explicit error handling
+ * const processOrderHandler = defineHandler(
+ *   orderContract,
+ *   'processOrder',
+ *   (message) => {
+ *     try {
+ *       await processPayment(message);
+ *       return Future.value(Result.Ok(undefined));
+ *     } catch (error) {
+ *       // Explicit error type - will be retried
+ *       return Future.value(Result.Error(new RetryableError('Payment service unavailable', error)));
+ *     }
+ *   }
+ * );
+ *
+ * // Handler with validation (non-retryable error)
+ * const validateOrderHandler = defineHandler(
+ *   orderContract,
+ *   'validateOrder',
+ *   (message) => {
+ *     if (message.amount <= 0) {
+ *       // Won't be retried - goes directly to DLQ
+ *       return Future.value(Result.Error(new NonRetryableError('Invalid order amount')));
+ *     }
+ *     return Future.value(Result.Ok(undefined));
+ *   }
+ * );
+ * ```
+ */
+export function defineHandler<
+  TContract extends ContractDefinition,
+  TName extends InferConsumerNames<TContract>,
+>(
+  contract: TContract,
+  consumerName: TName,
+  handler: WorkerInferSafeConsumerHandler<TContract, TName>,
+): WorkerInferSafeConsumerHandlerEntry<TContract, TName>;
+export function defineHandler<
+  TContract extends ContractDefinition,
+  TName extends InferConsumerNames<TContract>,
+>(
+  contract: TContract,
+  consumerName: TName,
+  handler: WorkerInferSafeConsumerHandler<TContract, TName>,
+  options: { prefetch?: number; batchSize?: never; batchTimeout?: never },
+): WorkerInferSafeConsumerHandlerEntry<TContract, TName>;
+export function defineHandler<
+  TContract extends ContractDefinition,
+  TName extends InferConsumerNames<TContract>,
+>(
+  contract: TContract,
+  consumerName: TName,
+  handler: WorkerInferSafeConsumerBatchHandler<TContract, TName>,
+  options: { prefetch?: number; batchSize: number; batchTimeout?: number },
+): WorkerInferSafeConsumerHandlerEntry<TContract, TName>;
+export function defineHandler<
+  TContract extends ContractDefinition,
+  TName extends InferConsumerNames<TContract>,
+>(
+  contract: TContract,
+  consumerName: TName,
+  handler:
+    | WorkerInferSafeConsumerHandler<TContract, TName>
+    | WorkerInferSafeConsumerBatchHandler<TContract, TName>,
+  options?: { prefetch?: number; batchSize?: number; batchTimeout?: number },
+): WorkerInferSafeConsumerHandlerEntry<TContract, TName> {
+  validateConsumerExists(contract, String(consumerName));
+
+  if (options) {
+    return [handler, options] as WorkerInferSafeConsumerHandlerEntry<TContract, TName>;
+  }
+  return handler as WorkerInferSafeConsumerHandlerEntry<TContract, TName>;
+}
+
+/**
+ * Define multiple type-safe handlers for consumers in a contract.
+ *
+ * **Recommended:** This function creates handlers that return `Future<Result<void, HandlerError>>`,
+ * providing explicit error handling and better control over retry behavior.
+ *
+ * @template TContract - The contract definition type
+ * @param contract - The contract definition containing the consumers
+ * @param handlers - An object with handler functions for each consumer
+ * @returns A type-safe handlers object that can be used with TypedAmqpWorker
+ *
+ * @example
+ * ```typescript
+ * import { defineHandlers, RetryableError, NonRetryableError } from '@amqp-contract/worker';
+ * import { Future, Result } from '@swan-io/boxed';
+ * import { orderContract } from './contract';
+ *
+ * const handlers = defineHandlers(orderContract, {
+ *   processOrder: (message) => {
+ *     try {
+ *       await processPayment(message);
+ *       return Future.value(Result.Ok(undefined));
+ *     } catch (error) {
+ *       return Future.value(Result.Error(new RetryableError('Failed', error)));
+ *     }
+ *   },
+ *   notifyOrder: (message) => {
+ *     await sendNotification(message);
+ *     return Future.value(Result.Ok(undefined));
+ *   },
+ * });
+ * ```
+ */
+export function defineHandlers<TContract extends ContractDefinition>(
+  contract: TContract,
+  handlers: WorkerInferSafeConsumerHandlers<TContract>,
+): WorkerInferSafeConsumerHandlers<TContract> {
+  validateHandlers(contract, handlers as unknown as Record<string, unknown>);
+  return handlers;
+}
+
+// =============================================================================
+// Unsafe Handler Definitions (Legacy)
+// =============================================================================
+
+/**
+ * Define an unsafe handler for a specific consumer in a contract.
+ *
+ * @deprecated Use `defineHandler` instead for explicit error handling with Future<Result>.
+ *
+ * **Warning:** Unsafe handlers use exception-based error handling:
+ * - All thrown errors are treated as retryable by default
+ * - Harder to reason about which errors should be retried
+ * - May lead to unexpected retry behavior
+ *
+ * @template TContract - The contract definition type
+ * @template TName - The consumer name from the contract
+ * @param contract - The contract definition containing the consumer
+ * @param consumerName - The name of the consumer from the contract
+ * @param handler - The async handler function that processes messages
+ * @param options - Optional consumer options (prefetch, batchSize, batchTimeout)
+ * @returns A type-safe handler that can be used with TypedAmqpWorker
+ *
+ * @example
+ * ```typescript
+ * import { defineUnsafeHandler } from '@amqp-contract/worker';
+ *
+ * // ⚠️ Consider using defineHandler for better error handling
+ * const processOrderHandler = defineUnsafeHandler(
+ *   orderContract,
+ *   'processOrder',
+ *   async (message) => {
+ *     // Throws on error - will be retried
+ *     await processPayment(message);
+ *   }
+ * );
+ * ```
+ */
+export function defineUnsafeHandler<
+  TContract extends ContractDefinition,
+  TName extends InferConsumerNames<TContract>,
+>(
+  contract: TContract,
+  consumerName: TName,
+  handler: WorkerInferUnsafeConsumerHandler<TContract, TName>,
+): WorkerInferUnsafeConsumerHandlerEntry<TContract, TName>;
+export function defineUnsafeHandler<
+  TContract extends ContractDefinition,
+  TName extends InferConsumerNames<TContract>,
+>(
+  contract: TContract,
+  consumerName: TName,
+  handler: WorkerInferUnsafeConsumerHandler<TContract, TName>,
+  options: { prefetch?: number; batchSize?: never; batchTimeout?: never },
+): WorkerInferUnsafeConsumerHandlerEntry<TContract, TName>;
+export function defineUnsafeHandler<
+  TContract extends ContractDefinition,
+  TName extends InferConsumerNames<TContract>,
+>(
+  contract: TContract,
+  consumerName: TName,
+  handler: WorkerInferUnsafeConsumerBatchHandler<TContract, TName>,
+  options: { prefetch?: number; batchSize: number; batchTimeout?: number },
+): WorkerInferUnsafeConsumerHandlerEntry<TContract, TName>;
+export function defineUnsafeHandler<
+  TContract extends ContractDefinition,
+  TName extends InferConsumerNames<TContract>,
+>(
+  contract: TContract,
+  consumerName: TName,
+  handler:
+    | WorkerInferUnsafeConsumerHandler<TContract, TName>
+    | WorkerInferUnsafeConsumerBatchHandler<TContract, TName>,
+  options?: { prefetch?: number; batchSize?: number; batchTimeout?: number },
+): WorkerInferUnsafeConsumerHandlerEntry<TContract, TName> {
+  validateConsumerExists(contract, String(consumerName));
+
+  if (options) {
+    return [handler, options] as WorkerInferUnsafeConsumerHandlerEntry<TContract, TName>;
+  }
+  return handler as WorkerInferUnsafeConsumerHandlerEntry<TContract, TName>;
+}
+
+/**
+ * Define multiple unsafe handlers for consumers in a contract.
+ *
+ * @deprecated Use `defineHandlers` instead for explicit error handling with Future<Result>.
+ *
+ * **Warning:** Unsafe handlers use exception-based error handling.
+ * Consider migrating to safe handlers for better error control.
+ *
+ * @template TContract - The contract definition type
+ * @param contract - The contract definition containing the consumers
+ * @param handlers - An object with async handler functions for each consumer
+ * @returns A type-safe handlers object that can be used with TypedAmqpWorker
+ *
+ * @example
+ * ```typescript
+ * import { defineUnsafeHandlers } from '@amqp-contract/worker';
+ *
+ * // ⚠️ Consider using defineHandlers for better error handling
+ * const handlers = defineUnsafeHandlers(orderContract, {
+ *   processOrder: async (message) => {
+ *     await processPayment(message);
+ *   },
+ *   notifyOrder: async (message) => {
+ *     await sendNotification(message);
+ *   },
+ * });
+ * ```
+ */
+export function defineUnsafeHandlers<TContract extends ContractDefinition>(
+  contract: TContract,
+  handlers: WorkerInferUnsafeConsumerHandlers<TContract>,
+): WorkerInferUnsafeConsumerHandlers<TContract> {
+  validateHandlers(contract, handlers as unknown as Record<string, unknown>);
   return handlers;
 }

@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import type { WorkerInferConsumerInput } from "@amqp-contract/worker";
-import { defineHandler } from "@amqp-contract/worker";
+import { defineUnsafeHandler } from "@amqp-contract/worker";
 import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
 
 @Injectable()
@@ -25,7 +25,7 @@ export class NotifyOrderHandler {
     this.logger.debug("Notification sent");
   };
 
-  handler = defineHandler(orderContract, "notifyOrder", async (message) =>
+  handler = defineUnsafeHandler(orderContract, "notifyOrder", async (message) =>
     this.handleMessage(message),
   );
 }

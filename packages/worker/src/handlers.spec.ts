@@ -1,3 +1,5 @@
+import { Future, Result } from "@swan-io/boxed";
+import { NonRetryableError, RetryableError } from "./errors.js";
 import {
   defineConsumer,
   defineContract,
@@ -5,7 +7,12 @@ import {
   defineMessage,
   defineQueue,
 } from "@amqp-contract/contract";
-import { defineHandler, defineHandlers } from "./handlers.js";
+import {
+  defineHandler,
+  defineHandlers,
+  defineUnsafeHandler,
+  defineUnsafeHandlers,
+} from "./handlers.js";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -29,7 +36,7 @@ describe("handlers", () => {
     },
   });
 
-  describe("defineHandler", () => {
+  describe("defineUnsafeHandler", () => {
     it("should create a simple handler without options", () => {
       // GIVEN
       const handler = async (message: { id: string; data: string }) => {
@@ -37,7 +44,7 @@ describe("handlers", () => {
       };
 
       // WHEN
-      const result = defineHandler(testContract, "testConsumer", handler);
+      const result = defineUnsafeHandler(testContract, "testConsumer", handler);
 
       // THEN
       expect(result).toBe(handler);
@@ -50,7 +57,7 @@ describe("handlers", () => {
       };
 
       // WHEN
-      const result = defineHandler(testContract, "testConsumer", handler, { prefetch: 10 });
+      const result = defineUnsafeHandler(testContract, "testConsumer", handler, { prefetch: 10 });
 
       // THEN
       expect(result).toEqual([handler, { prefetch: 10 }]);
@@ -63,7 +70,7 @@ describe("handlers", () => {
       };
 
       // WHEN
-      const result = defineHandler(testContract, "testConsumer", batchHandler, {
+      const result = defineUnsafeHandler(testContract, "testConsumer", batchHandler, {
         batchSize: 5,
         batchTimeout: 1000,
       });
@@ -81,7 +88,7 @@ describe("handlers", () => {
       // WHEN/THEN
       expect(() => {
         // oxlint-disable-next-line no-explicit-any
-        (defineHandler as any)(testContract, "nonExistentConsumer", handler);
+        (defineUnsafeHandler as any)(testContract, "nonExistentConsumer", handler);
       }).toThrow(
         'Consumer "nonExistentConsumer" not found in contract. Available consumers: testConsumer, anotherConsumer',
       );
@@ -100,12 +107,12 @@ describe("handlers", () => {
       // WHEN/THEN
       expect(() => {
         // oxlint-disable-next-line no-explicit-any
-        (defineHandler as any)(emptyContract, "testConsumer", handler);
+        (defineUnsafeHandler as any)(emptyContract, "testConsumer", handler);
       }).toThrow('Consumer "testConsumer" not found in contract. Available consumers: none');
     });
   });
 
-  describe("defineHandlers", () => {
+  describe("defineUnsafeHandlers", () => {
     it("should create multiple handlers", () => {
       // GIVEN
       const handlers = {
@@ -118,7 +125,7 @@ describe("handlers", () => {
       };
 
       // WHEN
-      const result = defineHandlers(testContract, handlers);
+      const result = defineUnsafeHandlers(testContract, handlers);
 
       // THEN
       expect(result).toBe(handlers);
@@ -139,7 +146,7 @@ describe("handlers", () => {
       };
 
       // WHEN
-      const result = defineHandlers(testContract, handlers);
+      const result = defineUnsafeHandlers(testContract, handlers);
 
       // THEN
       expect(result).toEqual({
@@ -162,7 +169,7 @@ describe("handlers", () => {
       // WHEN/THEN
       expect(() => {
         // oxlint-disable-next-line no-explicit-any
-        defineHandlers(testContract, handlers as any);
+        defineUnsafeHandlers(testContract, handlers as any);
       }).toThrow(
         'Consumer "nonExistentConsumer" not found in contract. Available consumers: testConsumer, anotherConsumer',
       );
@@ -184,8 +191,151 @@ describe("handlers", () => {
       // WHEN/THEN
       expect(() => {
         // oxlint-disable-next-line no-explicit-any
-        defineHandlers(emptyContract, handlers as any);
+        defineUnsafeHandlers(emptyContract, handlers as any);
       }).toThrow('Consumer "testConsumer" not found in contract. Available consumers: none');
+    });
+  });
+
+  describe("defineHandler (safe handlers)", () => {
+    it("should create a simple safe handler without options", () => {
+      // GIVEN
+      const handler = (message: { id: string; data: string }) => {
+        console.log(message.id);
+        return Future.value(Result.Ok(undefined));
+      };
+
+      // WHEN
+      const result = defineHandler(testContract, "testConsumer", handler);
+
+      // THEN
+      expect(result).toBe(handler);
+    });
+
+    it("should create a safe handler with prefetch option", () => {
+      // GIVEN
+      const handler = (message: { id: string; data: string }) => {
+        console.log(message.id);
+        return Future.value(Result.Ok(undefined));
+      };
+
+      // WHEN
+      const result = defineHandler(testContract, "testConsumer", handler, { prefetch: 10 });
+
+      // THEN
+      expect(result).toEqual([handler, { prefetch: 10 }]);
+    });
+
+    it("should create a safe batch handler with batchSize", () => {
+      // GIVEN
+      const batchHandler = (messages: Array<{ id: string; data: string }>) => {
+        console.log(messages.length);
+        return Future.value(Result.Ok(undefined));
+      };
+
+      // WHEN
+      const result = defineHandler(testContract, "testConsumer", batchHandler, {
+        batchSize: 5,
+        batchTimeout: 1000,
+      });
+
+      // THEN
+      expect(result).toEqual([batchHandler, { batchSize: 5, batchTimeout: 1000 }]);
+    });
+
+    it("should throw error if consumer not found in contract", () => {
+      // GIVEN
+      const handler = (message: { id: string; data: string }) => {
+        console.log(message.id);
+        return Future.value(Result.Ok(undefined));
+      };
+
+      // WHEN/THEN
+      expect(() => {
+        // oxlint-disable-next-line no-explicit-any
+        (defineHandler as any)(testContract, "nonExistentConsumer", handler);
+      }).toThrow(
+        'Consumer "nonExistentConsumer" not found in contract. Available consumers: testConsumer, anotherConsumer',
+      );
+    });
+  });
+
+  describe("defineHandlers (safe handlers)", () => {
+    it("should create multiple safe handlers", () => {
+      // GIVEN
+      const handlers = {
+        testConsumer: (message: { id: string; data: string }) => {
+          console.log(message.id);
+          return Future.value(Result.Ok(undefined));
+        },
+        anotherConsumer: (message: { id: string; data: string }) => {
+          console.log(message.data);
+          return Future.value(Result.Ok(undefined));
+        },
+      };
+
+      // WHEN
+      const result = defineHandlers(testContract, handlers);
+
+      // THEN
+      expect(result).toBe(handlers);
+    });
+
+    it("should throw error if handler references non-existent consumer", () => {
+      // GIVEN
+      const handlers = {
+        testConsumer: (message: { id: string; data: string }) => {
+          console.log(message.id);
+          return Future.value(Result.Ok(undefined));
+        },
+        nonExistentConsumer: (message: { id: string; data: string }) => {
+          console.log(message.data);
+          return Future.value(Result.Ok(undefined));
+        },
+      };
+
+      // WHEN/THEN
+      expect(() => {
+        // oxlint-disable-next-line no-explicit-any
+        defineHandlers(testContract, handlers as any);
+      }).toThrow(
+        'Consumer "nonExistentConsumer" not found in contract. Available consumers: testConsumer, anotherConsumer',
+      );
+    });
+  });
+
+  describe("safe handlers error handling", () => {
+    it("should allow returning RetryableError from safe handler", () => {
+      // GIVEN
+      const handler = (_message: { id: string; data: string }) => {
+        return Future.value(Result.Error(new RetryableError("Transient failure")));
+      };
+
+      // WHEN
+      const result = defineHandler(testContract, "testConsumer", handler);
+
+      // THEN - handler should be created successfully
+      expect(result).toBe(handler);
+
+      // Verify the handler returns the expected error
+      const handlerResult = (result as typeof handler)({ id: "1", data: "test" });
+      expect(handlerResult).toBeDefined();
+    });
+
+    it("should allow returning NonRetryableError from safe handler", () => {
+      // GIVEN
+      const handler = (_message: { id: string; data: string }) => {
+        return Future.value(Result.Error(new NonRetryableError("Invalid message")));
+      };
+
+      // WHEN
+      const result = defineHandler(testContract, "testConsumer", handler);
+
+      // THEN - handler should be created successfully
+      expect(result).toBe(handler);
+
+      // Verify the handler returns the expected error
+      const handlerResult = (result as typeof handler)({ id: "1", data: "test" });
+      expect(handlerResult).toBeDefined();
     });
   });
 });

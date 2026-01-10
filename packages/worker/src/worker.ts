@@ -7,13 +7,22 @@ import type {
   InferConsumerNames,
 } from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
-import { MessageValidationError, TechnicalError } from "./errors.js";
+import {
+  MessageValidationError,
+  NonRetryableError,
+  RetryableError,
+  TechnicalError,
+} from "./errors.js";
 import type {
-  WorkerInferConsumerBatchHandler,
-  WorkerInferConsumerHandler,
-  WorkerInferConsumerHandlers,
   WorkerInferConsumerInput,
+  WorkerInferSafeConsumerBatchHandler,
+  WorkerInferSafeConsumerHandler,
+  WorkerInferSafeConsumerHandlers,
+  WorkerInferUnsafeConsumerBatchHandler,
+  WorkerInferUnsafeConsumerHandler,
+  WorkerInferUnsafeConsumerHandlers,
 } from "./types.js";
+import type { HandlerError } from "./errors.js";
 import { decompressBuffer } from "./decompression.js";
 
 /**
@@ -114,8 +123,14 @@ type ResolvedRetryConfig = {
 export type CreateWorkerOptions<TContract extends ContractDefinition> = {
   /** The AMQP contract definition specifying consumers and their message schemas */
   contract: TContract;
-  /** Handlers for each consumer defined in the contract. Can be a function or a tuple of [handler, options] */
-  handlers: WorkerInferConsumerHandlers<TContract>;
+  /**
+   * Handlers for each consumer defined in the contract.
+   * Can be either safe handlers (returning Future<Result>) or unsafe handlers (returning Promise).
+   * Safe handlers are recommended for explicit error handling.
+   */
+  handlers:
+    | WorkerInferSafeConsumerHandlers<TContract>
+    | WorkerInferUnsafeConsumerHandlers<TContract>;
   /** AMQP broker URL(s). Multiple URLs provide failover support */
   urls: ConnectionUrl[];
   /** Optional connection configuration (heartbeat, reconnect settings, etc.) */
@@ -167,11 +182,17 @@ export type CreateWorkerOptions<TContract extends ContractDefinition> = {
  * ```
  */
 export class TypedAmqpWorker<TContract extends ContractDefinition> {
+  /**
+   * Internal handler type that can be either safe (Future<Result>) or unsafe (Promise).
+   * At runtime, we detect which type by checking the return value.
+   */
   private readonly actualHandlers: Partial<
     Record<
       InferConsumerNames<TContract>,
-      | WorkerInferConsumerHandler<TContract, InferConsumerNames<TContract>>
-      | WorkerInferConsumerBatchHandler<TContract, InferConsumerNames<TContract>>
+      | WorkerInferSafeConsumerHandler<TContract, InferConsumerNames<TContract>>
+      | WorkerInferSafeConsumerBatchHandler<TContract, InferConsumerNames<TContract>>
+      | WorkerInferUnsafeConsumerHandler<TContract, InferConsumerNames<TContract>>
+      | WorkerInferUnsafeConsumerBatchHandler<TContract, InferConsumerNames<TContract>>
     >
   >;
   private readonly consumerOptions: Partial<Record<InferConsumerNames<TContract>, ConsumerOptions>>;
@@ -182,7 +203,9 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   private constructor(
     private readonly contract: TContract,
     private readonly amqpClient: AmqpClient,
-    handlers: WorkerInferConsumerHandlers<TContract>,
+    handlers:
+      | WorkerInferSafeConsumerHandlers<TContract>
+      | WorkerInferUnsafeConsumerHandlers<TContract>,
     private readonly logger?: Logger,
     retryOptions?: RetryOptions,
   ) {
@@ -190,26 +213,24 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     this.actualHandlers = {};
     this.consumerOptions = {};
 
-    for (const consumerName of Object.keys(handlers) as InferConsumerNames<TContract>[]) {
-      const handlerEntry = handlers[consumerName];
+    // Cast handlers to a generic record for iteration
+    const handlersRecord = handlers as Record<string, unknown>;
+
+    for (const consumerName of Object.keys(handlersRecord)) {
+      const handlerEntry = handlersRecord[consumerName];
+      const typedConsumerName = consumerName as InferConsumerNames<TContract>;
 
       if (Array.isArray(handlerEntry)) {
         // Tuple format: [handler, options]
-        // Type assertion is safe: The discriminated union in WorkerInferConsumerHandlerEntry
-        // ensures the handler matches the options (single-message or batch handler).
-        // TypeScript loses this type relationship during runtime extraction, but it's
-        // guaranteed by the type system at compile time.
-        this.actualHandlers[consumerName] = handlerEntry[0] as unknown as
-          | WorkerInferConsumerHandler<TContract, InferConsumerNames<TContract>>
-          | WorkerInferConsumerBatchHandler<TContract, InferConsumerNames<TContract>>;
-        this.consumerOptions[consumerName] = handlerEntry[1];
+        this.actualHandlers[typedConsumerName] = handlerEntry[0] as
+          | WorkerInferSafeConsumerHandler<TContract, InferConsumerNames<TContract>>
+          | WorkerInferUnsafeConsumerHandler<TContract, InferConsumerNames<TContract>>;
+        this.consumerOptions[typedConsumerName] = handlerEntry[1] as ConsumerOptions;
       } else {
         // Direct function format
-        // Type assertion is safe: handlerEntry is guaranteed to be a function type
-        // by the discriminated union, but TypeScript needs help with the union narrowing.
-        this.actualHandlers[consumerName] = handlerEntry as unknown as
-          | WorkerInferConsumerHandler<TContract, InferConsumerNames<TContract>>
-          | WorkerInferConsumerBatchHandler<TContract, InferConsumerNames<TContract>>;
+        this.actualHandlers[typedConsumerName] = handlerEntry as
+          | WorkerInferSafeConsumerHandler<TContract, InferConsumerNames<TContract>>
+          | WorkerInferUnsafeConsumerHandler<TContract, InferConsumerNames<TContract>>;
       }
     }
 
@@ -514,17 +535,23 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         consumerName,
         consumer,
         options,
-        handler as unknown as (
-          messages: Array<WorkerInferConsumerInput<TContract, TName>>,
-        ) => Promise<void>,
+        // Handler can be either safe or unsafe - invokeHandler will detect
+        handler as
+          | ((
+              messages: Array<WorkerInferConsumerInput<TContract, TName>>,
+            ) => Future<Result<void, HandlerError>>)
+          | ((messages: Array<WorkerInferConsumerInput<TContract, TName>>) => Promise<void>),
       );
     } else {
       return this.consumeSingle(
         consumerName,
         consumer,
-        handler as unknown as (
-          message: WorkerInferConsumerInput<TContract, TName>,
-        ) => Promise<void>,
+        // Handler can be either safe or unsafe - invokeHandler will detect
+        handler as
+          | ((
+              message: WorkerInferConsumerInput<TContract, TName>,
+            ) => Future<Result<void, HandlerError>>)
+          | ((message: WorkerInferConsumerInput<TContract, TName>) => Promise<void>),
       );
     }
   }
@@ -602,12 +629,91 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   }
 
   /**
+   * Check if a value is a Future (has toPromise method).
+   * Used to distinguish between safe handlers (returning Future) and unsafe handlers (returning Promise).
+   */
+  private isFuture(value: unknown): value is Future<unknown> {
+    return (
+      value !== null &&
+      typeof value === "object" &&
+      "toPromise" in value &&
+      typeof (value as { toPromise: unknown }).toPromise === "function"
+    );
+  }
+
+  /**
+   * Invoke a handler and normalize the result to Future<Result<void, HandlerError>>.
+   *
+   * This method handles both:
+   * - Safe handlers: Return Future<Result<void, HandlerError>> directly
+   * - Unsafe handlers: Return Promise<void>, which we wrap
+   *
+   * For unsafe handlers, any thrown error is wrapped as a RetryableError by default.
+   */
+  private invokeHandler<TInput>(
+    handler:
+      | ((input: TInput) => Future<Result<void, HandlerError>>)
+      | ((input: TInput) => Promise<void>),
+    input: TInput,
+  ): Future<Result<void, HandlerError>> {
+    try {
+      const result = handler(input);
+
+      // Check if the result is a Future (safe handler)
+      if (this.isFuture(result)) {
+        // Safe handler - result is Future<Result<void, HandlerError>>
+        return result as Future<Result<void, HandlerError>>;
+      }
+
+      // Unsafe handler - result is Promise<void>
+      // Future.fromPromise returns Future<Result<void, unknown>>
+      // On promise resolution: Result.Ok(undefined)
+      // On promise rejection: Result.Error(error)
+      return Future.fromPromise(result as Promise<void>)
+        .mapOk(() => Result.Ok<void, HandlerError>(undefined))
+        .mapError((error) => {
+          // Unsafe handlers: treat all errors as retryable by default
+          // (unless they explicitly threw a NonRetryableError or RetryableError)
+          if (error instanceof NonRetryableError || error instanceof RetryableError) {
+            return Result.Error<void, HandlerError>(error);
+          }
+          const retryableError = new RetryableError(
+            error instanceof Error ? error.message : String(error),
+            error,
+          );
+          return Result.Error<void, HandlerError>(retryableError);
+        })
+        .map((resultOrResult) => {
+          // Both mapOk and mapError return Result, so we need to flatten
+          if (resultOrResult.isOk()) {
+            return resultOrResult.value;
+          }
+          return resultOrResult.error;
+        });
+    } catch (syncError) {
+      // Handler threw synchronously (should be rare)
+      return Future.value(
+        Result.Error(
+          new RetryableError(
+            syncError instanceof Error ? syncError.message : String(syncError),
+            syncError,
+          ),
+        ),
+      );
+    }
+  }
+
+  /**
    * Consume messages one at a time
    */
   private consumeSingle<TName extends InferConsumerNames<TContract>>(
     consumerName: TName,
     consumer: ConsumerDefinition,
-    handler: (message: WorkerInferConsumerInput<TContract, TName>) => Promise<void>,
+    handler:
+      | ((
+          message: WorkerInferConsumerInput<TContract, TName>,
+        ) => Future<Result<void, HandlerError>>)
+      | ((message: WorkerInferConsumerInput<TContract, TName>) => Promise<void>),
   ): Future<Result<void, TechnicalError>> {
     // Start consuming
     return Future.fromPromise(
@@ -624,28 +730,27 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         // Parse and validate message
         await this.parseAndValidateMessage(msg, consumer, consumerName)
           .flatMapOk((validatedMessage) =>
-            Future.fromPromise(handler(validatedMessage))
-              .mapOk(() => {
+            this.invokeHandler(handler, validatedMessage)
+              .flatMapOk(() => {
                 this.logger?.info("Message consumed successfully", {
                   consumerName: String(consumerName),
                   queueName: consumer.queue.name,
                 });
-
                 // Acknowledge message on success
                 this.amqpClient.channel.ack(msg);
-                return undefined;
+                return Future.value(Result.Ok<void, HandlerError>(undefined));
               })
-              .tapError((error) => {
+              .flatMapError((handlerError: HandlerError) => {
+                // Handler returned an error
                 this.logger?.error("Error processing message", {
                   consumerName: String(consumerName),
                   queueName: consumer.queue.name,
-                  error,
+                  errorType: handlerError.name,
+                  error: handlerError.message,
                 });
-              })
-              .flatMapError((error) => {
-                // Use retry mechanism - handleError will manage ack/nack
-                const errorObj = error instanceof Error ? error : new Error(String(error));
-                return this.handleError(errorObj, msg, String(consumerName), consumer);
+
+                // Handle the error using retry mechanism
+                return this.handleError(handlerError, msg, String(consumerName), consumer);
               }),
           )
           .toPromise();
@@ -666,17 +771,13 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * Handle batch processing error by applying error handling to all messages.
    */
   private handleBatchError(
-    error: unknown,
+    error: HandlerError,
     currentBatch: Array<{ amqpMessage: Message }>,
     consumerName: string,
     consumer: ConsumerDefinition,
   ): Future<Result<void, TechnicalError>> {
-    const errorObj = error instanceof Error ? error : new Error(String(error));
-
     return Future.all(
-      currentBatch.map((item) =>
-        this.handleError(errorObj, item.amqpMessage, consumerName, consumer),
-      ),
+      currentBatch.map((item) => this.handleError(error, item.amqpMessage, consumerName, consumer)),
     )
       .map(Result.all)
       .mapOk(() => undefined);
@@ -689,7 +790,11 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     consumerName: TName,
     consumer: ConsumerDefinition,
     options: ConsumerOptions,
-    handler: (messages: Array<WorkerInferConsumerInput<TContract, TName>>) => Promise<void>,
+    handler:
+      | ((
+          messages: Array<WorkerInferConsumerInput<TContract, TName>>,
+        ) => Future<Result<void, HandlerError>>)
+      | ((messages: Array<WorkerInferConsumerInput<TContract, TName>>) => Promise<void>),
   ): Future<Result<void, TechnicalError>> {
     const batchSize = options.batchSize!;
     const batchTimeout = options.batchTimeout ?? 1000;
@@ -731,8 +836,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         batchSize: currentBatch.length,
       });
 
-      return Future.fromPromise(handler(messages))
-        .mapOk(() => {
+      return this.invokeHandler(handler, messages)
+        .flatMapOk(() => {
           // Acknowledge all messages in the batch on success
           for (const item of currentBatch) {
             this.amqpClient.channel.ack(item.amqpMessage);
@@ -743,21 +848,20 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
             queueName: consumer.queue.name,
             batchSize: currentBatch.length,
           });
-          return undefined;
+          return Future.value(Result.Ok<void, TechnicalError>(undefined));
         })
-        .tapError((error) => {
+        .flatMapError((handlerError: HandlerError) => {
+          // Handler returned an error - log it
           this.logger?.error("Error processing batch", {
             consumerName: String(consumerName),
             queueName: consumer.queue.name,
             batchSize: currentBatch.length,
-            error,
+            errorType: handlerError.name,
+            error: handlerError.message,
           });
-        })
-        .flatMapError((error) => {
-          // Handle error for each message in the batch - handleBatchError will manage ack/nack
-          // NOTE: All messages in the batch are treated the same way.
-          // For partial batch success handling, consider implementing message-level error tracking.
-          return this.handleBatchError(error, currentBatch, String(consumerName), consumer);
+
+          // Handle error for each message in the batch
+          return this.handleBatchError(handlerError, currentBatch, String(consumerName), consumer);
         })
         .tap(() => {
           isProcessing = false;
@@ -847,9 +951,10 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * Handle error in message processing with retry logic.
    *
    * Flow:
-   * 1. If no retry config -> legacy behavior (immediate requeue)
-   * 2. If max retries exceeded -> send to DLQ
-   * 3. Otherwise -> publish to wait queue with TTL for retry
+   * 1. If NonRetryableError -> send directly to DLQ (no retry)
+   * 2. If no retry config -> legacy behavior (immediate requeue)
+   * 3. If max retries exceeded -> send to DLQ
+   * 4. Otherwise -> publish to wait queue with TTL for retry
    */
   private handleError(
     error: Error,
@@ -857,6 +962,17 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     consumerName: string,
     consumer: ConsumerDefinition,
   ): Future<Result<void, TechnicalError>> {
+    // NonRetryableError -> send directly to DLQ without retrying
+    if (error instanceof NonRetryableError) {
+      this.logger?.error("Non-retryable error, sending to DLQ immediately", {
+        consumerName,
+        errorType: error.name,
+        error: error.message,
+      });
+      this.sendToDLQ(msg, consumer);
+      return Future.value(Result.Ok(undefined));
+    }
+
     // If no retry config, use legacy behavior
     if (this.retryConfig === null) {
       this.logger?.warn("Error in handler (legacy mode: immediate requeue)", {
