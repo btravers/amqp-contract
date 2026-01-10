@@ -1,5 +1,16 @@
 # @amqp-contract/worker-nestjs
 
+## 0.8.0
+
+### Minor Changes
+
+- Release version 0.8.0
+
+### Patch Changes
+
+- @amqp-contract/contract@0.8.0
+- @amqp-contract/worker@0.8.0
+
 ## 0.7.0
 
 ### Minor Changes
