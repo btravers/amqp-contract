@@ -670,28 +670,25 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       // On promise resolution: Result.Ok(undefined)
       // On promise rejection: Result.Error(error)
       return Future.fromPromise(result as Promise<void>)
-        .mapOk(() => Result.Ok<void, HandlerError>(undefined))
-        .mapError((error) => {
-          // Unsafe handlers: treat all errors as retryable by default
-          // (unless they explicitly threw a NonRetryableError or RetryableError)
+        .flatMapOk(() => Future.value(Result.Ok<void, HandlerError>(undefined)))
+        .flatMapError((error) => {
+          // Unsafe handlers: check if error is already a HandlerError type
           if (error instanceof NonRetryableError || error instanceof RetryableError) {
-            return Result.Error<void, HandlerError>(error);
+            return Future.value(Result.Error<void, HandlerError>(error));
           }
+          // Wrap other errors as RetryableError
           const retryableError = new RetryableError(
             error instanceof Error ? error.message : String(error),
             error,
           );
-          return Result.Error<void, HandlerError>(retryableError);
-        })
-        .map((resultOrResult) => {
-          // Both mapOk and mapError return Result, so we need to flatten
-          if (resultOrResult.isOk()) {
-            return resultOrResult.value;
-          }
-          return resultOrResult.error;
+          return Future.value(Result.Error<void, HandlerError>(retryableError));
         });
     } catch (syncError) {
       // Handler threw synchronously (should be rare)
+      // Check if it's already a HandlerError type
+      if (syncError instanceof NonRetryableError || syncError instanceof RetryableError) {
+        return Future.value(Result.Error(syncError));
+      }
       return Future.value(
         Result.Error(
           new RetryableError(
