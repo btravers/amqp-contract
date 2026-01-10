@@ -452,7 +452,6 @@ afterEach(async () => {
 
 ## Related Documentation
 
-- [Architecture Decision Record: Connection Sharing Strategy](/adr/003-connection-sharing)
 - [Client Usage Guide](/guide/client-usage)
 - [Worker Usage Guide](/guide/worker-usage)
 - [RabbitMQ Connection Best Practices](https://www.rabbitmq.com/connections.html)
