@@ -1,3 +1,4 @@
+import { Future, Result } from "@swan-io/boxed";
 import {
   defineConsumer,
   defineContract,
@@ -10,7 +11,7 @@ import { describe, expect, vi } from "vitest";
 import { AmqpWorkerModule } from "../worker.module.js";
 import { Module } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
-import { defineUnsafeHandlers } from "@amqp-contract/worker";
+import { defineHandlers } from "@amqp-contract/worker";
 import { it } from "@amqp-contract/testing/extension";
 import { z } from "zod";
 
@@ -46,15 +47,15 @@ const testContract = defineContract({
 describe("AmqpWorkerModule Integration", () => {
   describe("module lifecycle", () => {
     it("should initialize and connect to RabbitMQ", async ({ amqpConnectionUrl }) => {
-      // GIVEN - handler mock that returns a Promise
-      const handler = vi.fn().mockResolvedValue(undefined);
+      // GIVEN - handler mock that returns a Future
+      const handler = vi.fn().mockReturnValue(Future.value(Result.Ok(undefined)));
 
       // WHEN - create module
       const moduleRef = await Test.createTestingModule({
         imports: [
           AmqpWorkerModule.forRoot({
             contract: testContract,
-            handlers: defineUnsafeHandlers(testContract, {
+            handlers: defineHandlers(testContract, {
               testConsumer: handler,
             }),
             urls: [amqpConnectionUrl],
@@ -75,14 +76,14 @@ describe("AmqpWorkerModule Integration", () => {
       amqpConnectionUrl,
       publishMessage,
     }) => {
-      // GIVEN - handler mock that returns a Promise
-      const handler = vi.fn().mockResolvedValue(undefined);
+      // GIVEN - handler mock that returns a Future
+      const handler = vi.fn().mockReturnValue(Future.value(Result.Ok(undefined)));
 
       const moduleRef = await Test.createTestingModule({
         imports: [
           AmqpWorkerModule.forRoot({
             contract: testContract,
-            handlers: defineUnsafeHandlers(testContract, {
+            handlers: defineHandlers(testContract, {
               testConsumer: handler,
             }),
             urls: [amqpConnectionUrl],
@@ -117,14 +118,14 @@ describe("AmqpWorkerModule Integration", () => {
       amqpConnectionUrl,
       publishMessage,
     }) => {
-      // GIVEN - handler mock that returns a Promise
-      const handler = vi.fn().mockResolvedValue(undefined);
+      // GIVEN - handler mock that returns a Future
+      const handler = vi.fn().mockReturnValue(Future.value(Result.Ok(undefined)));
 
       const moduleRef = await Test.createTestingModule({
         imports: [
           AmqpWorkerModule.forRoot({
             contract: testContract,
-            handlers: defineUnsafeHandlers(testContract, {
+            handlers: defineHandlers(testContract, {
               testConsumer: handler,
             }),
             urls: [amqpConnectionUrl],
@@ -154,8 +155,8 @@ describe("AmqpWorkerModule Integration", () => {
 
   describe("async module configuration", () => {
     it("should support forRootAsync with useFactory", async ({ amqpConnectionUrl }) => {
-      // GIVEN - handler mock that returns a Promise
-      const handler = vi.fn().mockResolvedValue(undefined);
+      // GIVEN - handler mock that returns a Future
+      const handler = vi.fn().mockReturnValue(Future.value(Result.Ok(undefined)));
 
       // WHEN - module with async configuration
       const moduleRef = await Test.createTestingModule({
@@ -163,7 +164,7 @@ describe("AmqpWorkerModule Integration", () => {
           AmqpWorkerModule.forRootAsync({
             useFactory: () => ({
               contract: testContract,
-              handlers: defineUnsafeHandlers(testContract, {
+              handlers: defineHandlers(testContract, {
                 testConsumer: handler,
               }),
               urls: [amqpConnectionUrl],
@@ -196,7 +197,7 @@ describe("AmqpWorkerModule Integration", () => {
       })
       class ConfigModule {}
 
-      const handler = vi.fn().mockResolvedValue(undefined);
+      const handler = vi.fn().mockReturnValue(Future.value(Result.Ok(undefined)));
 
       const moduleRef = await Test.createTestingModule({
         imports: [
@@ -205,7 +206,7 @@ describe("AmqpWorkerModule Integration", () => {
             imports: [ConfigModule],
             useFactory: (configService: ConfigService) => ({
               contract: testContract,
-              handlers: defineUnsafeHandlers(testContract, {
+              handlers: defineHandlers(testContract, {
                 testConsumer: handler,
               }),
               urls: configService.getAmqpUrls(),

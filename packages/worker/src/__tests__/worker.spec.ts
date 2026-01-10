@@ -1,3 +1,4 @@
+import { Future, Result } from "@swan-io/boxed";
 import {
   defineConsumer,
   defineContract,
@@ -8,8 +9,9 @@ import {
   defineQueue,
   defineQueueBinding,
 } from "@amqp-contract/contract";
-import { defineUnsafeHandler, defineUnsafeHandlers } from "../handlers.js";
+import { defineHandler, defineHandlers } from "../handlers.js";
 import { describe, expect, vi } from "vitest";
+import { RetryableError } from "../errors.js";
 import { TypedAmqpWorker } from "../worker.js";
 import { it } from "./fixture.js";
 import { z } from "zod";
@@ -53,9 +55,10 @@ describe("AmqpWorker Integration", () => {
     const messages: Array<{ id: string; message: string }> = [];
     await workerFactory(
       contract,
-      defineUnsafeHandlers(contract, {
-        testConsumer: async (msg) => {
+      defineHandlers(contract, {
+        testConsumer: (msg) => {
           messages.push(msg);
+          return Future.value(Result.Ok(undefined));
         },
       }),
     );
@@ -116,9 +119,10 @@ describe("AmqpWorker Integration", () => {
     const messages: Array<{ id: string; count: number }> = [];
     await workerFactory(
       contract,
-      defineUnsafeHandlers(contract, {
-        testConsumer: async (msg) => {
+      defineHandlers(contract, {
+        testConsumer: (msg) => {
           messages.push(msg);
+          return Future.value(Result.Ok(undefined));
         },
       }),
     );
@@ -185,12 +189,14 @@ describe("AmqpWorker Integration", () => {
 
     await workerFactory(
       contract,
-      defineUnsafeHandlers(contract, {
-        consumer1: async (msg) => {
+      defineHandlers(contract, {
+        consumer1: (msg) => {
           messages1.push(msg);
+          return Future.value(Result.Ok(undefined));
         },
-        consumer2: async (msg) => {
+        consumer2: (msg) => {
           messages2.push(msg);
+          return Future.value(Result.Ok(undefined));
         },
       }),
     );
@@ -248,9 +254,10 @@ describe("AmqpWorker Integration", () => {
     const messages: Array<{ id: string; count: number }> = [];
     await workerFactory(
       contract,
-      defineUnsafeHandlers(contract, {
-        testConsumer: async (msg) => {
+      defineHandlers(contract, {
+        testConsumer: (msg) => {
           messages.push(msg);
+          return Future.value(Result.Ok(undefined));
         },
       }),
     );
@@ -298,13 +305,14 @@ describe("AmqpWorker Integration", () => {
     const messages: Array<{ id: string; shouldFail: boolean }> = [];
     await workerFactory(
       contract,
-      defineUnsafeHandlers(contract, {
-        testConsumer: async (msg) => {
+      defineHandlers(contract, {
+        testConsumer: (msg) => {
           attemptCount++;
           if (msg.shouldFail && attemptCount === 1) {
-            throw new Error("Handler error on first attempt");
+            return Future.value(Result.Error(new RetryableError("Handler error on first attempt")));
           }
           messages.push(msg);
+          return Future.value(Result.Ok(undefined));
         },
       }),
     );
@@ -355,9 +363,10 @@ describe("AmqpWorker Integration", () => {
     const messages: Array<{ msg: string }> = [];
     await workerFactory(
       contract,
-      defineUnsafeHandlers(contract, {
-        destConsumer: async (msg) => {
+      defineHandlers(contract, {
+        destConsumer: (msg) => {
           messages.push(msg);
+          return Future.value(Result.Ok(undefined));
         },
       }),
     );
@@ -402,9 +411,10 @@ describe("AmqpWorker Integration", () => {
     const messages: Array<{ id: string }> = [];
     const worker = await workerFactory(
       contract,
-      defineUnsafeHandlers(contract, {
-        testConsumer: async (msg) => {
+      defineHandlers(contract, {
+        testConsumer: (msg) => {
           messages.push(msg);
+          return Future.value(Result.Ok(undefined));
         },
       }),
     );
@@ -472,12 +482,14 @@ describe("AmqpWorker Integration", () => {
 
     await workerFactory(
       contract,
-      defineUnsafeHandlers(contract, {
-        orderConsumer: async (msg) => {
+      defineHandlers(contract, {
+        orderConsumer: (msg) => {
           orders.push(msg);
+          return Future.value(Result.Ok(undefined));
         },
-        notificationConsumer: async (msg) => {
+        notificationConsumer: (msg) => {
           notifications.push(msg);
+          return Future.value(Result.Ok(undefined));
         },
       }),
     );
@@ -587,9 +599,9 @@ describe("AmqpWorker Integration", () => {
     const worker = await TypedAmqpWorker.create({
       contract,
       handlers: {
-        testConsumer: defineUnsafeHandler(contract, "testConsumer", async (_msg) => {
-          // No-op handler
-        }),
+        testConsumer: defineHandler(contract, "testConsumer", (_msg) =>
+          Future.value(Result.Ok(undefined)),
+        ),
       },
       urls: [amqpConnectionUrl],
       logger: mockLogger,

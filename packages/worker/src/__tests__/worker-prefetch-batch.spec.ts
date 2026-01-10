@@ -10,7 +10,7 @@ import {
 } from "@amqp-contract/contract";
 import { describe, expect, vi } from "vitest";
 import { TypedAmqpWorker } from "../worker.js";
-import { defineUnsafeHandler } from "../handlers.js";
+import { defineHandler } from "../handlers.js";
 import { it } from "./fixture.js";
 import { z } from "zod";
 
@@ -52,13 +52,15 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
 
     const messages: Array<{ id: string; message: string }> = [];
     await workerFactory(contract, {
-      testConsumer: defineUnsafeHandler(
+      testConsumer: defineHandler(
         contract,
         "testConsumer",
-        async (msg) => {
+        (msg) => {
           messages.push(msg);
           // Simulate slow processing to test prefetch
-          await new Promise((resolve) => setTimeout(resolve, 100));
+          return Future.fromPromise(new Promise((resolve) => setTimeout(resolve, 100)))
+            .mapOk(() => undefined)
+            .mapError(() => undefined);
         },
         { prefetch: 5 },
       ),
@@ -123,11 +125,12 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
     const batches: Array<Array<{ id: string; value: number }>> = [];
     await workerFactory(contract, {
       // Use tuple format with batch options
-      batchConsumer: defineUnsafeHandler(
+      batchConsumer: defineHandler(
         contract,
         "batchConsumer",
-        async (messages: Array<{ id: string; value: number }>) => {
+        (messages: Array<{ id: string; value: number }>) => {
           batches.push(messages);
+          return Future.value(Result.Ok(undefined));
         },
         {
           batchSize: 3,
@@ -208,11 +211,12 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
 
     const batches: Array<Array<{ id: string; text: string }>> = [];
     await workerFactory(contract, {
-      batchConsumer: defineUnsafeHandler(
+      batchConsumer: defineHandler(
         contract,
         "batchConsumer",
-        async (messages: Array<{ id: string; text: string }>) => {
+        (messages: Array<{ id: string; text: string }>) => {
           batches.push(messages);
+          return Future.value(Result.Ok(undefined));
         },
         {
           batchSize: 5,
