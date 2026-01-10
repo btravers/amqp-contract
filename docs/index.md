@@ -58,6 +58,7 @@ Define your AMQP contracts once with schema validation — get **end-to-end type
 ```typescript [Type-Safe Publishing]
 import { TypedAmqpClient } from "@amqp-contract/client";
 import { defineMessage } from "@amqp-contract/contract";
+import { contract } from "./contract"; // Your contract definition
 import { z } from "zod";
 
 // Define message with schema validation
@@ -83,6 +84,7 @@ await client.publish("orderCreated", {
 
 ```typescript [Type-Safe Consuming]
 import { TypedAmqpWorker } from "@amqp-contract/worker";
+import { contract } from "./contract"; // Your contract definition
 
 // Consuming: Fully typed message handlers
 const worker = await TypedAmqpWorker.create({
@@ -115,6 +117,7 @@ Built-in **retry with exponential backoff** using RabbitMQ's native TTL and Dead
 
 ```typescript
 import { TypedAmqpWorker, RetryableError, NonRetryableError } from "@amqp-contract/worker";
+import { contract } from "./contract"; // Your contract definition
 
 const worker = await TypedAmqpWorker.create({
   contract,
@@ -139,6 +142,14 @@ const worker = await TypedAmqpWorker.create({
     jitter: true, // Randomize to prevent thundering herd
   },
 }).resultToPromise();
+
+// Helper functions (implement based on your needs)
+function processPayment(message: unknown) {
+  /* ... */
+}
+function isValidationError(error: unknown): boolean {
+  return error instanceof Error && error.name === "ValidationError";
+}
 ```
 
 **How it works:**
@@ -163,8 +174,10 @@ const worker = await TypedAmqpWorker.create({
 Generate **AsyncAPI 3.0 specifications** from your contracts — unlock the entire [AsyncAPI](https://www.asyncapi.com/) ecosystem of tools:
 
 ```typescript
+import { writeFileSync } from "fs";
 import { AsyncAPIGenerator } from "@amqp-contract/asyncapi";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
+import { contract } from "./contract"; // Your contract definition
 
 const generator = new AsyncAPIGenerator({
   schemaConverters: [new ZodToJsonSchemaConverter()],

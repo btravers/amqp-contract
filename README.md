@@ -25,7 +25,13 @@ Define your AMQP contracts once with schema validation — get **end-to-end type
 - **Schema validation** with [Zod](https://zod.dev/), [Valibot](https://valibot.dev/), or [ArkType](https://arktype.io/)
 
 ```typescript
-// Define your contract with schema validation
+import { defineMessage } from "@amqp-contract/contract";
+import { TypedAmqpClient } from "@amqp-contract/client";
+import { TypedAmqpWorker } from "@amqp-contract/worker";
+import { contract } from "./contract"; // Your contract definition
+import { z } from "zod";
+
+// Define message with schema validation
 const orderMessage = defineMessage(
   z.object({
     orderId: z.string(),
@@ -34,6 +40,11 @@ const orderMessage = defineMessage(
 );
 
 // Publishing: TypeScript knows the exact shape
+const client = await TypedAmqpClient.create({
+  contract,
+  urls: ["amqp://localhost"],
+}).resultToPromise();
+
 await client.publish("orderCreated", {
   orderId: "ORD-123", // ✅ Autocomplete & type checking
   amount: 99.99, // ✅ Runtime validation
@@ -61,12 +72,16 @@ Built-in **retry with exponential backoff** using RabbitMQ's native TTL and Dead
 - **Retry headers tracking** (retry count, last error, first failure timestamp)
 
 ```typescript
+import { TypedAmqpWorker } from "@amqp-contract/worker";
+import { contract } from "./contract"; // Your contract definition
+
 // Configure reliable retry with exponential backoff
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => {
-      await processPayment(message); // If this fails, message is retried
+      // Your business logic here - if this fails, message is retried
+      await saveToDatabase(message);
     },
   },
   urls: ["amqp://localhost"],
@@ -94,6 +109,7 @@ Generate **AsyncAPI 3.0 specifications** from your contracts — unlock the enti
 ```typescript
 import { AsyncAPIGenerator } from "@amqp-contract/asyncapi";
 import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
+import { contract } from "./contract"; // Your contract definition
 
 const generator = new AsyncAPIGenerator({
   schemaConverters: [new ZodToJsonSchemaConverter()],
