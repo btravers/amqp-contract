@@ -13,6 +13,8 @@
   "types": "./dist/index.d.mts",
   "scripts": {
     "build": "tsdown src/index.ts --dts",
+    "generate:asyncapi:json": "tsx scripts/generate-asyncapi-json.ts",
+    "generate:asyncapi:yaml": "tsx scripts/generate-asyncapi-yaml.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -20,8 +22,13 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@amqp-contract/asyncapi": "workspace:*",
     "@amqp-contract/tsconfig": "workspace:*",
+    "@orpc/zod": "catalog:",
+    "@types/node": "catalog:",
     "tsdown": "catalog:",
-    "typescript": "catalog:"
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "yaml": "catalog:"
   }
 }

@@ -220,6 +220,37 @@ console.log("   Operations:", Object.keys(spec.operations).length);
 4. **Validation** - Validate with AsyncAPI CLI
 5. **Keep Updated** - Regenerate when contracts change
 
+## Sample Scripts
+
+The `samples/basic-order-processing-contract` package includes scripts for generating AsyncAPI specifications, integrated with Turborepo for easy orchestration:
+
+### Generate JSON Specification
+
+```bash
+pnpm --filter @amqp-contract-samples/basic-order-processing-contract generate:asyncapi:json
+```
+
+This runs `scripts/generate-asyncapi-json.ts` and outputs `asyncapi.json`.
+
+### Generate YAML Specification
+
+```bash
+pnpm --filter @amqp-contract-samples/basic-order-processing-contract generate:asyncapi:yaml
+```
+
+This runs `scripts/generate-asyncapi-yaml.ts` and outputs `asyncapi.yaml`.
+
+### Turborepo Integration
+
+Both scripts are integrated with Turborepo, so you can run them across the monorepo:
+
+```bash
+# Run both generation scripts
+pnpm turbo generate:asyncapi:json generate:asyncapi:yaml
+```
+
+The scripts automatically depend on the `build` task, ensuring all packages are built before generation.
+
 ## Next Steps
 
 - Learn about [Defining Contracts](/guide/defining-contracts)

@@ -132,6 +132,9 @@ catalogs:
     vitest:
       specifier: 4.0.16
       version: 4.0.16
+    yaml:
+      specifier: 2.7.1
+      version: 2.7.1
     zod:
       specifier: 4.3.5
       version: 4.3.5
@@ -743,15 +746,30 @@ importers:
         specifier: 'catalog:'
         version: 4.3.5
     devDependencies:
+      '@amqp-contract/asyncapi':
+        specifier: workspace:*
+        version: link:../../packages/asyncapi
       '@amqp-contract/tsconfig':
         specifier: workspace:*
         version: link:../../tools/tsconfig
+      '@orpc/zod':
+        specifier: 'catalog:'
+        version: 1.13.2(@orpc/contract@1.13.2)(@orpc/server@1.13.2)(zod@4.3.5)
+      '@types/node':
+        specifier: 'catalog:'
+        version: 25.0.3
       tsdown:
         specifier: 'catalog:'
         version: 0.18.4(oxc-resolver@11.16.2)(typescript@5.9.3)
+      tsx:
+        specifier: 'catalog:'
+        version: 4.21.0
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
+      yaml:
+        specifier: 'catalog:'
+        version: 2.7.1
 
   samples/basic-order-processing-worker:
     dependencies:
@@ -5375,6 +5393,11 @@ packages:
   y18n@5.0.8:
     resolution: {integrity: sha512-0pfFzegeDWJHJIAmTLRP2DwHjdF5s7jo9tuztdQxAhINCdvS+3nGINqPd00AphqJR/0LhANUS6/+7SCb98YOfA==}
     engines: {node: '>=10'}
+
+  yaml@2.7.1:
+    resolution: {integrity: sha512-10ULxpnOCQXxJvBgxsn9ptjq6uviG/htZKk9veJGhlqn3w/DxQ631zFF+nlQXLwmImeS5amR2dl2U8sg6U9jsQ==}
+    engines: {node: '>= 14'}
+    hasBin: true
 
   yaml@2.8.2:
     resolution: {integrity: sha512-mplynKqc1C2hTVYxd0PU2xQAc22TI1vShAYGksCCfxbn/dFwnHTNi1bvYsBTkhdUNtGIf5xNOg938rrSSYvS9A==}
@@ -10229,6 +10252,8 @@ snapshots:
   wrappy@1.0.2: {}
 
   y18n@5.0.8: {}
+
+  yaml@2.7.1: {}
 
   yaml@2.8.2: {}
 
