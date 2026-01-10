@@ -8,9 +8,13 @@ import {
   defineQueue,
   defineQueueBinding,
 } from "@amqp-contract/contract";
-import { TypedAmqpWorker, type WorkerInferConsumerHandlers } from "@amqp-contract/worker";
+import { Future, Result } from "@swan-io/boxed";
+import {
+  TypedAmqpWorker,
+  type WorkerInferSafeConsumerHandlers,
+  defineHandlers,
+} from "@amqp-contract/worker";
 import { describe, expect, vi } from "vitest";
-import { Result } from "@swan-io/boxed";
 import { TypedAmqpClient } from "@amqp-contract/client";
 import { it as baseIt } from "@amqp-contract/testing/extension";
 import { z } from "zod";
@@ -21,7 +25,7 @@ const it = baseIt.extend<{
   ) => Promise<TypedAmqpClient<TContract>>;
   workerFactory: <TContract extends ContractDefinition>(
     contract: TContract,
-    handlers: Parameters<typeof TypedAmqpWorker.create<TContract>>[0]["handlers"],
+    handlers: WorkerInferSafeConsumerHandlers<TContract>,
   ) => Promise<TypedAmqpWorker<TContract>>;
 }>({
   clientFactory: async ({ amqpConnectionUrl }, use) => {
@@ -58,11 +62,11 @@ const it = baseIt.extend<{
       await use(
         async <TContract extends ContractDefinition>(
           contract: TContract,
-          handlers: WorkerInferConsumerHandlers<TContract>,
+          handlers: WorkerInferSafeConsumerHandlers<TContract>,
         ) => {
           const worker = await TypedAmqpWorker.create({
             contract,
-            handlers,
+            handlers: defineHandlers(contract, handlers),
             urls: [amqpConnectionUrl],
           }).resultToPromise();
 
@@ -136,7 +140,7 @@ describe("Client and Worker Integration", () => {
       });
 
       // GIVEN
-      const mockHandler = vi.fn().mockResolvedValue(undefined);
+      const mockHandler = vi.fn().mockReturnValue(Future.value(Result.Ok(undefined)));
       await workerFactory(contract, {
         processOrder: mockHandler,
       });
@@ -203,8 +207,9 @@ describe("Client and Worker Integration", () => {
 
       // GIVEN
       const receivedMessages: unknown[] = [];
-      const mockHandler = vi.fn().mockImplementation(async (message: unknown) => {
+      const mockHandler = vi.fn().mockImplementation((message: unknown) => {
         receivedMessages.push(message);
+        return Future.value(Result.Ok(undefined));
       });
       await workerFactory(contract, {
         processEvent: mockHandler,
@@ -271,7 +276,7 @@ describe("Client and Worker Integration", () => {
         },
       });
 
-      const mockHandler = vi.fn().mockResolvedValue(undefined);
+      const mockHandler = vi.fn().mockReturnValue(Future.value(Result.Ok(undefined)));
       await workerFactory(contract, {
         processStrict: mockHandler,
       });
@@ -353,8 +358,8 @@ describe("Client and Worker Integration", () => {
       });
 
       // GIVEN
-      const emailHandler = vi.fn().mockResolvedValue(undefined);
-      const smsHandler = vi.fn().mockResolvedValue(undefined);
+      const emailHandler = vi.fn().mockReturnValue(Future.value(Result.Ok(undefined)));
+      const smsHandler = vi.fn().mockReturnValue(Future.value(Result.Ok(undefined)));
 
       await workerFactory(contract, {
         processEmail: emailHandler,

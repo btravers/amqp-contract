@@ -1,4 +1,4 @@
-import { TypedAmqpWorker } from "@amqp-contract/worker";
+import { TypedAmqpWorker, defineUnsafeHandlers } from "@amqp-contract/worker";
 import { contract } from "./contract.js";
 import pino from "pino";
 import { z } from "zod";
@@ -27,7 +27,7 @@ async function main() {
   // Create type-safe worker
   const worker = await TypedAmqpWorker.create({
     contract,
-    handlers: {
+    handlers: defineUnsafeHandlers(contract, {
       processData: async (message) => {
         // Message is automatically decompressed by the worker
         // You receive the original, validated data structure
@@ -42,7 +42,7 @@ async function main() {
         logger.info(`   → No configuration required on consumer side`);
         logger.info("");
       },
-    },
+    }),
     urls: [env.AMQP_URL],
   })
     .tapError((error) => logger.error({ error }, "Failed to create worker"))

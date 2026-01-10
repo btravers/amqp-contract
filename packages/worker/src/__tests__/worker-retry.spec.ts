@@ -1,3 +1,4 @@
+import { Future, Result } from "@swan-io/boxed";
 import {
   defineConsumer,
   defineContract,
@@ -6,6 +7,7 @@ import {
   defineQueue,
   defineQueueBinding,
 } from "@amqp-contract/contract";
+import { defineHandler, defineHandlers } from "../handlers.js";
 import { describe, expect, vi } from "vitest";
 import { RetryableError } from "../errors.js";
 import { it } from "./fixture.js";
@@ -56,14 +58,15 @@ describe("Worker Retry Mechanism", () => {
       let attemptCount = 0;
       await workerFactory(
         contract,
-        {
-          testConsumer: async () => {
+        defineHandlers(contract, {
+          testConsumer: () => {
             attemptCount++;
             if (attemptCount < 2) {
-              throw new Error("Simulated failure");
+              return Future.value(Result.Error(new RetryableError("Simulated failure")));
             }
+            return Future.value(Result.Ok(undefined));
           },
-        },
+        }),
         undefined, // No retry config - legacy mode
       );
 
@@ -133,14 +136,15 @@ describe("Worker Retry Mechanism", () => {
       let attemptCount = 0;
       await workerFactory(
         contract,
-        {
-          testConsumer: async () => {
+        defineHandlers(contract, {
+          testConsumer: () => {
             attemptCount++;
             if (attemptCount === 1) {
-              throw new RetryableError("First attempt failed");
+              return Future.value(Result.Error(new RetryableError("First attempt failed")));
             }
+            return Future.value(Result.Ok(undefined));
           },
-        },
+        }),
         {
           maxRetries: 3,
           initialDelayMs: 500,
@@ -251,11 +255,9 @@ describe("Worker Retry Mechanism", () => {
 
       await workerFactory(
         contract,
-        {
-          testConsumer: async () => {
-            throw new RetryableError("Always fails");
-          },
-        },
+        defineHandlers(contract, {
+          testConsumer: () => Future.value(Result.Error(new RetryableError("Always fails"))),
+        }),
         {
           maxRetries: 3,
           initialDelayMs: 100,
@@ -356,12 +358,12 @@ describe("Worker Retry Mechanism", () => {
       let attemptCount = 0;
       await workerFactory(
         contract,
-        {
-          testConsumer: async () => {
+        defineHandlers(contract, {
+          testConsumer: () => {
             attemptCount++;
-            throw new RetryableError("Always fails");
+            return Future.value(Result.Error(new RetryableError("Always fails")));
           },
-        },
+        }),
         {
           maxRetries: 2,
           initialDelayMs: 100,
@@ -449,11 +451,9 @@ describe("Worker Retry Mechanism", () => {
 
       await workerFactory(
         contract,
-        {
-          testConsumer: async () => {
-            throw new RetryableError("Test error message");
-          },
-        },
+        defineHandlers(contract, {
+          testConsumer: () => Future.value(Result.Error(new RetryableError("Test error message"))),
+        }),
         {
           maxRetries: 1,
           initialDelayMs: 100,
@@ -534,16 +534,19 @@ describe("Worker Retry Mechanism", () => {
       await workerFactory(
         contract,
         {
-          testConsumer: [
-            async (_messages: Array<{ id: string }>) => {
+          testConsumer: defineHandler(
+            contract,
+            "testConsumer",
+            (_messages: Array<{ id: string }>) => {
               batchAttemptCount++;
               if (batchAttemptCount === 1) {
-                throw new RetryableError("Batch failed");
+                return Future.value(Result.Error(new RetryableError("Batch failed")));
               }
               // Second attempt succeeds
+              return Future.value(Result.Ok(undefined));
             },
             { batchSize: 3, batchTimeout: 500 },
-          ],
+          ),
         },
         {
           maxRetries: 3,
@@ -605,14 +608,15 @@ describe("Worker Retry Mechanism", () => {
       let attemptCount = 0;
       await workerFactory(
         contract,
-        {
-          testConsumer: async () => {
+        defineHandlers(contract, {
+          testConsumer: () => {
             attemptCount++;
             if (attemptCount < 2) {
-              throw new RetryableError("Will fallback to requeue");
+              return Future.value(Result.Error(new RetryableError("Will fallback to requeue")));
             }
+            return Future.value(Result.Ok(undefined));
           },
-        },
+        }),
         {
           maxRetries: 3,
           initialDelayMs: 1000,

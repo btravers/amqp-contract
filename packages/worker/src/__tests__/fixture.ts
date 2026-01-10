@@ -1,12 +1,12 @@
 import { CreateWorkerOptions, TypedAmqpWorker } from "../worker.js";
 import { ContractDefinition } from "@amqp-contract/contract";
-import { WorkerInferConsumerHandlers } from "../types.js";
+import { WorkerInferSafeConsumerHandlers } from "../types.js";
 import { it as baseIt } from "@amqp-contract/testing/extension";
 
 export const it = baseIt.extend<{
   workerFactory: <TContract extends ContractDefinition>(
     contract: TContract,
-    handlers: WorkerInferConsumerHandlers<TContract>,
+    handlers: WorkerInferSafeConsumerHandlers<TContract>,
     retryOptions?: CreateWorkerOptions<TContract>["retry"],
   ) => Promise<TypedAmqpWorker<TContract>>;
 }>({
@@ -17,7 +17,7 @@ export const it = baseIt.extend<{
       await use(
         async <TContract extends ContractDefinition>(
           contract: TContract,
-          handlers: WorkerInferConsumerHandlers<TContract>,
+          handlers: WorkerInferSafeConsumerHandlers<TContract>,
           retryOptions?: CreateWorkerOptions<TContract>["retry"],
         ) => {
           const worker = await TypedAmqpWorker.create({

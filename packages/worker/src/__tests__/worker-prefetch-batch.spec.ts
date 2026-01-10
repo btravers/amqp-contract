@@ -1,3 +1,4 @@
+import { Future, Result } from "@swan-io/boxed";
 import {
   defineConsumer,
   defineContract,
@@ -8,7 +9,9 @@ import {
   defineQueueBinding,
 } from "@amqp-contract/contract";
 import { describe, expect, vi } from "vitest";
+import { RetryableError } from "../errors.js";
 import { TypedAmqpWorker } from "../worker.js";
+import { defineHandler } from "../handlers.js";
 import { it } from "./fixture.js";
 import { z } from "zod";
 
@@ -50,14 +53,18 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
 
     const messages: Array<{ id: string; message: string }> = [];
     await workerFactory(contract, {
-      testConsumer: [
-        async (msg: { id: string; message: string }) => {
+      testConsumer: defineHandler(
+        contract,
+        "testConsumer",
+        (msg) => {
           messages.push(msg);
           // Simulate slow processing to test prefetch
-          await new Promise((resolve) => setTimeout(resolve, 100));
+          return Future.fromPromise(new Promise((resolve) => setTimeout(resolve, 100)))
+            .mapOk(() => undefined)
+            .mapError((error) => new RetryableError("Processing failed", error));
         },
         { prefetch: 5 },
-      ],
+      ),
     });
 
     // WHEN - Publish multiple messages
@@ -119,15 +126,18 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
     const batches: Array<Array<{ id: string; value: number }>> = [];
     await workerFactory(contract, {
       // Use tuple format with batch options
-      batchConsumer: [
-        async (messages: Array<{ id: string; value: number }>) => {
+      batchConsumer: defineHandler(
+        contract,
+        "batchConsumer",
+        (messages: Array<{ id: string; value: number }>) => {
           batches.push(messages);
+          return Future.value(Result.Ok(undefined));
         },
         {
           batchSize: 3,
           batchTimeout: 2000,
         },
-      ],
+      ),
     });
 
     // WHEN - Publish 7 messages (should result in 2 full batches of 3 and 1 partial batch of 1)
@@ -202,15 +212,18 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
 
     const batches: Array<Array<{ id: string; text: string }>> = [];
     await workerFactory(contract, {
-      batchConsumer: [
-        async (messages: Array<{ id: string; text: string }>) => {
+      batchConsumer: defineHandler(
+        contract,
+        "batchConsumer",
+        (messages: Array<{ id: string; text: string }>) => {
           batches.push(messages);
+          return Future.value(Result.Ok(undefined));
         },
         {
           batchSize: 5,
           batchTimeout: 500, // 500ms timeout
         },
-      ],
+      ),
     });
 
     // WHEN - Publish only 2 messages (less than batch size)
@@ -265,7 +278,7 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
       const result = await TypedAmqpWorker.create({
         contract,
         handlers: {
-          testConsumer: [async () => {}, { prefetch: 0 }],
+          testConsumer: [() => Future.value(Result.Ok(undefined)), { prefetch: 0 }],
         },
         urls: [amqpConnectionUrl],
       }).toPromise();
@@ -301,7 +314,7 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
       const result = await TypedAmqpWorker.create({
         contract,
         handlers: {
-          testConsumer: [async () => {}, { prefetch: -5 }],
+          testConsumer: [() => Future.value(Result.Ok(undefined)), { prefetch: -5 }],
         },
         urls: [amqpConnectionUrl],
       }).toPromise();
@@ -336,7 +349,7 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
       const result = await TypedAmqpWorker.create({
         contract,
         handlers: {
-          testConsumer: [async () => {}, { batchSize: 0 }],
+          testConsumer: [() => Future.value(Result.Ok(undefined)), { batchSize: 0 }],
         },
         urls: [amqpConnectionUrl],
       }).toPromise();
@@ -372,7 +385,10 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
       const result = await TypedAmqpWorker.create({
         contract,
         handlers: {
-          testConsumer: [async () => {}, { batchSize: 5, batchTimeout: -100 }],
+          testConsumer: [
+            () => Future.value(Result.Ok(undefined)),
+            { batchSize: 5, batchTimeout: -100 },
+          ],
         },
         urls: [amqpConnectionUrl],
       }).toPromise();
@@ -408,7 +424,10 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
       const result = await TypedAmqpWorker.create({
         contract,
         handlers: {
-          testConsumer: [async () => {}, { batchSize: 5, batchTimeout: 0 }],
+          testConsumer: [
+            () => Future.value(Result.Ok(undefined)),
+            { batchSize: 5, batchTimeout: 0 },
+          ],
         },
         urls: [amqpConnectionUrl],
       }).toPromise();

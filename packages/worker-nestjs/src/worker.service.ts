@@ -1,6 +1,6 @@
 import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
 import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
-import { TypedAmqpWorker, type WorkerInferConsumerHandlers } from "@amqp-contract/worker";
+import { TypedAmqpWorker, type WorkerInferSafeConsumerHandlers } from "@amqp-contract/worker";
 import type { ContractDefinition } from "@amqp-contract/contract";
 import { MODULE_OPTIONS_TOKEN } from "./worker.module-definition.js";
 
@@ -11,25 +11,39 @@ import { MODULE_OPTIONS_TOKEN } from "./worker.module-definition.js";
  *
  * @example
  * ```typescript
+ * import { defineHandlers, defineUnsafeHandlers } from '@amqp-contract/worker';
+ * import { Future, Result } from '@swan-io/boxed';
+ * import { RetryableError } from '@amqp-contract/worker';
+ *
+ * // Using safe handlers (recommended)
  * const options: AmqpWorkerModuleOptions<typeof contract> = {
  *   contract: myContract,
- *   handlers: {
+ *   handlers: defineHandlers(myContract, {
+ *     processOrder: (message) =>
+ *       Future.fromPromise(processPayment(message))
+ *         .mapOk(() => undefined)
+ *         .mapError((error) => new RetryableError('Payment failed', error))
+ *   }),
+ *   urls: ['amqp://localhost'],
+ * };
+ *
+ * // Using unsafe handlers (legacy)
+ * const options: AmqpWorkerModuleOptions<typeof contract> = {
+ *   contract: myContract,
+ *   handlers: defineUnsafeHandlers(myContract, {
  *     processOrder: async (message) => {
  *       console.log('Processing order:', message.orderId);
  *     }
- *   },
+ *   }),
  *   urls: ['amqp://localhost'],
- *   connectionOptions: {
- *     heartbeatIntervalInSeconds: 30
- *   }
  * };
  * ```
  */
 export type AmqpWorkerModuleOptions<TContract extends ContractDefinition> = {
   /** The AMQP contract definition specifying consumers and their message schemas */
   contract: TContract;
-  /** Message handlers for each consumer defined in the contract */
-  handlers: WorkerInferConsumerHandlers<TContract>;
+  /** Message handlers for each consumer defined in the contract. Use defineHandlers or defineUnsafeHandlers to create type-safe handlers. */
+  handlers: WorkerInferSafeConsumerHandlers<TContract>;
   /** AMQP broker URL(s). Multiple URLs provide failover support */
   urls: ConnectionUrl[];
   /** Optional connection configuration (heartbeat, reconnect settings, etc.) */

@@ -90,17 +90,44 @@ console.log('✅ All handlers present');
 
 ## Defining Handlers Externally
 
-For better organization, define handlers separately:
+For better organization, define handlers separately. The library provides two types of handlers:
 
-### Single Handler
+### Safe Handlers (Recommended)
+
+Safe handlers return `Future<Result<void, HandlerError>>` for explicit error handling:
 
 ```typescript
-import { defineHandler } from "@amqp-contract/worker";
+import { defineHandler, RetryableError, NonRetryableError } from "@amqp-contract/worker";
+import { Future, Result } from "@swan-io/boxed";
 import { contract } from "./contract";
 
-const processOrderHandler = defineHandler(contract, "processOrder", async (message) => {
+const processOrderHandler = defineHandler(contract, "processOrder", (message) =>
+  Future.fromPromise(saveToDatabase(message))
+    .mapOk(() => undefined)
+    .mapError((error) => new RetryableError("Database error", error)),
+);
+
+// Non-retryable errors go directly to DLQ
+const validateOrderHandler = defineHandler(contract, "validateOrder", (message) => {
+  if (message.amount <= 0) {
+    return Future.value(Result.Error(new NonRetryableError("Invalid order amount")));
+  }
+  return Future.value(Result.Ok(undefined));
+});
+```
+
+### Unsafe Handlers (Legacy)
+
+For simpler use cases or migration from existing code, use unsafe handlers that return `Promise<void>`:
+
+```typescript
+import { defineUnsafeHandler } from "@amqp-contract/worker";
+import { contract } from "./contract";
+
+const processOrderHandler = defineUnsafeHandler(contract, "processOrder", async (message) => {
   console.log("Processing:", message.orderId);
   await saveToDatabase(message);
+  // Throws on error - will be retried (when retry is configured)
 });
 
 const worker = await TypedAmqpWorker.create({
@@ -115,10 +142,26 @@ const worker = await TypedAmqpWorker.create({
 ### Multiple Handlers
 
 ```typescript
-import { defineHandlers } from "@amqp-contract/worker";
+import { defineHandlers, RetryableError } from "@amqp-contract/worker";
+import { Future, Result } from "@swan-io/boxed";
 import { contract } from "./contract";
 
+// Safe handlers (recommended) - for async operations use Future.fromPromise
 const handlers = defineHandlers(contract, {
+  processOrder: (message) =>
+    Future.fromPromise(processPayment(message))
+      .mapOk(() => undefined)
+      .mapError((error) => new RetryableError("Payment failed", error)),
+  notifyOrder: (message) =>
+    Future.fromPromise(sendEmail(message))
+      .mapOk(() => undefined)
+      .mapError((error) => new RetryableError("Email failed", error)),
+});
+
+// Or use unsafe handlers for simpler code
+import { defineUnsafeHandlers } from "@amqp-contract/worker";
+
+const unsafeHandlers = defineUnsafeHandlers(contract, {
   processOrder: async (message) => {
     await processPayment(message);
   },
@@ -129,7 +172,7 @@ const handlers = defineHandlers(contract, {
 
 const worker = await TypedAmqpWorker.create({
   contract,
-  handlers,
+  handlers, // or unsafeHandlers
   urls: ["amqp://localhost"],
 });
 ```
@@ -143,28 +186,68 @@ External handler definitions provide several advantages:
 - **Type Safety**: Full TypeScript type checking at definition time
 - **Testability**: Test handlers in isolation before integrating with workers
 - **Maintainability**: Easier to modify and refactor handler logic
+- **Explicit Error Control**: Safe handlers force explicit error handling
 
-### Example: Organized Handler Module
+### Example: Organized Handler Module (Safe Handlers)
 
-Create a dedicated module for handlers:
+Create a dedicated module for handlers with explicit error handling:
 
 ```typescript
 // handlers/order-handlers.ts
-import { defineHandler, defineHandlers } from "@amqp-contract/worker";
+import { defineHandler, defineHandlers, RetryableError } from "@amqp-contract/worker";
+import { Future } from "@swan-io/boxed";
 import { orderContract } from "../contract";
 import { processPayment } from "../services/payment";
 import { sendEmail } from "../services/email";
 
-export const processOrderHandler = defineHandler(orderContract, "processOrder", async (message) => {
-  await processPayment(message);
-});
+export const processOrderHandler = defineHandler(orderContract, "processOrder", (message) =>
+  Future.fromPromise(processPayment(message))
+    .mapOk(() => undefined)
+    .mapError((error) => new RetryableError("Payment failed", error)),
+);
 
-export const notifyOrderHandler = defineHandler(orderContract, "notifyOrder", async (message) => {
-  await sendEmail(message);
-});
+export const notifyOrderHandler = defineHandler(orderContract, "notifyOrder", (message) =>
+  Future.fromPromise(sendEmail(message))
+    .mapOk(() => undefined)
+    .mapError((error) => new RetryableError("Email failed", error)),
+);
 
 // Export all handlers together
 export const orderHandlers = defineHandlers(orderContract, {
+  processOrder: processOrderHandler,
+  notifyOrder: notifyOrderHandler,
+});
+```
+
+### Example: Organized Handler Module (Unsafe Handlers)
+
+For simpler use cases, use unsafe handlers:
+
+```typescript
+// handlers/order-handlers.ts
+import { defineUnsafeHandler, defineUnsafeHandlers } from "@amqp-contract/worker";
+import { orderContract } from "../contract";
+import { processPayment } from "../services/payment";
+import { sendEmail } from "../services/email";
+
+export const processOrderHandler = defineUnsafeHandler(
+  orderContract,
+  "processOrder",
+  async (message) => {
+    await processPayment(message);
+  },
+);
+
+export const notifyOrderHandler = defineUnsafeHandler(
+  orderContract,
+  "notifyOrder",
+  async (message) => {
+    await sendEmail(message);
+  },
+);
+
+// Export all handlers together
+export const orderHandlers = defineUnsafeHandlers(orderContract, {
   processOrder: processOrderHandler,
   notifyOrder: notifyOrderHandler,
 });
@@ -606,22 +689,26 @@ If you're upgrading from the legacy behavior, add the `retry` configuration and 
 
 ### Retry Error Classes
 
-The `RetryableError` class is provided for explicit signaling but is **optional**:
+The library provides two error classes for explicit error signaling:
+
+#### RetryableError
+
+Use `RetryableError` for transient failures that may succeed on retry:
 
 ```typescript
-import { RetryableError } from "@amqp-contract/worker";
+import { RetryableError, defineUnsafeHandler } from "@amqp-contract/worker";
 
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    processOrder: async (message) => {
+    processOrder: defineUnsafeHandler(contract, "processOrder", async (message) => {
       try {
         await externalApiCall(message);
       } catch (error) {
         // Explicitly signal this should be retried
         throw new RetryableError("External API temporarily unavailable", error);
       }
-    },
+    }),
   },
   urls: ["amqp://localhost"],
   retry: {
@@ -631,13 +718,85 @@ const worker = await TypedAmqpWorker.create({
 }).resultToPromise();
 ```
 
-**When to use `RetryableError`:**
+#### NonRetryableError
 
-- To explicitly document that an error is expected and should be retried
-- To provide additional context about why retry is appropriate
-- For consistency across your codebase
+Use `NonRetryableError` for permanent failures that should NOT be retried:
 
-**Remember:** When retry is configured, **all errors are retryable by default**. You don't need to use `RetryableError` unless you want to be explicit about the retry intent.
+```typescript
+import { NonRetryableError, defineUnsafeHandler } from "@amqp-contract/worker";
+
+const worker = await TypedAmqpWorker.create({
+  contract,
+  handlers: {
+    processOrder: defineUnsafeHandler(contract, "processOrder", async (message) => {
+      // Validation errors should not be retried
+      if (message.amount <= 0) {
+        throw new NonRetryableError("Invalid order amount");
+      }
+      await processPayment(message);
+    }),
+  },
+  urls: ["amqp://localhost"],
+  retry: {
+    maxRetries: 5,
+    initialDelayMs: 2000,
+  },
+}).resultToPromise();
+```
+
+**NonRetryableError behavior:**
+
+- Message is immediately sent to DLQ (if configured)
+- No retry attempts are made
+- Use for validation errors, business rule violations, or permanent failures
+
+#### Using Safe Handlers for Better Error Control
+
+For the most explicit error handling, use safe handlers that return `Future<Result>`:
+
+```typescript
+import { defineHandler, RetryableError, NonRetryableError } from "@amqp-contract/worker";
+import { Future, Result } from "@swan-io/boxed";
+import { match } from "ts-pattern";
+
+const worker = await TypedAmqpWorker.create({
+  contract,
+  handlers: {
+    processOrder: defineHandler(contract, "processOrder", (message) => {
+      // Validation - non-retryable
+      if (message.amount <= 0) {
+        return Future.value(Result.Error(new NonRetryableError("Invalid amount")));
+      }
+
+      return Future.fromPromise(processPayment(message))
+        .mapOk(() => undefined)
+        .mapError((error) =>
+          match(error)
+            .when(
+              (e) => e instanceof PaymentDeclinedError,
+              () => new NonRetryableError("Payment declined", error),
+            )
+            .otherwise(() => new RetryableError("Payment failed", error)),
+        );
+    }),
+  },
+  urls: ["amqp://localhost"],
+  retry: {
+    maxRetries: 5,
+    initialDelayMs: 2000,
+  },
+}).resultToPromise();
+```
+
+**When to use which error type:**
+
+| Error Type                        | Use Case                                        | Behavior           |
+| --------------------------------- | ----------------------------------------------- | ------------------ |
+| `RetryableError`                  | Transient failures (network, rate limits)       | Retry with backoff |
+| `NonRetryableError`               | Permanent failures (validation, business rules) | Immediate DLQ      |
+| Any other error (unsafe handlers) | Unexpected failures                             | Retry with backoff |
+
+**Note:** When using unsafe handlers with retry configured, **all errors except `NonRetryableError` are retried by default**.
 
 ### Retry with Batch Processing
 
