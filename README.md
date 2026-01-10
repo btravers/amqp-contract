@@ -10,7 +10,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?logo=typescript)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-[**Documentation**](https://btravers.github.io/amqp-contract) · [**Quick Start**](https://btravers.github.io/amqp-contract/guide/quick-start) · [**Examples**](https://btravers.github.io/amqp-contract/examples/)
+[**Documentation**](https://btravers.github.io/amqp-contract) · [**Get started**](https://btravers.github.io/amqp-contract/guide/getting-started) · [**Examples**](https://btravers.github.io/amqp-contract/examples/)
 
 </div>
 
@@ -103,7 +103,7 @@ pnpm add @amqp-contract/contract @amqp-contract/client @amqp-contract/worker
 
 📖 **[Full Documentation →](https://btravers.github.io/amqp-contract)**
 
-- [Quick Start](https://btravers.github.io/amqp-contract/guide/quick-start) — Get running in 5 minutes
+- [Get Started](https://btravers.github.io/amqp-contract/guide/getting-started) — Get running in 5 minutes
 - [Core Concepts](https://btravers.github.io/amqp-contract/guide/core-concepts) — Understand the fundamentals
 - [NestJS Integration](https://btravers.github.io/amqp-contract/guide/client-nestjs-usage) — First-class NestJS support
 - [Examples](https://btravers.github.io/amqp-contract/examples/) — Real-world usage patterns
