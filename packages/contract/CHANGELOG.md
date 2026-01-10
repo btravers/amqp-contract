@@ -1,5 +1,27 @@
 # @amqp-contract/contract
 
+## 0.9.0
+
+### Minor Changes
+
+- Add OpenTelemetry instrumentation for spans and metrics
+
+  This release adds comprehensive OpenTelemetry instrumentation support for AMQP operations:
+  - **Automatic tracing**: Distributed tracing spans for publish and consume operations with semantic conventions following OpenTelemetry standards
+  - **Metrics collection**: Counters and histograms for message throughput and latency monitoring
+  - **Optional dependency**: OpenTelemetry is an optional peer dependency that is gracefully loaded when available
+  - **Zero configuration**: Instrumentation automatically integrates with your existing OpenTelemetry setup
+  - **Semantic conventions**: Follows OpenTelemetry messaging semantic conventions for AMQP/RabbitMQ
+
+  Key features:
+  - Producer and consumer spans with proper span kinds
+  - Message metadata tracking (message ID, routing key, delivery tag, payload size)
+  - Error tracking with error types and attributes
+  - Performance metrics for publish and consume operations
+  - Compatible with any OpenTelemetry-compliant APM solution
+
+  See the documentation for configuration details and usage examples.
+
 ## 0.8.0
 
 ## 0.7.0
