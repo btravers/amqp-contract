@@ -112,7 +112,6 @@ export default withMermaid(
             items: [
               { text: "Connection Sharing", link: "/guide/connection-sharing" },
               { text: "Channel Configuration", link: "/guide/channel-configuration" },
-              { text: "AsyncAPI Generation", link: "/guide/asyncapi-generation" },
             ],
           },
           {
@@ -151,10 +150,6 @@ export default withMermaid(
               {
                 text: "Basic Order Processing",
                 link: "/examples/basic-order-processing",
-              },
-              {
-                text: "AsyncAPI Generation",
-                link: "/examples/asyncapi-generation",
               },
             ],
           },

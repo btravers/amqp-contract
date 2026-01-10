@@ -15,16 +15,6 @@ A complete example demonstrating:
 
 **Technologies:** [RabbitMQ](https://www.rabbitmq.com/) • TypeScript • [Zod](https://zod.dev/)
 
-### [AsyncAPI Generation](/examples/asyncapi-generation)
-
-Learn how to generate AsyncAPI 3.0 specifications:
-
-- Generate from contracts
-- Server configurations
-- Export to JSON/YAML
-
-**Technologies:** AsyncAPI 3.0 • JSON/YAML
-
 ## Running Examples
 
 All examples are in the `samples/` directory.
@@ -111,5 +101,4 @@ flowchart TB
 ## Next Steps
 
 - Try the [Basic Order Processing](/examples/basic-order-processing) example
-- Generate [AsyncAPI specifications](/examples/asyncapi-generation)
 - Read the [Getting Started](/guide/getting-started) guide
