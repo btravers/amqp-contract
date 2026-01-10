@@ -31,6 +31,14 @@
       "dependsOn": ["^build"],
       "outputs": ["docs/**"]
     },
+    "generate:asyncapi:json": {
+      "dependsOn": ["^build"],
+      "outputs": ["asyncapi.json"]
+    },
+    "generate:asyncapi:yaml": {
+      "dependsOn": ["^build"],
+      "outputs": ["asyncapi.yaml"]
+    },
     "@amqp-contract/docs#build": {
       "dependsOn": ["^build", "^build:docs"],
       "outputs": [".vitepress/dist/**"]

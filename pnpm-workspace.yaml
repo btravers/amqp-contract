@@ -46,6 +46,7 @@ catalog:
   typescript: 5.9.3
   valibot: 1.2.0
   vitepress: 1.6.4
+  yaml: 2.7.1
   vitepress-plugin-mermaid: 2.0.17
   vitest: 4.0.16
   zod: 4.3.5

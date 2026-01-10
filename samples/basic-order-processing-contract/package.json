@@ -13,15 +13,22 @@
   "types": "./dist/index.d.mts",
   "scripts": {
     "build": "tsdown src/index.ts --dts",
+    "generate:asyncapi:json": "tsx src/generate-asyncapi-json.ts",
+    "generate:asyncapi:yaml": "tsx src/generate-asyncapi-yaml.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@amqp-contract/asyncapi": "workspace:*",
     "@amqp-contract/contract": "workspace:*",
+    "@orpc/zod": "catalog:",
+    "yaml": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@amqp-contract/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
     "tsdown": "catalog:",
+    "tsx": "catalog:",
     "typescript": "catalog:"
   }
 }
