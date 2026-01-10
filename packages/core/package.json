@@ -12,7 +12,10 @@
     "messaging",
     "type-safe",
     "message-broker",
-    "message-queue"
+    "message-queue",
+    "opentelemetry",
+    "tracing",
+    "metrics"
   ],
   "homepage": "https://github.com/btravers/amqp-contract#readme",
   "bugs": {
@@ -62,6 +65,7 @@
     "@amqp-contract/testing": "workspace:*",
     "@amqp-contract/tsconfig": "workspace:*",
     "@amqp-contract/typedoc": "workspace:*",
+    "@opentelemetry/api": "catalog:",
     "@types/amqplib": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "tsdown": "catalog:",
@@ -69,5 +73,13 @@
     "typescript": "catalog:",
     "vitest": "catalog:",
     "zod": "catalog:"
+  },
+  "peerDependencies": {
+    "@opentelemetry/api": "^1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@opentelemetry/api": {
+      "optional": true
+    }
   }
 }
