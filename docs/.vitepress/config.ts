@@ -159,6 +159,10 @@ export default withMermaid(
             items: [
               { text: "Overview", link: "/blog/" },
               {
+                text: "Resilient Message Handling with Retry",
+                link: "/blog/resilient-message-handling-with-retry-strategy",
+              },
+              {
                 text: "Building Type-Safe AMQP Messaging",
                 link: "/blog/introducing-amqp-contract",
               },
