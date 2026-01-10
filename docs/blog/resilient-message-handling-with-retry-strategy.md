@@ -140,6 +140,9 @@ import {
 } from "@amqp-contract/contract";
 import { z } from "zod";
 
+// Define the main exchange
+const mainExchange = defineExchange("orders", "topic", { durable: true });
+
 // Define the Dead Letter Exchange
 const dlxExchange = defineExchange("orders-dlx", "topic", { durable: true });
 
