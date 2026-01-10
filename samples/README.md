@@ -54,6 +54,5 @@ pnpm --filter @amqp-contract-samples/basic-order-processing-client-nestjs dev
 | [Basic Order Processing - Worker](./basic-order-processing-worker)                 | Plain TypeScript worker for consuming orders    |
 | [Basic Order Processing - Client (NestJS)](./basic-order-processing-client-nestjs) | NestJS client with dependency injection         |
 | [Basic Order Processing - Worker (NestJS)](./basic-order-processing-worker-nestjs) | NestJS worker with modular handlers             |
-| [AsyncAPI Generation](./asyncapi-generation)                                       | Generate AsyncAPI 3.0 specifications            |
 
 For detailed documentation, examples, and tutorials, visit the **[amqp-contract website](https://btravers.github.io/amqp-contract/)**.

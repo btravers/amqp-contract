@@ -6,7 +6,6 @@ packages:
   - docs
 
 catalog:
-  "@asyncapi/cli": 5.0.5
   "@asyncapi/parser": 3.4.0
   "@changesets/cli": 2.29.8
   "@commitlint/cli": 20.3.1
