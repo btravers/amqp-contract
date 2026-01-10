@@ -1,12 +1,12 @@
 ---
 layout: home
 title: amqp-contract - Type-safe AMQP/RabbitMQ messaging for TypeScript and Node.js
-description: Build reliable message-driven applications with end-to-end type safety, automatic schema validation, and AsyncAPI generation for AMQP/RabbitMQ in TypeScript, Node.js, and NestJS
+description: Build reliable message-driven applications with end-to-end type safety, automatic schema validation, reliable retry patterns, and AsyncAPI generation for AMQP/RabbitMQ in TypeScript, Node.js, and NestJS
 
 hero:
   name: "amqp-contract"
   text: "Type-safe contracts for AMQP/RabbitMQ"
-  tagline: End-to-end type safety and automatic validation for AMQP messaging with AsyncAPI generation for TypeScript, Node.js, and NestJS applications
+  tagline: Type safety & validation · Reliable retry patterns · AsyncAPI compatibility
   image:
     src: /logo.svg
     alt: amqp-contract
@@ -23,157 +23,194 @@ hero:
 
 features:
   - icon: 🔒
-    title: End-to-end Type Safety
-    details: Full TypeScript inference from contract to client and worker. No manual type annotations needed.
+    title: Type Safety, Autocompletion & Validation
+    details: End-to-end TypeScript inference with runtime schema validation using <a href="https://zod.dev/" target="_blank" rel="noopener noreferrer">Zod</a>, <a href="https://valibot.dev/" target="_blank" rel="noopener noreferrer">Valibot</a>, or <a href="https://arktype.io/" target="_blank" rel="noopener noreferrer">ArkType</a>. Full IntelliSense support and compile-time error checking.
 
-  - icon: ✅
-    title: Automatic Validation
-    details: Schema validation at network boundaries with <a href="https://zod.dev/" target="_blank" rel="noopener noreferrer">Zod</a>, <a href="https://valibot.dev/" target="_blank" rel="noopener noreferrer">Valibot</a>, or <a href="https://arktype.io/" target="_blank" rel="noopener noreferrer">ArkType</a>. No runtime surprises.
-
-  - icon: 🛠️
-    title: Compile-time Checks
-    details: TypeScript catches missing or incorrect implementations before runtime. Refactor with confidence.
-
-  - icon: 🚀
-    title: Better Developer Experience
-    details: Full autocomplete, inline documentation, and refactoring support throughout your codebase.
-
-  - icon: 📝
-    title: Contract-First Design
-    details: Define your AMQP interface once with schemas — types and validation flow from there.
+  - icon: 🔄
+    title: Reliable Retry Pattern with RabbitMQ
+    details: Built-in retry with exponential backoff using RabbitMQ's native TTL and Dead Letter Exchange (DLX). Configurable delays, jitter, and automatic DLQ routing after max retries.
 
   - icon: 📄
-    title: AsyncAPI Generation
-    details: Automatically generate AsyncAPI 3.0 specifications from your contracts for documentation and tooling.
+    title: AsyncAPI Compatibility
+    details: Generate AsyncAPI 3.0 specifications from contracts. Unlock the <a href="https://www.asyncapi.com/" target="_blank" rel="noopener noreferrer">AsyncAPI</a> ecosystem — contract visualization, breaking change detection, validation, and documentation generation.
 
   - icon: 🎯
     title: NestJS Integration
     details: First-class <a href="https://nestjs.com/" target="_blank" rel="noopener noreferrer">NestJS</a> support with automatic lifecycle management and dependency injection.
+
+  - icon: 📝
+    title: Contract-First Design
+    details: Define your AMQP interface once with schemas — types, validation, and retry behavior flow from there.
 
   - icon: 🔌
     title: Framework Agnostic
     details: Use with any framework or none at all. Core packages work anywhere TypeScript runs.
 ---
 
-## Why Choose amqp-contract?
+## Three Core Features
 
-Stop fighting with untyped AMQP code. Get type safety, validation, and great developer experience out of the box.
+### 🔒 Type Safety, Autocompletion & Runtime Validation
+
+Define your AMQP contracts once with schema validation — get **end-to-end type safety**, **IntelliSense autocompletion**, and **automatic runtime validation** everywhere:
 
 ::: code-group
 
-```typescript [❌ Without amqp-contract]
-// Verbose, error-prone, no type safety
-import * as amqp from "amqplib";
-
-const connection = await amqp.connect("amqp://localhost");
-const channel = await connection.createChannel();
-
-await channel.assertExchange("orders", "topic", { durable: true });
-await channel.assertQueue("order-processing", { durable: true });
-await channel.bindQueue("order-processing", "orders", "order.created");
-
-// ❌ No type checking!
-// ❌ No validation!
-// ❌ Manual error handling!
-channel.publish(
-  "orders",
-  "order.created",
-  Buffer.from(
-    JSON.stringify({
-      orderId: "ORD-123",
-      amount: "99.99", // ❌ Should be number - no error until runtime!
-      // ❌ Missing required fields - no compile-time error!
-    }),
-  ),
-);
-
-// Consumer - manually parse and validate
-channel.consume("order-processing", (msg) => {
-  if (msg) {
-    const data = JSON.parse(msg.content.toString()); // ❌ Any type!
-    console.log(data.orderId); // ❌ No autocomplete!
-    // ❌ No validation - runtime errors waiting to happen!
-    channel.ack(msg);
-  }
-});
-```
-
-```typescript [✅ With amqp-contract]
-// Type-safe, validated, clean
-import {
-  defineContract,
-  defineExchange,
-  defineQueue,
-  definePublisher,
-  defineConsumer,
-  defineMessage,
-  defineQueueBinding,
-} from "@amqp-contract/contract";
+```typescript [Type-Safe Publishing]
 import { TypedAmqpClient } from "@amqp-contract/client";
-import { TypedAmqpWorker } from "@amqp-contract/worker";
+import { defineMessage } from "@amqp-contract/contract";
 import { z } from "zod";
 
-// Define once, use everywhere
-const ordersExchange = defineExchange("orders", "topic", { durable: true });
-const orderProcessingQueue = defineQueue("order-processing", { durable: true });
-
+// Define message with schema validation
 const orderMessage = defineMessage(
   z.object({
     orderId: z.string(),
-    amount: z.number(), // ✅ Type enforced!
+    amount: z.number(),
   }),
 );
 
-const contract = defineContract({
-  exchanges: { orders: ordersExchange },
-  queues: { orderProcessing: orderProcessingQueue },
-  bindings: {
-    orderBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
-      routingKey: "order.created",
-    }),
-  },
-  publishers: {
-    orderCreated: definePublisher(ordersExchange, orderMessage, {
-      routingKey: "order.created",
-    }),
-  },
-  consumers: {
-    processOrder: defineConsumer(orderProcessingQueue, orderMessage),
-  },
-});
-
-// Publisher - fully typed!
+// Publishing: TypeScript knows the exact shape
 const client = await TypedAmqpClient.create({
   contract,
   urls: ["amqp://localhost"],
 }).resultToPromise();
 
-const result = await client.publish("orderCreated", {
-  orderId: "ORD-123",
-  amount: 99.99, // ✅ Number required - TypeScript enforces!
+await client.publish("orderCreated", {
+  orderId: "ORD-123", // ✅ Autocomplete & type checking
+  amount: 99.99, // ✅ Runtime validation
   // ✅ Missing fields caught at compile time!
 });
+```
 
-result.match({
-  Ok: () => console.log("✅ Published"),
-  Error: (error) => console.error("❌ Failed:", error),
-}); // ✅ Automatic validation!
+```typescript [Type-Safe Consuming]
+import { TypedAmqpWorker } from "@amqp-contract/worker";
 
-// Consumer - fully typed!
+// Consuming: Fully typed message handlers
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: async (message) => {
-      console.log(message.orderId); // ✅ Full autocomplete!
-      console.log(message.amount); // ✅ Known to be number!
+      console.log(message.orderId); // ✅ TypeScript knows the type!
+      console.log(message.amount); // ✅ Full autocomplete!
       // ✅ Automatic validation - invalid messages rejected!
-    }, // ✅ Auto-acknowledgment on success!
+    },
   },
   urls: ["amqp://localhost"],
 }).resultToPromise();
 ```
 
 :::
+
+**Benefits:**
+
+- ✅ **TypeScript type inference** from contract to client and worker
+- ✅ **Compile-time checks** catch errors before deployment
+- ✅ **Schema validation** with [Zod](https://zod.dev/), [Valibot](https://valibot.dev/), or [ArkType](https://arktype.io/)
+- ✅ **IntelliSense autocomplete** and inline documentation
+
+---
+
+### 🔄 Reliable Retry Pattern with RabbitMQ
+
+Built-in **retry with exponential backoff** using RabbitMQ's native TTL and Dead Letter Exchange (DLX) pattern:
+
+```typescript
+import { TypedAmqpWorker, RetryableError, NonRetryableError } from "@amqp-contract/worker";
+
+const worker = await TypedAmqpWorker.create({
+  contract,
+  handlers: {
+    processOrder: async (message) => {
+      try {
+        await processPayment(message); // If this fails, message is retried
+      } catch (error) {
+        if (isValidationError(error)) {
+          throw new NonRetryableError("Invalid data"); // Goes directly to DLQ
+        }
+        throw new RetryableError("Transient failure"); // Retried with backoff
+      }
+    },
+  },
+  urls: ["amqp://localhost"],
+  retry: {
+    maxRetries: 3, // Retry up to 3 times
+    initialDelayMs: 1000, // Start with 1 second delay
+    maxDelayMs: 30000, // Max 30 seconds between retries
+    backoffMultiplier: 2, // Double delay each retry (1s → 2s → 4s)
+    jitter: true, // Randomize to prevent thundering herd
+  },
+}).resultToPromise();
+```
+
+**How it works:**
+
+1. Failed messages are routed to a **wait queue** with TTL
+2. After TTL expires, messages are automatically **dead-lettered back** for retry
+3. Delays increase **exponentially** (1s → 2s → 4s → 8s...)
+4. After max retries, messages go to the **Dead Letter Queue** for inspection
+
+**Benefits:**
+
+- ✅ **Automatic retry** with configurable exponential backoff
+- ✅ **Jitter support** to prevent thundering herd problems
+- ✅ **Dead Letter Queue** routing after max retries exceeded
+- ✅ **Retry headers** tracking (retry count, last error, first failure timestamp)
+- ✅ **RetryableError vs NonRetryableError** for explicit control
+
+---
+
+### 📄 AsyncAPI Compatibility
+
+Generate **AsyncAPI 3.0 specifications** from your contracts — unlock the entire [AsyncAPI](https://www.asyncapi.com/) ecosystem of tools:
+
+```typescript
+import { AsyncAPIGenerator } from "@amqp-contract/asyncapi";
+import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
+
+const generator = new AsyncAPIGenerator({
+  schemaConverters: [new ZodToJsonSchemaConverter()],
+});
+
+const spec = await generator.generate(contract, {
+  info: {
+    title: "Order Processing API",
+    version: "1.0.0",
+  },
+  servers: {
+    production: {
+      host: "rabbitmq.example.com:5672",
+      protocol: "amqp",
+    },
+  },
+});
+
+// Export as JSON or YAML
+writeFileSync("asyncapi.json", JSON.stringify(spec, null, 2));
+```
+
+**What you can do with AsyncAPI:**
+
+| Tool                                            | Purpose                                          |
+| ----------------------------------------------- | ------------------------------------------------ |
+| [AsyncAPI Studio](https://studio.asyncapi.com/) | 📊 **Visualize** your contracts interactively    |
+| `asyncapi diff`                                 | 🔍 **Detect breaking changes** before deployment |
+| `asyncapi validate`                             | ✅ **Validate** your specifications              |
+| `asyncapi generate`                             | 📝 **Generate** HTML documentation               |
+
+```bash
+# Install AsyncAPI CLI
+npm install -g @asyncapi/cli
+
+# Validate your contract
+asyncapi validate asyncapi.json
+
+# Generate HTML documentation
+asyncapi generate fromFile asyncapi.json @asyncapi/html-template -o docs/
+
+# Detect breaking changes
+asyncapi diff old-asyncapi.json new-asyncapi.json
+```
+
+---
 
 ## Who Should Use This?
 
@@ -183,7 +220,7 @@ const worker = await TypedAmqpWorker.create({
 - **NestJS Developers** building microservices with message-based communication
 - **Platform Teams** enforcing message contracts across multiple services
 - **Teams** collaborating on event-driven architectures with shared schemas
-- **Developers** who value great DX with autocomplete and refactoring support
+- **Developers** who need reliable retry patterns without reinventing the wheel
 
 ### ⚡ Quick Stats
 
@@ -194,21 +231,14 @@ const worker = await TypedAmqpWorker.create({
 
 **Battle-tested in production** • **8 packages** • **Full TypeScript support**
 
-## See It in Action
-
-Experience the power of type-safe messaging:
-
-- **IntelliSense Autocomplete** - Your IDE knows all message fields and types
-- **Compile-Time Errors** - Catch mistakes before runtime
-- **Refactoring Support** - Rename fields safely across your entire codebase
-- **Inline Documentation** - Hover over fields to see schemas and descriptions
-
 <div style="text-align: center; margin: 2rem 0;">
   <img src="https://img.shields.io/badge/TypeScript-Full%20Support-blue?logo=typescript" alt="TypeScript" style="margin: 0 0.5rem;">
   <img src="https://img.shields.io/badge/RabbitMQ-Compatible-orange?logo=rabbitmq" alt="RabbitMQ" style="margin: 0 0.5rem;">
   <img src="https://img.shields.io/badge/NestJS-First--class-red?logo=nestjs" alt="NestJS" style="margin: 0 0.5rem;">
   <img src="https://img.shields.io/badge/AsyncAPI-3.0-green" alt="AsyncAPI" style="margin: 0 0.5rem;">
 </div>
+
+---
 
 ## Quick Start
 
@@ -226,11 +256,15 @@ import {
 } from "@amqp-contract/contract";
 import { z } from "zod";
 
-// Define resources
+// Define resources with Dead Letter Exchange for retry support
 const ordersExchange = defineExchange("orders", "topic", { durable: true });
-const orderProcessingQueue = defineQueue("order-processing", { durable: true });
+const ordersDlx = defineExchange("orders-dlx", "topic", { durable: true });
+const orderProcessingQueue = defineQueue("order-processing", {
+  durable: true,
+  deadLetter: { exchange: ordersDlx, routingKey: "order.failed" },
+});
 
-// Define message
+// Define message with schema validation
 const orderMessage = defineMessage(
   z.object({
     orderId: z.string(),
@@ -248,15 +282,11 @@ const { consumer: processOrderConsumer, binding: orderBinding } =
 
 // Compose contract
 export const contract = defineContract({
-  exchanges: { orders: ordersExchange },
+  exchanges: { orders: ordersExchange, ordersDlx },
   queues: { orderProcessing: orderProcessingQueue },
   bindings: { orderBinding },
-  publishers: {
-    orderCreated: orderCreatedPublisher,
-  },
-  consumers: {
-    processOrder: processOrderConsumer,
-  },
+  publishers: { orderCreated: orderCreatedPublisher },
+  consumers: { processOrder: processOrderConsumer },
 });
 ```
 
@@ -280,7 +310,7 @@ result.match({
 });
 ```
 
-```typescript [3. Consume Messages]
+```typescript [3. Consume with Retry]
 import { TypedAmqpWorker } from "@amqp-contract/worker";
 import { contract } from "./contract";
 
@@ -293,37 +323,52 @@ const worker = await TypedAmqpWorker.create({
     },
   },
   urls: ["amqp://localhost"],
+  retry: {
+    maxRetries: 3,
+    initialDelayMs: 1000,
+    backoffMultiplier: 2,
+  },
 }).resultToPromise();
 ```
 
 :::
 
-## AsyncAPI Generation
+---
 
-Automatically generate AsyncAPI 3.0 specifications from your contracts:
+## NestJS Integration
+
+First-class [NestJS](https://nestjs.com/) support with automatic lifecycle management:
 
 ```typescript
-import { AsyncAPIGenerator } from "@amqp-contract/asyncapi";
-import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
+import { Module } from "@nestjs/common";
+import { AmqpWorkerModule } from "@amqp-contract/worker-nestjs";
+import { AmqpClientModule } from "@amqp-contract/client-nestjs";
 import { contract } from "./contract";
 
-const generator = new AsyncAPIGenerator({
-  schemaConverters: [new ZodToJsonSchemaConverter()],
-});
-
-const spec = await generator.generate(contract, {
-  info: {
-    title: "Order Processing API",
-    version: "1.0.0",
-  },
-  servers: {
-    production: {
-      host: "rabbitmq.example.com:5672",
-      protocol: "amqp",
-    },
-  },
-});
+@Module({
+  imports: [
+    AmqpWorkerModule.forRoot({
+      contract,
+      handlers: {
+        processOrder: async (message) => {
+          console.log("Processing:", message.orderId);
+        },
+      },
+      urls: ["amqp://localhost"],
+      retry: { maxRetries: 3, initialDelayMs: 1000 },
+    }),
+    AmqpClientModule.forRoot({
+      contract,
+      urls: ["amqp://localhost"],
+    }),
+  ],
+})
+export class AppModule {}
 ```
+
+📖 **[NestJS Documentation →](/guide/client-nestjs-usage)**
+
+---
 
 ## Inspiration
 
