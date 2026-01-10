@@ -8,10 +8,10 @@ import {
   defineQueue,
   defineQueueBinding,
 } from "@amqp-contract/contract";
+import { defineUnsafeHandler, defineUnsafeHandlers } from "../handlers.js";
 import { describe, expect, vi } from "vitest";
-import { defineUnsafeHandler } from "../handlers.js";
-import { it } from "./fixture.js";
 import { TypedAmqpWorker } from "../worker.js";
+import { it } from "./fixture.js";
 import { z } from "zod";
 
 describe("AmqpWorker Integration", () => {
@@ -51,12 +51,14 @@ describe("AmqpWorker Integration", () => {
     });
 
     const messages: Array<{ id: string; message: string }> = [];
-    await workerFactory(contract, {
-      testConsumer: (msg) => {
-        messages.push(msg);
-        return Promise.resolve();
-      },
-    });
+    await workerFactory(
+      contract,
+      defineUnsafeHandlers(contract, {
+        testConsumer: async (msg) => {
+          messages.push(msg);
+        },
+      }),
+    );
 
     // WHEN
     publishMessage(exchange.name, "test.message", {
@@ -112,12 +114,14 @@ describe("AmqpWorker Integration", () => {
     });
 
     const messages: Array<{ id: string; count: number }> = [];
-    await workerFactory(contract, {
-      testConsumer: (msg) => {
-        messages.push(msg);
-        return Promise.resolve();
-      },
-    });
+    await workerFactory(
+      contract,
+      defineUnsafeHandlers(contract, {
+        testConsumer: async (msg) => {
+          messages.push(msg);
+        },
+      }),
+    );
 
     // WHEN
     publishMessage(exchange.name, "multi.test", { id: "1", count: 1 });
@@ -179,16 +183,17 @@ describe("AmqpWorker Integration", () => {
     const messages1: Array<{ id: string }> = [];
     const messages2: Array<{ id: string }> = [];
 
-    await workerFactory(contract, {
-      consumer1: (msg) => {
-        messages1.push(msg);
-        return Promise.resolve();
-      },
-      consumer2: (msg) => {
-        messages2.push(msg);
-        return Promise.resolve();
-      },
-    });
+    await workerFactory(
+      contract,
+      defineUnsafeHandlers(contract, {
+        consumer1: async (msg) => {
+          messages1.push(msg);
+        },
+        consumer2: async (msg) => {
+          messages2.push(msg);
+        },
+      }),
+    );
 
     // WHEN
     publishMessage(exchange.name, "all.one", { id: "msg1" });
@@ -241,12 +246,14 @@ describe("AmqpWorker Integration", () => {
     });
 
     const messages: Array<{ id: string; count: number }> = [];
-    await workerFactory(contract, {
-      testConsumer: (msg) => {
-        messages.push(msg);
-        return Promise.resolve();
-      },
-    });
+    await workerFactory(
+      contract,
+      defineUnsafeHandlers(contract, {
+        testConsumer: async (msg) => {
+          messages.push(msg);
+        },
+      }),
+    );
 
     // WHEN - Publish invalid message
     publishMessage(exchange.name, "validation.message", {
@@ -289,15 +296,18 @@ describe("AmqpWorker Integration", () => {
 
     let attemptCount = 0;
     const messages: Array<{ id: string; shouldFail: boolean }> = [];
-    await workerFactory(contract, {
-      testConsumer: async (msg) => {
-        attemptCount++;
-        if (msg.shouldFail && attemptCount === 1) {
-          throw new Error("Handler error on first attempt");
-        }
-        messages.push(msg);
-      },
-    });
+    await workerFactory(
+      contract,
+      defineUnsafeHandlers(contract, {
+        testConsumer: async (msg) => {
+          attemptCount++;
+          if (msg.shouldFail && attemptCount === 1) {
+            throw new Error("Handler error on first attempt");
+          }
+          messages.push(msg);
+        },
+      }),
+    );
 
     // WHEN - Publish message that will fail first time
     publishMessage(exchange.name, "error.test", { id: "retry-test", shouldFail: true });
@@ -343,12 +353,14 @@ describe("AmqpWorker Integration", () => {
     });
 
     const messages: Array<{ msg: string }> = [];
-    await workerFactory(contract, {
-      destConsumer: (msg) => {
-        messages.push(msg);
-        return Promise.resolve();
-      },
-    });
+    await workerFactory(
+      contract,
+      defineUnsafeHandlers(contract, {
+        destConsumer: async (msg) => {
+          messages.push(msg);
+        },
+      }),
+    );
 
     // WHEN - Publish to source exchange
     publishMessage(sourceExchange.name, "test.important", { msg: "routed through exchange" });
@@ -388,12 +400,14 @@ describe("AmqpWorker Integration", () => {
     });
 
     const messages: Array<{ id: string }> = [];
-    const worker = await workerFactory(contract, {
-      testConsumer: (msg) => {
-        messages.push(msg);
-        return Promise.resolve();
-      },
-    });
+    const worker = await workerFactory(
+      contract,
+      defineUnsafeHandlers(contract, {
+        testConsumer: async (msg) => {
+          messages.push(msg);
+        },
+      }),
+    );
 
     // Consume first message
     publishMessage(exchange.name, "close.test", { id: "before-close" });
@@ -456,16 +470,17 @@ describe("AmqpWorker Integration", () => {
     const orders: Array<{ orderId: string; amount: number }> = [];
     const notifications: Array<{ userId: string; message: string }> = [];
 
-    await workerFactory(contract, {
-      orderConsumer: (msg) => {
-        orders.push(msg);
-        return Promise.resolve();
-      },
-      notificationConsumer: (msg) => {
-        notifications.push(msg);
-        return Promise.resolve();
-      },
-    });
+    await workerFactory(
+      contract,
+      defineUnsafeHandlers(contract, {
+        orderConsumer: async (msg) => {
+          orders.push(msg);
+        },
+        notificationConsumer: async (msg) => {
+          notifications.push(msg);
+        },
+      }),
+    );
 
     // WHEN
     publishMessage(exchange.name, "order.created", { orderId: "123", amount: 99.99 });

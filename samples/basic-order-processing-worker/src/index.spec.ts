@@ -1,5 +1,5 @@
+import { TypedAmqpWorker, defineUnsafeHandlers } from "@amqp-contract/worker";
 import { describe, expect } from "vitest";
-import { TypedAmqpWorker } from "@amqp-contract/worker";
 import { it } from "@amqp-contract/testing/extension";
 import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
 
@@ -12,17 +12,16 @@ describe("Basic Order Processing Worker Integration", () => {
     const processedOrders: Array<unknown> = [];
     const worker = await TypedAmqpWorker.create({
       contract: orderContract,
-      handlers: {
-        processOrder: (msg) => {
+      handlers: defineUnsafeHandlers(orderContract, {
+        processOrder: async (msg) => {
           processedOrders.push(msg);
-          return Promise.resolve();
         },
-        notifyOrder: () => Promise.resolve(),
-        shipOrder: () => Promise.resolve(),
-        handleUrgentOrder: () => Promise.resolve(),
-        processAnalytics: () => Promise.resolve(),
-        handleFailedOrders: () => Promise.resolve(),
-      },
+        notifyOrder: async () => {},
+        shipOrder: async () => {},
+        handleUrgentOrder: async () => {},
+        processAnalytics: async () => {},
+        handleFailedOrders: async () => {},
+      }),
       urls: [amqpConnectionUrl],
     }).resultToPromise();
 
@@ -57,17 +56,16 @@ describe("Basic Order Processing Worker Integration", () => {
     const notifications: Array<unknown> = [];
     const worker = await TypedAmqpWorker.create({
       contract: orderContract,
-      handlers: {
-        processOrder: () => Promise.resolve(),
-        notifyOrder: (msg) => {
+      handlers: defineUnsafeHandlers(orderContract, {
+        processOrder: async () => {},
+        notifyOrder: async (msg) => {
           notifications.push(msg);
-          return Promise.resolve();
         },
-        shipOrder: () => Promise.resolve(),
-        handleUrgentOrder: () => Promise.resolve(),
-        processAnalytics: () => Promise.resolve(),
-        handleFailedOrders: () => Promise.resolve(),
-      },
+        shipOrder: async () => {},
+        handleUrgentOrder: async () => {},
+        processAnalytics: async () => {},
+        handleFailedOrders: async () => {},
+      }),
       urls: [amqpConnectionUrl],
     }).resultToPromise();
 
@@ -114,20 +112,18 @@ describe("Basic Order Processing Worker Integration", () => {
     const notifications: Array<unknown> = [];
     const worker = await TypedAmqpWorker.create({
       contract: orderContract,
-      handlers: {
-        processOrder: (msg) => {
+      handlers: defineUnsafeHandlers(orderContract, {
+        processOrder: async (msg) => {
           processedOrders.push(msg);
-          return Promise.resolve();
         },
-        notifyOrder: (msg) => {
+        notifyOrder: async (msg) => {
           notifications.push(msg);
-          return Promise.resolve();
         },
-        shipOrder: () => Promise.resolve(),
-        handleUrgentOrder: () => Promise.resolve(),
-        processAnalytics: () => Promise.resolve(),
-        handleFailedOrders: () => Promise.resolve(),
-      },
+        shipOrder: async () => {},
+        handleUrgentOrder: async () => {},
+        processAnalytics: async () => {},
+        handleFailedOrders: async () => {},
+      }),
       urls: [amqpConnectionUrl],
     }).resultToPromise();
 

@@ -1,3 +1,4 @@
+import { Future, Result } from "@swan-io/boxed";
 import {
   defineConsumer,
   defineContract,
@@ -8,9 +9,9 @@ import {
   defineQueueBinding,
 } from "@amqp-contract/contract";
 import { describe, expect, vi } from "vitest";
-import { Future, Result } from "@swan-io/boxed";
-import { it } from "./fixture.js";
 import { TypedAmqpWorker } from "../worker.js";
+import { defineUnsafeHandler } from "../handlers.js";
+import { it } from "./fixture.js";
 import { z } from "zod";
 
 describe("AmqpWorker Prefetch and Batch Integration", () => {
@@ -51,14 +52,16 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
 
     const messages: Array<{ id: string; message: string }> = [];
     await workerFactory(contract, {
-      testConsumer: [
-        async (msg: { id: string; message: string }) => {
+      testConsumer: defineUnsafeHandler(
+        contract,
+        "testConsumer",
+        async (msg) => {
           messages.push(msg);
           // Simulate slow processing to test prefetch
           await new Promise((resolve) => setTimeout(resolve, 100));
         },
         { prefetch: 5 },
-      ],
+      ),
     });
 
     // WHEN - Publish multiple messages
@@ -120,7 +123,9 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
     const batches: Array<Array<{ id: string; value: number }>> = [];
     await workerFactory(contract, {
       // Use tuple format with batch options
-      batchConsumer: [
+      batchConsumer: defineUnsafeHandler(
+        contract,
+        "batchConsumer",
         async (messages: Array<{ id: string; value: number }>) => {
           batches.push(messages);
         },
@@ -128,7 +133,7 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
           batchSize: 3,
           batchTimeout: 2000,
         },
-      ],
+      ),
     });
 
     // WHEN - Publish 7 messages (should result in 2 full batches of 3 and 1 partial batch of 1)
@@ -203,7 +208,9 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
 
     const batches: Array<Array<{ id: string; text: string }>> = [];
     await workerFactory(contract, {
-      batchConsumer: [
+      batchConsumer: defineUnsafeHandler(
+        contract,
+        "batchConsumer",
         async (messages: Array<{ id: string; text: string }>) => {
           batches.push(messages);
         },
@@ -211,7 +218,7 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
           batchSize: 5,
           batchTimeout: 500, // 500ms timeout
         },
-      ],
+      ),
     });
 
     // WHEN - Publish only 2 messages (less than batch size)

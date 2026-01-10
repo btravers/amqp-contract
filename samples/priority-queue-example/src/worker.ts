@@ -1,4 +1,4 @@
-import { TypedAmqpWorker } from "@amqp-contract/worker";
+import { TypedAmqpWorker, defineUnsafeHandlers } from "@amqp-contract/worker";
 import pino from "pino";
 import { priorityQueueContract } from "./contract.js";
 import { z } from "zod";
@@ -29,7 +29,7 @@ async function main() {
   const worker = await TypedAmqpWorker.create({
     contract: priorityQueueContract,
     urls: [env.AMQP_URL],
-    handlers: {
+    handlers: defineUnsafeHandlers(priorityQueueContract, {
       processTask: async (task) => {
         // Simulate task processing
         logger.info(`📥 Processing: ${task.taskId} - "${task.title}" (priority: ${task.priority})`);
@@ -39,7 +39,7 @@ async function main() {
 
         logger.info(`✅ Completed: ${task.taskId}`);
       },
-    },
+    }),
   })
     .tapError((error) => logger.error({ error }, "Failed to create worker"))
     .resultToPromise();

@@ -1,4 +1,4 @@
-import { TypedAmqpWorker } from "@amqp-contract/worker";
+import { TypedAmqpWorker, defineUnsafeHandlers } from "@amqp-contract/worker";
 import { orderContract } from "@amqp-contract-samples/basic-order-processing-contract";
 import pino from "pino";
 import { z } from "zod";
@@ -24,7 +24,7 @@ async function main() {
   // Create type-safe worker with handlers for each consumer
   const worker = await TypedAmqpWorker.create({
     contract: orderContract,
-    handlers: {
+    handlers: defineUnsafeHandlers(orderContract, {
       // Handler for processing NEW orders (order.created)
       processOrder: async (message) => {
         logger.info(
@@ -155,7 +155,7 @@ async function main() {
 
         logger.error({ orderId: message.orderId }, "Failed order logged for investigation");
       },
-    },
+    }),
     urls: [env.AMQP_URL],
   })
     .tapError((error) => logger.error({ error }, "Failed to create worker"))

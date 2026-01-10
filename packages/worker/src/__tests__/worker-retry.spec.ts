@@ -6,6 +6,7 @@ import {
   defineQueue,
   defineQueueBinding,
 } from "@amqp-contract/contract";
+import { defineUnsafeHandler, defineUnsafeHandlers } from "../handlers.js";
 import { describe, expect, vi } from "vitest";
 import { RetryableError } from "../errors.js";
 import { it } from "./fixture.js";
@@ -56,14 +57,14 @@ describe("Worker Retry Mechanism", () => {
       let attemptCount = 0;
       await workerFactory(
         contract,
-        {
+        defineUnsafeHandlers(contract, {
           testConsumer: async () => {
             attemptCount++;
             if (attemptCount < 2) {
               throw new Error("Simulated failure");
             }
           },
-        },
+        }),
         undefined, // No retry config - legacy mode
       );
 
@@ -133,14 +134,14 @@ describe("Worker Retry Mechanism", () => {
       let attemptCount = 0;
       await workerFactory(
         contract,
-        {
+        defineUnsafeHandlers(contract, {
           testConsumer: async () => {
             attemptCount++;
             if (attemptCount === 1) {
               throw new RetryableError("First attempt failed");
             }
           },
-        },
+        }),
         {
           maxRetries: 3,
           initialDelayMs: 500,
@@ -251,11 +252,11 @@ describe("Worker Retry Mechanism", () => {
 
       await workerFactory(
         contract,
-        {
+        defineUnsafeHandlers(contract, {
           testConsumer: async () => {
             throw new RetryableError("Always fails");
           },
-        },
+        }),
         {
           maxRetries: 3,
           initialDelayMs: 100,
@@ -356,12 +357,12 @@ describe("Worker Retry Mechanism", () => {
       let attemptCount = 0;
       await workerFactory(
         contract,
-        {
+        defineUnsafeHandlers(contract, {
           testConsumer: async () => {
             attemptCount++;
             throw new RetryableError("Always fails");
           },
-        },
+        }),
         {
           maxRetries: 2,
           initialDelayMs: 100,
@@ -449,11 +450,11 @@ describe("Worker Retry Mechanism", () => {
 
       await workerFactory(
         contract,
-        {
+        defineUnsafeHandlers(contract, {
           testConsumer: async () => {
             throw new RetryableError("Test error message");
           },
-        },
+        }),
         {
           maxRetries: 1,
           initialDelayMs: 100,
@@ -534,7 +535,9 @@ describe("Worker Retry Mechanism", () => {
       await workerFactory(
         contract,
         {
-          testConsumer: [
+          testConsumer: defineUnsafeHandler(
+            contract,
+            "testConsumer",
             async (_messages: Array<{ id: string }>) => {
               batchAttemptCount++;
               if (batchAttemptCount === 1) {
@@ -543,7 +546,7 @@ describe("Worker Retry Mechanism", () => {
               // Second attempt succeeds
             },
             { batchSize: 3, batchTimeout: 500 },
-          ],
+          ),
         },
         {
           maxRetries: 3,
@@ -605,14 +608,14 @@ describe("Worker Retry Mechanism", () => {
       let attemptCount = 0;
       await workerFactory(
         contract,
-        {
+        defineUnsafeHandlers(contract, {
           testConsumer: async () => {
             attemptCount++;
             if (attemptCount < 2) {
               throw new RetryableError("Will fallback to requeue");
             }
           },
-        },
+        }),
         {
           maxRetries: 3,
           initialDelayMs: 1000,
