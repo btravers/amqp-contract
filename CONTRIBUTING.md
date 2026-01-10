@@ -128,7 +128,7 @@ describe("Feature Integration", () => {
 - `packages/client` - Type-safe AMQP client
 - `packages/worker` - Type-safe AMQP worker
 - `packages/asyncapi` - AsyncAPI specification generator
-- `samples/` - Example implementations
+- `examples/` - Example implementations
 
 ## Coding Guidelines
 

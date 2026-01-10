@@ -381,7 +381,7 @@ const orderMessage = defineMessage(orderSchema, {
 
 ## Examples
 
-See the `samples/message-compression-example` directory in the repository for a complete working implementation demonstrating all compression features.
+See the `examples/message-compression-example` directory in the repository for a complete working implementation demonstrating all compression features.
 
 ## Next Steps
 
