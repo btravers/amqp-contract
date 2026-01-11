@@ -268,6 +268,33 @@ export default withMermaid(
             "AMQP, RabbitMQ, TypeScript, Node.js, NestJS, messaging, type-safe, schema validation",
         }),
       ],
+      // WebSite JSON-LD for proper site name display in Google search
+      [
+        "script",
+        { type: "application/ld+json" },
+        JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          name: "amqp-contract",
+          url: "https://btravers.github.io/amqp-contract/",
+        }),
+      ],
+      // Organization JSON-LD for logo display in Google search
+      [
+        "script",
+        { type: "application/ld+json" },
+        JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          name: "amqp-contract",
+          url: "https://btravers.github.io/amqp-contract/",
+          logo: {
+            "@type": "ImageObject",
+            url: "https://btravers.github.io/amqp-contract/logo.svg",
+          },
+          sameAs: ["https://github.com/btravers/amqp-contract"],
+        }),
+      ],
     ],
   }),
 );
