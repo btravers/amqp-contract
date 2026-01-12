@@ -21,19 +21,14 @@
       "entry": ["src/**/*.spec.ts"]
     },
     "docs": {
-      "ignoreDependencies": [
-        "@amqp-contract/asyncapi",
-        "@amqp-contract/client",
-        "@amqp-contract/client-nestjs",
-        "@amqp-contract/contract",
-        "@amqp-contract/core",
-        "@amqp-contract/testing",
-        "@amqp-contract/worker",
-        "@amqp-contract/worker-nestjs",
-        "@amqp-contract/tsconfig"
-      ]
+      "entry": ["scripts/*.ts"]
     }
   },
   "ignore": ["coverage/**", "**/dist/**"],
-  "ignoreDependencies": ["pino-pretty", "typedoc-plugin-markdown", "@amqp-contract/typedoc"]
+  "ignoreDependencies": [
+    "pino-pretty",
+    "typedoc-plugin-markdown",
+    "@amqp-contract/typedoc",
+    "@amqp-contract/tsconfig"
+  ]
 }
