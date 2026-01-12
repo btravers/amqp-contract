@@ -275,15 +275,24 @@ const contract = defineContract({
 
 ## Defining Queues
 
-Queues store messages:
+Queues store messages. By default, queues are created as **quorum queues** which provide better durability and high-availability using the Raft consensus algorithm.
 
 ```typescript
 import { defineQueue } from "@amqp-contract/contract";
 
-const orderProcessingQueue = defineQueue("order-processing", {
-  durable: true, // Survives broker restart
-  exclusive: false, // Can be accessed by other connections
-  autoDelete: false, // Stays after last consumer disconnects
+// Quorum queue (default, recommended for production)
+const orderProcessingQueue = defineQueue("order-processing");
+
+// Explicit quorum queue with options
+const orderProcessingQueueExplicit = defineQueue("order-processing", {
+  type: "quorum", // Default - provides better durability and HA
+});
+
+// Classic queue (for special cases like non-durable or priority queues)
+const tempQueue = defineQueue("temp-queue", {
+  type: "classic",
+  durable: false, // Only supported with classic queues
+  autoDelete: true,
 });
 
 const contract = defineContract({
@@ -292,6 +301,15 @@ const contract = defineContract({
   },
 });
 ```
+
+**Queue Types:**
+
+- `quorum` (default) - Quorum queues provide better durability and high-availability. They are always durable and do not support `exclusive` mode or priority queues.
+- `classic` - Traditional RabbitMQ queue type. Use when you need non-durable queues, exclusive queues, or priority queues.
+
+::: tip Best Practice
+Use quorum queues (the default) for production workloads. Only use classic queues when you need specific features not supported by quorum queues.
+:::
 
 ## Defining Messages
 

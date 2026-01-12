@@ -220,8 +220,8 @@ export type QueueDefinition = {
 
   /**
    * If true, the queue survives broker restarts. Durable queues are persisted to disk.
-   * Note: Quorum queues are always durable.
-   * @default true for quorum queues, false for classic queues
+   * Note: Quorum queues are always durable regardless of this setting.
+   * @default false (but forced to true for quorum queues during setup)
    */
   durable?: boolean;
 

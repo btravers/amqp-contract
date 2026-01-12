@@ -69,10 +69,9 @@ export async function setupAmqpTopology(
       // Build queue arguments, merging dead letter configuration and queue type
       const queueArguments = { ...queue.arguments };
 
-      // Set queue type (defaults to quorum)
-      if (queue.type) {
-        queueArguments["x-queue-type"] = queue.type;
-      }
+      // Set queue type - use the defined type or default to 'quorum'
+      const queueType = queue.type ?? "quorum";
+      queueArguments["x-queue-type"] = queueType;
 
       if (queue.deadLetter) {
         queueArguments["x-dead-letter-exchange"] = queue.deadLetter.exchange.name;
@@ -82,7 +81,7 @@ export async function setupAmqpTopology(
       }
 
       // For quorum queues, force durable to true as they are always durable
-      const durable = queue.type === "quorum" ? true : queue.durable;
+      const durable = queueType === "quorum" ? true : queue.durable;
 
       return channel.assertQueue(queue.name, {
         durable,

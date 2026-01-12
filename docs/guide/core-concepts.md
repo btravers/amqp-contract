@@ -159,17 +159,23 @@ const ordersExchange = defineExchange(
 
 ### Queues
 
-Queues store messages until consumed:
+Queues store messages until consumed. By default, queues are created as **quorum queues** for better durability:
 
 ```typescript
-const orderProcessingQueue = defineQueue(
-  "order-processing", // name
-  {
-    durable: true, // survives broker restart
-    exclusive: false, // shared across connections
-  },
-);
+// Quorum queue (default, recommended)
+const orderProcessingQueue = defineQueue("order-processing");
+
+// Classic queue (for special cases)
+const tempQueue = defineQueue("temp-queue", {
+  type: "classic",
+  durable: false,
+});
 ```
+
+**Queue Types:**
+
+- `quorum` (default) - Better durability and high-availability via Raft consensus
+- `classic` - Traditional queues for non-durable, exclusive, or priority queue use cases
 
 ### Messages
 
