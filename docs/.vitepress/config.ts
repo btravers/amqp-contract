@@ -17,7 +17,9 @@ export default withMermaid(
       /^http:\/\/localhost/,
       // API docs are generated separately and may not exist during build
       /^\/api\//,
-      /^\.\/.*\/index$/,
+      // Ignore relative links in API docs (typedoc-generated cross-references)
+      /^\.\/index$/,
+      /^\.\/[a-z-]+$/,
     ],
 
     sitemap: {
