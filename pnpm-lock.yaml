@@ -106,8 +106,8 @@ catalogs:
       specifier: 5.9.0
       version: 5.9.0
     tsdown:
-      specifier: 0.20.0-beta.1
-      version: 0.20.0-beta.1
+      specifier: 0.19.0
+      version: 0.19.0
     tsx:
       specifier: 4.21.0
       version: 4.21.0
@@ -335,7 +335,7 @@ importers:
         version: 25.0.6
       tsdown:
         specifier: 'catalog:'
-        version: 0.20.0-beta.1(oxc-resolver@11.16.2)(typescript@5.9.3)
+        version: 0.19.0(oxc-resolver@11.16.2)(typescript@5.9.3)
       tsx:
         specifier: 'catalog:'
         version: 4.21.0
@@ -538,7 +538,7 @@ importers:
         version: 2.1.29
       tsdown:
         specifier: 'catalog:'
-        version: 0.20.0-beta.1(oxc-resolver@11.16.2)(typescript@5.9.3)
+        version: 0.19.0(oxc-resolver@11.16.2)(typescript@5.9.3)
       typedoc:
         specifier: 'catalog:'
         version: 0.28.16(typescript@5.9.3)
@@ -602,7 +602,7 @@ importers:
         version: 0.10.9
       tsdown:
         specifier: 'catalog:'
-        version: 0.20.0-beta.1(oxc-resolver@11.16.2)(typescript@5.9.3)
+        version: 0.19.0(oxc-resolver@11.16.2)(typescript@5.9.3)
       typedoc:
         specifier: 'catalog:'
         version: 0.28.16(typescript@5.9.3)
@@ -672,7 +672,7 @@ importers:
         version: 7.8.2
       tsdown:
         specifier: 'catalog:'
-        version: 0.20.0-beta.1(oxc-resolver@11.16.2)(typescript@5.9.3)
+        version: 0.19.0(oxc-resolver@11.16.2)(typescript@5.9.3)
       typedoc:
         specifier: 'catalog:'
         version: 0.28.16(typescript@5.9.3)
@@ -706,7 +706,7 @@ importers:
         version: 4.0.17(vitest@4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
       tsdown:
         specifier: 'catalog:'
-        version: 0.20.0-beta.1(oxc-resolver@11.16.2)(typescript@5.9.3)
+        version: 0.19.0(oxc-resolver@11.16.2)(typescript@5.9.3)
       typedoc:
         specifier: 'catalog:'
         version: 0.28.16(typescript@5.9.3)
@@ -755,7 +755,7 @@ importers:
         version: 4.0.17(vitest@4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
       tsdown:
         specifier: 'catalog:'
-        version: 0.20.0-beta.1(oxc-resolver@11.16.2)(typescript@5.9.3)
+        version: 0.19.0(oxc-resolver@11.16.2)(typescript@5.9.3)
       typedoc:
         specifier: 'catalog:'
         version: 0.28.16(typescript@5.9.3)
@@ -789,7 +789,7 @@ importers:
         version: 0.10.8
       tsdown:
         specifier: 'catalog:'
-        version: 0.20.0-beta.1(oxc-resolver@11.16.2)(typescript@5.9.3)
+        version: 0.19.0(oxc-resolver@11.16.2)(typescript@5.9.3)
       typedoc:
         specifier: 'catalog:'
         version: 0.28.16(typescript@5.9.3)
@@ -844,7 +844,7 @@ importers:
         version: 0.10.9
       tsdown:
         specifier: 'catalog:'
-        version: 0.20.0-beta.1(oxc-resolver@11.16.2)(typescript@5.9.3)
+        version: 0.19.0(oxc-resolver@11.16.2)(typescript@5.9.3)
       typedoc:
         specifier: 'catalog:'
         version: 0.28.16(typescript@5.9.3)
@@ -911,7 +911,7 @@ importers:
         version: 7.8.2
       tsdown:
         specifier: 'catalog:'
-        version: 0.20.0-beta.1(oxc-resolver@11.16.2)(typescript@5.9.3)
+        version: 0.19.0(oxc-resolver@11.16.2)(typescript@5.9.3)
       typedoc:
         specifier: 'catalog:'
         version: 0.28.16(typescript@5.9.3)
@@ -4565,8 +4565,8 @@ packages:
   robust-predicates@3.0.2:
     resolution: {integrity: sha512-IXgzBWvWQwE6PrDI05OvmXUIruQTcoMDzRsOd5CDvHCVLcLHMTSYvOK5Cm46kWqlV3yAbuSpBZdJ5oP5OUoStg==}
 
-  rolldown-plugin-dts@0.21.0:
-    resolution: {integrity: sha512-t/KiDGti8cXD69phhBGWG4mjIlN1BX5auS8iNPrRvkCII6FKccjR+E0lmP5fCwuEvH3lJPaF5iu/CMGUn6nuoQ==}
+  rolldown-plugin-dts@0.20.0:
+    resolution: {integrity: sha512-cLAY1kN2ilTYMfZcFlGWbXnu6Nb+8uwUBsi+Mjbh4uIx7IN8uMOmJ7RxrrRgPsO4H7eSz3E+JwGoL1gyugiyUA==}
     engines: {node: '>=20.19.0'}
     peerDependencies:
       '@ts-macro/tsc': ^0.3.6
@@ -4910,8 +4910,8 @@ packages:
   ts-pattern@5.9.0:
     resolution: {integrity: sha512-6s5V71mX8qBUmlgbrfL33xDUwO0fq48rxAu2LBE11WBeGdpCPOsXksQbZJHvHwhrd3QjUusd3mAOM5Gg0mFBLg==}
 
-  tsdown@0.20.0-beta.1:
-    resolution: {integrity: sha512-F/A0vGKG8/8XSKMxQtHCeRHpI2jlpKQLQ8sEDKh3XXWZjAXyz5pjHosJvsL5NEv+9ZtcQZEw0xEzPgfJSAWgdg==}
+  tsdown@0.19.0:
+    resolution: {integrity: sha512-uqg8yzlS7GemFWcM6aCp/sptF4bJiJbWUibuHTRLLCBEsGCgJxuqxPhuVTqyHXqoEkh9ohwAdlyDKli5MEWCyQ==}
     engines: {node: '>=20.19.0'}
     hasBin: true
     peerDependencies:
@@ -9237,7 +9237,7 @@ snapshots:
 
   robust-predicates@3.0.2: {}
 
-  rolldown-plugin-dts@0.21.0(oxc-resolver@11.16.2)(rolldown@1.0.0-beta.59)(typescript@5.9.3):
+  rolldown-plugin-dts@0.20.0(oxc-resolver@11.16.2)(rolldown@1.0.0-beta.59)(typescript@5.9.3):
     dependencies:
       '@babel/generator': 7.28.6
       '@babel/parser': 7.28.6
@@ -9688,7 +9688,7 @@ snapshots:
 
   ts-pattern@5.9.0: {}
 
-  tsdown@0.20.0-beta.1(oxc-resolver@11.16.2)(typescript@5.9.3):
+  tsdown@0.19.0(oxc-resolver@11.16.2)(typescript@5.9.3):
     dependencies:
       ansis: 4.2.0
       cac: 6.7.14
@@ -9699,7 +9699,7 @@ snapshots:
       obug: 2.1.1
       picomatch: 4.0.3
       rolldown: 1.0.0-beta.59
-      rolldown-plugin-dts: 0.21.0(oxc-resolver@11.16.2)(rolldown@1.0.0-beta.59)(typescript@5.9.3)
+      rolldown-plugin-dts: 0.20.0(oxc-resolver@11.16.2)(rolldown@1.0.0-beta.59)(typescript@5.9.3)
       semver: 7.7.3
       tinyexec: 1.0.2
       tinyglobby: 0.2.15
