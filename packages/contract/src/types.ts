@@ -71,6 +71,115 @@ export type CompressionAlgorithm = "gzip" | "deflate";
 export type QueueType = "quorum" | "classic";
 
 /**
+ * Common queue options shared between quorum and classic queues.
+ */
+type BaseQueueOptions = {
+  /**
+   * If true, the queue survives broker restarts. Durable queues are persisted to disk.
+   * Note: Quorum queues are always durable regardless of this setting.
+   * @default false (but forced to true for quorum queues during setup)
+   */
+  durable?: boolean;
+
+  /**
+   * If true, the queue is deleted when the last consumer unsubscribes.
+   * @default false
+   */
+  autoDelete?: boolean;
+
+  /**
+   * Dead letter configuration for handling failed or rejected messages.
+   */
+  deadLetter?: DeadLetterConfig;
+
+  /**
+   * Additional AMQP arguments for advanced configuration.
+   */
+  arguments?: Record<string, unknown>;
+};
+
+/**
+ * Options for creating a quorum queue.
+ *
+ * Quorum queues do not support:
+ * - `exclusive` - Use classic queues for exclusive access
+ * - `maxPriority` - Use classic queues for priority queues
+ *
+ * @example
+ * ```typescript
+ * const orderQueue = defineQueue('orders', {
+ *   type: 'quorum',
+ *   deadLetter: { exchange: dlx },
+ * });
+ * ```
+ */
+export type QuorumQueueOptions = BaseQueueOptions & {
+  /**
+   * Queue type: quorum (default, recommended)
+   */
+  type?: "quorum";
+
+  /**
+   * Quorum queues do not support exclusive mode.
+   * Use type: 'classic' if you need exclusive queues.
+   */
+  exclusive?: undefined;
+
+  /**
+   * Quorum queues do not support priority queues.
+   * Use type: 'classic' if you need priority queues.
+   */
+  maxPriority?: undefined;
+};
+
+/**
+ * Options for creating a classic queue.
+ *
+ * Classic queues support all traditional RabbitMQ features including:
+ * - `exclusive: true` - For connection-scoped queues
+ * - `maxPriority` - For priority queues
+ * - `durable: false` - For non-durable queues
+ *
+ * @example
+ * ```typescript
+ * const priorityQueue = defineQueue('tasks', {
+ *   type: 'classic',
+ *   durable: true,
+ *   maxPriority: 10,
+ * });
+ * ```
+ */
+export type ClassicQueueOptions = BaseQueueOptions & {
+  /**
+   * Queue type: classic (for special cases)
+   */
+  type: "classic";
+
+  /**
+   * If true, the queue can only be used by the declaring connection and is deleted when
+   * that connection closes. Exclusive queues are private to the connection.
+   * @default false
+   */
+  exclusive?: boolean;
+
+  /**
+   * Maximum priority level for priority queue (1-255, recommended: 1-10).
+   * Sets x-max-priority argument.
+   * Only supported with classic queues.
+   */
+  maxPriority?: number;
+};
+
+/**
+ * Options for defining a queue. Uses a discriminated union based on the `type` property
+ * to enforce quorum queue constraints at compile time.
+ *
+ * - Quorum queues (default): Do not support `exclusive` or `maxPriority`
+ * - Classic queues: Support all options including `exclusive` and `maxPriority`
+ */
+export type DefineQueueOptions = QuorumQueueOptions | ClassicQueueOptions;
+
+/**
  * Base definition of an AMQP exchange.
  *
  * An exchange receives messages from publishers and routes them to queues based on the exchange

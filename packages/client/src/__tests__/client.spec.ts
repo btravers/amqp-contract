@@ -184,12 +184,50 @@ describe("AmqpClient Integration", () => {
   });
 
   describe("topology setup", () => {
-    it("should setup exchanges, queues, and bindings", async ({ clientFactory }) => {
+    it("should setup exchanges, queues, and bindings with quorum queue", async ({
+      clientFactory,
+    }) => {
       // GIVEN
       const TestMessage = z.object({ id: z.string() });
 
-      const exchange = defineExchange("integration-orders", "topic", { durable: false });
-      const queue = defineQueue("integration-processing", { type: "classic", durable: false });
+      const exchange = defineExchange("integration-orders", "topic", { durable: true });
+      const queue = defineQueue("integration-processing"); // Default quorum queue
+
+      const contract = defineContract({
+        exchanges: {
+          orders: exchange,
+        },
+        queues: {
+          processing: queue,
+        },
+        bindings: {
+          orderBinding: defineQueueBinding(queue, exchange, {
+            routingKey: "order.#",
+          }),
+        },
+        publishers: {
+          createOrder: definePublisher(exchange, defineMessage(TestMessage), {
+            routingKey: "order.created",
+          }),
+        },
+      });
+
+      // WHEN
+      const client = await clientFactory(contract);
+
+      // THEN
+      expect(client).toBeDefined();
+    });
+
+    it("should setup classic queue for non-durable use cases", async ({ clientFactory }) => {
+      // GIVEN
+      const TestMessage = z.object({ id: z.string() });
+
+      const exchange = defineExchange("integration-classic-orders", "topic", { durable: false });
+      const queue = defineQueue("integration-classic-processing", {
+        type: "classic",
+        durable: false,
+      });
 
       const contract = defineContract({
         exchanges: {
@@ -219,8 +257,8 @@ describe("AmqpClient Integration", () => {
 
     it("should handle exchange-to-exchange bindings", async ({ clientFactory, initConsumer }) => {
       // GIVEN
-      const sourceExchange = defineExchange("integration-source", "topic", { durable: false });
-      const destExchange = defineExchange("integration-dest", "topic", { durable: false });
+      const sourceExchange = defineExchange("integration-source", "topic", { durable: true });
+      const destExchange = defineExchange("integration-dest", "topic", { durable: true });
 
       const contract = defineContract({
         exchanges: {
@@ -259,10 +297,13 @@ describe("AmqpClient Integration", () => {
       ]);
     });
 
-    it("should handle fanout exchange topology", async ({ clientFactory, initConsumer }) => {
+    it("should handle fanout exchange topology with quorum queue", async ({
+      clientFactory,
+      initConsumer,
+    }) => {
       // GIVEN
-      const fanoutExchange = defineExchange("integration-fanout", "fanout", { durable: false });
-      const queue = defineQueue("integration-fanout-queue", { type: "classic", durable: false });
+      const fanoutExchange = defineExchange("integration-fanout", "fanout", { durable: true });
+      const queue = defineQueue("integration-fanout-queue"); // Default quorum queue
 
       const contract = defineContract({
         exchanges: {

@@ -1,7 +1,9 @@
 import type {
   BaseExchangeDefinition,
+  ClassicQueueOptions,
   ConsumerDefinition,
   ContractDefinition,
+  DefineQueueOptions,
   DirectExchangeDefinition,
   ExchangeBindingDefinition,
   ExchangeDefinition,
@@ -138,10 +140,10 @@ export function defineExchange(
  * @param options - Optional queue configuration
  * @param options.type - Queue type: 'quorum' (default, recommended) or 'classic'
  * @param options.durable - If true, the queue survives broker restarts. Quorum queues are always durable.
- * @param options.exclusive - If true, the queue can only be used by the declaring connection. Not supported for quorum queues.
+ * @param options.exclusive - If true, the queue can only be used by the declaring connection. Only supported with classic queues.
  * @param options.autoDelete - If true, the queue is deleted when the last consumer unsubscribes (default: false)
  * @param options.deadLetter - Dead letter configuration for handling failed messages
- * @param options.maxPriority - Maximum priority level for priority queue (1-255, recommended: 1-10). Sets x-max-priority argument. Only supported with classic queues.
+ * @param options.maxPriority - Maximum priority level for priority queue (1-255, recommended: 1-10). Only supported with classic queues.
  * @param options.arguments - Additional AMQP arguments (e.g., x-message-ttl)
  * @returns A queue definition
  *
@@ -178,31 +180,15 @@ export function defineExchange(
  * });
  * ```
  */
-export function defineQueue(
-  name: string,
-  options?: Omit<QueueDefinition, "name"> & {
-    maxPriority?: number;
-  },
-): QueueDefinition {
-  const { maxPriority, type = "quorum", ...queueOptions } = options ?? {};
+export function defineQueue(name: string, options?: DefineQueueOptions): QueueDefinition {
+  const opts = options ?? {};
+  const type = opts.type ?? "quorum";
 
-  // Validate quorum queue constraints
-  if (type === "quorum") {
-    if (queueOptions.exclusive) {
-      throw new Error(
-        `Quorum queues do not support exclusive mode. Queue "${name}" has exclusive: true with type: 'quorum'. ` +
-          `Use type: 'classic' if you need an exclusive queue.`,
-      );
-    }
-    if (maxPriority !== undefined) {
-      throw new Error(
-        `Quorum queues do not support priority queues. Queue "${name}" has maxPriority: ${maxPriority} with type: 'quorum'. ` +
-          `Use type: 'classic' if you need a priority queue.`,
-      );
-    }
-  }
+  // Extract maxPriority only if it's a classic queue (type safety enforced at compile time)
+  const maxPriority = type === "classic" ? (opts as ClassicQueueOptions).maxPriority : undefined;
+  const exclusive = type === "classic" ? (opts as ClassicQueueOptions).exclusive : undefined;
 
-  // Validate maxPriority range
+  // Validate maxPriority range (only applicable for classic queues)
   if (maxPriority !== undefined) {
     if (maxPriority < 1 || maxPriority > 255) {
       throw new Error(
@@ -211,12 +197,31 @@ export function defineQueue(
     }
   }
 
-  // Build the queue definition
+  // Build the queue definition - only include defined properties
   const queueDefinition: QueueDefinition = {
     name,
     type,
-    ...queueOptions,
   };
+
+  if (opts.durable !== undefined) {
+    queueDefinition.durable = opts.durable;
+  }
+
+  if (opts.autoDelete !== undefined) {
+    queueDefinition.autoDelete = opts.autoDelete;
+  }
+
+  if (opts.deadLetter !== undefined) {
+    queueDefinition.deadLetter = opts.deadLetter;
+  }
+
+  if (opts.arguments !== undefined) {
+    queueDefinition.arguments = opts.arguments;
+  }
+
+  if (exclusive !== undefined) {
+    queueDefinition.exclusive = exclusive;
+  }
 
   // Add maxPriority argument if specified
   if (maxPriority !== undefined) {

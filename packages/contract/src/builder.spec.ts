@@ -125,13 +125,6 @@ describe("builder", () => {
       });
     });
 
-    it("should throw error when using exclusive with quorum queue", () => {
-      // WHEN/THEN
-      expect(() => defineQueue("test-queue", { exclusive: true })).toThrow(
-        `Quorum queues do not support exclusive mode. Queue "test-queue" has exclusive: true with type: 'quorum'. Use type: 'classic' if you need an exclusive queue.`,
-      );
-    });
-
     it("should allow exclusive with classic queue", () => {
       // WHEN
       const queue = defineQueue("test-queue", { type: "classic", exclusive: true });
@@ -146,13 +139,6 @@ describe("builder", () => {
   });
 
   describe("defineQueue with maxPriority", () => {
-    it("should throw error when using maxPriority with quorum queue", () => {
-      // WHEN/THEN
-      expect(() => defineQueue("priority-queue", { maxPriority: 10 })).toThrow(
-        `Quorum queues do not support priority queues. Queue "priority-queue" has maxPriority: 10 with type: 'quorum'. Use type: 'classic' if you need a priority queue.`,
-      );
-    });
-
     it("should create a priority queue with x-max-priority argument using classic type", () => {
       // WHEN
       const queue = defineQueue("priority-queue", {
