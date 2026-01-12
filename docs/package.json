@@ -6,7 +6,7 @@
   "author": "Benoit TRAVERS",
   "type": "module",
   "scripts": {
-    "prebuild": "tsx scripts/copy-docs.ts",
+    "prebuild": "tsx scripts/link-docs.ts",
     "build": "vitepress build .",
     "dev": "vitepress dev .",
     "preview": "vitepress preview ."

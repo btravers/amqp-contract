@@ -97,7 +97,8 @@ docs/.vitepress/cache
 docs/.vitepress/dist
 
 # TypeDoc generated API documentation
-docs/api/
+docs/api/*
+!docs/api/index.md
 packages/*/docs/
 
 # Gatsby files
