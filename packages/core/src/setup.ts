@@ -80,6 +80,11 @@ export async function setupAmqpTopology(
         }
       }
 
+      // Set delivery limit for quorum queues (native retry support)
+      if (queueType === "quorum" && queue.deliveryLimit !== undefined) {
+        queueArguments["x-delivery-limit"] = queue.deliveryLimit;
+      }
+
       // For quorum queues, force durable to true as they are always durable
       const durable = queueType === "quorum" ? true : queue.durable;
 

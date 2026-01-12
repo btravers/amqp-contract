@@ -1,5 +1,5 @@
 export { TypedAmqpWorker } from "./worker.js";
-export type { CreateWorkerOptions, RetryOptions } from "./worker.js";
+export type { CreateWorkerOptions, RetryMode, RetryOptions } from "./worker.js";
 export type { HandlerError } from "./errors.js";
 export {
   MessageValidationError,

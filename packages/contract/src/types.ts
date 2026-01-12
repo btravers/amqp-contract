@@ -105,11 +105,17 @@ type BaseQueueOptions = {
  * - `exclusive` - Use classic queues for exclusive access
  * - `maxPriority` - Use classic queues for priority queues
  *
+ * Quorum queues provide native retry support via `deliveryLimit`:
+ * - RabbitMQ tracks delivery count automatically via `x-delivery-count` header
+ * - When the limit is exceeded, messages are dead-lettered (if DLX is configured)
+ * - This is simpler than TTL-based retry and avoids head-of-queue blocking issues
+ *
  * @example
  * ```typescript
  * const orderQueue = defineQueue('orders', {
  *   type: 'quorum',
  *   deadLetter: { exchange: dlx },
+ *   deliveryLimit: 3, // Message dead-lettered after 3 delivery attempts
  * });
  * ```
  */
@@ -130,6 +136,37 @@ export type QuorumQueueOptions = BaseQueueOptions & {
    * Use type: 'classic' if you need priority queues.
    */
   maxPriority?: undefined;
+
+  /**
+   * Maximum number of delivery attempts before the message is dead-lettered.
+   *
+   * When a message is rejected (nacked) and requeued, RabbitMQ increments
+   * the `x-delivery-count` header. When this count exceeds the delivery limit,
+   * the message is automatically dead-lettered (if DLX is configured) or dropped.
+   *
+   * This is a quorum queue-specific feature that provides native retry handling
+   * without the complexity of TTL-based wait queues.
+   *
+   * **Benefits over TTL-based retry:**
+   * - Simpler architecture (no wait queues needed)
+   * - No head-of-queue blocking issues (TTL only works at queue head)
+   * - Native RabbitMQ feature with atomic guarantees
+   *
+   * @see https://www.rabbitmq.com/docs/quorum-queues#poison-message-handling
+   *
+   * @example
+   * ```typescript
+   * const orderQueue = defineQueue('order-processing', {
+   *   type: 'quorum',
+   *   deliveryLimit: 5, // Allow up to 5 delivery attempts
+   *   deadLetter: {
+   *     exchange: dlx,
+   *     routingKey: 'order.failed',
+   *   },
+   * });
+   * ```
+   */
+  deliveryLimit?: number;
 };
 
 /**
@@ -369,6 +406,21 @@ export type QueueDefinition = {
   deadLetter?: DeadLetterConfig;
 
   /**
+   * Maximum number of delivery attempts before the message is dead-lettered.
+   *
+   * This is a quorum queue-specific feature. When a message is rejected (nacked)
+   * and requeued, RabbitMQ increments the `x-delivery-count` header. When this
+   * count exceeds the delivery limit, the message is automatically dead-lettered
+   * (if DLX is configured) or dropped.
+   *
+   * Note: This option only applies to quorum queues. For classic queues, you need
+   * to implement retry logic at the application level.
+   *
+   * @see https://www.rabbitmq.com/docs/quorum-queues#poison-message-handling
+   */
+  deliveryLimit?: number;
+
+  /**
    * Additional AMQP arguments for advanced configuration.
    *
    * Common arguments include:
@@ -384,6 +436,9 @@ export type QueueDefinition = {
    *
    * Note: The `x-queue-type` argument is automatically set based on the `type` property
    * and should not be specified in this arguments object.
+   *
+   * Note: The `x-delivery-limit` argument is automatically set based on the `deliveryLimit`
+   * property and should not be specified in this arguments object.
    *
    * @example
    * ```typescript
