@@ -1,5 +1,5 @@
 export { TypedAmqpWorker } from "./worker.js";
-export type { CreateWorkerOptions, RetryMode, RetryOptions } from "./worker.js";
+export type { CreateWorkerOptions } from "./worker.js";
 export type { HandlerError } from "./errors.js";
 export {
   MessageValidationError,
@@ -14,6 +14,9 @@ export {
   defineUnsafeHandlers,
 } from "./handlers.js";
 export type {
+  // Retry configuration types
+  RetryMode,
+  RetryOptions,
   // Safe handler types (recommended)
   WorkerInferSafeConsumerBatchHandler,
   WorkerInferSafeConsumerHandler,

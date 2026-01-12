@@ -8,6 +8,63 @@ import type { HandlerError } from "./errors.js";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 
 /**
+ * Retry mode determines how failed messages are retried.
+ *
+ * - `"quorum-native"`: Uses quorum queue's native `x-delivery-limit` feature.
+ *   Messages are requeued immediately with `nack(requeue=true)`, and RabbitMQ
+ *   tracks delivery count via `x-delivery-count` header. When the count exceeds
+ *   the queue's `deliveryLimit`, the message is automatically dead-lettered.
+ *   **Benefits:** Simpler architecture, no wait queues needed, no head-of-queue blocking.
+ *   **Limitation:** Immediate retries only (no exponential backoff).
+ *
+ * - `"ttl-backoff"`: Uses TTL + wait queue pattern for exponential backoff.
+ *   Messages are published to a wait queue with per-message TTL, then dead-lettered
+ *   back to the main queue after the TTL expires.
+ *   **Benefits:** Configurable delays with exponential backoff and jitter.
+ *   **Limitation:** More complex, potential head-of-queue blocking with mixed TTLs.
+ *
+ * @see https://www.rabbitmq.com/docs/quorum-queues#poison-message-handling
+ */
+export type RetryMode = "quorum-native" | "ttl-backoff";
+
+/**
+ * Retry configuration options for handling failed message processing.
+ *
+ * When enabled, the worker will automatically retry failed messages using
+ * either RabbitMQ's native quorum queue delivery limit or the TTL + DLX pattern.
+ */
+export type RetryOptions = {
+  /**
+   * Retry mode determines the retry strategy.
+   *
+   * - `"quorum-native"`: Leverages quorum queue's `x-delivery-limit` feature.
+   *   Requires the queue to be a quorum queue with `deliveryLimit` configured.
+   *   Messages are requeued immediately (no exponential backoff).
+   *
+   * - `"ttl-backoff"`: Uses TTL + wait queue pattern for exponential backoff.
+   *   Requires queues to have DLX configured. Supports configurable delays.
+   *
+   * @default "ttl-backoff" for backward compatibility
+   */
+  mode?: RetryMode;
+  /**
+   * Maximum retry attempts before sending to DLQ.
+   * Only used when mode is "ttl-backoff". For "quorum-native" mode, use
+   * the queue's `deliveryLimit` option instead.
+   * @default 3
+   */
+  maxRetries?: number;
+  /** Initial delay in ms before first retry (only for "ttl-backoff" mode, default: 1000) */
+  initialDelayMs?: number;
+  /** Maximum delay in ms between retries (only for "ttl-backoff" mode, default: 30000) */
+  maxDelayMs?: number;
+  /** Exponential backoff multiplier (only for "ttl-backoff" mode, default: 2) */
+  backoffMultiplier?: number;
+  /** Add jitter to prevent thundering herd (only for "ttl-backoff" mode, default: true) */
+  jitter?: boolean;
+};
+
+/**
  * Infer the TypeScript type from a schema
  */
 type InferSchemaInput<TSchema extends StandardSchemaV1> =
@@ -89,8 +146,8 @@ export type WorkerInferSafeConsumerBatchHandler<
  *
  * Three patterns are supported:
  * 1. Simple handler: `(message) => Future.value(Result.Ok(undefined))`
- * 2. Handler with prefetch: `[(message) => ..., { prefetch: 10 }]`
- * 3. Batch handler: `[(messages) => ..., { batchSize: 5, batchTimeout: 1000 }]`
+ * 2. Handler with prefetch and/or retry: `[(message) => ..., { prefetch: 10, retry: { maxRetries: 3 } }]`
+ * 3. Batch handler: `[(messages) => ..., { batchSize: 5, batchTimeout: 1000, retry: { mode: "ttl-backoff" } }]`
  */
 export type WorkerInferSafeConsumerHandlerEntry<
   TContract extends ContractDefinition,
@@ -99,11 +156,11 @@ export type WorkerInferSafeConsumerHandlerEntry<
   | WorkerInferSafeConsumerHandler<TContract, TName>
   | readonly [
       WorkerInferSafeConsumerHandler<TContract, TName>,
-      { prefetch?: number; batchSize?: never; batchTimeout?: never },
+      { prefetch?: number; batchSize?: never; batchTimeout?: never; retry?: RetryOptions },
     ]
   | readonly [
       WorkerInferSafeConsumerBatchHandler<TContract, TName>,
-      { prefetch?: number; batchSize: number; batchTimeout?: number },
+      { prefetch?: number; batchSize: number; batchTimeout?: number; retry?: RetryOptions },
     ];
 
 /**
@@ -161,11 +218,11 @@ export type WorkerInferUnsafeConsumerHandlerEntry<
   | WorkerInferUnsafeConsumerHandler<TContract, TName>
   | readonly [
       WorkerInferUnsafeConsumerHandler<TContract, TName>,
-      { prefetch?: number; batchSize?: never; batchTimeout?: never },
+      { prefetch?: number; batchSize?: never; batchTimeout?: never; retry?: RetryOptions },
     ]
   | readonly [
       WorkerInferUnsafeConsumerBatchHandler<TContract, TName>,
-      { prefetch?: number; batchSize: number; batchTimeout?: number },
+      { prefetch?: number; batchSize: number; batchTimeout?: number; retry?: RetryOptions },
     ];
 
 /**

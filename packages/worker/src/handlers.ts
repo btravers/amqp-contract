@@ -2,6 +2,7 @@ import type { ContractDefinition, InferConsumerNames } from "@amqp-contract/cont
 import { Future, Result } from "@swan-io/boxed";
 import { NonRetryableError, RetryableError } from "./errors.js";
 import type {
+  RetryOptions,
   WorkerInferConsumerInput,
   WorkerInferSafeConsumerBatchHandler,
   WorkerInferSafeConsumerHandler,
@@ -146,7 +147,7 @@ export function defineHandler<
   contract: TContract,
   consumerName: TName,
   handler: WorkerInferSafeConsumerHandler<TContract, TName>,
-  options: { prefetch?: number; batchSize?: never; batchTimeout?: never },
+  options: { prefetch?: number; batchSize?: never; batchTimeout?: never; retry?: RetryOptions },
 ): WorkerInferSafeConsumerHandlerEntry<TContract, TName>;
 export function defineHandler<
   TContract extends ContractDefinition,
@@ -155,7 +156,7 @@ export function defineHandler<
   contract: TContract,
   consumerName: TName,
   handler: WorkerInferSafeConsumerBatchHandler<TContract, TName>,
-  options: { prefetch?: number; batchSize: number; batchTimeout?: number },
+  options: { prefetch?: number; batchSize: number; batchTimeout?: number; retry?: RetryOptions },
 ): WorkerInferSafeConsumerHandlerEntry<TContract, TName>;
 export function defineHandler<
   TContract extends ContractDefinition,
@@ -166,7 +167,7 @@ export function defineHandler<
   handler:
     | WorkerInferSafeConsumerHandler<TContract, TName>
     | WorkerInferSafeConsumerBatchHandler<TContract, TName>,
-  options?: { prefetch?: number; batchSize?: number; batchTimeout?: number },
+  options?: { prefetch?: number; batchSize?: number; batchTimeout?: number; retry?: RetryOptions },
 ): WorkerInferSafeConsumerHandlerEntry<TContract, TName> {
   validateConsumerExists(contract, String(consumerName));
 
@@ -284,7 +285,7 @@ export function defineUnsafeHandler<
   contract: TContract,
   consumerName: TName,
   handler: UnsafeHandler<TContract, TName>,
-  options: { prefetch?: number; batchSize?: never; batchTimeout?: never },
+  options: { prefetch?: number; batchSize?: never; batchTimeout?: never; retry?: RetryOptions },
 ): WorkerInferSafeConsumerHandlerEntry<TContract, TName>;
 export function defineUnsafeHandler<
   TContract extends ContractDefinition,
@@ -293,7 +294,7 @@ export function defineUnsafeHandler<
   contract: TContract,
   consumerName: TName,
   handler: UnsafeBatchHandler<TContract, TName>,
-  options: { prefetch?: number; batchSize: number; batchTimeout?: number },
+  options: { prefetch?: number; batchSize: number; batchTimeout?: number; retry?: RetryOptions },
 ): WorkerInferSafeConsumerHandlerEntry<TContract, TName>;
 export function defineUnsafeHandler<
   TContract extends ContractDefinition,
@@ -302,7 +303,7 @@ export function defineUnsafeHandler<
   contract: TContract,
   consumerName: TName,
   handler: UnsafeHandler<TContract, TName> | UnsafeBatchHandler<TContract, TName>,
-  options?: { prefetch?: number; batchSize?: number; batchTimeout?: number },
+  options?: { prefetch?: number; batchSize?: number; batchTimeout?: number; retry?: RetryOptions },
 ): WorkerInferSafeConsumerHandlerEntry<TContract, TName> {
   validateConsumerExists(contract, String(consumerName));
 
@@ -325,11 +326,11 @@ type UnsafeHandlerEntry<
   | UnsafeHandler<TContract, TName>
   | readonly [
       UnsafeHandler<TContract, TName>,
-      { prefetch?: number; batchSize?: never; batchTimeout?: never },
+      { prefetch?: number; batchSize?: never; batchTimeout?: never; retry?: RetryOptions },
     ]
   | readonly [
       UnsafeBatchHandler<TContract, TName>,
-      { prefetch?: number; batchSize: number; batchTimeout?: number },
+      { prefetch?: number; batchSize: number; batchTimeout?: number; retry?: RetryOptions },
     ];
 
 /**
