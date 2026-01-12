@@ -359,7 +359,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       // For quorum-native mode, validate queue configuration and skip wait queue setup
       if (retryConfig.mode === "quorum-native") {
         const validationError = this.validateQuorumNativeConfigForConsumer(
-          consumerName as string,
+          String(consumerName),
           consumer,
         );
         if (validationError) {
