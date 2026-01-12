@@ -395,6 +395,9 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           // Bind wait queue to DLX with routing key pattern
           await channel.bindQueue(waitQueueName, dlxName, `${queueName}-wait`);
 
+          // Bind main queue to DLX for routing retried messages back
+          await channel.bindQueue(queueName, dlxName, queueName);
+
           this.logger?.info("Wait queue created and bound", {
             consumerName: String(consumerName),
             queueName,

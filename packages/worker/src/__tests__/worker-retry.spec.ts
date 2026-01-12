@@ -123,10 +123,6 @@ describe("Worker Retry Mechanism", () => {
           dlqBinding: defineQueueBinding(dlq, dlx, {
             routingKey: "retry-flow-queue.dlq",
           }),
-          // Bind wait queue to DLX (will be created by worker)
-          waitBinding: defineQueueBinding(queue, dlx, {
-            routingKey: "retry-flow-queue",
-          }),
         },
         consumers: {
           testConsumer: defineConsumer(queue, defineMessage(TestMessage)),
@@ -244,9 +240,6 @@ describe("Worker Retry Mechanism", () => {
           dlqBinding: defineQueueBinding(dlq, dlx, {
             routingKey: "backoff-queue.dlq",
           }),
-          waitBinding: defineQueueBinding(queue, dlx, {
-            routingKey: "backoff-queue",
-          }),
         },
         consumers: {
           testConsumer: defineConsumer(queue, defineMessage(TestMessage)),
@@ -346,9 +339,6 @@ describe("Worker Retry Mechanism", () => {
           dlqBinding: defineQueueBinding(dlq, dlx, {
             routingKey: "maxretry-queue.dlq",
           }),
-          waitBinding: defineQueueBinding(queue, dlx, {
-            routingKey: "maxretry-queue",
-          }),
         },
         consumers: {
           testConsumer: defineConsumer(queue, defineMessage(TestMessage)),
@@ -440,9 +430,6 @@ describe("Worker Retry Mechanism", () => {
           dlqBinding: defineQueueBinding(dlq, dlx, {
             routingKey: "headers-queue.dlq",
           }),
-          waitBinding: defineQueueBinding(queue, dlx, {
-            routingKey: "headers-queue",
-          }),
         },
         consumers: {
           testConsumer: defineConsumer(queue, defineMessage(TestMessage)),
@@ -520,9 +507,6 @@ describe("Worker Retry Mechanism", () => {
           }),
           dlqBinding: defineQueueBinding(dlq, dlx, {
             routingKey: "batch-retry-queue.dlq",
-          }),
-          waitBinding: defineQueueBinding(queue, dlx, {
-            routingKey: "batch-retry-queue",
           }),
         },
         consumers: {
