@@ -36,6 +36,7 @@ export type {
   MessageDefinition,
   PublisherDefinition,
   QueueDefinition,
+  QueueType,
   InferPublisherNames,
   InferConsumerNames,
 } from "./types.js";

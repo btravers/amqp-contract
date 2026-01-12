@@ -189,7 +189,7 @@ describe("AmqpClient Integration", () => {
       const TestMessage = z.object({ id: z.string() });
 
       const exchange = defineExchange("integration-orders", "topic", { durable: false });
-      const queue = defineQueue("integration-processing", { durable: false });
+      const queue = defineQueue("integration-processing", { type: "classic", durable: false });
 
       const contract = defineContract({
         exchanges: {
@@ -262,7 +262,7 @@ describe("AmqpClient Integration", () => {
     it("should handle fanout exchange topology", async ({ clientFactory, initConsumer }) => {
       // GIVEN
       const fanoutExchange = defineExchange("integration-fanout", "fanout", { durable: false });
-      const queue = defineQueue("integration-fanout-queue", { durable: false });
+      const queue = defineQueue("integration-fanout-queue", { type: "classic", durable: false });
 
       const contract = defineContract({
         exchanges: {

@@ -17,7 +17,7 @@ import { z } from "zod";
 
 // Define contract at module level for type inference
 const testExchange = defineExchange("test-exchange", "topic", { durable: false });
-const testQueue = defineQueue("test-queue", { durable: false });
+const testQueue = defineQueue("test-queue", { type: "classic", durable: false });
 const testBinding = defineQueueBinding(testQueue, testExchange, {
   routingKey: "test.#",
 });

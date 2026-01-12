@@ -28,7 +28,7 @@ describe("AmqpWorker Integration", () => {
     });
 
     const exchange = defineExchange("worker-test-exchange", "topic", { durable: false });
-    const queue = defineQueue("worker-test-queue", { durable: false });
+    const queue = defineQueue("worker-test-queue", { type: "classic", durable: false });
 
     const contract = defineContract({
       exchanges: {
@@ -92,7 +92,7 @@ describe("AmqpWorker Integration", () => {
     });
 
     const exchange = defineExchange("worker-multi-exchange", "topic", { durable: false });
-    const queue = defineQueue("worker-multi-queue", { durable: false });
+    const queue = defineQueue("worker-multi-queue", { type: "classic", durable: false });
 
     const contract = defineContract({
       exchanges: {
@@ -151,8 +151,8 @@ describe("AmqpWorker Integration", () => {
     const TestMessage = z.object({ id: z.string() });
 
     const exchange = defineExchange("worker-all-exchange", "topic", { durable: false });
-    const queue1 = defineQueue("worker-all-queue1", { durable: false });
-    const queue2 = defineQueue("worker-all-queue2", { durable: false });
+    const queue1 = defineQueue("worker-all-queue1", { type: "classic", durable: false });
+    const queue2 = defineQueue("worker-all-queue2", { type: "classic", durable: false });
 
     const contract = defineContract({
       exchanges: {
@@ -227,7 +227,7 @@ describe("AmqpWorker Integration", () => {
     });
 
     const exchange = defineExchange("worker-validation-exchange", "topic", { durable: false });
-    const queue = defineQueue("worker-validation-queue", { durable: false });
+    const queue = defineQueue("worker-validation-queue", { type: "classic", durable: false });
 
     const contract = defineContract({
       exchanges: {
@@ -282,7 +282,7 @@ describe("AmqpWorker Integration", () => {
     const TestMessage = z.object({ id: z.string(), shouldFail: z.boolean() });
 
     const exchange = defineExchange("worker-error-exchange", "topic", { durable: false });
-    const queue = defineQueue("worker-error-queue", { durable: false });
+    const queue = defineQueue("worker-error-queue", { type: "classic", durable: false });
 
     const contract = defineContract({
       exchanges: {
@@ -337,7 +337,7 @@ describe("AmqpWorker Integration", () => {
 
     const sourceExchange = defineExchange("worker-source-exchange", "topic", { durable: false });
     const destExchange = defineExchange("worker-dest-exchange", "topic", { durable: false });
-    const queue = defineQueue("worker-dest-queue", { durable: false });
+    const queue = defineQueue("worker-dest-queue", { type: "classic", durable: false });
 
     const contract = defineContract({
       exchanges: {
@@ -389,7 +389,7 @@ describe("AmqpWorker Integration", () => {
     const TestMessage = z.object({ id: z.string() });
 
     const exchange = defineExchange("worker-close-exchange", "topic", { durable: false });
-    const queue = defineQueue("worker-close-queue", { durable: false });
+    const queue = defineQueue("worker-close-queue", { type: "classic", durable: false });
 
     const contract = defineContract({
       exchanges: {
@@ -452,8 +452,8 @@ describe("AmqpWorker Integration", () => {
     const NotificationMessage = z.object({ userId: z.string(), message: z.string() });
 
     const exchange = defineExchange("worker-multi-type-exchange", "topic", { durable: false });
-    const orderQueue = defineQueue("worker-multi-type-orders", { durable: false });
-    const notifQueue = defineQueue("worker-multi-type-notifs", { durable: false });
+    const orderQueue = defineQueue("worker-multi-type-orders", { type: "classic", durable: false });
+    const notifQueue = defineQueue("worker-multi-type-notifs", { type: "classic", durable: false });
 
     const contract = defineContract({
       exchanges: {
@@ -517,7 +517,7 @@ describe("AmqpWorker Integration", () => {
   }) => {
     // GIVEN
     const exchange = defineExchange("worker-cancel-exchange", "topic", { durable: false });
-    const queue = defineQueue("worker-cancel-queue", { durable: false });
+    const queue = defineQueue("worker-cancel-queue", { type: "classic", durable: false });
 
     // Setup exchange and queue manually using an admin channel
     const adminChannel = await amqpConnection.createChannel();
@@ -568,7 +568,7 @@ describe("AmqpWorker Integration", () => {
     const TestMessage = z.object({ id: z.string() });
 
     const exchange = defineExchange("worker-cancel-log-exchange", "topic", { durable: false });
-    const queue = defineQueue("worker-cancel-log-queue", { durable: false });
+    const queue = defineQueue("worker-cancel-log-queue", { type: "classic", durable: false });
 
     const contract = defineContract({
       exchanges: {

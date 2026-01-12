@@ -13,6 +13,7 @@ describe("Dead Letter Exchange Support", () => {
     // GIVEN
     const dlx = defineExchange("test-dlx", "topic", { durable: false });
     const queue = defineQueue("test-queue-with-dlx", {
+      type: "classic",
       durable: false,
       deadLetter: {
         exchange: dlx,
@@ -58,6 +59,7 @@ describe("Dead Letter Exchange Support", () => {
     // GIVEN
     const dlx = defineExchange("test-dlx-no-key", "fanout", { durable: false });
     const queue = defineQueue("test-queue-dlx-no-key", {
+      type: "classic",
       durable: false,
       deadLetter: {
         exchange: dlx,
@@ -100,6 +102,7 @@ describe("Dead Letter Exchange Support", () => {
   }) => {
     // GIVEN
     const queue = defineQueue("test-queue-no-dlx", {
+      type: "classic",
       durable: false,
     });
 
@@ -138,8 +141,9 @@ describe("Dead Letter Exchange Support", () => {
       durable: false,
     });
     const dlx = defineExchange("test-complete-dlx", "topic", { durable: false });
-    const dlxQueue = defineQueue("test-dlx-queue", { durable: false });
+    const dlxQueue = defineQueue("test-dlx-queue", { type: "classic", durable: false });
     const mainQueue = defineQueue("test-main-queue", {
+      type: "classic",
       durable: false,
       deadLetter: {
         exchange: dlx,
@@ -205,6 +209,7 @@ describe("Dead Letter Exchange Support", () => {
     // GIVEN - A queue with DLX reference but DLX not in contract
     const dlx = defineExchange("test-missing-dlx", "topic", { durable: false });
     const queue = defineQueue("test-queue-bad-dlx", {
+      type: "classic",
       durable: false,
       deadLetter: {
         exchange: dlx,

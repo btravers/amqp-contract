@@ -130,33 +130,30 @@ export function defineExchange(
  * A queue stores messages until they are consumed by workers. Queues can be bound to exchanges
  * to receive messages based on routing rules.
  *
+ * By default, queues are created as quorum queues which provide better durability and
+ * high-availability. Use `type: 'classic'` for special cases like non-durable queues
+ * or priority queues.
+ *
  * @param name - The name of the queue
  * @param options - Optional queue configuration
- * @param options.durable - If true, the queue survives broker restarts (default: false)
- * @param options.exclusive - If true, the queue can only be used by the declaring connection (default: false)
+ * @param options.type - Queue type: 'quorum' (default, recommended) or 'classic'
+ * @param options.durable - If true, the queue survives broker restarts. Quorum queues are always durable.
+ * @param options.exclusive - If true, the queue can only be used by the declaring connection. Not supported for quorum queues.
  * @param options.autoDelete - If true, the queue is deleted when the last consumer unsubscribes (default: false)
  * @param options.deadLetter - Dead letter configuration for handling failed messages
- * @param options.maxPriority - Maximum priority level for priority queue (1-255, recommended: 1-10). Sets x-max-priority argument.
+ * @param options.maxPriority - Maximum priority level for priority queue (1-255, recommended: 1-10). Sets x-max-priority argument. Only supported with classic queues.
  * @param options.arguments - Additional AMQP arguments (e.g., x-message-ttl)
  * @returns A queue definition
  *
  * @example
  * ```typescript
- * // Basic queue
- * const orderQueue = defineQueue('order-processing', {
- *   durable: true,
- * });
+ * // Quorum queue (default, recommended for production)
+ * const orderQueue = defineQueue('order-processing');
  *
- * // Priority queue with max priority of 10
- * const taskQueue = defineQueue('urgent-tasks', {
- *   durable: true,
- *   maxPriority: 10,
- * });
- *
- * // Queue with dead letter exchange
+ * // Explicit quorum queue with dead letter exchange
  * const dlx = defineExchange('orders-dlx', 'topic', { durable: true });
  * const orderQueueWithDLX = defineQueue('order-processing', {
- *   durable: true,
+ *   type: 'quorum',
  *   deadLetter: {
  *     exchange: dlx,
  *     routingKey: 'order.failed'
@@ -164,6 +161,20 @@ export function defineExchange(
  *   arguments: {
  *     'x-message-ttl': 86400000, // 24 hours
  *   }
+ * });
+ *
+ * // Classic queue (for special cases)
+ * const tempQueue = defineQueue('temp-queue', {
+ *   type: 'classic',
+ *   durable: false,
+ *   autoDelete: true,
+ * });
+ *
+ * // Priority queue (requires classic type)
+ * const taskQueue = defineQueue('urgent-tasks', {
+ *   type: 'classic',
+ *   durable: true,
+ *   maxPriority: 10,
  * });
  * ```
  */
@@ -173,29 +184,49 @@ export function defineQueue(
     maxPriority?: number;
   },
 ): QueueDefinition {
-  const { maxPriority, ...queueOptions } = options ?? {};
+  const { maxPriority, type = "quorum", ...queueOptions } = options ?? {};
 
+  // Validate quorum queue constraints
+  if (type === "quorum") {
+    if (queueOptions.exclusive) {
+      throw new Error(
+        `Quorum queues do not support exclusive mode. Queue "${name}" has exclusive: true with type: 'quorum'. ` +
+          `Use type: 'classic' if you need an exclusive queue.`,
+      );
+    }
+    if (maxPriority !== undefined) {
+      throw new Error(
+        `Quorum queues do not support priority queues. Queue "${name}" has maxPriority: ${maxPriority} with type: 'quorum'. ` +
+          `Use type: 'classic' if you need a priority queue.`,
+      );
+    }
+  }
+
+  // Validate maxPriority range
   if (maxPriority !== undefined) {
     if (maxPriority < 1 || maxPriority > 255) {
       throw new Error(
         `Invalid maxPriority: ${maxPriority}. Must be between 1 and 255. Recommended range: 1-10.`,
       );
     }
+  }
 
-    return {
-      name,
-      ...queueOptions,
-      arguments: {
-        ...queueOptions.arguments,
-        "x-max-priority": maxPriority,
-      },
+  // Build the queue definition
+  const queueDefinition: QueueDefinition = {
+    name,
+    type,
+    ...queueOptions,
+  };
+
+  // Add maxPriority argument if specified
+  if (maxPriority !== undefined) {
+    queueDefinition.arguments = {
+      ...queueDefinition.arguments,
+      "x-max-priority": maxPriority,
     };
   }
 
-  return {
-    name,
-    ...queueOptions,
-  };
+  return queueDefinition;
 }
 
 /**

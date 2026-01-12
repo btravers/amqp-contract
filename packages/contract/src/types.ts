@@ -42,6 +42,35 @@ export type AnySchema = StandardSchemaV1;
 export type CompressionAlgorithm = "gzip" | "deflate";
 
 /**
+ * Supported queue types in RabbitMQ.
+ *
+ * - `quorum`: Quorum queues (default, recommended) - Provide better durability and high-availability
+ *   using the Raft consensus algorithm. Best for most production use cases.
+ * - `classic`: Classic queues - The traditional RabbitMQ queue type. Use only when you need
+ *   specific features not supported by quorum queues (e.g., non-durable queues, priority queues).
+ *
+ * Note: Quorum queues require `durable: true` and do not support `exclusive: true`.
+ * When using quorum queues, `durable` is automatically set to `true`.
+ *
+ * @see https://www.rabbitmq.com/docs/quorum-queues
+ *
+ * @example
+ * ```typescript
+ * // Create a quorum queue (default, recommended)
+ * const orderQueue = defineQueue('order-processing', {
+ *   type: 'quorum', // This is the default
+ * });
+ *
+ * // Create a classic queue (for special cases)
+ * const tempQueue = defineQueue('temp-queue', {
+ *   type: 'classic',
+ *   durable: false, // Only supported with classic queues
+ * });
+ * ```
+ */
+export type QueueType = "quorum" | "classic";
+
+/**
  * Base definition of an AMQP exchange.
  *
  * An exchange receives messages from publishers and routes them to queues based on the exchange
@@ -178,14 +207,28 @@ export type QueueDefinition = {
   name: string;
 
   /**
+   * The type of the queue.
+   *
+   * - `quorum`: Quorum queues (default, recommended) - Better durability and high-availability
+   * - `classic`: Classic queues - Traditional RabbitMQ queue type
+   *
+   * Note: Quorum queues require `durable: true` and do not support `exclusive: true`.
+   *
+   * @default "quorum"
+   */
+  type?: QueueType;
+
+  /**
    * If true, the queue survives broker restarts. Durable queues are persisted to disk.
-   * @default false
+   * Note: Quorum queues are always durable.
+   * @default true for quorum queues, false for classic queues
    */
   durable?: boolean;
 
   /**
    * If true, the queue can only be used by the declaring connection and is deleted when
    * that connection closes. Exclusive queues are private to the connection.
+   * Note: Quorum queues do not support exclusive mode.
    * @default false
    */
   exclusive?: boolean;
@@ -229,6 +272,9 @@ export type QueueDefinition = {
    * Note: When using the `deadLetter` property, the `x-dead-letter-exchange` and
    * `x-dead-letter-routing-key` arguments are automatically set and should not be
    * specified in this arguments object.
+   *
+   * Note: The `x-queue-type` argument is automatically set based on the `type` property
+   * and should not be specified in this arguments object.
    *
    * @example
    * ```typescript

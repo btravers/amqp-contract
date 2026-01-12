@@ -66,8 +66,14 @@ export async function setupAmqpTopology(
   // Setup queues
   const queueResults = await Promise.allSettled(
     Object.values(contract.queues ?? {}).map((queue) => {
-      // Build queue arguments, merging dead letter configuration if present
+      // Build queue arguments, merging dead letter configuration and queue type
       const queueArguments = { ...queue.arguments };
+
+      // Set queue type (defaults to quorum)
+      if (queue.type) {
+        queueArguments["x-queue-type"] = queue.type;
+      }
+
       if (queue.deadLetter) {
         queueArguments["x-dead-letter-exchange"] = queue.deadLetter.exchange.name;
         if (queue.deadLetter.routingKey) {
@@ -75,8 +81,11 @@ export async function setupAmqpTopology(
         }
       }
 
+      // For quorum queues, force durable to true as they are always durable
+      const durable = queue.type === "quorum" ? true : queue.durable;
+
       return channel.assertQueue(queue.name, {
-        durable: queue.durable,
+        durable,
         exclusive: queue.exclusive,
         autoDelete: queue.autoDelete,
         arguments: queueArguments,
