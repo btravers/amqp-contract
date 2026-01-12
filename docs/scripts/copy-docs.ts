@@ -1,3 +1,5 @@
+// These imports establish dependencies for knip detection and turbo build ordering.
+// They must be kept in sync with the packages array below.
 import "@amqp-contract/asyncapi";
 import "@amqp-contract/client";
 import "@amqp-contract/client-nestjs";
