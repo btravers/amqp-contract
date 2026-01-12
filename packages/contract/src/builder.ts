@@ -190,10 +190,7 @@ export function defineQueue(name: string, options?: DefineQueueOptions): QueueDe
   const exclusive = type === "classic" ? (opts as ClassicQueueOptions).exclusive : undefined;
 
   // Extract deliveryLimit only if it's a quorum queue
-  const deliveryLimit =
-    type === "quorum" || type === undefined
-      ? (opts as QuorumQueueOptions).deliveryLimit
-      : undefined;
+  const deliveryLimit = type === "quorum" ? (opts as QuorumQueueOptions).deliveryLimit : undefined;
 
   // Validate maxPriority range (only applicable for classic queues)
   if (maxPriority !== undefined) {
