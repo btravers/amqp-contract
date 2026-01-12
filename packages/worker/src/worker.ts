@@ -1117,24 +1117,26 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     consumer: ConsumerDefinition,
   ): Future<Result<void, TechnicalError>> {
     const queueName = consumer.queue.name;
-    // x-delivery-count starts at 0 for first delivery, increments on each requeue
+    // x-delivery-count is incremented on each delivery attempt
+    // When x-delivery-count equals x-delivery-limit, message is dead-lettered on next attempt
     const deliveryCount = (msg.properties.headers?.["x-delivery-count"] as number) ?? 0;
     const deliveryLimit = consumer.queue.deliveryLimit;
 
-    // Calculate remaining attempts for informative logging
-    // deliveryCount is the number of times this message has been redelivered
-    // deliveryLimit is the max count before dead-lettering
-    const remainingAttempts =
-      deliveryLimit !== undefined ? deliveryLimit - deliveryCount - 1 : "unknown";
+    // After this requeue, RabbitMQ will increment deliveryCount
+    // Message is dead-lettered when deliveryCount reaches deliveryLimit
+    // So if deliveryCount == deliveryLimit - 1, the next failure will dead-letter the message
+    const attemptsBeforeDeadLetter =
+      deliveryLimit !== undefined ? Math.max(0, deliveryLimit - deliveryCount - 1) : "unknown";
 
-    // Log warning if this is approaching the delivery limit
+    // Log warning if this is the last attempt before dead-lettering
     if (deliveryLimit !== undefined && deliveryCount >= deliveryLimit - 1) {
-      this.logger?.warn("Message approaching delivery limit (quorum-native mode)", {
+      this.logger?.warn("Message at final delivery attempt (quorum-native mode)", {
         consumerName,
         queueName,
         deliveryCount,
         deliveryLimit,
-        willDeadLetterOnNextFailure: true,
+        willDeadLetterOnNextFailure: deliveryCount === deliveryLimit - 1,
+        alreadyExceededLimit: deliveryCount >= deliveryLimit,
         error: error.message,
       });
     } else {
@@ -1143,7 +1145,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         queueName,
         deliveryCount,
         deliveryLimit,
-        remainingAttempts,
+        attemptsBeforeDeadLetter,
         error: error.message,
       });
     }

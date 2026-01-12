@@ -141,7 +141,7 @@ export type QuorumQueueOptions = BaseQueueOptions & {
    * Maximum number of delivery attempts before the message is dead-lettered.
    *
    * When a message is rejected (nacked) and requeued, RabbitMQ increments
-   * the `x-delivery-count` header. When this count exceeds the delivery limit,
+   * the `x-delivery-count` header. When this count reaches the delivery limit,
    * the message is automatically dead-lettered (if DLX is configured) or dropped.
    *
    * This is a quorum queue-specific feature that provides native retry handling
@@ -151,6 +151,8 @@ export type QuorumQueueOptions = BaseQueueOptions & {
    * - Simpler architecture (no wait queues needed)
    * - No head-of-queue blocking issues (TTL only works at queue head)
    * - Native RabbitMQ feature with atomic guarantees
+   *
+   * @minimum 1 - Must be a positive integer (1 or greater)
    *
    * @see https://www.rabbitmq.com/docs/quorum-queues#poison-message-handling
    *
@@ -410,11 +412,13 @@ export type QueueDefinition = {
    *
    * This is a quorum queue-specific feature. When a message is rejected (nacked)
    * and requeued, RabbitMQ increments the `x-delivery-count` header. When this
-   * count exceeds the delivery limit, the message is automatically dead-lettered
+   * count reaches the delivery limit, the message is automatically dead-lettered
    * (if DLX is configured) or dropped.
    *
    * Note: This option only applies to quorum queues. For classic queues, you need
    * to implement retry logic at the application level.
+   *
+   * @minimum 1 - Must be a positive integer (1 or greater)
    *
    * @see https://www.rabbitmq.com/docs/quorum-queues#poison-message-handling
    */
