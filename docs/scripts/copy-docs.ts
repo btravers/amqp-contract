@@ -7,8 +7,8 @@ import "@amqp-contract/testing/global-setup";
 import "@amqp-contract/worker";
 import "@amqp-contract/worker-nestjs";
 
-import { dirname, join, relative } from "node:path";
-import { lstat, mkdir, rm, symlink } from "node:fs/promises";
+import { cp, mkdir, rm } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -26,37 +26,37 @@ const packages = [
   "worker-nestjs",
 ];
 
-async function createSymlinks(): Promise<void> {
+async function copyDocs(): Promise<void> {
   try {
     // Create api directory if it doesn't exist
     await mkdir(docsApiDir, { recursive: true });
 
-    // Create symlinks for each package's docs
+    // Copy docs from each package
     for (const pkg of packages) {
-      const targetPath = join(docsApiDir, pkg);
       const sourcePath = join(nodeModulesDir, `@amqp-contract/${pkg}`, "docs");
+      const targetPath = join(docsApiDir, pkg);
 
-      // Remove existing symlink or directory if it exists
+      // Remove existing directory if it exists (to handle clean rebuilds)
       try {
-        const stats = await lstat(targetPath);
-        if (stats.isSymbolicLink() || stats.isDirectory()) {
-          await rm(targetPath, { recursive: true });
-        }
+        await rm(targetPath, { recursive: true });
       } catch {
         // Target doesn't exist, which is fine
       }
 
-      // Create relative symlink from docs/api/{pkg} to node_modules/@amqp-contract/{pkg}/docs
-      const relativePath = relative(docsApiDir, sourcePath);
-      await symlink(relativePath, targetPath);
-      console.log(`✓ Created symlink for @amqp-contract/${pkg}`);
+      try {
+        await cp(sourcePath, targetPath, { recursive: true });
+        console.log(`✓ Copied docs for @amqp-contract/${pkg}`);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn(`⚠ Could not copy docs for @amqp-contract/${pkg}:`, message);
+      }
     }
 
-    console.log("\n✅ All symlinks created successfully!");
+    console.log("\n✅ All documentation copied successfully!");
   } catch (error) {
-    console.error("❌ Error creating symlinks:", error);
+    console.error("❌ Error copying documentation:", error);
     process.exit(1);
   }
 }
 
-createSymlinks();
+copyDocs();
