@@ -1459,8 +1459,9 @@ describe("AsyncAPIGenerator", () => {
 
   describe("channel and operation generation", () => {
     it("should generate correct AMQP bindings for queues", async () => {
-      // GIVEN
+      // GIVEN - Use classic queue to test all explicit options
       const queue = defineQueue("test-queue", {
+        type: "classic",
         durable: true,
         exclusive: false,
         autoDelete: false,

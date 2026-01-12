@@ -42,24 +42,38 @@ describe("builder", () => {
   });
 
   describe("defineQueue", () => {
-    it("should create a queue definition", () => {
+    it("should create a queue definition with quorum type by default", () => {
       // WHEN
       const queue = defineQueue("test-queue", { durable: true });
 
       // THEN
       expect(queue).toEqual({
         name: "test-queue",
+        type: "quorum",
         durable: true,
       });
     });
 
-    it("should create a queue with minimal options", () => {
+    it("should create a queue with minimal options and quorum type", () => {
       // WHEN
       const queue = defineQueue("test-queue");
 
       // THEN
       expect(queue).toEqual({
         name: "test-queue",
+        type: "quorum",
+      });
+    });
+
+    it("should create a classic queue when explicitly specified", () => {
+      // WHEN
+      const queue = defineQueue("test-queue", { type: "classic", durable: true });
+
+      // THEN
+      expect(queue).toEqual({
+        name: "test-queue",
+        type: "classic",
+        durable: true,
       });
     });
 
@@ -79,6 +93,7 @@ describe("builder", () => {
       // THEN
       expect(queue).toEqual({
         name: "test-queue",
+        type: "quorum",
         durable: true,
         deadLetter: {
           exchange: dlx,
@@ -102,22 +117,40 @@ describe("builder", () => {
       // THEN
       expect(queue).toEqual({
         name: "test-queue",
+        type: "quorum",
         durable: true,
         deadLetter: {
           exchange: dlx,
         },
       });
     });
+
+    it("should allow exclusive with classic queue", () => {
+      // WHEN
+      const queue = defineQueue("test-queue", { type: "classic", exclusive: true });
+
+      // THEN
+      expect(queue).toEqual({
+        name: "test-queue",
+        type: "classic",
+        exclusive: true,
+      });
+    });
   });
 
   describe("defineQueue with maxPriority", () => {
-    it("should create a priority queue with x-max-priority argument", () => {
+    it("should create a priority queue with x-max-priority argument using classic type", () => {
       // WHEN
-      const queue = defineQueue("priority-queue", { durable: true, maxPriority: 10 });
+      const queue = defineQueue("priority-queue", {
+        type: "classic",
+        durable: true,
+        maxPriority: 10,
+      });
 
       // THEN
       expect(queue).toEqual({
         name: "priority-queue",
+        type: "classic",
         durable: true,
         arguments: {
           "x-max-priority": 10,
@@ -125,13 +158,14 @@ describe("builder", () => {
       });
     });
 
-    it("should create a priority queue with minimal options", () => {
+    it("should create a priority queue with minimal options using classic type", () => {
       // WHEN
-      const queue = defineQueue("priority-queue", { maxPriority: 5 });
+      const queue = defineQueue("priority-queue", { type: "classic", maxPriority: 5 });
 
       // THEN
       expect(queue).toEqual({
         name: "priority-queue",
+        type: "classic",
         arguments: {
           "x-max-priority": 5,
         },
@@ -141,6 +175,7 @@ describe("builder", () => {
     it("should merge additional arguments with x-max-priority", () => {
       // WHEN
       const queue = defineQueue("priority-queue", {
+        type: "classic",
         durable: true,
         maxPriority: 10,
         arguments: {
@@ -151,6 +186,7 @@ describe("builder", () => {
       // THEN
       expect(queue).toEqual({
         name: "priority-queue",
+        type: "classic",
         durable: true,
         arguments: {
           "x-message-ttl": 60000,
@@ -165,6 +201,7 @@ describe("builder", () => {
 
       // WHEN
       const queue = defineQueue("priority-queue", {
+        type: "classic",
         durable: true,
         maxPriority: 10,
         deadLetter: {
@@ -176,6 +213,7 @@ describe("builder", () => {
       // THEN
       expect(queue).toEqual({
         name: "priority-queue",
+        type: "classic",
         durable: true,
         deadLetter: {
           exchange: dlx,
@@ -189,25 +227,26 @@ describe("builder", () => {
 
     it("should throw error for maxPriority less than 1", () => {
       // WHEN/THEN
-      expect(() => defineQueue("priority-queue", { maxPriority: 0 })).toThrow(
+      expect(() => defineQueue("priority-queue", { type: "classic", maxPriority: 0 })).toThrow(
         "Invalid maxPriority: 0. Must be between 1 and 255. Recommended range: 1-10.",
       );
     });
 
     it("should throw error for maxPriority greater than 255", () => {
       // WHEN/THEN
-      expect(() => defineQueue("priority-queue", { maxPriority: 256 })).toThrow(
+      expect(() => defineQueue("priority-queue", { type: "classic", maxPriority: 256 })).toThrow(
         "Invalid maxPriority: 256. Must be between 1 and 255. Recommended range: 1-10.",
       );
     });
 
     it("should accept maxPriority of 1", () => {
       // WHEN
-      const queue = defineQueue("priority-queue", { maxPriority: 1 });
+      const queue = defineQueue("priority-queue", { type: "classic", maxPriority: 1 });
 
       // THEN
       expect(queue).toEqual({
         name: "priority-queue",
+        type: "classic",
         arguments: {
           "x-max-priority": 1,
         },
@@ -216,11 +255,12 @@ describe("builder", () => {
 
     it("should accept maxPriority of 255", () => {
       // WHEN
-      const queue = defineQueue("priority-queue", { maxPriority: 255 });
+      const queue = defineQueue("priority-queue", { type: "classic", maxPriority: 255 });
 
       // THEN
       expect(queue).toEqual({
         name: "priority-queue",
+        type: "classic",
         arguments: {
           "x-max-priority": 255,
         },

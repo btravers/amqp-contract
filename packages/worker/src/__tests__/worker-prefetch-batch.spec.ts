@@ -27,7 +27,7 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
     });
 
     const exchange = defineExchange("prefetch-test-exchange", "topic", { durable: false });
-    const queue = defineQueue("prefetch-test-queue", { durable: false });
+    const queue = defineQueue("prefetch-test-queue", { type: "classic", durable: false });
 
     const contract = defineContract({
       exchanges: {
@@ -99,7 +99,7 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
     });
 
     const exchange = defineExchange("batch-test-exchange", "topic", { durable: false });
-    const queue = defineQueue("batch-test-queue", { durable: false });
+    const queue = defineQueue("batch-test-queue", { type: "classic", durable: false });
 
     const contract = defineContract({
       exchanges: {
@@ -186,7 +186,7 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
     });
 
     const exchange = defineExchange("batch-timeout-test-exchange", "topic", { durable: false });
-    const queue = defineQueue("batch-timeout-test-queue", { durable: false });
+    const queue = defineQueue("batch-timeout-test-queue", { type: "classic", durable: false });
 
     const contract = defineContract({
       exchanges: {
@@ -261,7 +261,7 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
       // GIVEN
       const TestMessage = z.object({ id: z.string() });
       const exchange = defineExchange("validation-test-exchange", "topic", { durable: false });
-      const queue = defineQueue("validation-test-queue", { durable: false });
+      const queue = defineQueue("validation-test-queue", { type: "classic", durable: false });
 
       const contract = defineContract({
         exchanges: { test: exchange },
@@ -297,7 +297,7 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
       // GIVEN
       const TestMessage = z.object({ id: z.string() });
       const exchange = defineExchange("validation-test-exchange", "topic", { durable: false });
-      const queue = defineQueue("validation-test-queue", { durable: false });
+      const queue = defineQueue("validation-test-queue", { type: "classic", durable: false });
 
       const contract = defineContract({
         exchanges: { test: exchange },
@@ -332,7 +332,7 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
       // GIVEN
       const TestMessage = z.object({ id: z.string() });
       const exchange = defineExchange("validation-test-exchange", "topic", { durable: false });
-      const queue = defineQueue("validation-test-queue", { durable: false });
+      const queue = defineQueue("validation-test-queue", { type: "classic", durable: false });
 
       const contract = defineContract({
         exchanges: { test: exchange },
@@ -368,7 +368,7 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
       // GIVEN
       const TestMessage = z.object({ id: z.string() });
       const exchange = defineExchange("validation-test-exchange", "topic", { durable: false });
-      const queue = defineQueue("validation-test-queue", { durable: false });
+      const queue = defineQueue("validation-test-queue", { type: "classic", durable: false });
 
       const contract = defineContract({
         exchanges: { test: exchange },
@@ -407,7 +407,7 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
       // GIVEN
       const TestMessage = z.object({ id: z.string() });
       const exchange = defineExchange("validation-test-exchange", "topic", { durable: false });
-      const queue = defineQueue("validation-test-queue", { durable: false });
+      const queue = defineQueue("validation-test-queue", { type: "classic", durable: false });
 
       const contract = defineContract({
         exchanges: { test: exchange },

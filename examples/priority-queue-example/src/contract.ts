@@ -24,7 +24,9 @@ const tasksExchange = defineExchange("tasks", "direct", { durable: true });
 
 // Define a priority queue with maximum priority of 10
 // Messages with higher priority (0-10) will be processed first
+// Note: Priority queues require classic queue type (quorum queues don't support priorities)
 const taskQueue = defineQueue("task-processing", {
+  type: "classic",
   durable: true,
   maxPriority: 10,
 });

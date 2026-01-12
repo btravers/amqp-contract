@@ -44,8 +44,8 @@ describe("AmqpClient Integration", () => {
     // GIVEN
     const contract = defineContract({
       queues: {
-        orderProcessing: defineQueue("order-processing", { durable: false }),
-        notifications: defineQueue("notifications", { durable: false }),
+        orderProcessing: defineQueue("order-processing", { type: "classic", durable: false }),
+        notifications: defineQueue("notifications", { type: "classic", durable: false }),
       },
     });
 
@@ -71,7 +71,7 @@ describe("AmqpClient Integration", () => {
   }) => {
     // GIVEN
     const ordersExchange = defineExchange("orders", "topic", { durable: false });
-    const orderQueue = defineQueue("order-processing", { durable: false });
+    const orderQueue = defineQueue("order-processing", { type: "classic", durable: false });
     const contract = defineContract({
       exchanges: {
         orders: ordersExchange,
@@ -160,8 +160,8 @@ describe("AmqpClient Integration", () => {
     // GIVEN
     const ordersExchange = defineExchange("orders", "topic", { durable: false });
     const analyticsExchange = defineExchange("analytics", "fanout", { durable: false });
-    const orderQueue = defineQueue("order-processing", { durable: false });
-    const analyticsQueue = defineQueue("analytics-processing", { durable: false });
+    const orderQueue = defineQueue("order-processing", { type: "classic", durable: false });
+    const analyticsQueue = defineQueue("analytics-processing", { type: "classic", durable: false });
 
     const contract = defineContract({
       exchanges: {
@@ -238,7 +238,7 @@ describe("AmqpClient Integration", () => {
   }) => {
     // GIVEN
     const fanoutExchange = defineExchange("fanout", "fanout", { durable: false });
-    const orderQueue = defineQueue("order-queue", { durable: false });
+    const orderQueue = defineQueue("order-queue", { type: "classic", durable: false });
     const contract = defineContract({
       exchanges: {
         fanout: fanoutExchange,
@@ -304,6 +304,7 @@ describe("AmqpClient Integration", () => {
     const contract = defineContract({
       queues: {
         orders: defineQueue("orders", {
+          type: "classic",
           durable: false,
           arguments: { "x-max-length": 1000 },
         }),

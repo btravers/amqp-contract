@@ -25,13 +25,14 @@ describe("Worker Retry Mechanism", () => {
       const exchange = defineExchange("legacy-exchange", "topic", { durable: false });
       const dlx = defineExchange("legacy-dlx", "topic", { durable: false });
       const queue = defineQueue("legacy-queue", {
+        type: "classic",
         durable: false,
         deadLetter: {
           exchange: dlx,
           routingKey: "legacy-queue.dlq",
         },
       });
-      const dlq = defineQueue("legacy-dlq", { durable: false });
+      const dlq = defineQueue("legacy-dlq", { type: "classic", durable: false });
 
       const contract = defineContract({
         exchanges: {
@@ -99,13 +100,14 @@ describe("Worker Retry Mechanism", () => {
       const exchange = defineExchange("retry-flow-exchange", "topic", { durable: false });
       const dlx = defineExchange("retry-flow-dlx", "topic", { durable: false });
       const queue = defineQueue("retry-flow-queue", {
+        type: "classic",
         durable: false,
         deadLetter: {
           exchange: dlx,
           routingKey: "retry-flow-queue.dlq",
         },
       });
-      const dlq = defineQueue("retry-flow-dlq", { durable: false });
+      const dlq = defineQueue("retry-flow-dlq", { type: "classic", durable: false });
 
       const contract = defineContract({
         exchanges: {
@@ -216,13 +218,14 @@ describe("Worker Retry Mechanism", () => {
       const exchange = defineExchange("backoff-exchange", "topic", { durable: false });
       const dlx = defineExchange("backoff-dlx", "topic", { durable: false });
       const queue = defineQueue("backoff-queue", {
+        type: "classic",
         durable: false,
         deadLetter: {
           exchange: dlx,
           routingKey: "backoff-queue.dlq",
         },
       });
-      const dlq = defineQueue("backoff-dlq", { durable: false });
+      const dlq = defineQueue("backoff-dlq", { type: "classic", durable: false });
 
       const contract = defineContract({
         exchanges: {
@@ -315,13 +318,14 @@ describe("Worker Retry Mechanism", () => {
       const exchange = defineExchange("maxretry-exchange", "topic", { durable: false });
       const dlx = defineExchange("maxretry-dlx", "topic", { durable: false });
       const queue = defineQueue("maxretry-queue", {
+        type: "classic",
         durable: false,
         deadLetter: {
           exchange: dlx,
           routingKey: "maxretry-queue.dlq",
         },
       });
-      const dlq = defineQueue("maxretry-dlq", { durable: false });
+      const dlq = defineQueue("maxretry-dlq", { type: "classic", durable: false });
 
       const contract = defineContract({
         exchanges: {
@@ -406,13 +410,14 @@ describe("Worker Retry Mechanism", () => {
       const exchange = defineExchange("headers-exchange", "topic", { durable: false });
       const dlx = defineExchange("headers-dlx", "topic", { durable: false });
       const queue = defineQueue("headers-queue", {
+        type: "classic",
         durable: false,
         deadLetter: {
           exchange: dlx,
           routingKey: "headers-queue.dlq",
         },
       });
-      const dlq = defineQueue("headers-dlq", { durable: false });
+      const dlq = defineQueue("headers-dlq", { type: "classic", durable: false });
 
       const contract = defineContract({
         exchanges: {
@@ -484,13 +489,14 @@ describe("Worker Retry Mechanism", () => {
       const exchange = defineExchange("batch-retry-exchange", "topic", { durable: false });
       const dlx = defineExchange("batch-retry-dlx", "topic", { durable: false });
       const queue = defineQueue("batch-retry-queue", {
+        type: "classic",
         durable: false,
         deadLetter: {
           exchange: dlx,
           routingKey: "batch-retry-queue.dlq",
         },
       });
-      const dlq = defineQueue("batch-retry-dlq", { durable: false });
+      const dlq = defineQueue("batch-retry-dlq", { type: "classic", durable: false });
 
       const contract = defineContract({
         exchanges: {
@@ -568,6 +574,7 @@ describe("Worker Retry Mechanism", () => {
 
       const exchange = defineExchange("nodlx-exchange", "topic", { durable: false });
       const queue = defineQueue("nodlx-queue", {
+        type: "classic",
         durable: false,
         // No deadLetter configuration
       });

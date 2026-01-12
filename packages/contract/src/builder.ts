@@ -1,7 +1,9 @@
 import type {
   BaseExchangeDefinition,
+  ClassicQueueOptions,
   ConsumerDefinition,
   ContractDefinition,
+  DefineQueueOptions,
   DirectExchangeDefinition,
   ExchangeBindingDefinition,
   ExchangeDefinition,
@@ -130,33 +132,30 @@ export function defineExchange(
  * A queue stores messages until they are consumed by workers. Queues can be bound to exchanges
  * to receive messages based on routing rules.
  *
+ * By default, queues are created as quorum queues which provide better durability and
+ * high-availability. Use `type: 'classic'` for special cases like non-durable queues
+ * or priority queues.
+ *
  * @param name - The name of the queue
  * @param options - Optional queue configuration
- * @param options.durable - If true, the queue survives broker restarts (default: false)
- * @param options.exclusive - If true, the queue can only be used by the declaring connection (default: false)
+ * @param options.type - Queue type: 'quorum' (default, recommended) or 'classic'
+ * @param options.durable - If true, the queue survives broker restarts. Quorum queues are always durable.
+ * @param options.exclusive - If true, the queue can only be used by the declaring connection. Only supported with classic queues.
  * @param options.autoDelete - If true, the queue is deleted when the last consumer unsubscribes (default: false)
  * @param options.deadLetter - Dead letter configuration for handling failed messages
- * @param options.maxPriority - Maximum priority level for priority queue (1-255, recommended: 1-10). Sets x-max-priority argument.
+ * @param options.maxPriority - Maximum priority level for priority queue (1-255, recommended: 1-10). Only supported with classic queues.
  * @param options.arguments - Additional AMQP arguments (e.g., x-message-ttl)
  * @returns A queue definition
  *
  * @example
  * ```typescript
- * // Basic queue
- * const orderQueue = defineQueue('order-processing', {
- *   durable: true,
- * });
+ * // Quorum queue (default, recommended for production)
+ * const orderQueue = defineQueue('order-processing');
  *
- * // Priority queue with max priority of 10
- * const taskQueue = defineQueue('urgent-tasks', {
- *   durable: true,
- *   maxPriority: 10,
- * });
- *
- * // Queue with dead letter exchange
+ * // Explicit quorum queue with dead letter exchange
  * const dlx = defineExchange('orders-dlx', 'topic', { durable: true });
  * const orderQueueWithDLX = defineQueue('order-processing', {
- *   durable: true,
+ *   type: 'quorum',
  *   deadLetter: {
  *     exchange: dlx,
  *     routingKey: 'order.failed'
@@ -165,37 +164,74 @@ export function defineExchange(
  *     'x-message-ttl': 86400000, // 24 hours
  *   }
  * });
+ *
+ * // Classic queue (for special cases)
+ * const tempQueue = defineQueue('temp-queue', {
+ *   type: 'classic',
+ *   durable: false,
+ *   autoDelete: true,
+ * });
+ *
+ * // Priority queue (requires classic type)
+ * const taskQueue = defineQueue('urgent-tasks', {
+ *   type: 'classic',
+ *   durable: true,
+ *   maxPriority: 10,
+ * });
  * ```
  */
-export function defineQueue(
-  name: string,
-  options?: Omit<QueueDefinition, "name"> & {
-    maxPriority?: number;
-  },
-): QueueDefinition {
-  const { maxPriority, ...queueOptions } = options ?? {};
+export function defineQueue(name: string, options?: DefineQueueOptions): QueueDefinition {
+  const opts = options ?? {};
+  const type = opts.type ?? "quorum";
 
+  // Extract maxPriority only if it's a classic queue (type safety enforced at compile time)
+  const maxPriority = type === "classic" ? (opts as ClassicQueueOptions).maxPriority : undefined;
+  const exclusive = type === "classic" ? (opts as ClassicQueueOptions).exclusive : undefined;
+
+  // Validate maxPriority range (only applicable for classic queues)
   if (maxPriority !== undefined) {
     if (maxPriority < 1 || maxPriority > 255) {
       throw new Error(
         `Invalid maxPriority: ${maxPriority}. Must be between 1 and 255. Recommended range: 1-10.`,
       );
     }
+  }
 
-    return {
-      name,
-      ...queueOptions,
-      arguments: {
-        ...queueOptions.arguments,
-        "x-max-priority": maxPriority,
-      },
+  // Build the queue definition - only include defined properties
+  const queueDefinition: QueueDefinition = {
+    name,
+    type,
+  };
+
+  if (opts.durable !== undefined) {
+    queueDefinition.durable = opts.durable;
+  }
+
+  if (opts.autoDelete !== undefined) {
+    queueDefinition.autoDelete = opts.autoDelete;
+  }
+
+  if (opts.deadLetter !== undefined) {
+    queueDefinition.deadLetter = opts.deadLetter;
+  }
+
+  if (opts.arguments !== undefined) {
+    queueDefinition.arguments = opts.arguments;
+  }
+
+  if (exclusive !== undefined) {
+    queueDefinition.exclusive = exclusive;
+  }
+
+  // Add maxPriority argument if specified
+  if (maxPriority !== undefined) {
+    queueDefinition.arguments = {
+      ...queueDefinition.arguments,
+      "x-max-priority": maxPriority,
     };
   }
 
-  return {
-    name,
-    ...queueOptions,
-  };
+  return queueDefinition;
 }
 
 /**

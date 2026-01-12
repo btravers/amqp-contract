@@ -24,7 +24,9 @@ describe("Priority Queue", () => {
     amqpChannel,
   }) => {
     // GIVEN
+    // Priority queues require classic queue type
     const priorityQueue = defineQueue("test-priority-queue", {
+      type: "classic",
       durable: false,
       maxPriority: 10,
     });
@@ -54,7 +56,9 @@ describe("Priority Queue", () => {
   it("should consume messages in priority order", async ({ amqpConnectionUrl, amqpChannel }) => {
     // GIVEN
     const exchange = defineExchange("test-priority-exchange", "direct", { durable: false });
+    // Priority queues require classic queue type
     const priorityQueue = defineQueue("test-priority-queue-ordering", {
+      type: "classic",
       durable: false,
       maxPriority: 10,
     });
@@ -168,7 +172,9 @@ describe("Priority Queue", () => {
     const exchange = defineExchange("test-priority-default-exchange", "direct", {
       durable: false,
     });
+    // Priority queues require classic queue type
     const priorityQueue = defineQueue("test-priority-default-queue", {
+      type: "classic",
       durable: false,
       maxPriority: 10,
     });
