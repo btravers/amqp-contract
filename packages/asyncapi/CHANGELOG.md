@@ -1,5 +1,18 @@
 # @amqp-contract/asyncapi
 
+## 0.10.0
+
+### Patch Changes
+
+- Automatically bind main queue to DLX for retry flow
+
+  The worker now automatically creates a binding from the Dead Letter Exchange (DLX) to the main queue using the queue name as the routing key. This completes the retry flow: DLX → wait queue → DLX → main queue.
+
+  Users no longer need to manually create a `waitBinding` in their contracts when implementing retry logic. The binding is now handled automatically by the worker setup process.
+
+- Updated dependencies
+  - @amqp-contract/contract@0.10.0
+
 ## 0.9.0
 
 ### Minor Changes
