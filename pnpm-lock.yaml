@@ -694,6 +694,9 @@ importers:
       '@standard-schema/spec':
         specifier: 'catalog:'
         version: 1.1.0
+      zod:
+        specifier: 'catalog:'
+        version: 4.3.5
     devDependencies:
       '@amqp-contract/tsconfig':
         specifier: workspace:*
@@ -719,9 +722,6 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
-      zod:
-        specifier: 'catalog:'
-        version: 4.3.5
 
   packages/core:
     dependencies:

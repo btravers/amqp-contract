@@ -16,6 +16,37 @@ import type {
   TopicExchangeDefinition,
 } from "./types.js";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
+import { z } from "zod";
+
+/**
+ * Zod schema for maxPriority validation.
+ * Validates that maxPriority is an integer between 1 and 255.
+ * @internal
+ */
+const maxPrioritySchema = z.number().int().min(1).max(255);
+
+/**
+ * Zod schema for deliveryLimit validation.
+ * Validates that deliveryLimit is a positive integer (>= 1).
+ * @internal
+ */
+const deliveryLimitSchema = z.number().int().min(1);
+
+/**
+ * Parses a value with a Zod schema and throws an error with a custom message on failure.
+ * @internal
+ */
+function parseWithCustomError<T>(
+  schema: z.ZodType<T>,
+  value: unknown,
+  errorMessageFn: (value: unknown) => string,
+): T {
+  const result = schema.safeParse(value);
+  if (!result.success) {
+    throw new Error(errorMessageFn(value));
+  }
+  return result.data;
+}
 
 /**
  * Define a fanout exchange.
@@ -186,27 +217,33 @@ export function defineQueue(name: string, options?: DefineQueueOptions): QueueDe
   const type = opts.type ?? "quorum";
 
   // Extract maxPriority only if it's a classic queue (type safety enforced at compile time)
-  const maxPriority = type === "classic" ? (opts as ClassicQueueOptions).maxPriority : undefined;
+  const rawMaxPriority = type === "classic" ? (opts as ClassicQueueOptions).maxPriority : undefined;
   const exclusive = type === "classic" ? (opts as ClassicQueueOptions).exclusive : undefined;
 
   // Extract deliveryLimit only if it's a quorum queue
-  const deliveryLimit = type === "quorum" ? (opts as QuorumQueueOptions).deliveryLimit : undefined;
+  const rawDeliveryLimit =
+    type === "quorum" ? (opts as QuorumQueueOptions).deliveryLimit : undefined;
 
-  // Validate maxPriority range (only applicable for classic queues)
-  if (maxPriority !== undefined) {
-    if (maxPriority < 1 || maxPriority > 255) {
-      throw new Error(
-        `Invalid maxPriority: ${maxPriority}. Must be between 1 and 255. Recommended range: 1-10.`,
-      );
-    }
-  }
+  // Validate maxPriority using Zod schema (only applicable for classic queues)
+  const maxPriority =
+    rawMaxPriority !== undefined
+      ? parseWithCustomError(
+          maxPrioritySchema,
+          rawMaxPriority,
+          (val) =>
+            `Invalid maxPriority: ${val}. Must be between 1 and 255. Recommended range: 1-10.`,
+        )
+      : undefined;
 
-  // Validate deliveryLimit (only applicable for quorum queues)
-  if (deliveryLimit !== undefined) {
-    if (deliveryLimit < 1 || !Number.isInteger(deliveryLimit)) {
-      throw new Error(`Invalid deliveryLimit: ${deliveryLimit}. Must be a positive integer.`);
-    }
-  }
+  // Validate deliveryLimit using Zod schema (only applicable for quorum queues)
+  const deliveryLimit =
+    rawDeliveryLimit !== undefined
+      ? parseWithCustomError(
+          deliveryLimitSchema,
+          rawDeliveryLimit,
+          (val) => `Invalid deliveryLimit: ${val}. Must be a positive integer.`,
+        )
+      : undefined;
 
   // Build the queue definition - only include defined properties
   const queueDefinition: QueueDefinition = {
