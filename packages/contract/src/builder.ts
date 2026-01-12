@@ -34,6 +34,12 @@ const deliveryLimitSchema = z.number().int().min(1);
 
 /**
  * Parses a value with a Zod schema and throws an error with a custom message on failure.
+ *
+ * @param schema - The Zod schema to validate against
+ * @param value - The value to parse
+ * @param errorMessageFn - A function that generates the error message when validation fails
+ * @returns The parsed and validated value
+ * @throws Error with custom message when validation fails
  * @internal
  */
 function parseWithCustomError<T>(
