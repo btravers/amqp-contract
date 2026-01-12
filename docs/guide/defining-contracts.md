@@ -311,6 +311,39 @@ const contract = defineContract({
 Use quorum queues (the default) for production workloads. Only use classic queues when you need specific features not supported by quorum queues.
 :::
 
+### Quorum Queue Delivery Limit
+
+Quorum queues support a native `deliveryLimit` option for automatic retry handling. When a message is nacked and requeued, RabbitMQ tracks the delivery count. Once the count exceeds the limit, the message is automatically dead-lettered.
+
+```typescript
+import { defineQueue, defineExchange } from "@amqp-contract/contract";
+
+const dlx = defineExchange("orders-dlx", "topic", { durable: true });
+
+// Quorum queue with delivery limit for automatic retry handling
+const orderQueue = defineQueue("order-processing", {
+  type: "quorum", // Default
+  deliveryLimit: 3, // Dead-letter after 3 delivery attempts
+  deadLetter: {
+    exchange: dlx,
+    routingKey: "order.failed",
+  },
+});
+```
+
+**Benefits of `deliveryLimit`:**
+
+- **Simpler architecture** - No wait queues needed for retry handling
+- **No head-of-queue blocking** - Unlike TTL-based retry, delivery limit works correctly regardless of message order
+- **Native RabbitMQ tracking** - Delivery count tracked via `x-delivery-count` header
+- **Atomic guarantees** - RabbitMQ handles the retry logic internally
+
+::: warning Note
+The `deliveryLimit` option only works with quorum queues. For classic queues, use the worker's `ttl-backoff` retry mode which creates wait queues with per-message TTL.
+:::
+
+See the [Worker Usage Guide](/guide/worker-usage#retry-strategies) for how to configure your worker to use the `quorum-native` retry mode with this feature.
+
 ## Defining Messages
 
 Messages wrap schemas with optional metadata:

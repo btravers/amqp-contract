@@ -268,6 +268,89 @@ describe("builder", () => {
     });
   });
 
+  describe("defineQueue with deliveryLimit", () => {
+    it("should create a quorum queue with delivery limit", () => {
+      // WHEN
+      const queue = defineQueue("retry-queue", {
+        type: "quorum",
+        deliveryLimit: 3,
+      });
+
+      // THEN
+      expect(queue).toEqual({
+        name: "retry-queue",
+        type: "quorum",
+        deliveryLimit: 3,
+      });
+    });
+
+    it("should create a default quorum queue with delivery limit", () => {
+      // WHEN (type defaults to "quorum")
+      const queue = defineQueue("retry-queue", {
+        deliveryLimit: 5,
+      });
+
+      // THEN
+      expect(queue).toEqual({
+        name: "retry-queue",
+        type: "quorum",
+        deliveryLimit: 5,
+      });
+    });
+
+    it("should create a quorum queue with delivery limit and dead letter exchange", () => {
+      // GIVEN
+      const dlx = defineExchange("test-dlx", "topic", { durable: true });
+
+      // WHEN
+      const queue = defineQueue("retry-queue", {
+        type: "quorum",
+        deliveryLimit: 3,
+        deadLetter: {
+          exchange: dlx,
+          routingKey: "failed",
+        },
+      });
+
+      // THEN
+      expect(queue).toEqual({
+        name: "retry-queue",
+        type: "quorum",
+        deliveryLimit: 3,
+        deadLetter: {
+          exchange: dlx,
+          routingKey: "failed",
+        },
+      });
+    });
+
+    it("should throw error for deliveryLimit less than 1", () => {
+      // WHEN/THEN
+      expect(() => defineQueue("retry-queue", { deliveryLimit: 0 })).toThrow(
+        "Invalid deliveryLimit: 0. Must be a positive integer.",
+      );
+    });
+
+    it("should throw error for non-integer deliveryLimit", () => {
+      // WHEN/THEN
+      expect(() => defineQueue("retry-queue", { deliveryLimit: 2.5 })).toThrow(
+        "Invalid deliveryLimit: 2.5. Must be a positive integer.",
+      );
+    });
+
+    it("should accept deliveryLimit of 1", () => {
+      // WHEN
+      const queue = defineQueue("retry-queue", { deliveryLimit: 1 });
+
+      // THEN
+      expect(queue).toEqual({
+        name: "retry-queue",
+        type: "quorum",
+        deliveryLimit: 1,
+      });
+    });
+  });
+
   describe("defineQueueBinding", () => {
     it("should create a queue binding definition", () => {
       // GIVEN

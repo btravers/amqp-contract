@@ -12,6 +12,7 @@ import type {
   PublisherDefinition,
   QueueBindingDefinition,
   QueueDefinition,
+  QuorumQueueOptions,
   TopicExchangeDefinition,
 } from "./types.js";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
@@ -188,12 +189,22 @@ export function defineQueue(name: string, options?: DefineQueueOptions): QueueDe
   const maxPriority = type === "classic" ? (opts as ClassicQueueOptions).maxPriority : undefined;
   const exclusive = type === "classic" ? (opts as ClassicQueueOptions).exclusive : undefined;
 
+  // Extract deliveryLimit only if it's a quorum queue
+  const deliveryLimit = type === "quorum" ? (opts as QuorumQueueOptions).deliveryLimit : undefined;
+
   // Validate maxPriority range (only applicable for classic queues)
   if (maxPriority !== undefined) {
     if (maxPriority < 1 || maxPriority > 255) {
       throw new Error(
         `Invalid maxPriority: ${maxPriority}. Must be between 1 and 255. Recommended range: 1-10.`,
       );
+    }
+  }
+
+  // Validate deliveryLimit (only applicable for quorum queues)
+  if (deliveryLimit !== undefined) {
+    if (deliveryLimit < 1 || !Number.isInteger(deliveryLimit)) {
+      throw new Error(`Invalid deliveryLimit: ${deliveryLimit}. Must be a positive integer.`);
     }
   }
 
@@ -221,6 +232,10 @@ export function defineQueue(name: string, options?: DefineQueueOptions): QueueDe
 
   if (exclusive !== undefined) {
     queueDefinition.exclusive = exclusive;
+  }
+
+  if (deliveryLimit !== undefined) {
+    queueDefinition.deliveryLimit = deliveryLimit;
   }
 
   // Add maxPriority argument if specified

@@ -48,21 +48,59 @@ type ConsumerOptions =
     };
 
 /**
+ * Retry mode determines how failed messages are retried.
+ *
+ * - `"quorum-native"`: Uses quorum queue's native `x-delivery-limit` feature.
+ *   Messages are requeued immediately with `nack(requeue=true)`, and RabbitMQ
+ *   tracks delivery count via `x-delivery-count` header. When the count exceeds
+ *   the queue's `deliveryLimit`, the message is automatically dead-lettered.
+ *   **Benefits:** Simpler architecture, no wait queues needed, no head-of-queue blocking.
+ *   **Limitation:** Immediate retries only (no exponential backoff).
+ *
+ * - `"ttl-backoff"`: Uses TTL + wait queue pattern for exponential backoff.
+ *   Messages are published to a wait queue with per-message TTL, then dead-lettered
+ *   back to the main queue after the TTL expires.
+ *   **Benefits:** Configurable delays with exponential backoff and jitter.
+ *   **Limitation:** More complex, potential head-of-queue blocking with mixed TTLs.
+ *
+ * @see https://www.rabbitmq.com/docs/quorum-queues#poison-message-handling
+ */
+export type RetryMode = "quorum-native" | "ttl-backoff";
+
+/**
  * Retry configuration options for handling failed message processing.
  *
  * When enabled, the worker will automatically retry failed messages using
- * RabbitMQ's native TTL + Dead Letter Exchange (DLX) pattern.
+ * either RabbitMQ's native quorum queue delivery limit or the TTL + DLX pattern.
  */
 export type RetryOptions = {
-  /** Maximum retry attempts before sending to DLQ (default: 3) */
+  /**
+   * Retry mode determines the retry strategy.
+   *
+   * - `"quorum-native"`: Leverages quorum queue's `x-delivery-limit` feature.
+   *   Requires the queue to be a quorum queue with `deliveryLimit` configured.
+   *   Messages are requeued immediately (no exponential backoff).
+   *
+   * - `"ttl-backoff"`: Uses TTL + wait queue pattern for exponential backoff.
+   *   Requires queues to have DLX configured. Supports configurable delays.
+   *
+   * @default "ttl-backoff" for backward compatibility
+   */
+  mode?: RetryMode;
+  /**
+   * Maximum retry attempts before sending to DLQ.
+   * Only used when mode is "ttl-backoff". For "quorum-native" mode, use
+   * the queue's `deliveryLimit` option instead.
+   * @default 3
+   */
   maxRetries?: number;
-  /** Initial delay in ms before first retry (default: 1000) */
+  /** Initial delay in ms before first retry (only for "ttl-backoff" mode, default: 1000) */
   initialDelayMs?: number;
-  /** Maximum delay in ms between retries (default: 30000) */
+  /** Maximum delay in ms between retries (only for "ttl-backoff" mode, default: 30000) */
   maxDelayMs?: number;
-  /** Exponential backoff multiplier (default: 2) */
+  /** Exponential backoff multiplier (only for "ttl-backoff" mode, default: 2) */
   backoffMultiplier?: number;
-  /** Add jitter to prevent thundering herd (default: true) */
+  /** Add jitter to prevent thundering herd (only for "ttl-backoff" mode, default: true) */
   jitter?: boolean;
 };
 
@@ -70,6 +108,7 @@ export type RetryOptions = {
  * Internal retry configuration with all values resolved.
  */
 type ResolvedRetryConfig = {
+  mode: RetryMode;
   maxRetries: number;
   initialDelayMs: number;
   maxDelayMs: number;
@@ -246,6 +285,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     } else {
       // Set defaults for retry options
       this.retryConfig = {
+        mode: retryOptions.mode ?? "ttl-backoff",
         maxRetries: retryOptions.maxRetries ?? 3,
         initialDelayMs: retryOptions.initialDelayMs ?? 1000,
         maxDelayMs: retryOptions.maxDelayMs ?? 30000,
@@ -354,10 +394,21 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   /**
    * Set up wait queues for retry mechanism.
    * Creates and binds wait queues for each consumer queue that has DLX configuration.
+   * Only needed for "ttl-backoff" mode; skipped for "quorum-native" mode.
    */
   private setupWaitQueues(): Future<Result<void, TechnicalError>> {
     // Skip if retry is not configured
     if (this.retryConfig === null) {
+      return Future.value(Result.Ok(undefined));
+    }
+
+    // For quorum-native mode, validate queue configuration and skip wait queue setup
+    if (this.retryConfig.mode === "quorum-native") {
+      const validationError = this.validateQuorumNativeConfig();
+      if (validationError) {
+        return Future.value(Result.Error(validationError));
+      }
+      this.logger?.info("Using quorum-native retry mode - no wait queues needed");
       return Future.value(Result.Ok(undefined));
     }
 
@@ -420,6 +471,69 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     return Future.all(setupTasks)
       .map(Result.all)
       .mapOk(() => undefined);
+  }
+
+  /**
+   * Validate that quorum-native retry mode is properly configured.
+   *
+   * Requirements for quorum-native mode:
+   * - All consumer queues must be quorum queues
+   * - All consumer queues must have deliveryLimit configured
+   * - All consumer queues should have DLX configured (warning if not)
+   *
+   * @returns TechnicalError if validation fails, null if valid
+   */
+  private validateQuorumNativeConfig(): TechnicalError | null {
+    if (!this.contract.consumers) {
+      return null; // No consumers, nothing to validate
+    }
+
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    for (const [consumerName, consumer] of Object.entries(this.contract.consumers)) {
+      const queue = consumer.queue;
+      const queueType = queue.type ?? "quorum";
+
+      // Check if queue is a quorum queue
+      if (queueType !== "quorum") {
+        errors.push(
+          `Consumer "${consumerName}" uses queue "${queue.name}" with type "${queueType}". ` +
+            `Quorum-native retry mode requires quorum queues.`,
+        );
+        continue;
+      }
+
+      // Check if deliveryLimit is configured
+      if (queue.deliveryLimit === undefined) {
+        errors.push(
+          `Consumer "${consumerName}" uses queue "${queue.name}" without deliveryLimit configured. ` +
+            `Quorum-native retry mode requires deliveryLimit to be set on the queue definition.`,
+        );
+      }
+
+      // Check if DLX is configured (warning only)
+      if (!queue.deadLetter) {
+        warnings.push(
+          `Consumer "${consumerName}" uses queue "${queue.name}" without deadLetter configured. ` +
+            `Messages exceeding deliveryLimit will be dropped instead of dead-lettered.`,
+        );
+      }
+    }
+
+    // Log warnings
+    for (const warning of warnings) {
+      this.logger?.warn(warning);
+    }
+
+    // Return error if validation failed
+    if (errors.length > 0) {
+      return new TechnicalError(
+        `Quorum-native retry mode validation failed:\n- ${errors.join("\n- ")}`,
+      );
+    }
+
+    return null;
   }
 
   /**
@@ -935,11 +1049,19 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   /**
    * Handle error in message processing with retry logic.
    *
-   * Flow:
+   * Flow depends on retry mode:
+   *
+   * **quorum-native mode:**
    * 1. If NonRetryableError -> send directly to DLQ (no retry)
-   * 2. If no retry config -> legacy behavior (immediate requeue)
-   * 3. If max retries exceeded -> send to DLQ
-   * 4. Otherwise -> publish to wait queue with TTL for retry
+   * 2. Otherwise -> nack with requeue=true (RabbitMQ handles delivery count)
+   *
+   * **ttl-backoff mode:**
+   * 1. If NonRetryableError -> send directly to DLQ (no retry)
+   * 2. If max retries exceeded -> send to DLQ
+   * 3. Otherwise -> publish to wait queue with TTL for retry
+   *
+   * **Legacy mode (no retry config):**
+   * 1. nack with requeue=true (immediate requeue)
    */
   private handleError(
     error: Error,
@@ -968,12 +1090,85 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       return Future.value(Result.Ok(undefined));
     }
 
+    const config = this.retryConfig as ResolvedRetryConfig;
+
+    // Quorum-native mode: let RabbitMQ handle retry via x-delivery-count
+    if (config.mode === "quorum-native") {
+      return this.handleErrorQuorumNative(error, msg, consumerName, consumer);
+    }
+
+    // TTL-backoff mode: use wait queue with exponential backoff
+    return this.handleErrorTtlBackoff(error, msg, consumerName, consumer, config);
+  }
+
+  /**
+   * Handle error using quorum queue's native delivery limit feature.
+   *
+   * Simply requeues the message with nack(requeue=true). RabbitMQ automatically:
+   * - Increments x-delivery-count header
+   * - Dead-letters the message when count exceeds x-delivery-limit
+   *
+   * This is simpler than TTL-based retry but provides immediate retries only.
+   */
+  private handleErrorQuorumNative(
+    error: Error,
+    msg: Message,
+    consumerName: string,
+    consumer: ConsumerDefinition,
+  ): Future<Result<void, TechnicalError>> {
+    const queueName = consumer.queue.name;
+    // x-delivery-count is incremented on each delivery attempt
+    // When x-delivery-count equals x-delivery-limit, message is dead-lettered on next attempt
+    const deliveryCount = (msg.properties.headers?.["x-delivery-count"] as number) ?? 0;
+    const deliveryLimit = consumer.queue.deliveryLimit;
+
+    // After this requeue, RabbitMQ will increment deliveryCount
+    // Message is dead-lettered when deliveryCount reaches deliveryLimit
+    // So if deliveryCount == deliveryLimit - 1, the next failure will dead-letter the message
+    const attemptsBeforeDeadLetter =
+      deliveryLimit !== undefined ? Math.max(0, deliveryLimit - deliveryCount - 1) : "unknown";
+
+    // Log warning if this is the last attempt before dead-lettering
+    if (deliveryLimit !== undefined && deliveryCount >= deliveryLimit - 1) {
+      this.logger?.warn("Message at final delivery attempt (quorum-native mode)", {
+        consumerName,
+        queueName,
+        deliveryCount,
+        deliveryLimit,
+        willDeadLetterOnNextFailure: deliveryCount === deliveryLimit - 1,
+        alreadyExceededLimit: deliveryCount >= deliveryLimit,
+        error: error.message,
+      });
+    } else {
+      this.logger?.warn("Retrying message (quorum-native mode)", {
+        consumerName,
+        queueName,
+        deliveryCount,
+        deliveryLimit,
+        attemptsBeforeDeadLetter,
+        error: error.message,
+      });
+    }
+
+    // Requeue the message - RabbitMQ tracks delivery count and handles dead-lettering
+    this.amqpClient.channel.nack(msg, false, true);
+    return Future.value(Result.Ok(undefined));
+  }
+
+  /**
+   * Handle error using TTL + wait queue pattern for exponential backoff.
+   */
+  private handleErrorTtlBackoff(
+    error: Error,
+    msg: Message,
+    consumerName: string,
+    consumer: ConsumerDefinition,
+    config: ResolvedRetryConfig,
+  ): Future<Result<void, TechnicalError>> {
     // Get retry count from headers
     const retryCount = (msg.properties.headers?.["x-retry-count"] as number) ?? 0;
 
     // Max retries exceeded -> DLQ
-    // retryConfig is guaranteed to be non-null at this point
-    const config = this.retryConfig as ResolvedRetryConfig;
     if (retryCount >= config.maxRetries) {
       this.logger?.error("Max retries exceeded, sending to DLQ", {
         consumerName,
@@ -987,7 +1182,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
     // Retry with exponential backoff
     const delayMs = this.calculateRetryDelay(retryCount);
-    this.logger?.warn("Retrying message", {
+    this.logger?.warn("Retrying message (ttl-backoff mode)", {
       consumerName,
       retryCount: retryCount + 1,
       delayMs,

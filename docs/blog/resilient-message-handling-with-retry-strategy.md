@@ -77,7 +77,87 @@ const worker = await TypedAmqpWorker.create({
 }).resultToPromise();
 ```
 
-### How It Works Under the Hood
+## Choosing a Retry Strategy
+
+amqp-contract provides two retry modes to handle different requirements:
+
+### TTL-Backoff Mode (Default)
+
+The default mode uses TTL (Time To Live) + wait queue pattern for **exponential backoff**:
+
+```typescript
+retry: {
+  mode: "ttl-backoff", // This is the default
+  maxRetries: 3,
+  initialDelayMs: 1000,
+  maxDelayMs: 30000,
+  backoffMultiplier: 2,
+  jitter: true,
+}
+```
+
+**Best for:**
+
+- When you need configurable delays between retries
+- Preventing thundering herd problems
+- Giving downstream services time to recover
+
+**Trade-off:** More complex architecture with wait queues, and potential head-of-queue blocking with mixed TTLs.
+
+### Quorum-Native Mode
+
+A simpler mode that leverages RabbitMQ quorum queue's native `x-delivery-limit` feature:
+
+```typescript
+// 1. Define queue with deliveryLimit
+const ordersQueue = defineQueue("orders", {
+  type: "quorum",
+  deliveryLimit: 3, // After 3 delivery attempts, dead-letter
+  deadLetter: {
+    exchange: dlxExchange,
+    routingKey: "orders.failed",
+  },
+});
+
+// 2. Configure worker with quorum-native mode
+const worker = await TypedAmqpWorker.create({
+  contract,
+  handlers: {
+    processOrder: async (message) => {
+      await paymentService.charge(message);
+    },
+  },
+  urls: ["amqp://localhost"],
+  retry: {
+    mode: "quorum-native", // Use quorum queue's native delivery limit
+  },
+}).resultToPromise();
+```
+
+**How it works:**
+
+1. When a handler fails, the message is nacked with `requeue=true`
+2. RabbitMQ automatically tracks delivery count via `x-delivery-count` header
+3. When count exceeds `deliveryLimit`, message is automatically dead-lettered
+4. No wait queues or TTL management needed
+
+**Best for:**
+
+- Simpler architecture requirements
+- When immediate retries are acceptable
+- Avoiding head-of-queue blocking issues
+
+**Trade-off:** No exponential backoff — retries are immediate.
+
+| Feature                | TTL-Backoff                      | Quorum-Native             |
+| ---------------------- | -------------------------------- | ------------------------- |
+| Retry delays           | Configurable exponential backoff | Immediate                 |
+| Architecture           | Wait queues + DLX                | Native RabbitMQ           |
+| Head-of-queue blocking | Possible with mixed TTLs         | None                      |
+| Delivery tracking      | Custom `x-retry-count` header    | Native `x-delivery-count` |
+| Queue type             | Any                              | Quorum only               |
+
+### How TTL-Backoff Works Under the Hood
 
 When a handler throws an error with retry configured, the following sequence occurs:
 

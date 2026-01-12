@@ -630,4 +630,163 @@ describe("Worker Retry Mechanism", () => {
       expect(attemptCount).toBe(2);
     });
   });
+
+  describe("Quorum Native Retry Mode", () => {
+    it("should use RabbitMQ's native delivery limit for retry handling", async ({
+      workerFactory,
+      publishMessage,
+    }) => {
+      // GIVEN a quorum queue with delivery limit configured
+      const TestMessage = z.object({ id: z.string() });
+
+      const exchange = defineExchange("quorum-native-exchange", "topic", { durable: true });
+      const dlx = defineExchange("quorum-native-dlx", "topic", { durable: true });
+
+      // Quorum queue with deliveryLimit - RabbitMQ tracks x-delivery-count automatically
+      const queue = defineQueue("quorum-native-queue", {
+        type: "quorum",
+        deliveryLimit: 3, // Allow up to 3 delivery attempts before dead-lettering
+        deadLetter: {
+          exchange: dlx,
+          routingKey: "quorum-native-queue.dlq",
+        },
+      });
+      const dlq = defineQueue("quorum-native-dlq", { type: "quorum" });
+
+      const contract = defineContract({
+        exchanges: {
+          main: exchange,
+          dlx,
+        },
+        queues: {
+          main: queue,
+          dlq,
+        },
+        bindings: {
+          mainBinding: defineQueueBinding(queue, exchange, {
+            routingKey: "test.#",
+          }),
+          dlqBinding: defineQueueBinding(dlq, dlx, {
+            routingKey: "quorum-native-queue.dlq",
+          }),
+        },
+        consumers: {
+          testConsumer: defineConsumer(queue, defineMessage(TestMessage)),
+        },
+      });
+
+      let attemptCount = 0;
+      await workerFactory(
+        contract,
+        defineHandlers(contract, {
+          testConsumer: () => {
+            attemptCount++;
+            if (attemptCount < 2) {
+              // This triggers a nack with requeue=true in quorum-native mode
+              return Future.value(Result.Error(new RetryableError("Simulated failure")));
+            }
+            return Future.value(Result.Ok(undefined));
+          },
+        }),
+        {
+          mode: "quorum-native", // Use quorum queue's native delivery limit
+        },
+      );
+
+      // WHEN publishing a message that fails on first attempt
+      publishMessage(exchange.name, "test.message", { id: "quorum-native-1" });
+
+      // THEN message should be requeued immediately (via nack) and succeed on second attempt
+      await vi.waitFor(
+        () => {
+          if (attemptCount < 2) {
+            throw new Error("Message not yet processed twice");
+          }
+        },
+        { timeout: 5000 },
+      );
+
+      expect(attemptCount).toBe(2);
+    });
+
+    it("should send message to DLQ after exceeding deliveryLimit", async ({
+      workerFactory,
+      publishMessage,
+      amqpChannel,
+    }) => {
+      // GIVEN a quorum queue with delivery limit of 2
+      const TestMessage = z.object({ id: z.string() });
+
+      const exchange = defineExchange("quorum-dlq-exchange", "topic", { durable: true });
+      const dlx = defineExchange("quorum-dlq-dlx", "topic", { durable: true });
+
+      const queue = defineQueue("quorum-dlq-queue", {
+        type: "quorum",
+        deliveryLimit: 2, // Message dead-lettered after 2 delivery attempts
+        deadLetter: {
+          exchange: dlx,
+          routingKey: "quorum-dlq-queue.dlq",
+        },
+      });
+      const dlq = defineQueue("quorum-dlq-dlq", { type: "quorum" });
+
+      const contract = defineContract({
+        exchanges: {
+          main: exchange,
+          dlx,
+        },
+        queues: {
+          main: queue,
+          dlq,
+        },
+        bindings: {
+          mainBinding: defineQueueBinding(queue, exchange, {
+            routingKey: "test.#",
+          }),
+          dlqBinding: defineQueueBinding(dlq, dlx, {
+            routingKey: "quorum-dlq-queue.dlq",
+          }),
+        },
+        consumers: {
+          testConsumer: defineConsumer(queue, defineMessage(TestMessage)),
+        },
+      });
+
+      let attemptCount = 0;
+      await workerFactory(
+        contract,
+        defineHandlers(contract, {
+          testConsumer: () => {
+            attemptCount++;
+            // Always fail - message should be dead-lettered after deliveryLimit
+            return Future.value(Result.Error(new RetryableError("Always fails")));
+          },
+        }),
+        {
+          mode: "quorum-native",
+        },
+      );
+
+      // WHEN publishing a message that always fails
+      publishMessage(exchange.name, "test.message", { id: "quorum-dlq-1" });
+
+      // THEN message should be dead-lettered after exceeding delivery limit
+      // Wait for the message to appear in DLQ
+      await vi.waitFor(
+        async () => {
+          const dlqMsg = await amqpChannel.get("quorum-dlq-dlq", { noAck: false });
+          if (!dlqMsg) {
+            throw new Error("Message not in DLQ yet");
+          }
+          const content = JSON.parse(dlqMsg.content.toString());
+          expect(content).toEqual({ id: "quorum-dlq-1" });
+          amqpChannel.ack(dlqMsg);
+        },
+        { timeout: 10000 },
+      );
+
+      // Message should have been processed deliveryLimit times
+      expect(attemptCount).toBeGreaterThanOrEqual(2);
+    });
+  });
 });

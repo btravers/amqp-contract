@@ -553,7 +553,110 @@ handlers: {
 
 ## Error Handling and Retry
 
-The worker supports automatic retry with exponential backoff using RabbitMQ's native TTL (Time To Live) and Dead Letter Exchange (DLX) pattern.
+The worker supports automatic retry with two different strategies:
+
+1. **TTL-Backoff Mode** (default) - Uses TTL + wait queue pattern for exponential backoff
+2. **Quorum-Native Mode** - Uses quorum queue's native `x-delivery-limit` feature for simpler retries
+
+### Retry Strategies {#retry-strategies}
+
+#### TTL-Backoff Mode (Default)
+
+This mode provides exponential backoff using RabbitMQ's TTL and Dead Letter Exchange (DLX) pattern:
+
+```typescript
+import { TypedAmqpWorker } from "@amqp-contract/worker";
+
+const worker = await TypedAmqpWorker.create({
+  contract,
+  handlers: {
+    processOrder: async (message) => {
+      await processPayment(message);
+    },
+  },
+  urls: ["amqp://localhost"],
+  retry: {
+    mode: "ttl-backoff", // This is the default
+    maxRetries: 3, // Maximum retry attempts (default: 3)
+    initialDelayMs: 1000, // Initial delay before first retry (default: 1000ms)
+    maxDelayMs: 30000, // Maximum delay between retries (default: 30000ms)
+    backoffMultiplier: 2, // Exponential backoff multiplier (default: 2)
+    jitter: true, // Add random jitter to prevent thundering herd (default: true)
+  },
+}).resultToPromise();
+```
+
+**How TTL-Backoff works:**
+
+1. **Message is acknowledged** - The worker acks the original message
+2. **Published to wait queue** - Message is republished to a wait queue with a TTL
+3. **Wait in queue** - Message sits in the wait queue for the calculated delay
+4. **Dead-lettered back** - After TTL expires, message is automatically routed back to the main queue
+5. **Retry processing** - Worker processes the message again
+6. **Repeat or DLQ** - Process repeats until success or max retries reached, then sent to Dead Letter Queue (DLQ)
+
+**Best for:** When you need configurable delays between retries to give downstream services time to recover.
+
+**Limitation:** Potential head-of-queue blocking when messages have mixed TTLs (messages with shorter TTLs behind messages with longer TTLs won't expire until the longer ones do).
+
+#### Quorum-Native Mode
+
+A simpler mode that leverages RabbitMQ quorum queue's native `x-delivery-limit` feature:
+
+```typescript
+import { defineQueue, defineExchange } from "@amqp-contract/contract";
+
+// 1. Define queue with deliveryLimit
+const dlx = defineExchange("orders-dlx", "topic", { durable: true });
+const ordersQueue = defineQueue("orders", {
+  type: "quorum", // Default queue type
+  deliveryLimit: 3, // After 3 delivery attempts, dead-letter
+  deadLetter: {
+    exchange: dlx,
+    routingKey: "orders.failed",
+  },
+});
+
+// 2. Configure worker with quorum-native mode
+const worker = await TypedAmqpWorker.create({
+  contract,
+  handlers: {
+    processOrder: async (message) => {
+      await processPayment(message);
+    },
+  },
+  urls: ["amqp://localhost"],
+  retry: {
+    mode: "quorum-native", // Use quorum queue's native delivery limit
+  },
+}).resultToPromise();
+```
+
+**How Quorum-Native works:**
+
+1. When a handler fails, the message is nacked with `requeue=true`
+2. RabbitMQ automatically tracks delivery count via `x-delivery-count` header
+3. When count exceeds `deliveryLimit`, message is automatically dead-lettered
+4. No wait queues or TTL management needed
+
+**Best for:**
+
+- Simpler architecture requirements
+- When immediate retries are acceptable
+- Avoiding head-of-queue blocking issues
+
+**Limitation:** No exponential backoff — retries are immediate.
+
+#### Comparing Retry Modes
+
+| Feature                   | TTL-Backoff                      | Quorum-Native             |
+| ------------------------- | -------------------------------- | ------------------------- |
+| Retry delays              | Configurable exponential backoff | Immediate                 |
+| Architecture              | Wait queues + DLX                | Native RabbitMQ           |
+| Head-of-queue blocking    | Possible with mixed TTLs         | None                      |
+| Delivery tracking         | Custom `x-retry-count` header    | Native `x-delivery-count` |
+| Queue type                | Any                              | Quorum only               |
+| Max retries configured in | Worker options                   | Queue's `deliveryLimit`   |
 
 ### Basic Retry Configuration
 
@@ -585,9 +688,9 @@ const worker = await TypedAmqpWorker.create({
 }).resultToPromise();
 ```
 
-### How Retry Works
+### How TTL-Backoff Retry Works
 
-When retry is configured and a handler throws an error:
+When retry is configured (with default `ttl-backoff` mode) and a handler throws an error:
 
 1. **Message is acknowledged** - The worker acks the original message
 2. **Published to wait queue** - Message is republished to a wait queue with a TTL
