@@ -28,7 +28,7 @@ catalog:
   amqplib: 0.10.9
   arktype: 2.1.29
   knip: 5.80.2
-  lefthook: 2.0.13
+  lefthook: 2.0.14
   mermaid: 11.12.2
   oxfmt: 0.23.0
   oxlint: 1.38.0
