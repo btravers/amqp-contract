@@ -402,8 +402,12 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       return Future.value(Result.Ok(undefined));
     }
 
-    // Skip for quorum-native mode - quorum queues handle retry natively
+    // For quorum-native mode, validate queue configuration and skip wait queue setup
     if (this.retryConfig.mode === "quorum-native") {
+      const validationError = this.validateQuorumNativeConfig();
+      if (validationError) {
+        return Future.value(Result.Error(validationError));
+      }
       this.logger?.info("Using quorum-native retry mode - no wait queues needed");
       return Future.value(Result.Ok(undefined));
     }
@@ -467,6 +471,69 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     return Future.all(setupTasks)
       .map(Result.all)
       .mapOk(() => undefined);
+  }
+
+  /**
+   * Validate that quorum-native retry mode is properly configured.
+   *
+   * Requirements for quorum-native mode:
+   * - All consumer queues must be quorum queues
+   * - All consumer queues must have deliveryLimit configured
+   * - All consumer queues should have DLX configured (warning if not)
+   *
+   * @returns TechnicalError if validation fails, null if valid
+   */
+  private validateQuorumNativeConfig(): TechnicalError | null {
+    if (!this.contract.consumers) {
+      return null; // No consumers, nothing to validate
+    }
+
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    for (const [consumerName, consumer] of Object.entries(this.contract.consumers)) {
+      const queue = consumer.queue;
+      const queueType = queue.type ?? "quorum";
+
+      // Check if queue is a quorum queue
+      if (queueType !== "quorum") {
+        errors.push(
+          `Consumer "${consumerName}" uses queue "${queue.name}" with type "${queueType}". ` +
+            `Quorum-native retry mode requires quorum queues.`,
+        );
+        continue;
+      }
+
+      // Check if deliveryLimit is configured
+      if (queue.deliveryLimit === undefined) {
+        errors.push(
+          `Consumer "${consumerName}" uses queue "${queue.name}" without deliveryLimit configured. ` +
+            `Quorum-native retry mode requires deliveryLimit to be set on the queue definition.`,
+        );
+      }
+
+      // Check if DLX is configured (warning only)
+      if (!queue.deadLetter) {
+        warnings.push(
+          `Consumer "${consumerName}" uses queue "${queue.name}" without deadLetter configured. ` +
+            `Messages exceeding deliveryLimit will be dropped instead of dead-lettered.`,
+        );
+      }
+    }
+
+    // Log warnings
+    for (const warning of warnings) {
+      this.logger?.warn(warning);
+    }
+
+    // Return error if validation failed
+    if (errors.length > 0) {
+      return new TechnicalError(
+        `Quorum-native retry mode validation failed:\n- ${errors.join("\n- ")}`,
+      );
+    }
+
+    return null;
   }
 
   /**
@@ -1050,17 +1117,36 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     consumer: ConsumerDefinition,
   ): Future<Result<void, TechnicalError>> {
     const queueName = consumer.queue.name;
+    // x-delivery-count starts at 0 for first delivery, increments on each requeue
     const deliveryCount = (msg.properties.headers?.["x-delivery-count"] as number) ?? 0;
     const deliveryLimit = consumer.queue.deliveryLimit;
 
-    // Log with delivery count from RabbitMQ's native tracking
-    this.logger?.warn("Retrying message (quorum-native mode)", {
-      consumerName,
-      queueName,
-      deliveryCount,
-      deliveryLimit,
-      error: error.message,
-    });
+    // Calculate remaining attempts for informative logging
+    // deliveryCount is the number of times this message has been redelivered
+    // deliveryLimit is the max count before dead-lettering
+    const remainingAttempts =
+      deliveryLimit !== undefined ? deliveryLimit - deliveryCount - 1 : "unknown";
+
+    // Log warning if this is approaching the delivery limit
+    if (deliveryLimit !== undefined && deliveryCount >= deliveryLimit - 1) {
+      this.logger?.warn("Message approaching delivery limit (quorum-native mode)", {
+        consumerName,
+        queueName,
+        deliveryCount,
+        deliveryLimit,
+        willDeadLetterOnNextFailure: true,
+        error: error.message,
+      });
+    } else {
+      this.logger?.warn("Retrying message (quorum-native mode)", {
+        consumerName,
+        queueName,
+        deliveryCount,
+        deliveryLimit,
+        remainingAttempts,
+        error: error.message,
+      });
+    }
 
     // Requeue the message - RabbitMQ tracks delivery count and handles dead-lettering
     this.amqpClient.channel.nack(msg, false, true);
