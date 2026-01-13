@@ -125,12 +125,35 @@ packages/[package-name]/
    - Direct exchanges for simple point-to-point messaging
    - Fanout exchanges for broadcast messaging
 
-3. **Queue and Exchange Options**
+3. **Queue Types**
+   - **Quorum queues are the default** and recommended for most use cases
+   - Use `type: 'quorum'` (default) for reliable, replicated queues
+   - Use `type: 'classic'` only for special cases (priority queues, exclusive queues)
+   - Quorum queues are always durable and cannot be exclusive
+   - Configure `deliveryLimit` for native retry support
+
+   ```typescript
+   // Quorum queue (default, recommended)
+   const orderQueue = defineQueue("orders", {
+     type: "quorum", // default, can be omitted
+     deliveryLimit: 3, // Native retry: dead-letter after 3 attempts
+     deadLetter: { exchange: dlx },
+   });
+
+   // Classic queue for special cases only
+   const priorityQueue = defineQueue("priority-tasks", {
+     type: "classic",
+     durable: true,
+     maxPriority: 10, // Only supported with classic queues
+   });
+   ```
+
+4. **Queue and Exchange Options**
    - Set `durable: true` for persistent queues and exchanges
    - Use `autoDelete` sparingly, primarily for temporary resources
    - Configure `prefetch` on consumers to control message flow
 
-4. **Bindings**
+5. **Bindings**
    - Use `defineQueueBinding` for queue-to-exchange bindings
    - Use `defineExchangeBinding` for exchange-to-exchange bindings
    - Exchange-to-exchange bindings enable complex routing patterns
@@ -148,12 +171,12 @@ packages/[package-name]/
    });
    ```
 
-5. **Routing Keys**
+6. **Routing Keys**
    - Use meaningful, hierarchical routing keys (e.g., `order.created`, `order.updated`)
    - Topic patterns: `#` matches zero or more words, `*` matches exactly one word
    - Document routing key patterns in comments
 
-6. **Message Schemas**
+7. **Message Schemas**
    - Always validate both input and output messages
    - Use Standard Schema v1 compliant libraries (Zod, Valibot, ArkType)
    - Define schemas as const to enable type inference
@@ -182,6 +205,169 @@ packages/[package-name]/
      },
    );
    ```
+
+8. **Publisher-First Pattern**
+   - Use `definePublisherFirst` when one publisher feeds multiple consumers
+   - Ensures schema consistency between publisher and all consumers
+   - Returns `{ publisher, createConsumer }` for creating linked consumers
+
+   ```typescript
+   import { definePublisherFirst } from "@amqp-contract/contract";
+
+   // Define publisher-first relationship
+   const { publisher: publishLog, createConsumer: createLogConsumer } = definePublisherFirst(
+     logsExchange,
+     logMessage,
+   );
+
+   // Create multiple consumers with consistent schema
+   const logsQueue1 = defineQueue("logs-queue-1");
+   const logsQueue2 = defineQueue("logs-queue-2");
+
+   const { consumer: consumer1, binding: binding1 } = createLogConsumer(logsQueue1);
+   const { consumer: consumer2, binding: binding2 } = createLogConsumer(logsQueue2);
+
+   // Use in contract
+   const contract = defineContract({
+     exchanges: { logs: logsExchange },
+     queues: { logsQueue1, logsQueue2 },
+     bindings: { logBinding1: binding1, logBinding2: binding2 },
+     publishers: { publishLog },
+     consumers: { consumeLog1: consumer1, consumeLog2: consumer2 },
+   });
+   ```
+
+---
+
+## Worker Handlers
+
+### ✅ Required Practices
+
+1. **Safe Handlers (Recommended)**
+   - Use `defineHandler` for all new code
+   - Returns `Future<Result<void, HandlerError>>` for explicit error handling
+   - Use `RetryableError` for transient failures that should be retried
+   - Use `NonRetryableError` for permanent failures that go to DLQ
+
+   ```typescript
+   import { defineHandler, RetryableError, NonRetryableError } from "@amqp-contract/worker";
+   import { Future, Result } from "@swan-io/boxed";
+
+   const processOrderHandler = defineHandler(contract, "processOrder", (message) =>
+     Future.fromPromise(processPayment(message.orderId))
+       .mapOk(() => undefined)
+       .mapError((error) => new RetryableError("Payment service unavailable", error)),
+   );
+
+   // For permanent failures
+   const validateOrderHandler = defineHandler(contract, "validateOrder", (message) => {
+     if (message.amount < 1) {
+       return Future.value(Result.Error(new NonRetryableError("Invalid amount")));
+     }
+     return Future.value(Result.Ok(undefined));
+   });
+   ```
+
+2. **Unsafe Handlers (Deprecated)**
+   - Use `defineUnsafeHandler` only for legacy code
+   - Returns `Promise<void>` without explicit error handling
+   - Thrown errors are automatically retried
+
+   ```typescript
+   // ❌ Deprecated - avoid in new code
+   import { defineUnsafeHandler } from "@amqp-contract/worker";
+
+   const legacyHandler = defineUnsafeHandler(contract, "processOrder", async (message) => {
+     await processPayment(message.orderId);
+   });
+   ```
+
+3. **Handler Options**
+   - Configure `prefetch` for per-consumer message flow control
+   - Use `batchSize` and `batchTimeout` for batch processing
+
+   ```typescript
+   const handlers = {
+     processOrder: [
+       processOrderHandler,
+       { prefetch: 10 }, // Process up to 10 messages concurrently
+     ],
+     processBatch: [
+       batchHandler,
+       { batchSize: 5, batchTimeout: 1000 }, // Batch 5 messages or 1s timeout
+     ],
+   };
+   ```
+
+4. **Type Inference for Handlers**
+   - Use `WorkerInferSafeConsumerHandler<Contract, Name>` for handler types
+   - Use `WorkerInferSafeConsumerHandlers<Contract>` for all handlers
+
+   ```typescript
+   import type {
+     WorkerInferSafeConsumerHandler,
+     WorkerInferSafeConsumerHandlers,
+   } from "@amqp-contract/worker";
+
+   type OrderHandler = WorkerInferSafeConsumerHandler<typeof contract, "processOrder">;
+   type AllHandlers = WorkerInferSafeConsumerHandlers<typeof contract>;
+   ```
+
+---
+
+## Retry Strategies
+
+### ✅ Required Practices
+
+1. **Quorum-Native Mode (Recommended)**
+   - Uses RabbitMQ's native `x-delivery-limit` feature
+   - Messages requeued immediately with `nack(requeue=true)`
+   - RabbitMQ tracks delivery count via `x-delivery-count` header
+   - Requires quorum queues with `deliveryLimit` configured
+
+   ```typescript
+   // Queue with native retry support
+   const orderQueue = defineQueue("orders", {
+     type: "quorum",
+     deliveryLimit: 3, // Dead-letter after 3 attempts
+     deadLetter: { exchange: dlx },
+   });
+
+   // Worker with quorum-native retry
+   const worker = await TypedAmqpWorker.create({
+     contract,
+     handlers,
+     urls: ["amqp://localhost"],
+     retry: {
+       mode: "quorum-native",
+     },
+   });
+   ```
+
+2. **TTL-Backoff Mode (Legacy)**
+   - Uses TTL + wait queue pattern for exponential backoff
+   - Messages published to wait queue with per-message TTL
+   - Supports configurable delays with jitter
+   - More complex but allows delayed retries
+
+   ```typescript
+   const worker = await TypedAmqpWorker.create({
+     contract,
+     handlers,
+     urls: ["amqp://localhost"],
+     retry: {
+       mode: "ttl-backoff",
+       maxRetries: 3,
+       initialDelay: 1000,
+       maxDelay: 30000,
+       backoffMultiplier: 2,
+     },
+   });
+   ```
+
+3. **When to Use Each Mode**
+   - **Quorum-native**: Simple setup, immediate retries, recommended for most cases
+   - **TTL-backoff**: When you need exponential backoff delays between retries
 
 ---
 
@@ -323,10 +509,47 @@ packages/[package-name]/
 
 ### ✅ Required Practices
 
-1. **Validation Errors**
+1. **Worker Error Classes**
+   - Use `RetryableError` for transient failures that should be retried
+   - Use `NonRetryableError` for permanent failures that go directly to DLQ
+   - Both extend `HandlerError` base class
+
+   ```typescript
+   import { RetryableError, NonRetryableError } from "@amqp-contract/worker";
+
+   // Transient failure - will be retried
+   throw new RetryableError("Database connection timeout", originalError);
+
+   // Permanent failure - goes to DLQ immediately
+   throw new NonRetryableError("Invalid message format - cannot process");
+   ```
+
+2. **Error Handling in Safe Handlers**
+   - Return `Future<Result<void, HandlerError>>` from handlers
+   - Use `Result.Ok(undefined)` for success
+   - Use `Result.Error(new RetryableError(...))` for retryable failures
+   - Use `Result.Error(new NonRetryableError(...))` for permanent failures
+
+   ```typescript
+   import { defineHandler, RetryableError, NonRetryableError } from "@amqp-contract/worker";
+   import { Future, Result } from "@swan-io/boxed";
+
+   const handler = defineHandler(contract, "processOrder", (message) => {
+     if (!isValidOrder(message)) {
+       // Won't be retried
+       return Future.value(Result.Error(new NonRetryableError("Invalid order")));
+     }
+
+     return Future.fromPromise(processOrder(message))
+       .mapOk(() => undefined)
+       .mapError((err) => new RetryableError("Processing failed", err));
+   });
+   ```
+
+3. **Validation Errors**
    - Use Standard Schema v1 for validation
-   - Handle validation failures gracefully
-   - Provide clear, actionable error messages
+   - `MessageValidationError` is thrown for schema validation failures
+   - Validation errors are not retried (permanent failure)
 
    ```typescript
    import type { StandardSchemaV1 } from "@standard-schema/spec";
@@ -342,7 +565,7 @@ packages/[package-name]/
    }
    ```
 
-2. **Custom Error Classes**
+4. **Custom Error Classes**
    - Extend base Error class appropriately
    - Include helpful context (consumer name, queue name, etc.)
    - Use `Error.captureStackTrace` for V8 compatibility
@@ -363,14 +586,14 @@ packages/[package-name]/
    }
    ```
 
-3. **AMQP Connection Errors**
+5. **AMQP Connection Errors**
    - Handle connection failures gracefully
    - Implement reconnection logic where appropriate
    - Log connection issues for debugging
 
-4. **Message Processing Errors**
-   - Handle message processing failures
-   - Consider using dead letter exchanges for failed messages
+6. **Message Processing Errors**
+   - Use `RetryableError` / `NonRetryableError` in safe handlers
+   - Failed messages are sent to dead letter exchange based on error type
    - Log processing errors with context
 
 ---
@@ -384,7 +607,46 @@ packages/[package-name]/
    - Place tests alongside source: `feature.spec.ts`
    - Use integration tests in `__tests__` directories
 
-2. **Test Structure**
+2. **Integration Test Setup**
+   - Use `@amqp-contract/testing` for RabbitMQ integration tests
+   - Configure `globalSetup` in vitest.config.ts for container lifecycle
+   - Each test gets an isolated vhost automatically
+
+   ```typescript
+   // vitest.config.ts
+   import { defineConfig } from "vitest/config";
+
+   export default defineConfig({
+     test: {
+       globalSetup: ["@amqp-contract/testing/global-setup"],
+     },
+   });
+   ```
+
+3. **Test Fixtures**
+   - Import `it` from `@amqp-contract/testing/extension` for fixtures
+   - Available fixtures: `vhost`, `amqpConnectionUrl`, `amqpConnection`, `amqpChannel`
+   - Use `publishMessage` and `initConsumer` for message testing
+
+   ```typescript
+   import { describe, expect } from "vitest";
+   import { it } from "@amqp-contract/testing/extension";
+
+   describe("Order Processing", () => {
+     it("should consume order messages", async ({ initConsumer, publishMessage, vhost }) => {
+       // vhost is automatically created and isolated for this test
+       const waitForMessages = await initConsumer("orders-exchange", "order.created");
+
+       publishMessage("orders-exchange", "order.created", { orderId: "123" });
+
+       const messages = await waitForMessages({ nbEvents: 1, timeout: 5000 });
+       expect(messages).toHaveLength(1);
+       expect(messages[0]).toMatchObject({ orderId: "123" });
+     });
+   });
+   ```
+
+4. **Test Structure**
 
    ```typescript
    import { describe, expect, it } from "vitest";
@@ -407,23 +669,23 @@ packages/[package-name]/
    });
    ```
 
-3. **Test Coverage**
+5. **Test Coverage**
    - Write tests for all exported functions
    - Test happy path and error cases
    - Test edge cases and boundary conditions
    - Use `expect.objectContaining()` for partial matching
 
-4. **AMQP Integration Tests**
-   - Use `@amqp-contract/testing` utilities when available
-   - Test actual AMQP connections with appropriate mocks or test containers
+6. **AMQP Integration Tests**
+   - Prefer real RabbitMQ via testcontainers over mocking
+   - Test actual AMQP connections for reliability
    - Place in separate test files or `__tests__` directories
 
-5. **Test Naming**
+7. **Test Naming**
    - Use descriptive test names: "should [expected behavior] when [condition]"
    - Group related tests in `describe` blocks
    - Keep tests focused on one thing
 
-6. **Assertion Best Practices**
+8. **Assertion Best Practices**
    - Merge multiple assertions into one whenever possible for clarity
    - Use `expect.objectContaining()` or `toMatchObject()` for complex object validation
    - Prefer single comprehensive assertions over multiple fragmented ones
@@ -706,7 +968,39 @@ packages/[package-name]/
    - Don't use topic exchanges when direct would suffice
    - Document routing patterns clearly
 
-10. **Not running checks before PR**
+10. **Using unsafe handlers in new code**
+
+    ```typescript
+    // ❌ Bad - using deprecated unsafe handler
+    const handler = defineUnsafeHandler(contract, "processOrder", async (message) => {
+      await processOrder(message);
+    });
+
+    // ✅ Good - using safe handler with explicit error handling
+    const handler = defineHandler(contract, "processOrder", (message) =>
+      Future.fromPromise(processOrder(message))
+        .mapOk(() => undefined)
+        .mapError((err) => new RetryableError("Processing failed", err)),
+    );
+    ```
+
+11. **Not using quorum queues**
+
+    ```typescript
+    // ❌ Bad - using classic queue without good reason
+    const queue = defineQueue("orders", {
+      type: "classic",
+      durable: true,
+    });
+
+    // ✅ Good - using quorum queue (default)
+    const queue = defineQueue("orders", {
+      deliveryLimit: 3,
+      deadLetter: { exchange: dlx },
+    });
+    ```
+
+12. **Not running checks before PR**
     ```bash
     # Always run before submitting PR:
     pnpm typecheck
@@ -798,6 +1092,9 @@ Before submitting code, ensure:
 - [ ] Catalog dependencies used for shared packages
 - [ ] AMQP patterns documented (routing keys, exchange types, bindings)
 - [ ] Message definitions use `defineMessage` with metadata
+- [ ] Safe handlers used (`defineHandler`) instead of unsafe handlers
+- [ ] Quorum queues used (default) unless classic queue is specifically needed
+- [ ] Retry strategy configured appropriately (quorum-native or ttl-backoff)
 
 ---
 
