@@ -121,10 +121,10 @@ import { contract } from "./contract.js";
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    processOrder: async (message) => {
-      // ✅ Message is fully typed!
-      console.log(message.orderId); // ✅ Full autocomplete!
-      console.log(message.amount); // ✅ Type-safe!
+    processOrder: async ({ payload }) => {
+      // ✅ Payload is fully typed!
+      console.log(payload.orderId); // ✅ Full autocomplete!
+      console.log(payload.amount); // ✅ Type-safe!
       // ✅ Automatic validation - invalid messages rejected!
     }, // ✅ Auto-acknowledgment on success!
   },
@@ -240,9 +240,9 @@ export class OrderController {
 AmqpWorkerModule.forRoot({
   contract,
   handlers: {
-    processOrder: async (message) => {
+    processOrder: async ({ payload }) => {
       // ✅ Fully typed!
-      console.log(message.orderId); // ✅ Full autocomplete!
+      console.log(payload.orderId); // ✅ Full autocomplete!
       // ✅ Automatic validation!
     },
   },

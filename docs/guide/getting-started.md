@@ -260,12 +260,12 @@ async function main() {
   const worker = await TypedAmqpWorker.create({
     contract,
     handlers: {
-      processEmail: async (message) => {
-        // Message is fully typed!
+      processEmail: async ({ payload }) => {
+        // Payload is fully typed!
         console.log("\n📬 Received email:");
-        console.log(`  To: ${message.to}`);
-        console.log(`  Subject: ${message.subject}`);
-        console.log(`  Body: ${message.body}`);
+        console.log(`  To: ${payload.to}`);
+        console.log(`  Subject: ${payload.subject}`);
+        console.log(`  Body: ${payload.body}`);
 
         // Simulate sending email
         await new Promise((resolve) => setTimeout(resolve, 1000));

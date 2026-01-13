@@ -125,12 +125,12 @@ describe("Order Processing Contract", () => {
     }).resultToPromise();
 
     // Create worker with handler
-    const receivedOrders: unknown[] = [];
+    const receivedPayloads: unknown[] = [];
     const worker = await TypedAmqpWorker.create({
       contract,
       handlers: {
-        processOrder: async (message) => {
-          receivedOrders.push(message);
+        processOrder: async ({ payload }) => {
+          receivedPayloads.push(payload);
         },
       },
       urls: [amqpConnectionUrl],
@@ -150,8 +150,8 @@ describe("Order Processing Contract", () => {
     // Wait for message to be processed
     await new Promise((resolve) => setTimeout(resolve, 100));
 
-    expect(receivedOrders).toHaveLength(1);
-    expect(receivedOrders[0]).toMatchObject({
+    expect(receivedPayloads).toHaveLength(1);
+    expect(receivedPayloads[0]).toMatchObject({
       orderId: "123",
       customerId: "456",
       amount: 99.99,

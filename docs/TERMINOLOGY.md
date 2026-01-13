@@ -88,7 +88,7 @@ await client.publish("orderCreated", message).resultToPromise();
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    processOrder: async (message) => {
+    processOrder: async ({ payload }) => {
       // Handle message
     },
   },

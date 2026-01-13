@@ -162,14 +162,14 @@ await client
   })
   .resultToPromise();
 
-// 5. Consumer gets fully typed messages
+// 5. Consumer gets fully typed payloads
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    processOrder: async (message) => {
-      console.log(message.orderId); // ✅ Fully typed!
-      console.log(message.customerId); // ✅ Autocomplete!
-      console.log(message.amount); // ✅ Type safe!
+    processOrder: async ({ payload }) => {
+      console.log(payload.orderId); // ✅ Fully typed!
+      console.log(payload.customerId); // ✅ Autocomplete!
+      console.log(payload.amount); // ✅ Type safe!
     },
   },
   urls: ["amqp://localhost"],

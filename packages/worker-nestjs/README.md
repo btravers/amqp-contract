@@ -28,8 +28,8 @@ import { contract } from "./contract";
     AmqpWorkerModule.forRoot({
       contract,
       handlers: {
-        processOrder: async (message) => {
-          console.log("Processing order:", message.orderId);
+        processOrder: async ({ payload }) => {
+          console.log("Processing order:", payload.orderId);
         },
       },
       urls: ["amqp://localhost"],

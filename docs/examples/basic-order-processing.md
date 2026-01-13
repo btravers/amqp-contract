@@ -362,22 +362,22 @@ const connection = await connect("amqp://localhost");
 const worker = await TypedAmqpWorker.create({
   contract: orderContract,
   handlers: {
-    processOrder: async (message) => {
-      console.log(`[PROCESSING] Order ${message.orderId}`);
-      console.log(`  Customer: ${message.customerId}`);
-      console.log(`  Total: $${message.totalAmount}`);
+    processOrder: async ({ payload }) => {
+      console.log(`[PROCESSING] Order ${payload.orderId}`);
+      console.log(`  Customer: ${payload.customerId}`);
+      console.log(`  Total: $${payload.totalAmount}`);
     },
 
-    notifyOrder: async (message) => {
-      console.log(`[NOTIFICATION] Order ${message.orderId} event`);
+    notifyOrder: async ({ payload }) => {
+      console.log(`[NOTIFICATION] Order ${payload.orderId} event`);
     },
 
-    shipOrder: async (message) => {
-      console.log(`[SHIPPING] Order ${message.orderId} - ${message.status}`);
+    shipOrder: async ({ payload }) => {
+      console.log(`[SHIPPING] Order ${payload.orderId} - ${payload.status}`);
     },
 
-    handleUrgentOrder: async (message) => {
-      console.log(`[URGENT] Order ${message.orderId} - ${message.status}`);
+    handleUrgentOrder: async ({ payload }) => {
+      console.log(`[URGENT] Order ${payload.orderId} - ${payload.status}`);
     },
   },
   connection,

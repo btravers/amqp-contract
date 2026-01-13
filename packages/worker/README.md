@@ -46,11 +46,11 @@ const logger: Logger = {
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    processOrder: (message) => {
-      console.log("Processing order:", message.orderId);
+    processOrder: ({ payload }) => {
+      console.log("Processing order:", payload.orderId);
 
       // Your business logic here
-      return Future.fromPromise(Promise.all([processPayment(message), updateInventory(message)]))
+      return Future.fromPromise(Promise.all([processPayment(payload), updateInventory(payload)]))
         .mapOk(() => undefined)
         .mapError((error) => new RetryableError("Order processing failed", error));
     },
@@ -81,9 +81,9 @@ const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: [
-      (message) =>
+      ({ payload }) =>
         // If this fails, message is automatically retried with exponential backoff
-        Future.fromPromise(processPayment(message))
+        Future.fromPromise(processPayment(payload))
           .mapOk(() => undefined)
           .mapError((error) => new RetryableError("Payment failed", error)),
       {
@@ -116,14 +116,14 @@ import { RetryableError, NonRetryableError } from "@amqp-contract/worker";
 import { Future, Result } from "@swan-io/boxed";
 
 handlers: {
-  processOrder: (message) => {
+  processOrder: ({ payload }) => {
     // Validation errors - non-retryable
-    if (message.amount <= 0) {
+    if (payload.amount <= 0) {
       return Future.value(Result.Error(new NonRetryableError("Invalid amount")));
     }
 
     // Transient errors - retryable
-    return Future.fromPromise(process(message))
+    return Future.fromPromise(process(payload))
       .mapOk(() => undefined)
       .mapError((error) => new RetryableError("Processing failed", error));
   },

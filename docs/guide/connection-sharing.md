@@ -44,12 +44,12 @@ const worker = await TypedAmqpWorker.create({
   contract,
   urls: ["amqp://localhost"], // ← Same URLs = automatic sharing
   handlers: {
-    processOrder: async (message) => {
-      console.log("Processing order:", message.orderId);
+    processOrder: async ({ payload }) => {
+      console.log("Processing order:", payload.orderId);
 
       // Can publish from within consumer
       const publishResult = await client.publish("orderProcessed", {
-        orderId: message.orderId,
+        orderId: payload.orderId,
         status: "completed",
       });
 

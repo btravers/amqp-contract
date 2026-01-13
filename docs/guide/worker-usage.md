@@ -17,12 +17,12 @@ import { contract } from "./contract";
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    processOrder: async (message) => {
-      console.log("Processing:", message.orderId);
+    processOrder: async ({ payload }) => {
+      console.log("Processing:", payload.orderId);
       // Your business logic here
     },
-    notifyOrder: async (message) => {
-      console.log("Notifying:", message.orderId);
+    notifyOrder: async ({ payload }) => {
+      console.log("Notifying:", payload.orderId);
     },
   },
   urls: ["amqp://localhost"],
@@ -35,19 +35,19 @@ The worker automatically connects and starts consuming messages from all queues.
 
 ## Message Handlers
 
-Handlers receive validated, fully-typed messages:
+Handlers receive validated, fully-typed messages with `{ payload, headers }`:
 
 ```typescript
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    processOrder: async (message) => {
-      // Message is fully typed!
-      console.log(message.orderId); // ✅ string
-      console.log(message.amount); // ✅ number
-      console.log(message.items); // ✅ array
+    processOrder: async ({ payload }) => {
+      // Payload is fully typed!
+      console.log(payload.orderId); // ✅ string
+      console.log(payload.amount); // ✅ number
+      console.log(payload.items); // ✅ array
 
-      for (const item of message.items) {
+      for (const item of payload.items) {
         console.log(`${item.productId}: ${item.quantity}`);
       }
     },
@@ -69,7 +69,7 @@ The worker enforces:
 const workerResult = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    notifyOrder: async (message) => { ... },
+    notifyOrder: async ({ payload }) => { ... },
     // Missing processOrder handler!
   },
   urls: ['amqp://localhost'],
@@ -79,8 +79,8 @@ const workerResult = await TypedAmqpWorker.create({
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    processOrder: async (message) => { ... },
-    notifyOrder: async (message) => { ... },
+    processOrder: async ({ payload }) => { ... },
+    notifyOrder: async ({ payload }) => { ... },
   },
   urls: ['amqp://localhost'],
 }).resultToPromise();
@@ -101,15 +101,15 @@ import { defineHandler, RetryableError, NonRetryableError } from "@amqp-contract
 import { Future, Result } from "@swan-io/boxed";
 import { contract } from "./contract";
 
-const processOrderHandler = defineHandler(contract, "processOrder", (message) =>
-  Future.fromPromise(saveToDatabase(message))
+const processOrderHandler = defineHandler(contract, "processOrder", ({ payload }) =>
+  Future.fromPromise(saveToDatabase(payload))
     .mapOk(() => undefined)
     .mapError((error) => new RetryableError("Database error", error)),
 );
 
 // Non-retryable errors go directly to DLQ
-const validateOrderHandler = defineHandler(contract, "validateOrder", (message) => {
-  if (message.amount <= 0) {
+const validateOrderHandler = defineHandler(contract, "validateOrder", ({ payload }) => {
+  if (payload.amount <= 0) {
     return Future.value(Result.Error(new NonRetryableError("Invalid order amount")));
   }
   return Future.value(Result.Ok(undefined));
@@ -124,9 +124,9 @@ For simpler use cases or migration from existing code, use unsafe handlers that 
 import { defineUnsafeHandler } from "@amqp-contract/worker";
 import { contract } from "./contract";
 
-const processOrderHandler = defineUnsafeHandler(contract, "processOrder", async (message) => {
-  console.log("Processing:", message.orderId);
-  await saveToDatabase(message);
+const processOrderHandler = defineUnsafeHandler(contract, "processOrder", async ({ payload }) => {
+  console.log("Processing:", payload.orderId);
+  await saveToDatabase(payload);
   // Throws on error - will be retried (when retry is configured)
 });
 
@@ -148,12 +148,12 @@ import { contract } from "./contract";
 
 // Safe handlers (recommended) - for async operations use Future.fromPromise
 const handlers = defineHandlers(contract, {
-  processOrder: (message) =>
-    Future.fromPromise(processPayment(message))
+  processOrder: ({ payload }) =>
+    Future.fromPromise(processPayment(payload))
       .mapOk(() => undefined)
       .mapError((error) => new RetryableError("Payment failed", error)),
-  notifyOrder: (message) =>
-    Future.fromPromise(sendEmail(message))
+  notifyOrder: ({ payload }) =>
+    Future.fromPromise(sendEmail(payload))
       .mapOk(() => undefined)
       .mapError((error) => new RetryableError("Email failed", error)),
 });
@@ -162,11 +162,11 @@ const handlers = defineHandlers(contract, {
 import { defineUnsafeHandlers } from "@amqp-contract/worker";
 
 const unsafeHandlers = defineUnsafeHandlers(contract, {
-  processOrder: async (message) => {
-    await processPayment(message);
+  processOrder: async ({ payload }) => {
+    await processPayment(payload);
   },
-  notifyOrder: async (message) => {
-    await sendEmail(message);
+  notifyOrder: async ({ payload }) => {
+    await sendEmail(payload);
   },
 });
 
@@ -200,14 +200,14 @@ import { orderContract } from "../contract";
 import { processPayment } from "../services/payment";
 import { sendEmail } from "../services/email";
 
-export const processOrderHandler = defineHandler(orderContract, "processOrder", (message) =>
-  Future.fromPromise(processPayment(message))
+export const processOrderHandler = defineHandler(orderContract, "processOrder", ({ payload }) =>
+  Future.fromPromise(processPayment(payload))
     .mapOk(() => undefined)
     .mapError((error) => new RetryableError("Payment failed", error)),
 );
 
-export const notifyOrderHandler = defineHandler(orderContract, "notifyOrder", (message) =>
-  Future.fromPromise(sendEmail(message))
+export const notifyOrderHandler = defineHandler(orderContract, "notifyOrder", ({ payload }) =>
+  Future.fromPromise(sendEmail(payload))
     .mapOk(() => undefined)
     .mapError((error) => new RetryableError("Email failed", error)),
 );
@@ -233,16 +233,16 @@ import { sendEmail } from "../services/email";
 export const processOrderHandler = defineUnsafeHandler(
   orderContract,
   "processOrder",
-  async (message) => {
-    await processPayment(message);
+  async ({ payload }) => {
+    await processPayment(payload);
   },
 );
 
 export const notifyOrderHandler = defineUnsafeHandler(
   orderContract,
   "notifyOrder",
-  async (message) => {
-    await sendEmail(message);
+  async ({ payload }) => {
+    await sendEmail(payload);
   },
 );
 
@@ -276,8 +276,8 @@ By default, `TypedAmqpWorker.create` automatically starts all consumers defined 
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    processOrder: async (message) => { ... },
-    notifyOrder: async (message) => { ... },
+    processOrder: async ({ payload }) => { ... },
+    notifyOrder: async ({ payload }) => { ... },
   },
   connection,
 });
@@ -293,8 +293,8 @@ If you need more control, you can create a worker using the `TypedAmqpWorker` cl
 import { TypedAmqpWorker } from '@amqp-contract/worker';
 
 const worker = new TypedAmqpWorker(contract, {
-  processOrder: async (message) => { ... },
-  notifyOrder: async (message) => { ... },
+  processOrder: async ({ payload }) => { ... },
+  notifyOrder: async ({ payload }) => { ... },
 });
 
 await worker.connect(connection);
@@ -316,8 +316,8 @@ By default, messages are automatically acknowledged after successful processing:
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    processOrder: async (message) => {
-      console.log("Processing:", message.orderId);
+    processOrder: async ({ payload }) => {
+      console.log("Processing:", payload.orderId);
       // Message is automatically acked after this handler completes
     },
   },
@@ -327,31 +327,33 @@ const worker = await TypedAmqpWorker.create({
 
 ### Manual Acknowledgment
 
-For more control, use manual acknowledgment:
+For more control over acknowledgment, use the raw message parameter and error types:
 
 ```typescript
+import { defineHandler, RetryableError, NonRetryableError } from "@amqp-contract/worker";
+import { Future, Result } from "@swan-io/boxed";
+
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    processOrder: async (message, { ack, nack, reject }) => {
-      try {
-        await processOrder(message);
-        ack(); // Acknowledge success
-      } catch (error) {
-        nack({ requeue: true }); // Requeue for retry
-      }
-    },
+    processOrder: defineHandler(contract, "processOrder", ({ payload }, rawMessage) => {
+      // Access raw AMQP message properties if needed
+      console.log("Delivery tag:", rawMessage.fields.deliveryTag);
+
+      return Future.fromPromise(processOrder(payload))
+        .mapOk(() => undefined) // Success - message will be acked
+        .mapError((error) => new RetryableError("Processing failed", error)); // Failure - will retry
+    }),
   },
   urls: ["amqp://localhost"],
 }).resultToPromise();
 ```
 
-**Options:**
+**Acknowledgment behavior:**
 
-- `ack()` - Acknowledge message
-- `nack({ requeue: true })` - Requeue for retry
-- `nack({ requeue: false })` - Discard message
-- `reject({ requeue: false })` - Reject message
+- Handler returns `Result.Ok(undefined)` → Message is acknowledged
+- Handler returns `Result.Error(RetryableError)` → Message is nacked and retried
+- Handler returns `Result.Error(NonRetryableError)` → Message is sent to DLQ
 
 ## Graceful Shutdown
 
@@ -371,34 +373,36 @@ process.on("SIGINT", shutdown);
 ## Complete Example
 
 ```typescript
-import { TypedAmqpWorker } from "@amqp-contract/worker";
+import { TypedAmqpWorker, defineHandlers, RetryableError } from "@amqp-contract/worker";
+import { Future } from "@swan-io/boxed";
 import { contract } from "./contract";
 
 async function main() {
   const worker = await TypedAmqpWorker.create({
     contract,
-    handlers: {
-      processOrder: async (message, { ack, nack }) => {
-        try {
-          console.log(`Processing order ${message.orderId}`);
+    handlers: defineHandlers(contract, {
+      processOrder: ({ payload }) => {
+        console.log(`Processing order ${payload.orderId}`);
 
-          await saveToDatabase(message);
-          await sendConfirmation(message.customerId);
-
-          ack();
-        } catch (error) {
-          console.error("Processing failed:", error);
-          nack({ requeue: true });
-        }
+        return Future.fromPromise(
+          Promise.all([saveToDatabase(payload), sendConfirmation(payload.customerId)]),
+        )
+          .mapOk(() => undefined)
+          .mapError((error) => {
+            console.error("Processing failed:", error);
+            return new RetryableError("Order processing failed", error);
+          });
       },
 
-      notifyOrder: async (message) => {
-        console.log(`Sending notification for ${message.orderId}`);
-        await sendEmail(message);
+      notifyOrder: ({ payload }) => {
+        console.log(`Sending notification for ${payload.orderId}`);
+        return Future.fromPromise(sendEmail(payload))
+          .mapOk(() => undefined)
+          .mapError((error) => new RetryableError("Email failed", error));
       },
-    },
+    }),
     urls: ["amqp://localhost"],
-  });
+  }).resultToPromise();
 
   console.log("✅ Worker ready!");
 
@@ -429,10 +433,10 @@ const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: [
-      async (message) => {
+      async ({ payload }) => {
         // Process one message at a time
-        console.log("Order:", message.orderId);
-        await saveToDatabase(message);
+        console.log("Order:", payload.orderId);
+        await saveToDatabase(payload);
       },
       { prefetch: 10 }, // Process up to 10 messages concurrently
     ],
@@ -462,9 +466,9 @@ const worker = await TypedAmqpWorker.create({
 
         // Batch insert to database
         await db.orders.insertMany(
-          messages.map((msg) => ({
-            id: msg.orderId,
-            amount: msg.amount,
+          messages.map(({ payload }) => ({
+            id: payload.orderId,
+            amount: payload.amount,
           })),
         );
 
@@ -496,7 +500,7 @@ TypeScript automatically enforces the correct handler signature based on configu
 
 ```typescript
 // Single message handler (no batchSize)
-[async (message) => { ... }, { prefetch: 10 }]
+[async ({ payload }) => { ... }, { prefetch: 10 }]
 
 // Batch handler (with batchSize)
 [async (messages) => { ... }, { batchSize: 5 }]
@@ -510,7 +514,7 @@ Three configuration patterns are supported:
 
 ```typescript
 handlers: {
-  processOrder: async (message) => {
+  processOrder: async ({ payload }) => {
     // Single message processing
   };
 }
@@ -521,7 +525,7 @@ handlers: {
 ```typescript
 handlers: {
   processOrder: [
-    async (message) => {
+    async ({ payload }) => {
       // Single message processing with prefetch
     },
     { prefetch: 10 },
@@ -535,7 +539,10 @@ handlers: {
 handlers: {
   processOrders: [
     async (messages) => {
-      // Batch processing
+      // Batch processing - each message has { payload, headers }
+      for (const { payload } of messages) {
+        console.log(payload.orderId);
+      }
     },
     { batchSize: 5, batchTimeout: 1000 },
   ];
@@ -575,8 +582,8 @@ const worker = await TypedAmqpWorker.create({
   handlers: {
     // Handler with custom retry configuration
     processOrder: [
-      (message) =>
-        Future.fromPromise(processPayment(message))
+      ({ payload }) =>
+        Future.fromPromise(processPayment(payload))
           .mapOk(() => undefined)
           .mapError((error) => new RetryableError("Payment failed", error)),
       {
@@ -591,8 +598,8 @@ const worker = await TypedAmqpWorker.create({
       },
     ],
     // Simple handler uses default retry configuration
-    notifyOrder: (message) =>
-      Future.fromPromise(sendNotification(message))
+    notifyOrder: ({ payload }) =>
+      Future.fromPromise(sendNotification(payload))
         .mapOk(() => undefined)
         .mapError((error) => new RetryableError("Notification failed", error)),
   },
@@ -638,8 +645,8 @@ const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: [
-      (message) =>
-        Future.fromPromise(processPayment(message))
+      ({ payload }) =>
+        Future.fromPromise(processPayment(payload))
           .mapOk(() => undefined)
           .mapError((error) => new RetryableError("Payment failed", error)),
       {
@@ -692,8 +699,8 @@ const worker = await TypedAmqpWorker.create({
   handlers: {
     // Custom retry configuration for this consumer
     processOrder: [
-      (message) =>
-        Future.fromPromise(processPayment(message))
+      ({ payload }) =>
+        Future.fromPromise(processPayment(payload))
           .mapOk(() => undefined)
           .mapError((error) => new RetryableError("Payment processing failed", error)),
       {
@@ -707,8 +714,8 @@ const worker = await TypedAmqpWorker.create({
       },
     ],
     // Uses default retry configuration
-    notifyOrder: (message) =>
-      Future.fromPromise(sendNotification(message))
+    notifyOrder: ({ payload }) =>
+      Future.fromPromise(sendNotification(payload))
         .mapOk(() => undefined)
         .mapError((error) => new RetryableError("Notification failed", error)),
   },
@@ -803,8 +810,8 @@ const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: [
-      defineHandler(contract, "processOrder", (message) =>
-        Future.fromPromise(externalApiCall(message))
+      defineHandler(contract, "processOrder", ({ payload }) =>
+        Future.fromPromise(externalApiCall(payload))
           .mapOk(() => undefined)
           .mapError(
             (error) =>
@@ -836,12 +843,12 @@ const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: [
-      defineHandler(contract, "processOrder", (message) => {
+      defineHandler(contract, "processOrder", ({ payload }) => {
         // Validation errors should not be retried
-        if (message.amount <= 0) {
+        if (payload.amount <= 0) {
           return Future.value(Result.Error(new NonRetryableError("Invalid order amount")));
         }
-        return Future.fromPromise(processPayment(message))
+        return Future.fromPromise(processPayment(payload))
           .mapOk(() => undefined)
           .mapError((error) => new RetryableError("Payment failed", error));
       }),
@@ -878,13 +885,13 @@ const worker = await TypedAmqpWorker.create({
     processOrder: defineHandler(
       contract,
       "processOrder",
-      (message) => {
+      ({ payload }) => {
         // Validation - non-retryable
-        if (message.amount <= 0) {
+        if (payload.amount <= 0) {
           return Future.value(Result.Error(new NonRetryableError("Invalid amount")));
         }
 
-        return Future.fromPromise(processPayment(message))
+        return Future.fromPromise(processPayment(payload))
           .mapOk(() => undefined)
           .mapError((error) =>
             match(error)
@@ -1029,18 +1036,18 @@ const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: [
-      (message) => {
+      ({ payload }) => {
         // Validate before processing (don't retry validation errors)
-        if (!message.amount || message.amount <= 0) {
+        if (!payload.amount || payload.amount <= 0) {
           return Future.value(Result.Error(new NonRetryableError("Invalid order amount")));
         }
 
         // Process with external service (retry on failure)
         return Future.fromPromise(
           Promise.all([
-            paymentService.charge(message),
-            inventoryService.reserve(message),
-            notificationService.send(message),
+            paymentService.charge(payload),
+            inventoryService.reserve(payload),
+            notificationService.send(payload),
           ]),
         )
           .mapOk(() => undefined)

@@ -215,10 +215,10 @@ Property 'orderId' does not exist on type 'never'.
 
 3. **Check consumer handler types:**
    ```typescript
-   // ✅ Message is automatically typed
+   // ✅ Payload is automatically typed
    handlers: {
-     processEmail: async (message) => {
-       console.log(message.to);  // Type-safe!
+     processEmail: async ({ payload }) => {
+       console.log(payload.to);  // Type-safe!
      },
    }
    ```
@@ -455,7 +455,7 @@ const orderMessage = defineMessage(
    ```typescript
    // ❌ Blocking operation
    handlers: {
-     processOrder: async (message) => {
+     processOrder: async ({ payload }) => {
        const result = await fetch("http://slow-api.com/process");  // Slow!
        await processResult(result);
      },
@@ -476,9 +476,9 @@ const orderMessage = defineMessage(
    ```typescript
    // ✅ Offload heavy work
    handlers: {
-     processImage: async (message) => {
+     processImage: async ({ payload }) => {
        // Queue heavy work to worker pool
-       await jobQueue.add("process-image", message);
+       await jobQueue.add("process-image", payload);
      },
    }
    ```
@@ -488,8 +488,8 @@ const orderMessage = defineMessage(
    ```typescript
    // ❌ N+1 query problem
    handlers: {
-     processOrder: async (message) => {
-       for (const item of message.items) {
+     processOrder: async ({ payload }) => {
+       for (const item of payload.items) {
          await db.query("SELECT * FROM products WHERE id = ?", [item.id]);
        }
      },
@@ -497,8 +497,8 @@ const orderMessage = defineMessage(
 
    // ✅ Batch queries
    handlers: {
-     processOrder: async (message) => {
-       const ids = message.items.map(item => item.id);
+     processOrder: async ({ payload }) => {
+       const ids = payload.items.map(item => item.id);
        await db.query("SELECT * FROM products WHERE id IN (?)", [ids]);
      },
    }

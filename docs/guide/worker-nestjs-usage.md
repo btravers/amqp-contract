@@ -109,10 +109,10 @@ import { contract } from "./contract";
     AmqpWorkerModule.forRoot({
       contract,
       handlers: {
-        processOrder: async (message) => {
-          console.log(`Processing order: ${message.orderId}`);
-          console.log(`Customer: ${message.customerId}`);
-          console.log(`Amount: $${message.amount}`);
+        processOrder: async ({ payload }) => {
+          console.log(`Processing order: ${payload.orderId}`);
+          console.log(`Customer: ${payload.customerId}`);
+          console.log(`Amount: $${payload.amount}`);
 
           // Your business logic here
         },
@@ -156,8 +156,8 @@ import { Injectable } from "@nestjs/common";
 
 @Injectable()
 export class OrderService {
-  async saveOrder(order: any) {
-    console.log("Saving order to database:", order.orderId);
+  async saveOrder(payload: { orderId: string }) {
+    console.log("Saving order to database:", payload.orderId);
     // Save to database
   }
 
@@ -181,15 +181,12 @@ import { OrderService } from "./order.service";
       useFactory: (orderService: OrderService) => ({
         contract,
         handlers: {
-          processOrder: async (message, { ack, nack }) => {
-            try {
-              await orderService.saveOrder(message);
-              await orderService.sendConfirmation(message.customerId);
-              ack();
-            } catch (error) {
-              console.error("Processing failed:", error);
-              nack({ requeue: true });
-            }
+          processOrder: async ({ payload }) => {
+            await orderService.saveOrder(payload);
+            await orderService.sendConfirmation(payload.customerId);
+            // Success - message will be acknowledged automatically
+            // Throw RetryableError for retryable failures
+            // Throw NonRetryableError for permanent failures
           },
         },
         urls: ["amqp://localhost"],
@@ -221,13 +218,9 @@ import { OrderService } from "./order.service";
       useFactory: (configService: ConfigService, orderService: OrderService) => ({
         contract,
         handlers: {
-          processOrder: async (message, { ack, nack }) => {
-            try {
-              await orderService.saveOrder(message);
-              ack();
-            } catch (error) {
-              nack({ requeue: true });
-            }
+          processOrder: async ({ payload }) => {
+            await orderService.saveOrder(payload);
+            // Success - message will be acknowledged automatically
           },
         },
         urls: [configService.get("RABBITMQ_URL") ?? "amqp://localhost"],
@@ -248,40 +241,49 @@ RABBITMQ_URL=amqp://user:pass@rabbitmq-server:5672
 
 ## Message Acknowledgment
 
-### Automatic Acknowledgment
+Messages are automatically acknowledged based on handler completion:
 
-By default, messages are automatically acknowledged after successful processing:
+- **Success**: Message is acknowledged when handler completes without error
+- **Retryable Error**: Throw `RetryableError` to retry the message
+- **Non-Retryable Error**: Throw `NonRetryableError` to send to DLQ
 
 ```typescript
+import { RetryableError, NonRetryableError } from "@amqp-contract/worker";
+
 AmqpWorkerModule.forRoot({
   contract,
   handlers: {
-    processOrder: async (message) => {
-      console.log("Processing:", message.orderId);
-      // Message is automatically acked if no error is thrown
+    processOrder: async ({ payload }) => {
+      console.log("Processing:", payload.orderId);
+
+      // Success - message is automatically acknowledged
+      // For retryable errors, throw RetryableError
+      // For permanent failures, throw NonRetryableError
     },
   },
   urls: ["amqp://localhost"],
 });
 ```
 
-### Manual Acknowledgment
+### Error-Based Retry Control
 
-For better control, use manual acknowledgment:
+Use typed errors for explicit retry control:
 
 ```typescript
+import { RetryableError, NonRetryableError } from "@amqp-contract/worker";
+
 AmqpWorkerModule.forRoot({
   contract,
   handlers: {
-    processOrder: async (message, { ack, nack, reject }) => {
+    processOrder: async ({ payload }) => {
       try {
-        await processOrder(message);
-        ack(); // Acknowledge success
+        await processOrder(payload);
+        // Success - message acknowledged
       } catch (error) {
-        if (isRetryable(error)) {
-          nack({ requeue: true }); // Retry
+        if (isTemporaryFailure(error)) {
+          throw new RetryableError("Temporary failure, will retry");
         } else {
-          nack({ requeue: false }); // Send to DLQ
+          throw new NonRetryableError("Permanent failure, send to DLQ");
         }
       }
     },
@@ -315,26 +317,28 @@ export class OrderService {
 ### Handler-Level Error Handling
 
 ```typescript
+import { RetryableError, NonRetryableError } from "@amqp-contract/worker";
+
 AmqpWorkerModule.forRootAsync({
   useFactory: (orderService: OrderService) => ({
     contract,
     handlers: {
-      processOrder: async (message, { ack, nack }) => {
+      processOrder: async ({ payload }) => {
         try {
-          await orderService.processOrder(message);
-          ack();
+          await orderService.processOrder(payload);
+          // Success - message acknowledged automatically
         } catch (error) {
           console.error("Handler error:", error);
 
           if (error instanceof ValidationError) {
             // Don't retry validation errors
-            nack({ requeue: false });
+            throw new NonRetryableError("Validation failed");
           } else if (error instanceof TemporaryError) {
             // Retry temporary errors
-            nack({ requeue: true });
+            throw new RetryableError("Temporary failure");
           } else {
-            // Unknown error, don't requeue
-            nack({ requeue: false });
+            // Unknown error, don't retry by default
+            throw new NonRetryableError("Unknown error");
           }
         }
       },
@@ -381,7 +385,7 @@ Create separate modules for different domains:
     AmqpWorkerModule.forRoot({
       contract: orderContract,
       handlers: {
-        processOrder: async (message) => {
+        processOrder: async ({ payload }) => {
           // Handle order processing
         },
       },
@@ -397,7 +401,7 @@ export class OrderWorkerModule {}
     AmqpWorkerModule.forRoot({
       contract: paymentContract,
       handlers: {
-        processPayment: async (message) => {
+        processPayment: async ({ payload }) => {
           // Handle payment processing
         },
       },
@@ -590,43 +594,50 @@ export class TemporaryError extends Error {
   }
 }
 
+interface OrderPayload {
+  orderId: string;
+  customerId: string;
+  amount: number;
+  items: Array<{ productId: string; quantity: number; price: number }>;
+}
+
 @Injectable()
 export class OrderService {
   private readonly logger = new Logger(OrderService.name);
 
-  async processOrder(order: any) {
-    this.logger.log(`Processing order ${order.orderId}`);
+  async processOrder(payload: OrderPayload) {
+    this.logger.log(`Processing order ${payload.orderId}`);
 
     try {
       // Validate business rules
-      this.validateOrder(order);
+      this.validateOrder(payload);
 
       // Save to database
-      await this.saveToDatabase(order);
+      await this.saveToDatabase(payload);
 
       // Send confirmation
-      await this.sendConfirmation(order.customerId);
+      await this.sendConfirmation(payload.customerId);
 
-      this.logger.log(`Order ${order.orderId} processed successfully`);
+      this.logger.log(`Order ${payload.orderId} processed successfully`);
     } catch (error) {
       const stack = error instanceof Error ? error.stack : undefined;
-      this.logger.error(`Failed to process order ${order.orderId}`, stack);
+      this.logger.error(`Failed to process order ${payload.orderId}`, stack);
       throw error;
     }
   }
 
-  private validateOrder(order: any) {
-    if (order.amount <= 0) {
+  private validateOrder(payload: OrderPayload) {
+    if (payload.amount <= 0) {
       throw new BusinessRuleError("Amount must be positive");
     }
-    if (order.items.length === 0) {
+    if (payload.items.length === 0) {
       throw new BusinessRuleError("Order must have at least one item");
     }
   }
 
-  private async saveToDatabase(order: any) {
+  private async saveToDatabase(payload: OrderPayload) {
     // Save to database
-    this.logger.debug(`Saving order ${order.orderId} to database`);
+    this.logger.debug(`Saving order ${payload.orderId} to database`);
   }
 
   private async sendConfirmation(customerId: string) {
@@ -640,6 +651,7 @@ export class OrderService {
 import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { AmqpWorkerModule } from "@amqp-contract/worker-nestjs";
+import { RetryableError, NonRetryableError } from "@amqp-contract/worker";
 import { contract } from "./contract";
 import { OrderService, BusinessRuleError, TemporaryError } from "./order.service";
 
@@ -651,22 +663,22 @@ import { OrderService, BusinessRuleError, TemporaryError } from "./order.service
       useFactory: (configService: ConfigService, orderService: OrderService) => ({
         contract,
         handlers: {
-          processOrder: async (message, { ack, nack }) => {
+          processOrder: async ({ payload }) => {
             try {
-              await orderService.processOrder(message);
-              ack();
+              await orderService.processOrder(payload);
+              // Success - message acknowledged automatically
             } catch (error) {
               // Use custom error classes with instanceof for type-safe error handling
               // BusinessRuleError and TemporaryError are custom error classes defined in OrderService
               if (error instanceof BusinessRuleError) {
                 // Business rule violation, don't retry
-                nack({ requeue: false });
+                throw new NonRetryableError("Business rule violation");
               } else if (error instanceof TemporaryError) {
                 // Temporary error, retry
-                nack({ requeue: true });
+                throw new RetryableError("Temporary error, will retry");
               } else {
                 // Unknown error, don't retry by default
-                nack({ requeue: false });
+                throw new NonRetryableError("Unknown error");
               }
             }
           },
