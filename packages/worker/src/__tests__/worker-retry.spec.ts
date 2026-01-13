@@ -7,87 +7,13 @@ import {
   defineQueue,
   defineQueueBinding,
 } from "@amqp-contract/contract";
-import { defineHandler, defineHandlers } from "../handlers.js";
 import { describe, expect, vi } from "vitest";
 import { RetryableError } from "../errors.js";
+import { defineHandler } from "../handlers.js";
 import { it } from "./fixture.js";
 import { z } from "zod";
 
 describe("Worker Retry Mechanism", () => {
-  describe("Legacy Behavior (No Retry Config)", () => {
-    it("should immediately requeue failed messages when retry is not configured", async ({
-      workerFactory,
-      publishMessage,
-    }) => {
-      // GIVEN a worker without retry configuration
-      const TestMessage = z.object({ id: z.string() });
-
-      const exchange = defineExchange("legacy-exchange", "topic", { durable: false });
-      const dlx = defineExchange("legacy-dlx", "topic", { durable: false });
-      const queue = defineQueue("legacy-queue", {
-        type: "classic",
-        durable: false,
-        deadLetter: {
-          exchange: dlx,
-          routingKey: "legacy-queue.dlq",
-        },
-      });
-      const dlq = defineQueue("legacy-dlq", { type: "classic", durable: false });
-
-      const contract = defineContract({
-        exchanges: {
-          main: exchange,
-          dlx,
-        },
-        queues: {
-          main: queue,
-          dlq,
-        },
-        bindings: {
-          mainBinding: defineQueueBinding(queue, exchange, {
-            routingKey: "test.#",
-          }),
-          dlqBinding: defineQueueBinding(dlq, dlx, {
-            routingKey: "legacy-queue.dlq",
-          }),
-        },
-        consumers: {
-          testConsumer: defineConsumer(queue, defineMessage(TestMessage)),
-        },
-      });
-
-      let attemptCount = 0;
-      await workerFactory(
-        contract,
-        defineHandlers(contract, {
-          testConsumer: () => {
-            attemptCount++;
-            if (attemptCount < 2) {
-              return Future.value(Result.Error(new RetryableError("Simulated failure")));
-            }
-            return Future.value(Result.Ok(undefined));
-          },
-        }),
-        undefined, // No retry config - legacy mode
-      );
-
-      // WHEN publishing a message that fails on first attempt
-      publishMessage(exchange.name, "test.message", { id: "legacy-1" });
-
-      // THEN message should be requeued immediately and succeed on second attempt
-      await vi.waitFor(
-        () => {
-          if (attemptCount < 2) {
-            throw new Error("Message not yet processed twice");
-          }
-        },
-        { timeout: 5000 },
-      );
-
-      expect(attemptCount).toBe(2);
-    });
-  });
-
   describe("Retry with Exponential Backoff", () => {
     it("should route retried message through wait queue with TTL", async ({
       workerFactory,
@@ -132,25 +58,26 @@ describe("Worker Retry Mechanism", () => {
       });
 
       let attemptCount = 0;
-      await workerFactory(
-        contract,
-        defineHandlers(contract, {
-          testConsumer: () => {
+      await workerFactory(contract, {
+        testConsumer: [
+          () => {
             attemptCount++;
             if (attemptCount === 1) {
               return Future.value(Result.Error(new RetryableError("First attempt failed")));
             }
             return Future.value(Result.Ok(undefined));
           },
-        }),
-        {
-          maxRetries: 3,
-          initialDelayMs: 500,
-          maxDelayMs: 5000,
-          backoffMultiplier: 2,
-          jitter: false, // Disable jitter for predictable testing
-        },
-      );
+          {
+            retry: {
+              maxRetries: 3,
+              initialDelayMs: 500,
+              maxDelayMs: 5000,
+              backoffMultiplier: 2,
+              jitter: false, // Disable jitter for predictable testing
+            },
+          },
+        ],
+      });
 
       // Verify wait queue was created
       const waitQueue = await amqpChannel.checkQueue("retry-flow-queue-wait");
@@ -249,19 +176,20 @@ describe("Worker Retry Mechanism", () => {
         },
       });
 
-      await workerFactory(
-        contract,
-        defineHandlers(contract, {
-          testConsumer: () => Future.value(Result.Error(new RetryableError("Always fails"))),
-        }),
-        {
-          maxRetries: 3,
-          initialDelayMs: 100,
-          maxDelayMs: 1000,
-          backoffMultiplier: 3,
-          jitter: false,
-        },
-      );
+      await workerFactory(contract, {
+        testConsumer: [
+          () => Future.value(Result.Error(new RetryableError("Always fails"))),
+          {
+            retry: {
+              maxRetries: 3,
+              initialDelayMs: 100,
+              maxDelayMs: 1000,
+              backoffMultiplier: 3,
+              jitter: false,
+            },
+          },
+        ],
+      });
 
       // WHEN publishing a message that always fails
       publishMessage(exchange.name, "test.message", { id: "backoff-1" });
@@ -350,22 +278,23 @@ describe("Worker Retry Mechanism", () => {
       });
 
       let attemptCount = 0;
-      await workerFactory(
-        contract,
-        defineHandlers(contract, {
-          testConsumer: () => {
+      await workerFactory(contract, {
+        testConsumer: [
+          () => {
             attemptCount++;
             return Future.value(Result.Error(new RetryableError("Always fails")));
           },
-        }),
-        {
-          maxRetries: 2,
-          initialDelayMs: 100,
-          maxDelayMs: 500,
-          backoffMultiplier: 2,
-          jitter: false,
-        },
-      );
+          {
+            retry: {
+              maxRetries: 2,
+              initialDelayMs: 100,
+              maxDelayMs: 500,
+              backoffMultiplier: 2,
+              jitter: false,
+            },
+          },
+        ],
+      });
 
       // WHEN publishing a message that always fails
       publishMessage(exchange.name, "test.message", { id: "maxretry-1" });
@@ -441,17 +370,18 @@ describe("Worker Retry Mechanism", () => {
         },
       });
 
-      await workerFactory(
-        contract,
-        defineHandlers(contract, {
-          testConsumer: () => Future.value(Result.Error(new RetryableError("Test error message"))),
-        }),
-        {
-          maxRetries: 1,
-          initialDelayMs: 100,
-          jitter: false,
-        },
-      );
+      await workerFactory(contract, {
+        testConsumer: [
+          () => Future.value(Result.Error(new RetryableError("Test error message"))),
+          {
+            retry: {
+              maxRetries: 1,
+              initialDelayMs: 100,
+              jitter: false,
+            },
+          },
+        ],
+      });
 
       // WHEN publishing a message that fails
       const startTime = Date.now();
@@ -521,29 +451,29 @@ describe("Worker Retry Mechanism", () => {
       });
 
       let batchAttemptCount = 0;
-      await workerFactory(
-        contract,
-        {
-          testConsumer: defineHandler(
-            contract,
-            "testConsumer",
-            (_messages: Array<{ id: string }>) => {
-              batchAttemptCount++;
-              if (batchAttemptCount === 1) {
-                return Future.value(Result.Error(new RetryableError("Batch failed")));
-              }
-              // Second attempt succeeds
-              return Future.value(Result.Ok(undefined));
+      await workerFactory(contract, {
+        testConsumer: defineHandler(
+          contract,
+          "testConsumer",
+          () => {
+            batchAttemptCount++;
+            if (batchAttemptCount === 1) {
+              return Future.value(Result.Error(new RetryableError("Batch failed")));
+            }
+            // Second attempt succeeds
+            return Future.value(Result.Ok(undefined));
+          },
+          {
+            batchSize: 3,
+            batchTimeout: 500,
+            retry: {
+              maxRetries: 3,
+              initialDelayMs: 200,
+              jitter: false,
             },
-            { batchSize: 3, batchTimeout: 500 },
-          ),
-        },
-        {
-          maxRetries: 3,
-          initialDelayMs: 200,
-          jitter: false,
-        },
-      );
+          },
+        ),
+      });
 
       // WHEN publishing 3 messages to form a batch
       publishMessage(exchange.name, "test.message", { id: "batch-1" });
@@ -565,7 +495,7 @@ describe("Worker Retry Mechanism", () => {
   });
 
   describe("Queue Without DLX", () => {
-    it("should fallback to requeue when retry is enabled but queue has no DLX", async ({
+    it("should fallback to requeue when queue has no DLX", async ({
       workerFactory,
       publishMessage,
     }) => {
@@ -597,27 +527,21 @@ describe("Worker Retry Mechanism", () => {
       });
 
       let attemptCount = 0;
-      await workerFactory(
-        contract,
-        defineHandlers(contract, {
-          testConsumer: () => {
-            attemptCount++;
-            if (attemptCount < 2) {
-              return Future.value(Result.Error(new RetryableError("Will fallback to requeue")));
-            }
-            return Future.value(Result.Ok(undefined));
-          },
-        }),
-        {
-          maxRetries: 3,
-          initialDelayMs: 1000,
+      await workerFactory(contract, {
+        // Retry is enabled by default, but queue has no DLX
+        testConsumer: () => {
+          attemptCount++;
+          if (attemptCount < 2) {
+            return Future.value(Result.Error(new RetryableError("Will fallback to requeue")));
+          }
+          return Future.value(Result.Ok(undefined));
         },
-      );
+      });
 
       // WHEN publishing a message that fails on first attempt
       publishMessage(exchange.name, "test.message", { id: "nodlx-1" });
 
-      // THEN should fallback to legacy requeue behavior and eventually succeed
+      // THEN should fallback to requeue behavior and eventually succeed
       await vi.waitFor(
         () => {
           if (attemptCount < 2) {
@@ -676,10 +600,9 @@ describe("Worker Retry Mechanism", () => {
       });
 
       let attemptCount = 0;
-      await workerFactory(
-        contract,
-        defineHandlers(contract, {
-          testConsumer: () => {
+      await workerFactory(contract, {
+        testConsumer: [
+          () => {
             attemptCount++;
             if (attemptCount < 2) {
               // This triggers a nack with requeue=true in quorum-native mode
@@ -687,11 +610,13 @@ describe("Worker Retry Mechanism", () => {
             }
             return Future.value(Result.Ok(undefined));
           },
-        }),
-        {
-          mode: "quorum-native", // Use quorum queue's native delivery limit
-        },
-      );
+          {
+            retry: {
+              mode: "quorum-native", // Use quorum queue's native delivery limit
+            },
+          },
+        ],
+      });
 
       // WHEN publishing a message that fails on first attempt
       publishMessage(exchange.name, "test.message", { id: "quorum-native-1" });
@@ -753,19 +678,20 @@ describe("Worker Retry Mechanism", () => {
       });
 
       let attemptCount = 0;
-      await workerFactory(
-        contract,
-        defineHandlers(contract, {
-          testConsumer: () => {
+      await workerFactory(contract, {
+        testConsumer: [
+          () => {
             attemptCount++;
             // Always fail - message should be dead-lettered after deliveryLimit
             return Future.value(Result.Error(new RetryableError("Always fails")));
           },
-        }),
-        {
-          mode: "quorum-native",
-        },
-      );
+          {
+            retry: {
+              mode: "quorum-native",
+            },
+          },
+        ],
+      });
 
       // WHEN publishing a message that always fails
       publishMessage(exchange.name, "test.message", { id: "quorum-dlq-1" });

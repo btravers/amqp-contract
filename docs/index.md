@@ -97,17 +97,21 @@ await client.publish("orderCreated", {
 
 ```typescript [3. Consume]
 import { TypedAmqpWorker } from "@amqp-contract/worker";
+import { Future, Result } from "@swan-io/boxed";
 import { contract } from "./contract";
 
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    processOrder: async (message) => {
-      console.log(message.orderId); // ✅ Fully typed!
-    },
+    processOrder: [
+      (message) => {
+        console.log(message.orderId); // ✅ Fully typed!
+        return Future.value(Result.Ok(undefined));
+      },
+      { retry: { maxRetries: 3, initialDelayMs: 1000 } },
+    ],
   },
   urls: ["amqp://localhost"],
-  retry: { maxRetries: 3, initialDelayMs: 1000 },
 }).resultToPromise();
 ```
 
