@@ -817,6 +817,12 @@ importers:
       '@swan-io/boxed':
         specifier: 'catalog:'
         version: 3.2.1(typescript@5.9.3)
+      ts-pattern:
+        specifier: 'catalog:'
+        version: 5.9.0
+      zod:
+        specifier: 'catalog:'
+        version: 4.3.5
     devDependencies:
       '@amqp-contract/testing':
         specifier: workspace:*
@@ -857,9 +863,6 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
-      zod:
-        specifier: 'catalog:'
-        version: 4.3.5
 
   packages/worker-nestjs:
     dependencies:

@@ -1,5 +1,7 @@
 import { brotliDecompress, gunzip, inflate } from "node:zlib";
+import { match } from "ts-pattern";
 import { promisify } from "node:util";
+import { z } from "zod";
 
 const gunzipAsync = promisify(gunzip);
 const inflateAsync = promisify(inflate);
@@ -9,7 +11,9 @@ const brotliDecompressAsync = promisify(brotliDecompress);
  * Supported compression encodings.
  * These values correspond to the HTTP Content-Encoding header values.
  */
-const SUPPORTED_ENCODINGS = ["gzip", "deflate", "br"] as const;
+const SupportedEncodingSchema = z.enum(["gzip", "deflate", "br"]);
+
+type SupportedEncoding = z.infer<typeof SupportedEncodingSchema>;
 
 /**
  * Decompress a buffer based on the content-encoding header.
@@ -40,19 +44,21 @@ export async function decompressBuffer(
     return buffer;
   }
 
-  const encoding = contentEncoding.toLowerCase();
+  const normalizedEncoding = contentEncoding.toLowerCase();
+  const parseResult = SupportedEncodingSchema.safeParse(normalizedEncoding);
 
-  switch (encoding) {
-    case "gzip":
-      return gunzipAsync(buffer);
-    case "deflate":
-      return inflateAsync(buffer);
-    case "br":
-      return brotliDecompressAsync(buffer);
-    default:
-      throw new Error(
-        `Unsupported content-encoding: "${contentEncoding}". ` +
-          `Supported encodings: ${SUPPORTED_ENCODINGS.join(", ")}`,
-      );
+  if (!parseResult.success) {
+    throw new Error(
+      `Unsupported content-encoding: "${contentEncoding}". ` +
+        `Supported encodings: ${SupportedEncodingSchema.options.join(", ")}`,
+    );
   }
+
+  const encoding: SupportedEncoding = parseResult.data;
+
+  return match(encoding)
+    .with("gzip", () => gunzipAsync(buffer))
+    .with("deflate", () => inflateAsync(buffer))
+    .with("br", () => brotliDecompressAsync(buffer))
+    .exhaustive();
 }
