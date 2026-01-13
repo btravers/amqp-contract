@@ -9,7 +9,6 @@ import {
 } from "@amqp-contract/contract";
 import { describe, expect, vi } from "vitest";
 import { RetryableError } from "../errors.js";
-import { defineHandler } from "../handlers.js";
 import { it } from "./fixture.js";
 import { z } from "zod";
 
@@ -408,89 +407,6 @@ describe("Worker Retry Mechanism", () => {
         },
         { timeout: 2000 },
       );
-    });
-  });
-
-  describe("Batch Processing with Retry", () => {
-    it("should retry all messages in a failed batch", async ({ workerFactory, publishMessage }) => {
-      // GIVEN a batch consumer that fails on first attempt
-      const TestMessage = z.object({ id: z.string() });
-
-      const exchange = defineExchange("batch-retry-exchange", "topic", { durable: false });
-      const dlx = defineExchange("batch-retry-dlx", "topic", { durable: false });
-      const queue = defineQueue("batch-retry-queue", {
-        type: "classic",
-        durable: false,
-        deadLetter: {
-          exchange: dlx,
-          routingKey: "batch-retry-queue.dlq",
-        },
-      });
-      const dlq = defineQueue("batch-retry-dlq", { type: "classic", durable: false });
-
-      const contract = defineContract({
-        exchanges: {
-          main: exchange,
-          dlx,
-        },
-        queues: {
-          main: queue,
-          dlq,
-        },
-        bindings: {
-          mainBinding: defineQueueBinding(queue, exchange, {
-            routingKey: "test.#",
-          }),
-          dlqBinding: defineQueueBinding(dlq, dlx, {
-            routingKey: "batch-retry-queue.dlq",
-          }),
-        },
-        consumers: {
-          testConsumer: defineConsumer(queue, defineMessage(TestMessage)),
-        },
-      });
-
-      let batchAttemptCount = 0;
-      await workerFactory(contract, {
-        testConsumer: defineHandler(
-          contract,
-          "testConsumer",
-          () => {
-            batchAttemptCount++;
-            if (batchAttemptCount === 1) {
-              return Future.value(Result.Error(new RetryableError("Batch failed")));
-            }
-            // Second attempt succeeds
-            return Future.value(Result.Ok(undefined));
-          },
-          {
-            batchSize: 3,
-            batchTimeout: 500,
-            retry: {
-              maxRetries: 3,
-              initialDelayMs: 200,
-              jitter: false,
-            },
-          },
-        ),
-      });
-
-      // WHEN publishing 3 messages to form a batch
-      publishMessage(exchange.name, "test.message", { id: "batch-1" });
-      publishMessage(exchange.name, "test.message", { id: "batch-2" });
-      publishMessage(exchange.name, "test.message", { id: "batch-3" });
-
-      // THEN batch should be retried and succeed on second attempt
-      await vi.waitFor(
-        () => {
-          if (batchAttemptCount < 2) {
-            throw new Error("Batch not yet retried");
-          }
-        },
-        { timeout: 3000 },
-      );
-
-      expect(batchAttemptCount).toBe(2);
     });
   });
 

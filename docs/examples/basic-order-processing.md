@@ -362,22 +362,26 @@ const connection = await connect("amqp://localhost");
 const worker = await TypedAmqpWorker.create({
   contract: orderContract,
   handlers: {
-    processOrder: async (message) => {
-      console.log(`[PROCESSING] Order ${message.orderId}`);
-      console.log(`  Customer: ${message.customerId}`);
-      console.log(`  Total: $${message.totalAmount}`);
+    processOrder: ({ payload }) => {
+      console.log(`[PROCESSING] Order ${payload.orderId}`);
+      console.log(`  Customer: ${payload.customerId}`);
+      console.log(`  Total: $${payload.totalAmount}`);
+      return Future.value(Result.Ok(undefined));
     },
 
-    notifyOrder: async (message) => {
-      console.log(`[NOTIFICATION] Order ${message.orderId} event`);
+    notifyOrder: ({ payload }) => {
+      console.log(`[NOTIFICATION] Order ${payload.orderId} event`);
+      return Future.value(Result.Ok(undefined));
     },
 
-    shipOrder: async (message) => {
-      console.log(`[SHIPPING] Order ${message.orderId} - ${message.status}`);
+    shipOrder: ({ payload }) => {
+      console.log(`[SHIPPING] Order ${payload.orderId} - ${payload.status}`);
+      return Future.value(Result.Ok(undefined));
     },
 
-    handleUrgentOrder: async (message) => {
-      console.log(`[URGENT] Order ${message.orderId} - ${message.status}`);
+    handleUrgentOrder: ({ payload }) => {
+      console.log(`[URGENT] Order ${payload.orderId} - ${payload.status}`);
+      return Future.value(Result.Ok(undefined));
     },
   },
   connection,

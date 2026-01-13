@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import type { WorkerInferConsumerInput } from "@amqp-contract/worker";
+import type { WorkerInferConsumedMessage } from "@amqp-contract/worker";
 import { defineUnsafeHandler } from "@amqp-contract/worker";
 import { orderContract } from "@amqp-contract-examples/basic-order-processing-contract";
 
@@ -7,11 +7,13 @@ import { orderContract } from "@amqp-contract-examples/basic-order-processing-co
 export class ShipOrderHandler {
   private readonly logger = new Logger(ShipOrderHandler.name);
 
-  handleMessage = async (message: WorkerInferConsumerInput<typeof orderContract, "shipOrder">) => {
+  handleMessage = async ({
+    payload,
+  }: WorkerInferConsumedMessage<typeof orderContract, "shipOrder">) => {
     this.logger.log(
-      `[SHIPPING] Shipment notification received: ${message.orderId} -> ${message.status}`,
+      `[SHIPPING] Shipment notification received: ${payload.orderId} -> ${payload.status}`,
     );
-    this.logger.log(`Shipping label prepared for order ${message.orderId}`);
+    this.logger.log(`Shipping label prepared for order ${payload.orderId}`);
   };
 
   handler = defineUnsafeHandler(orderContract, "shipOrder", async (message) =>

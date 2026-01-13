@@ -116,16 +116,18 @@ channel.consume("order-processing", (msg) => {
 
 ```typescript [✅ amqp-contract - Fully typed]
 import { TypedAmqpWorker } from "@amqp-contract/worker";
+import { Future, Result } from "@swan-io/boxed";
 import { contract } from "./contract.js";
 
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    processOrder: async (message) => {
-      // ✅ Message is fully typed!
-      console.log(message.orderId); // ✅ Full autocomplete!
-      console.log(message.amount); // ✅ Type-safe!
+    processOrder: ({ payload }) => {
+      // ✅ Payload is fully typed!
+      console.log(payload.orderId); // ✅ Full autocomplete!
+      console.log(payload.amount); // ✅ Type-safe!
       // ✅ Automatic validation - invalid messages rejected!
+      return Future.value(Result.Ok(undefined));
     }, // ✅ Auto-acknowledgment on success!
   },
   urls: ["amqp://localhost"],
@@ -240,10 +242,11 @@ export class OrderController {
 AmqpWorkerModule.forRoot({
   contract,
   handlers: {
-    processOrder: async (message) => {
+    processOrder: ({ payload }) => {
       // ✅ Fully typed!
-      console.log(message.orderId); // ✅ Full autocomplete!
+      console.log(payload.orderId); // ✅ Full autocomplete!
       // ✅ Automatic validation!
+      return Future.value(Result.Ok(undefined));
     },
   },
   urls: ["amqp://localhost"],

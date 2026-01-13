@@ -28,15 +28,15 @@ async function main() {
   const worker = await TypedAmqpWorker.create({
     contract,
     handlers: defineUnsafeHandlers(contract, {
-      processData: async (message) => {
+      processData: async ({ payload }) => {
         // Message is automatically decompressed by the worker
         // You receive the original, validated data structure
-        const messageSize = JSON.stringify(message).length;
+        const messageSize = JSON.stringify(payload).length;
 
         logger.info("📨 Received message:");
-        logger.info(`   ID: ${message.id}`);
-        logger.info(`   Timestamp: ${message.timestamp}`);
-        logger.info(`   Items count: ${message.items.length}`);
+        logger.info(`   ID: ${payload.id}`);
+        logger.info(`   Timestamp: ${payload.timestamp}`);
+        logger.info(`   Items count: ${payload.items.length}`);
         logger.info(`   Decompressed size: ${messageSize} bytes`);
         logger.info(`   → Message was automatically decompressed if needed`);
         logger.info(`   → No configuration required on consumer side`);

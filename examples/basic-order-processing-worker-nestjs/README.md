@@ -77,9 +77,10 @@ import { Logger } from "@nestjs/common";
 
 const logger = new Logger("ProcessOrderHandler");
 
-export const processOrderHandler = defineHandler(orderContract, "processOrder", async (message) => {
-  logger.log(`Processing order: ${message.orderId}`);
+export const processOrderHandler = defineHandler(orderContract, "processOrder", ({ payload }) => {
+  logger.log(`Processing order: ${payload.orderId}`);
   // Handler logic here
+  return Future.value(Result.Ok(undefined));
 });
 ```
 

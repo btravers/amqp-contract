@@ -34,6 +34,7 @@ import {
 } from "@amqp-contract/contract";
 import { TypedAmqpClient } from "@amqp-contract/client";
 import { TypedAmqpWorker } from "@amqp-contract/worker";
+import { Future, Result } from "@swan-io/boxed";
 import { z } from "zod";
 
 // 1. Define resources with Dead Letter Exchange for retry support
@@ -85,8 +86,8 @@ const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: [
-      (message) => {
-        console.log(message.orderId); // ✅ TypeScript knows!
+      ({ payload }) => {
+        console.log(payload.orderId); // ✅ TypeScript knows!
         return Future.value(Result.Ok(undefined));
       },
       { retry: { maxRetries: 3, initialDelayMs: 1000 } },

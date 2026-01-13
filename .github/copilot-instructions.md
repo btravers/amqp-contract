@@ -253,15 +253,15 @@ packages/[package-name]/
    import { defineHandler, RetryableError, NonRetryableError } from "@amqp-contract/worker";
    import { Future, Result } from "@swan-io/boxed";
 
-   const processOrderHandler = defineHandler(contract, "processOrder", (message) =>
-     Future.fromPromise(processPayment(message.orderId))
+   const processOrderHandler = defineHandler(contract, "processOrder", ({ payload }) =>
+     Future.fromPromise(processPayment(payload.orderId))
        .mapOk(() => undefined)
        .mapError((error) => new RetryableError("Payment service unavailable", error)),
    );
 
    // For permanent failures
-   const validateOrderHandler = defineHandler(contract, "validateOrder", (message) => {
-     if (message.amount < 1) {
+   const validateOrderHandler = defineHandler(contract, "validateOrder", ({ payload }) => {
+     if (payload.amount < 1) {
        return Future.value(Result.Error(new NonRetryableError("Invalid amount")));
      }
      return Future.value(Result.Ok(undefined));
@@ -277,8 +277,8 @@ packages/[package-name]/
    // ❌ Deprecated - avoid in new code
    import { defineUnsafeHandler } from "@amqp-contract/worker";
 
-   const legacyHandler = defineUnsafeHandler(contract, "processOrder", async (message) => {
-     await processPayment(message.orderId);
+   const legacyHandler = defineUnsafeHandler(contract, "processOrder", async ({ payload }) => {
+     await processPayment(payload.orderId);
    });
    ```
 
@@ -396,8 +396,9 @@ packages/[package-name]/
        AmqpWorkerModule.forRoot({
          contract,
          handlers: {
-           processOrder: async (message) => {
-             console.log("Processing:", message.orderId);
+           processOrder: ({ payload }) => {
+             console.log("Processing:", payload.orderId);
+             return Future.value(Result.Ok(undefined));
            },
          },
          urls: ["amqp://localhost"],
@@ -534,13 +535,13 @@ packages/[package-name]/
    import { defineHandler, RetryableError, NonRetryableError } from "@amqp-contract/worker";
    import { Future, Result } from "@swan-io/boxed";
 
-   const handler = defineHandler(contract, "processOrder", (message) => {
-     if (!isValidOrder(message)) {
+   const handler = defineHandler(contract, "processOrder", ({ payload }) => {
+     if (!isValidOrder(payload)) {
        // Won't be retried
        return Future.value(Result.Error(new NonRetryableError("Invalid order")));
      }
 
-     return Future.fromPromise(processOrder(message))
+     return Future.fromPromise(processOrder(payload))
        .mapOk(() => undefined)
        .mapError((err) => new RetryableError("Processing failed", err));
    });
@@ -972,13 +973,13 @@ packages/[package-name]/
 
     ```typescript
     // ❌ Bad - using deprecated unsafe handler
-    const handler = defineUnsafeHandler(contract, "processOrder", async (message) => {
-      await processOrder(message);
+    const handler = defineUnsafeHandler(contract, "processOrder", async ({ payload }) => {
+      await processOrder(payload);
     });
 
     // ✅ Good - using safe handler with explicit error handling
-    const handler = defineHandler(contract, "processOrder", (message) =>
-      Future.fromPromise(processOrder(message))
+    const handler = defineHandler(contract, "processOrder", ({ payload }) =>
+      Future.fromPromise(processOrder(payload))
         .mapOk(() => undefined)
         .mapError((err) => new RetryableError("Processing failed", err)),
     );

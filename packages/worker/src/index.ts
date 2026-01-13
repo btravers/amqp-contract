@@ -20,20 +20,15 @@ export type {
   RetryOptions,
   TtlBackoffRetryOptions,
   // Safe handler types (recommended)
-  WorkerInferSafeConsumerBatchHandler,
   WorkerInferSafeConsumerHandler,
   WorkerInferSafeConsumerHandlerEntry,
   WorkerInferSafeConsumerHandlers,
-  // Unsafe handler types (legacy)
-  WorkerInferUnsafeConsumerBatchHandler,
+  // Unsafe handler types
   WorkerInferUnsafeConsumerHandler,
   WorkerInferUnsafeConsumerHandlerEntry,
   WorkerInferUnsafeConsumerHandlers,
-  // Legacy aliases (deprecated)
-  WorkerInferConsumerBatchHandler,
-  WorkerInferConsumerHandler,
-  WorkerInferConsumerHandlerEntry,
-  WorkerInferConsumerHandlers,
   // Common types
-  WorkerInferConsumerInput,
+  WorkerConsumedMessage,
+  WorkerInferConsumedMessage,
+  WorkerInferConsumerHeaders,
 } from "./types.js";

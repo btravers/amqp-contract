@@ -251,6 +251,7 @@ Create `consumer.ts` - processes messages:
 ```typescript
 // consumer.ts
 import { TypedAmqpWorker } from "@amqp-contract/worker";
+import { Future, Result } from "@swan-io/boxed";
 import { contract } from "./contract.js";
 
 async function main() {
@@ -260,16 +261,18 @@ async function main() {
   const worker = await TypedAmqpWorker.create({
     contract,
     handlers: {
-      processEmail: async (message) => {
-        // Message is fully typed!
+      processEmail: ({ payload }) => {
+        // Payload is fully typed!
         console.log("\n📬 Received email:");
-        console.log(`  To: ${message.to}`);
-        console.log(`  Subject: ${message.subject}`);
-        console.log(`  Body: ${message.body}`);
+        console.log(`  To: ${payload.to}`);
+        console.log(`  Subject: ${payload.subject}`);
+        console.log(`  Body: ${payload.body}`);
 
         // Simulate sending email
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        console.log("✅ Email sent successfully!");
+        return Future.fromPromise(new Promise((resolve) => setTimeout(resolve, 1000))).mapOk(() => {
+          console.log("✅ Email sent successfully!");
+          return undefined;
+        });
       },
     },
     urls: ["amqp://localhost"],

@@ -179,19 +179,20 @@ import { contract } from "./contract";
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    // ✅ message is fully typed based on your schema
-    processOrder: async (message) => {
-      console.log(`Processing order: ${message.orderId}`);
-      console.log(`Customer: ${message.customerId}`);
-      console.log(`Total: $${message.totalAmount}`);
+    // ✅ payload is fully typed based on your schema
+    processOrder: ({ payload }) => {
+      console.log(`Processing order: ${payload.orderId}`);
+      console.log(`Customer: ${payload.customerId}`);
+      console.log(`Total: $${payload.totalAmount}`);
 
       // ✅ Full autocomplete for all fields
-      message.items.forEach((item) => {
+      payload.items.forEach((item) => {
         console.log(`- ${item.quantity}x Product ${item.productId}`);
       });
 
       // ✅ TypeScript catches typos and wrong field names
-      // console.log(message.ordreId); // ❌ TypeScript error!
+      // console.log(payload.ordreId); // ❌ TypeScript error!
+      return Future.value(Result.Ok(undefined));
     },
   },
   urls: ["amqp://localhost"],
@@ -301,8 +302,9 @@ import { contract } from "./contract";
     AmqpWorkerModule.forRoot({
       contract,
       handlers: {
-        processOrder: async (message) => {
-          console.log("Processing:", message.orderId);
+        processOrder: ({ payload }) => {
+          console.log("Processing:", payload.orderId);
+          return Future.value(Result.Ok(undefined));
         },
       },
       urls: [process.env.RABBITMQ_URL],

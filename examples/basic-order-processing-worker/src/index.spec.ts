@@ -13,8 +13,8 @@ describe("Basic Order Processing Worker Integration", () => {
     const worker = await TypedAmqpWorker.create({
       contract: orderContract,
       handlers: defineUnsafeHandlers(orderContract, {
-        processOrder: async (msg) => {
-          processedOrders.push(msg);
+        processOrder: async ({ payload }) => {
+          processedOrders.push(payload);
         },
         notifyOrder: async () => {},
         shipOrder: async () => {},
@@ -58,8 +58,8 @@ describe("Basic Order Processing Worker Integration", () => {
       contract: orderContract,
       handlers: defineUnsafeHandlers(orderContract, {
         processOrder: async () => {},
-        notifyOrder: async (msg) => {
-          notifications.push(msg);
+        notifyOrder: async ({ payload }) => {
+          notifications.push(payload);
         },
         shipOrder: async () => {},
         handleUrgentOrder: async () => {},
@@ -113,11 +113,11 @@ describe("Basic Order Processing Worker Integration", () => {
     const worker = await TypedAmqpWorker.create({
       contract: orderContract,
       handlers: defineUnsafeHandlers(orderContract, {
-        processOrder: async (msg) => {
-          processedOrders.push(msg);
+        processOrder: async ({ payload }) => {
+          processedOrders.push(payload);
         },
-        notifyOrder: async (msg) => {
-          notifications.push(msg);
+        notifyOrder: async ({ payload }) => {
+          notifications.push(payload);
         },
         shipOrder: async () => {},
         handleUrgentOrder: async () => {},

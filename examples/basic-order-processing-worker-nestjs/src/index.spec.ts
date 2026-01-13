@@ -47,8 +47,10 @@ describe("NestJS Worker Integration", () => {
     await vi.waitFor(() => expect(handlerSpy).toHaveBeenCalledTimes(1));
     expect(handlerSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        orderId: "ORD-TEST-001",
-        customerId: "CUST-123",
+        payload: expect.objectContaining({
+          orderId: "ORD-TEST-001",
+          customerId: "CUST-123",
+        }),
       }),
     );
   });
@@ -76,8 +78,10 @@ describe("NestJS Worker Integration", () => {
     await vi.waitFor(() => expect(handlerSpy).toHaveBeenCalledTimes(1));
     expect(handlerSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        orderId: "ORD-TEST-002",
-        status: "processing",
+        payload: expect.objectContaining({
+          orderId: "ORD-TEST-002",
+          status: "processing",
+        }),
       }),
     );
   });
@@ -105,8 +109,10 @@ describe("NestJS Worker Integration", () => {
     await vi.waitFor(() => expect(handlerSpy).toHaveBeenCalledTimes(1));
     expect(handlerSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        orderId: "ORD-TEST-003",
-        status: "shipped",
+        payload: expect.objectContaining({
+          orderId: "ORD-TEST-003",
+          status: "shipped",
+        }),
       }),
     );
   });
@@ -134,8 +140,10 @@ describe("NestJS Worker Integration", () => {
     await vi.waitFor(() => expect(handlerSpy).toHaveBeenCalledTimes(1));
     expect(handlerSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        orderId: "ORD-TEST-004",
-        status: "cancelled",
+        payload: expect.objectContaining({
+          orderId: "ORD-TEST-004",
+          status: "cancelled",
+        }),
       }),
     );
   });
@@ -168,7 +176,9 @@ describe("NestJS Worker Integration", () => {
     await vi.waitFor(() => expect(handlerSpy).toHaveBeenCalledTimes(1));
     expect(handlerSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        orderId: "ORD-TEST-005",
+        payload: expect.objectContaining({
+          orderId: "ORD-TEST-005",
+        }),
       }),
     );
   });

@@ -113,9 +113,10 @@ Consumers automatically handle decompression:
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    processData: async (message) => {
+    processData: ({ payload }) => {
       // Message is already decompressed here!
-      console.log(message.items.length);
+      console.log(payload.items.length);
+      return Future.value(Result.Ok(undefined));
     },
   },
   urls: ["amqp://localhost"],

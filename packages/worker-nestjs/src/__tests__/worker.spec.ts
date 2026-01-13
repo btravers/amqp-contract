@@ -105,10 +105,15 @@ describe("AmqpWorkerModule Integration", () => {
 
       // THEN - handler should be called
       await vi.waitFor(() => {
-        expect(handler).toHaveBeenCalledWith({
-          id: "123",
-          message: "Hello from integration test!",
-        });
+        expect(handler).toHaveBeenCalledWith(
+          expect.objectContaining({
+            payload: {
+              id: "123",
+              message: "Hello from integration test!",
+            },
+          }),
+          expect.anything(), // rawMessage
+        );
       });
 
       await moduleRef.close();
