@@ -323,20 +323,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       );
     }
 
-    // Validate that all handler keys correspond to consumers in the contract
-    const consumerNames = contract.consumers ? Object.keys(contract.consumers) : [];
-    for (const handlerKey of handlerKeys) {
-      if (!consumerNames.includes(handlerKey)) {
-        return Future.value(
-          Result.Error(
-            new TechnicalError(
-              `Handler "${handlerKey}" does not match any consumer in the contract. ` +
-                `Available consumers: ${consumerNames.length > 0 ? consumerNames.join(", ") : "none"}`,
-            ),
-          ),
-        );
-      }
-    }
+    // Note: Handler-to-consumer validation is already performed by defineHandlers/defineUnsafeHandlers
+    // which should be used to create the handlers object. No duplicate validation needed here.
 
     const worker = new TypedAmqpWorker(
       contract,
