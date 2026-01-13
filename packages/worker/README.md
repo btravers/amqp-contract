@@ -72,25 +72,29 @@ For advanced features like prefetch configuration, batch processing, and **autom
 
 #### Retry with Exponential Backoff
 
-Enable automatic retry for failed messages:
+Retry is enabled by default for all consumers. Configure per-consumer retry options using the handler tuple syntax:
 
 ```typescript
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    processOrder: async (message) => {
-      // If this throws, message is automatically retried with exponential backoff
-      await processPayment(message);
-    },
+    processOrder: [
+      async (message) => {
+        // If this throws, message is automatically retried with exponential backoff
+        await processPayment(message);
+      },
+      {
+        retry: {
+          maxRetries: 3, // Retry up to 3 times (default: 3)
+          initialDelayMs: 1000, // Start with 1 second delay (default: 1000)
+          maxDelayMs: 30000, // Max 30 seconds between retries (default: 30000)
+          backoffMultiplier: 2, // Double the delay each time (default: 2)
+          jitter: true, // Add randomness to prevent thundering herd (default: true)
+        },
+      },
+    ],
   },
   urls: ["amqp://localhost"],
-  retry: {
-    maxRetries: 3, // Retry up to 3 times
-    initialDelayMs: 1000, // Start with 1 second delay
-    maxDelayMs: 30000, // Max 30 seconds between retries
-    backoffMultiplier: 2, // Double the delay each time
-    jitter: true, // Add randomness to prevent thundering herd
-  },
 });
 ```
 
@@ -113,8 +117,7 @@ handlers: {
       // Message acknowledged automatically on success
     } catch (error) {
       // Exception automatically caught by worker
-      // With retry configured: message is retried with exponential backoff
-      // Without retry: message is immediately requeued
+      // Retry is enabled by default with exponential backoff
       throw error;
     }
   };
@@ -127,9 +130,9 @@ Worker defines error classes:
 
 - `TechnicalError` - Runtime failures (parsing, processing)
 - `MessageValidationError` - Message fails schema validation
-- `RetryableError` - Optional error class for explicit retry signaling (all errors are retryable by default when retry is configured)
+- `RetryableError` - Optional error class for explicit retry signaling (all errors are retryable by default)
 
-**Handlers don't need to use these error classes** - just throw standard exceptions. The worker handles retry automatically based on your configuration.
+**Handlers don't need to use these error classes** - just throw standard exceptions. The worker handles retry automatically.
 
 ## API
 

@@ -80,16 +80,18 @@ await client.publish("orderCreated", {
   amount: 99.99,
 });
 
-// 7. Type-safe consuming with reliable retry
+// 7. Type-safe consuming with reliable retry (per-consumer configuration)
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    processOrder: async (message) => {
-      console.log(message.orderId); // ✅ TypeScript knows!
-    },
+    processOrder: [
+      async (message) => {
+        console.log(message.orderId); // ✅ TypeScript knows!
+      },
+      { retry: { maxRetries: 3, initialDelayMs: 1000 } },
+    ],
   },
   urls: ["amqp://localhost"],
-  retry: { maxRetries: 3, initialDelayMs: 1000 },
 }).resultToPromise();
 ```
 

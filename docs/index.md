@@ -102,12 +102,14 @@ import { contract } from "./contract";
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    processOrder: async (message) => {
-      console.log(message.orderId); // ✅ Fully typed!
-    },
+    processOrder: [
+      async (message) => {
+        console.log(message.orderId); // ✅ Fully typed!
+      },
+      { retry: { maxRetries: 3, initialDelayMs: 1000 } },
+    ],
   },
   urls: ["amqp://localhost"],
-  retry: { maxRetries: 3, initialDelayMs: 1000 },
 }).resultToPromise();
 ```
 
