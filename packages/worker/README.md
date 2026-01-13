@@ -46,14 +46,13 @@ const logger: Logger = {
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    processOrder: async (message) => {
+    processOrder: (message) => {
       console.log("Processing order:", message.orderId);
 
       // Your business logic here
-      await processPayment(message);
-      await updateInventory(message);
-
-      // If an exception is thrown, the message is automatically requeued
+      return Future.fromPromise(Promise.all([processPayment(message), updateInventory(message)]))
+        .mapOk(() => undefined)
+        .mapError((error) => new RetryableError("Order processing failed", error));
     },
   },
   urls: ["amqp://localhost"],
@@ -75,14 +74,18 @@ For advanced features like prefetch configuration, batch processing, and **autom
 Retry is enabled by default for all consumers. Configure per-consumer retry options using the handler tuple syntax:
 
 ```typescript
+import { TypedAmqpWorker, RetryableError } from "@amqp-contract/worker";
+import { Future } from "@swan-io/boxed";
+
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: [
-      async (message) => {
-        // If this throws, message is automatically retried with exponential backoff
-        await processPayment(message);
-      },
+      (message) =>
+        // If this fails, message is automatically retried with exponential backoff
+        Future.fromPromise(processPayment(message))
+          .mapOk(() => undefined)
+          .mapError((error) => new RetryableError("Payment failed", error)),
       {
         retry: {
           maxRetries: 3, // Retry up to 3 times (default: 3)
@@ -106,21 +109,24 @@ You can define handlers outside of the worker creation using `defineHandler` and
 
 ## Error Handling
 
-Worker handlers use standard Promise-based async/await pattern:
+Worker handlers return `Future<Result<void, HandlerError>>` for explicit error handling:
 
 ```typescript
+import { RetryableError, NonRetryableError } from "@amqp-contract/worker";
+import { Future, Result } from "@swan-io/boxed";
+
 handlers: {
-  processOrder: async (message) => {
-    // Standard async/await - no Result wrapping needed
-    try {
-      await process(message);
-      // Message acknowledged automatically on success
-    } catch (error) {
-      // Exception automatically caught by worker
-      // Retry is enabled by default with exponential backoff
-      throw error;
+  processOrder: (message) => {
+    // Validation errors - non-retryable
+    if (message.amount <= 0) {
+      return Future.value(Result.Error(new NonRetryableError("Invalid amount")));
     }
-  };
+
+    // Transient errors - retryable
+    return Future.fromPromise(process(message))
+      .mapOk(() => undefined)
+      .mapError((error) => new RetryableError("Processing failed", error));
+  },
 }
 ```
 
@@ -130,9 +136,8 @@ Worker defines error classes:
 
 - `TechnicalError` - Runtime failures (parsing, processing)
 - `MessageValidationError` - Message fails schema validation
-- `RetryableError` - Optional error class for explicit retry signaling (all errors are retryable by default)
-
-**Handlers don't need to use these error classes** - just throw standard exceptions. The worker handles retry automatically.
+- `RetryableError` - Signals that the error is transient and should be retried
+- `NonRetryableError` - Signals permanent failure, message goes to DLQ
 
 ## API
 

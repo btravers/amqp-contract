@@ -85,8 +85,9 @@ const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: [
-      async (message) => {
+      (message) => {
         console.log(message.orderId); // ✅ TypeScript knows!
+        return Future.value(Result.Ok(undefined));
       },
       { retry: { maxRetries: 3, initialDelayMs: 1000 } },
     ],
