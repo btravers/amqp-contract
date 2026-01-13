@@ -1,15 +1,16 @@
 import type { ContractDefinition, InferConsumerNames } from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
+import type { ConsumeMessage } from "amqplib";
+import type { HandlerError } from "./errors.js";
 import { NonRetryableError, RetryableError } from "./errors.js";
 import type {
   RetryOptions,
-  WorkerInferConsumerInput,
+  WorkerInferConsumedMessage,
   WorkerInferSafeConsumerBatchHandler,
   WorkerInferSafeConsumerHandler,
   WorkerInferSafeConsumerHandlerEntry,
   WorkerInferSafeConsumerHandlers,
 } from "./types.js";
-import type { HandlerError } from "./errors.js";
 
 // =============================================================================
 // Helper Functions
@@ -58,11 +59,11 @@ function validateHandlers<TContract extends ContractDefinition>(
  * Wrap a Promise-based handler into a Future-based safe handler.
  * This is used internally by defineUnsafeHandler to convert Promise handlers to Future handlers.
  */
-function wrapUnsafeHandler<TInput>(
-  handler: (input: TInput) => Promise<void>,
-): (input: TInput) => Future<Result<void, HandlerError>> {
-  return (input: TInput): Future<Result<void, HandlerError>> => {
-    return Future.fromPromise(handler(input))
+function wrapUnsafeHandler<TInput, TRaw>(
+  handler: (input: TInput, raw: TRaw) => Promise<void>,
+): (input: TInput, raw: TRaw) => Future<Result<void, HandlerError>> {
+  return (input: TInput, raw: TRaw): Future<Result<void, HandlerError>> => {
+    return Future.fromPromise(handler(input, raw))
       .mapOkToResult(() => Result.Ok<void, HandlerError>(undefined))
       .flatMapError((error) => {
         // Check if error is already a HandlerError type
@@ -224,7 +225,10 @@ export function defineHandlers<TContract extends ContractDefinition>(
 type UnsafeHandler<
   TContract extends ContractDefinition,
   TName extends InferConsumerNames<TContract>,
-> = (message: WorkerInferConsumerInput<TContract, TName>) => Promise<void>;
+> = (
+  message: WorkerInferConsumedMessage<TContract, TName>,
+  rawMessage: ConsumeMessage,
+) => Promise<void>;
 
 /**
  * Unsafe handler type for batch messages (internal use).
@@ -232,7 +236,10 @@ type UnsafeHandler<
 type UnsafeBatchHandler<
   TContract extends ContractDefinition,
   TName extends InferConsumerNames<TContract>,
-> = (messages: Array<WorkerInferConsumerInput<TContract, TName>>) => Promise<void>;
+> = (
+  messages: Array<WorkerInferConsumedMessage<TContract, TName>>,
+  rawMessages: ConsumeMessage[],
+) => Promise<void>;
 
 /**
  * Define an unsafe handler for a specific consumer in a contract.
@@ -308,7 +315,9 @@ export function defineUnsafeHandler<
   validateConsumerExists(contract, String(consumerName));
 
   // Wrap the Promise-based handler into a Future-based handler
-  const wrappedHandler = wrapUnsafeHandler(handler as (input: unknown) => Promise<void>);
+  const wrappedHandler = wrapUnsafeHandler(
+    handler as (input: unknown, raw: unknown) => Promise<void>,
+  );
 
   if (options) {
     return [wrappedHandler, options] as WorkerInferSafeConsumerHandlerEntry<TContract, TName>;
@@ -383,13 +392,13 @@ export function defineUnsafeHandlers<TContract extends ContractDefinition>(
     if (Array.isArray(entry)) {
       // Tuple format: [handler, options]
       const [handler, options] = entry as [
-        (input: unknown) => Promise<void>,
+        (input: unknown, raw: unknown) => Promise<void>,
         { prefetch?: number; batchSize?: number; batchTimeout?: number },
       ];
       result[name] = [wrapUnsafeHandler(handler), options];
     } else {
       // Direct function format
-      result[name] = wrapUnsafeHandler(entry as (input: unknown) => Promise<void>);
+      result[name] = wrapUnsafeHandler(entry as (input: unknown, raw: unknown) => Promise<void>);
     }
   }
 

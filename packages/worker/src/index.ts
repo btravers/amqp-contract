@@ -35,5 +35,8 @@ export type {
   WorkerInferConsumerHandlerEntry,
   WorkerInferConsumerHandlers,
   // Common types
+  WorkerConsumedMessage,
+  WorkerInferConsumedMessage,
+  WorkerInferConsumerHeaders,
   WorkerInferConsumerInput,
 } from "./types.js";

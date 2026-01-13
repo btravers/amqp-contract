@@ -2,10 +2,12 @@ import type {
   ConsumerDefinition,
   ContractDefinition,
   InferConsumerNames,
+  MessageDefinition,
 } from "@amqp-contract/contract";
-import type { Future, Result } from "@swan-io/boxed";
-import type { HandlerError } from "./errors.js";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
+import type { Future, Result } from "@swan-io/boxed";
+import type { ConsumeMessage } from "amqplib";
+import type { HandlerError } from "./errors.js";
 
 /**
  * TTL-Backoff retry options for exponential backoff with configurable delays.
@@ -108,11 +110,22 @@ type InferSchemaInput<TSchema extends StandardSchemaV1> =
   TSchema extends StandardSchemaV1<infer TInput> ? TInput : never;
 
 /**
- * Infer consumer message input type
+ * Infer consumer message payload input type
  */
-type ConsumerInferInput<TConsumer extends ConsumerDefinition> = InferSchemaInput<
+type ConsumerInferPayloadInput<TConsumer extends ConsumerDefinition> = InferSchemaInput<
   TConsumer["message"]["payload"]
 >;
+
+/**
+ * Infer consumer message headers input type
+ * Returns undefined if no headers schema is defined
+ */
+type ConsumerInferHeadersInput<TConsumer extends ConsumerDefinition> =
+  TConsumer["message"] extends MessageDefinition<infer _TPayload, infer THeaders>
+    ? THeaders extends StandardSchemaV1<Record<string, unknown>>
+      ? InferSchemaInput<THeaders>
+      : undefined
+    : undefined;
 
 /**
  * Infer all consumers from contract
@@ -128,12 +141,66 @@ type InferConsumer<
 > = InferConsumers<TContract>[TName];
 
 /**
- * Worker perspective types - for consuming messages
+ * Worker perspective types - for consuming messages (payload only)
+ * @deprecated Use WorkerConsumedMessage for the full message including headers
  */
 export type WorkerInferConsumerInput<
   TContract extends ContractDefinition,
   TName extends InferConsumerNames<TContract>,
-> = ConsumerInferInput<InferConsumer<TContract, TName>>;
+> = ConsumerInferPayloadInput<InferConsumer<TContract, TName>>;
+
+/**
+ * Infer the headers type for a specific consumer
+ * Returns undefined if no headers schema is defined
+ */
+export type WorkerInferConsumerHeaders<
+  TContract extends ContractDefinition,
+  TName extends InferConsumerNames<TContract>,
+> = ConsumerInferHeadersInput<InferConsumer<TContract, TName>>;
+
+/**
+ * A consumed message containing parsed payload and headers.
+ *
+ * This type represents the first argument passed to consumer handlers.
+ * It contains the validated payload and (if defined in the message schema) the validated headers.
+ *
+ * @template TPayload - The inferred payload type from the message schema
+ * @template THeaders - The inferred headers type from the message schema (undefined if not defined)
+ *
+ * @example
+ * ```typescript
+ * // Handler receives the consumed message with typed payload and headers
+ * const handler = defineHandler(contract, 'processOrder', (message, rawMessage) => {
+ *   console.log(message.payload.orderId);  // Typed payload
+ *   console.log(message.headers?.priority); // Typed headers (if defined)
+ *   console.log(rawMessage.fields.deliveryTag); // Raw AMQP message
+ *   return Future.value(Result.Ok(undefined));
+ * });
+ * ```
+ */
+export type WorkerConsumedMessage<TPayload, THeaders = undefined> = THeaders extends undefined
+  ? {
+      /** The validated message payload */
+      payload: TPayload;
+    }
+  : {
+      /** The validated message payload */
+      payload: TPayload;
+      /** The validated message headers */
+      headers: THeaders;
+    };
+
+/**
+ * Infer the full consumed message type for a specific consumer.
+ * Includes both payload and headers (if defined).
+ */
+export type WorkerInferConsumedMessage<
+  TContract extends ContractDefinition,
+  TName extends InferConsumerNames<TContract>,
+> = WorkerConsumedMessage<
+  WorkerInferConsumerInput<TContract, TName>,
+  WorkerInferConsumerHeaders<TContract, TName>
+>;
 
 // =============================================================================
 // Safe Handler Types (Recommended)
@@ -150,41 +217,61 @@ export type WorkerInferConsumerInput<
  * - RetryableError: Message will be retried with exponential backoff
  * - NonRetryableError: Message will be immediately sent to DLQ
  *
+ * @param message - The parsed message containing validated payload and headers
+ * @param rawMessage - The raw AMQP message with all metadata (fields, properties, content)
+ *
  * @example
  * ```typescript
  * const handler: WorkerInferSafeConsumerHandler<typeof contract, 'processOrder'> =
- *   (message) => Future.value(Result.Ok(undefined));
+ *   (message, rawMessage) => {
+ *     console.log(message.payload.orderId);  // Typed payload
+ *     console.log(rawMessage.fields.deliveryTag); // Raw AMQP message
+ *     return Future.value(Result.Ok(undefined));
+ *   };
  * ```
  */
 export type WorkerInferSafeConsumerHandler<
   TContract extends ContractDefinition,
   TName extends InferConsumerNames<TContract>,
-> = (message: WorkerInferConsumerInput<TContract, TName>) => Future<Result<void, HandlerError>>;
+> = (
+  message: WorkerInferConsumedMessage<TContract, TName>,
+  rawMessage: ConsumeMessage,
+) => Future<Result<void, HandlerError>>;
 
 /**
  * Safe consumer handler type for batch processing.
  * Returns a `Future<Result<void, HandlerError>>` for explicit error handling.
  *
+ * @param messages - Array of parsed messages with validated payload and headers
+ * @param rawMessages - Array of raw AMQP messages (same order as messages)
+ *
  * @example
  * ```typescript
  * const handler: WorkerInferSafeConsumerBatchHandler<typeof contract, 'processOrders'> =
- *   (messages) => Future.value(Result.Ok(undefined));
+ *   (messages, rawMessages) => {
+ *     messages.forEach((msg, i) => {
+ *       console.log(msg.payload.orderId);
+ *       console.log(rawMessages[i].fields.deliveryTag);
+ *     });
+ *     return Future.value(Result.Ok(undefined));
+ *   };
  * ```
  */
 export type WorkerInferSafeConsumerBatchHandler<
   TContract extends ContractDefinition,
   TName extends InferConsumerNames<TContract>,
 > = (
-  messages: Array<WorkerInferConsumerInput<TContract, TName>>,
+  messages: Array<WorkerInferConsumedMessage<TContract, TName>>,
+  rawMessages: ConsumeMessage[],
 ) => Future<Result<void, HandlerError>>;
 
 /**
  * Safe handler entry for a consumer - either a function or a tuple of [handler, options].
  *
  * Three patterns are supported:
- * 1. Simple handler: `(message) => Future.value(Result.Ok(undefined))`
- * 2. Handler with prefetch and/or retry: `[(message) => ..., { prefetch: 10, retry: { maxRetries: 3 } }]`
- * 3. Batch handler: `[(messages) => ..., { batchSize: 5, batchTimeout: 1000, retry: { mode: "ttl-backoff" } }]`
+ * 1. Simple handler: `(message, rawMessage) => Future.value(Result.Ok(undefined))`
+ * 2. Handler with prefetch and/or retry: `[(message, rawMessage) => ..., { prefetch: 10, retry: { maxRetries: 3 } }]`
+ * 3. Batch handler: `[(messages, rawMessages) => ..., { batchSize: 5, batchTimeout: 1000, retry: { mode: "ttl-backoff" } }]`
  */
 export type WorkerInferSafeConsumerHandlerEntry<
   TContract extends ContractDefinition,
@@ -222,6 +309,9 @@ export type WorkerInferSafeConsumerHandlers<TContract extends ContractDefinition
  * @deprecated Prefer using safe handlers (WorkerInferSafeConsumerHandler) that return
  * `Future<Result<void, HandlerError>>` for better error handling.
  *
+ * @param message - The parsed message containing validated payload and headers
+ * @param rawMessage - The raw AMQP message with all metadata (fields, properties, content)
+ *
  * **Note:** When using unsafe handlers:
  * - All thrown errors are treated as retryable by default (when retry is configured)
  * - Use RetryableError or NonRetryableError to control retry behavior explicitly
@@ -229,7 +319,10 @@ export type WorkerInferSafeConsumerHandlers<TContract extends ContractDefinition
 export type WorkerInferUnsafeConsumerHandler<
   TContract extends ContractDefinition,
   TName extends InferConsumerNames<TContract>,
-> = (message: WorkerInferConsumerInput<TContract, TName>) => Promise<void>;
+> = (
+  message: WorkerInferConsumedMessage<TContract, TName>,
+  rawMessage: ConsumeMessage,
+) => Promise<void>;
 
 /**
  * Unsafe consumer handler type for batch processing.
@@ -237,11 +330,17 @@ export type WorkerInferUnsafeConsumerHandler<
  *
  * @deprecated Prefer using safe handlers (WorkerInferSafeConsumerBatchHandler) that return
  * `Future<Result<void, HandlerError>>` for better error handling.
+ *
+ * @param messages - Array of parsed messages with validated payload and headers
+ * @param rawMessages - Array of raw AMQP messages (same order as messages)
  */
 export type WorkerInferUnsafeConsumerBatchHandler<
   TContract extends ContractDefinition,
   TName extends InferConsumerNames<TContract>,
-> = (messages: Array<WorkerInferConsumerInput<TContract, TName>>) => Promise<void>;
+> = (
+  messages: Array<WorkerInferConsumedMessage<TContract, TName>>,
+  rawMessages: ConsumeMessage[],
+) => Promise<void>;
 
 /**
  * Unsafe handler entry for a consumer - either a function or a tuple of [handler, options].

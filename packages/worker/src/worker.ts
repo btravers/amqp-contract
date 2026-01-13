@@ -9,7 +9,7 @@ import {
   startConsumeSpan,
 } from "@amqp-contract/core";
 import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
-import type { Channel, Message } from "amqplib";
+import type { Channel, ConsumeMessage, Message } from "amqplib";
 import type {
   ConsumerDefinition,
   ContractDefinition,
@@ -20,7 +20,7 @@ import { MessageValidationError, NonRetryableError, TechnicalError } from "./err
 import type {
   RetryMode,
   RetryOptions,
-  WorkerInferConsumerInput,
+  WorkerInferConsumedMessage,
   WorkerInferSafeConsumerBatchHandler,
   WorkerInferSafeConsumerHandler,
   WorkerInferSafeConsumerHandlers,
@@ -616,7 +616,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         options,
         // All handlers are now safe handlers (Future<Result>)
         handler as (
-          messages: Array<WorkerInferConsumerInput<TContract, TName>>,
+          messages: Array<WorkerInferConsumedMessage<TContract, TName>>,
+          rawMessages: ConsumeMessage[],
         ) => Future<Result<void, HandlerError>>,
       );
     } else {
@@ -625,7 +626,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         consumer,
         // All handlers are now safe handlers (Future<Result>)
         handler as (
-          message: WorkerInferConsumerInput<TContract, TName>,
+          message: WorkerInferConsumedMessage<TContract, TName>,
+          rawMessage: ConsumeMessage,
         ) => Future<Result<void, HandlerError>>,
       );
     }
@@ -633,13 +635,13 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
   /**
    * Parse and validate a message from AMQP
-   * @returns `Future<Result<validated message, void>>` - Ok with validated message, or Error (already handled with nack)
+   * @returns `Future<Result<consumed message, void>>` - Ok with validated consumed message (payload + headers), or Error (already handled with nack)
    */
   private parseAndValidateMessage<TName extends InferConsumerNames<TContract>>(
     msg: Message,
     consumer: ConsumerDefinition,
     consumerName: TName,
-  ): Future<Result<WorkerInferConsumerInput<TContract, TName>, void>> {
+  ): Future<Result<WorkerInferConsumedMessage<TContract, TName>, void>> {
     // Decompress message if needed
     const decompressMessage = Future.fromPromise(
       decompressBuffer(msg.content, msg.properties.contentEncoding),
@@ -672,15 +674,15 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       return Future.value(Result.Ok(parseResult.value));
     };
 
-    // Validate message
-    const validateMessage = (parsedMessage: unknown) => {
+    // Validate payload
+    const validatePayload = (parsedMessage: unknown) => {
       const rawValidation = consumer.message.payload["~standard"].validate(parsedMessage);
       return Future.fromPromise(
         rawValidation instanceof Promise ? rawValidation : Promise.resolve(rawValidation),
       ).mapOkToResult((validationResult) => {
         if (validationResult.issues) {
           const error = new MessageValidationError(String(consumerName), validationResult.issues);
-          this.logger?.error("Message validation failed", {
+          this.logger?.error("Message payload validation failed", {
             consumerName: String(consumerName),
             queueName: consumer.queue.name,
             error,
@@ -688,19 +690,72 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
           // Reject message with no requeue (validation failed)
           this.amqpClient.channel.nack(msg, false, false);
-          return Result.Error(undefined) as Result<
-            WorkerInferConsumerInput<TContract, TName>,
-            void
-          >;
+          return Result.Error(undefined);
         }
 
-        return Result.Ok(validationResult.value as WorkerInferConsumerInput<TContract, TName>);
-      }) as Future<Result<WorkerInferConsumerInput<TContract, TName>, void>>;
+        return Result.Ok(validationResult.value);
+      });
     };
 
-    return decompressMessage.flatMapOk(parseMessage).flatMapOk(validateMessage) as Future<
-      Result<WorkerInferConsumerInput<TContract, TName>, void>
-    >;
+    // Validate headers (if schema is defined)
+    const validateHeaders = (): Future<Result<unknown, void>> => {
+      const headersSchema = consumer.message.headers;
+      if (!headersSchema) {
+        // No headers schema defined - return undefined for headers
+        return Future.value(Result.Ok(undefined));
+      }
+
+      const rawHeaders = msg.properties.headers ?? {};
+      // Type assertion needed because headers is typed as THeaders | undefined
+      // but we've already checked it's defined above
+      const schema = headersSchema as { "~standard": { validate: (data: unknown) => unknown } };
+      const rawValidation = schema["~standard"].validate(rawHeaders);
+      return Future.fromPromise(
+        rawValidation instanceof Promise ? rawValidation : Promise.resolve(rawValidation),
+      ).mapOkToResult(
+        (validationResult: { issues?: unknown; value?: unknown } | { value: unknown }) => {
+          if ("issues" in validationResult && validationResult.issues) {
+            const error = new MessageValidationError(
+              String(consumerName),
+              `Headers validation failed: ${JSON.stringify(validationResult.issues)}`,
+            );
+            this.logger?.error("Message headers validation failed", {
+              consumerName: String(consumerName),
+              queueName: consumer.queue.name,
+              error,
+            });
+
+            // Reject message with no requeue (validation failed)
+            this.amqpClient.channel.nack(msg, false, false);
+            return Result.Error<unknown, void>(undefined);
+          }
+
+          return Result.Ok<unknown, void>(validationResult.value);
+        },
+      );
+    };
+
+    // Build the consumed message
+    const buildConsumedMessage = (
+      validatedPayload: unknown,
+    ): Future<Result<WorkerInferConsumedMessage<TContract, TName>, void>> => {
+      return validateHeaders().mapOk((validatedHeaders) => {
+        if (validatedHeaders === undefined) {
+          // No headers schema - return payload only
+          return { payload: validatedPayload } as WorkerInferConsumedMessage<TContract, TName>;
+        }
+        // Headers schema defined - return both payload and headers
+        return {
+          payload: validatedPayload,
+          headers: validatedHeaders,
+        } as WorkerInferConsumedMessage<TContract, TName>;
+      });
+    };
+
+    return decompressMessage
+      .flatMapOk(parseMessage)
+      .flatMapOk(validatePayload)
+      .flatMapOk(buildConsumedMessage);
   }
 
   /**
@@ -710,7 +765,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     consumerName: TName,
     consumer: ConsumerDefinition,
     handler: (
-      message: WorkerInferConsumerInput<TContract, TName>,
+      message: WorkerInferConsumedMessage<TContract, TName>,
+      rawMessage: ConsumeMessage,
     ) => Future<Result<void, HandlerError>>,
   ): Future<Result<void, TechnicalError>> {
     const queueName = consumer.queue.name;
@@ -735,7 +791,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         // Parse and validate message
         await this.parseAndValidateMessage(msg, consumer, consumerName)
           .flatMapOk((validatedMessage) =>
-            handler(validatedMessage)
+            handler(validatedMessage, msg)
               .flatMapOk(() => {
                 this.logger?.info("Message consumed successfully", {
                   consumerName: String(consumerName),
@@ -808,7 +864,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    */
   private handleBatchError(
     error: HandlerError,
-    currentBatch: Array<{ amqpMessage: Message }>,
+    currentBatch: Array<{ amqpMessage: ConsumeMessage }>,
     consumerName: string,
     consumer: ConsumerDefinition,
   ): Future<Result<void, TechnicalError>> {
@@ -827,7 +883,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     consumer: ConsumerDefinition,
     options: ConsumerOptions,
     handler: (
-      messages: Array<WorkerInferConsumerInput<TContract, TName>>,
+      messages: Array<WorkerInferConsumedMessage<TContract, TName>>,
+      rawMessages: ConsumeMessage[],
     ) => Future<Result<void, HandlerError>>,
   ): Future<Result<void, TechnicalError>> {
     const batchSize = options.batchSize!;
@@ -838,8 +895,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     // Note: Prefetch is handled globally in consumeAll()
     // Batch accumulation state
     type BatchItem = {
-      message: WorkerInferConsumerInput<TContract, TName>;
-      amqpMessage: Message;
+      message: WorkerInferConsumedMessage<TContract, TName>;
+      amqpMessage: ConsumeMessage;
     };
     let batch: BatchItem[] = [];
     // Track if batch processing is currently in progress to avoid race conditions
@@ -864,6 +921,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       }
 
       const messages = currentBatch.map((item) => item.message);
+      const rawMessages = currentBatch.map((item) => item.amqpMessage);
       const batchCount = currentBatch.length;
 
       // Start telemetry span for batch processing
@@ -878,7 +936,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         batchSize: batchCount,
       });
 
-      return handler(messages)
+      return handler(messages, rawMessages)
         .flatMapOk(() => {
           // Acknowledge all messages in the batch on success
           for (const item of currentBatch) {

@@ -57,7 +57,7 @@ describe("AmqpWorker Integration", () => {
       contract,
       defineHandlers(contract, {
         testConsumer: (msg) => {
-          messages.push(msg);
+          messages.push(msg.payload);
           return Future.value(Result.Ok(undefined));
         },
       }),
@@ -121,7 +121,7 @@ describe("AmqpWorker Integration", () => {
       contract,
       defineHandlers(contract, {
         testConsumer: (msg) => {
-          messages.push(msg);
+          messages.push(msg.payload);
           return Future.value(Result.Ok(undefined));
         },
       }),
@@ -191,11 +191,11 @@ describe("AmqpWorker Integration", () => {
       contract,
       defineHandlers(contract, {
         consumer1: (msg) => {
-          messages1.push(msg);
+          messages1.push(msg.payload);
           return Future.value(Result.Ok(undefined));
         },
         consumer2: (msg) => {
-          messages2.push(msg);
+          messages2.push(msg.payload);
           return Future.value(Result.Ok(undefined));
         },
       }),
@@ -256,7 +256,7 @@ describe("AmqpWorker Integration", () => {
       contract,
       defineHandlers(contract, {
         testConsumer: (msg) => {
-          messages.push(msg);
+          messages.push(msg.payload);
           return Future.value(Result.Ok(undefined));
         },
       }),
@@ -308,10 +308,10 @@ describe("AmqpWorker Integration", () => {
       defineHandlers(contract, {
         testConsumer: (msg) => {
           attemptCount++;
-          if (msg.shouldFail && attemptCount === 1) {
+          if (msg.payload.shouldFail && attemptCount === 1) {
             return Future.value(Result.Error(new RetryableError("Handler error on first attempt")));
           }
-          messages.push(msg);
+          messages.push(msg.payload);
           return Future.value(Result.Ok(undefined));
         },
       }),
@@ -365,7 +365,7 @@ describe("AmqpWorker Integration", () => {
       contract,
       defineHandlers(contract, {
         destConsumer: (msg) => {
-          messages.push(msg);
+          messages.push(msg.payload);
           return Future.value(Result.Ok(undefined));
         },
       }),
@@ -413,7 +413,7 @@ describe("AmqpWorker Integration", () => {
       contract,
       defineHandlers(contract, {
         testConsumer: (msg) => {
-          messages.push(msg);
+          messages.push(msg.payload);
           return Future.value(Result.Ok(undefined));
         },
       }),
