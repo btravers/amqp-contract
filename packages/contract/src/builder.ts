@@ -15,6 +15,13 @@ import type {
   QuorumQueueOptions,
   TopicExchangeDefinition,
 } from "./types.js";
+import {
+  validateDeliveryLimit,
+  validateExchangeName,
+  validateExchangeType,
+  validateMaxPriority,
+  validateQueueName,
+} from "./validation.js";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 
 /**
@@ -120,6 +127,10 @@ export function defineExchange(
   type: "fanout" | "direct" | "topic",
   options?: Omit<BaseExchangeDefinition, "name" | "type">,
 ): ExchangeDefinition {
+  // Validate inputs
+  validateExchangeName(name);
+  validateExchangeType(type);
+
   return {
     name,
     type,
@@ -182,6 +193,9 @@ export function defineExchange(
  * ```
  */
 export function defineQueue(name: string, options?: DefineQueueOptions): QueueDefinition {
+  // Validate queue name
+  validateQueueName(name);
+
   const opts = options ?? {};
   const type = opts.type ?? "quorum";
 
@@ -194,18 +208,12 @@ export function defineQueue(name: string, options?: DefineQueueOptions): QueueDe
 
   // Validate maxPriority range (only applicable for classic queues)
   if (maxPriority !== undefined) {
-    if (maxPriority < 1 || maxPriority > 255) {
-      throw new Error(
-        `Invalid maxPriority: ${maxPriority}. Must be between 1 and 255. Recommended range: 1-10.`,
-      );
-    }
+    validateMaxPriority(maxPriority);
   }
 
   // Validate deliveryLimit (only applicable for quorum queues)
   if (deliveryLimit !== undefined) {
-    if (deliveryLimit < 1 || !Number.isInteger(deliveryLimit)) {
-      throw new Error(`Invalid deliveryLimit: ${deliveryLimit}. Must be a positive integer.`);
-    }
+    validateDeliveryLimit(deliveryLimit);
   }
 
   // Build the queue definition - only include defined properties

@@ -43,3 +43,23 @@ export type {
   InferPublisherNames,
   InferConsumerNames,
 } from "./types.js";
+
+// Validation utilities
+export {
+  ContractValidationError,
+  ValidationErrorCode,
+  QueueConstraints,
+  validateMaxPriority,
+  validateDeliveryLimit,
+  validateQueueName,
+  validateExchangeName,
+  validateExchangeType,
+  validateRoutingKey,
+  validateContract,
+  assertValidContract,
+  hasConsumer,
+  getConsumerNames,
+  assertConsumerExists,
+  assertHandlersMatchConsumers,
+} from "./validation.js";
+export type { ContractValidationResult } from "./validation.js";

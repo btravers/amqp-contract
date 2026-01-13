@@ -1,4 +1,9 @@
 import type { ContractDefinition, InferConsumerNames } from "@amqp-contract/contract";
+import {
+  ContractValidationError,
+  assertConsumerExists,
+  assertHandlersMatchConsumers,
+} from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
 import { NonRetryableError, RetryableError, TechnicalError } from "./errors.js";
 import type {
@@ -24,14 +29,13 @@ function validateConsumerExists<TContract extends ContractDefinition>(
   contract: TContract,
   consumerName: string,
 ): void {
-  const consumers = contract.consumers;
-
-  if (!consumers || !(consumerName in consumers)) {
-    const availableConsumers = consumers ? Object.keys(consumers) : [];
-    const available = availableConsumers.length > 0 ? availableConsumers.join(", ") : "none";
-    throw new TechnicalError(
-      `Consumer "${consumerName}" not found in contract. Available consumers: ${available}`,
-    );
+  try {
+    assertConsumerExists(contract, consumerName);
+  } catch (error) {
+    if (error instanceof ContractValidationError) {
+      throw new TechnicalError(error.message);
+    }
+    throw error;
   }
 }
 
@@ -43,17 +47,13 @@ function validateHandlers<TContract extends ContractDefinition>(
   contract: TContract,
   handlers: Record<string, unknown>,
 ): void {
-  const consumers = contract.consumers;
-  const availableConsumers = Object.keys(consumers ?? {});
-  const availableConsumerNames =
-    availableConsumers.length > 0 ? availableConsumers.join(", ") : "none";
-
-  for (const handlerName of Object.keys(handlers)) {
-    if (!consumers || !(handlerName in consumers)) {
-      throw new TechnicalError(
-        `Handler "${handlerName}" references non-existent consumer. Available consumers: ${availableConsumerNames}`,
-      );
+  try {
+    assertHandlersMatchConsumers(contract, Object.keys(handlers));
+  } catch (error) {
+    if (error instanceof ContractValidationError) {
+      throw new TechnicalError(error.message);
     }
+    throw error;
   }
 }
 

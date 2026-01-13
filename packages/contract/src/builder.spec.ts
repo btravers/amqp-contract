@@ -228,14 +228,14 @@ describe("builder", () => {
     it("should throw error for maxPriority less than 1", () => {
       // WHEN/THEN
       expect(() => defineQueue("priority-queue", { type: "classic", maxPriority: 0 })).toThrow(
-        "Invalid maxPriority: 0. Must be between 1 and 255. Recommended range: 1-10.",
+        "Invalid maxPriority: 0. Must be at least 1.",
       );
     });
 
     it("should throw error for maxPriority greater than 255", () => {
       // WHEN/THEN
       expect(() => defineQueue("priority-queue", { type: "classic", maxPriority: 256 })).toThrow(
-        "Invalid maxPriority: 256. Must be between 1 and 255. Recommended range: 1-10.",
+        "Invalid maxPriority: 256. Must be at most 255. Recommended range: 1-10.",
       );
     });
 
@@ -327,7 +327,7 @@ describe("builder", () => {
     it("should throw error for deliveryLimit less than 1", () => {
       // WHEN/THEN
       expect(() => defineQueue("retry-queue", { deliveryLimit: 0 })).toThrow(
-        "Invalid deliveryLimit: 0. Must be a positive integer.",
+        "Invalid deliveryLimit: 0. Must be at least 1.",
       );
     });
 
