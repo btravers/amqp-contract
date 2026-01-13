@@ -56,8 +56,8 @@ describe("AmqpWorker Integration", () => {
     await workerFactory(
       contract,
       defineHandlers(contract, {
-        testConsumer: (msg) => {
-          messages.push(msg.payload);
+        testConsumer: ({ payload }) => {
+          messages.push(payload);
           return Future.value(Result.Ok(undefined));
         },
       }),
@@ -120,8 +120,8 @@ describe("AmqpWorker Integration", () => {
     await workerFactory(
       contract,
       defineHandlers(contract, {
-        testConsumer: (msg) => {
-          messages.push(msg.payload);
+        testConsumer: ({ payload }) => {
+          messages.push(payload);
           return Future.value(Result.Ok(undefined));
         },
       }),
@@ -190,12 +190,12 @@ describe("AmqpWorker Integration", () => {
     await workerFactory(
       contract,
       defineHandlers(contract, {
-        consumer1: (msg) => {
-          messages1.push(msg.payload);
+        consumer1: ({ payload }) => {
+          messages1.push(payload);
           return Future.value(Result.Ok(undefined));
         },
-        consumer2: (msg) => {
-          messages2.push(msg.payload);
+        consumer2: ({ payload }) => {
+          messages2.push(payload);
           return Future.value(Result.Ok(undefined));
         },
       }),
@@ -255,8 +255,8 @@ describe("AmqpWorker Integration", () => {
     await workerFactory(
       contract,
       defineHandlers(contract, {
-        testConsumer: (msg) => {
-          messages.push(msg.payload);
+        testConsumer: ({ payload }) => {
+          messages.push(payload);
           return Future.value(Result.Ok(undefined));
         },
       }),
@@ -306,12 +306,12 @@ describe("AmqpWorker Integration", () => {
     await workerFactory(
       contract,
       defineHandlers(contract, {
-        testConsumer: (msg) => {
+        testConsumer: ({ payload }) => {
           attemptCount++;
-          if (msg.payload.shouldFail && attemptCount === 1) {
+          if (payload.shouldFail && attemptCount === 1) {
             return Future.value(Result.Error(new RetryableError("Handler error on first attempt")));
           }
-          messages.push(msg.payload);
+          messages.push(payload);
           return Future.value(Result.Ok(undefined));
         },
       }),
@@ -364,8 +364,8 @@ describe("AmqpWorker Integration", () => {
     await workerFactory(
       contract,
       defineHandlers(contract, {
-        destConsumer: (msg) => {
-          messages.push(msg.payload);
+        destConsumer: ({ payload }) => {
+          messages.push(payload);
           return Future.value(Result.Ok(undefined));
         },
       }),
@@ -412,8 +412,8 @@ describe("AmqpWorker Integration", () => {
     const worker = await workerFactory(
       contract,
       defineHandlers(contract, {
-        testConsumer: (msg) => {
-          messages.push(msg.payload);
+        testConsumer: ({ payload }) => {
+          messages.push(payload);
           return Future.value(Result.Ok(undefined));
         },
       }),
@@ -483,12 +483,12 @@ describe("AmqpWorker Integration", () => {
     await workerFactory(
       contract,
       defineHandlers(contract, {
-        orderConsumer: (msg) => {
-          orders.push(msg.payload);
+        orderConsumer: ({ payload }) => {
+          orders.push(payload);
           return Future.value(Result.Ok(undefined));
         },
-        notificationConsumer: (msg) => {
-          notifications.push(msg.payload);
+        notificationConsumer: ({ payload }) => {
+          notifications.push(payload);
           return Future.value(Result.Ok(undefined));
         },
       }),

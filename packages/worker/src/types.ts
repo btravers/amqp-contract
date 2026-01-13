@@ -141,10 +141,9 @@ type InferConsumer<
 > = InferConsumers<TContract>[TName];
 
 /**
- * Worker perspective types - for consuming messages (payload only)
- * @deprecated Use WorkerConsumedMessage for the full message including headers
+ * Infer the payload type for a specific consumer
  */
-export type WorkerInferConsumerInput<
+type WorkerInferConsumerPayload<
   TContract extends ContractDefinition,
   TName extends InferConsumerNames<TContract>,
 > = ConsumerInferPayloadInput<InferConsumer<TContract, TName>>;
@@ -198,7 +197,7 @@ export type WorkerInferConsumedMessage<
   TContract extends ContractDefinition,
   TName extends InferConsumerNames<TContract>,
 > = WorkerConsumedMessage<
-  WorkerInferConsumerInput<TContract, TName>,
+  WorkerInferConsumerPayload<TContract, TName>,
   WorkerInferConsumerHeaders<TContract, TName>
 >;
 
@@ -223,8 +222,8 @@ export type WorkerInferConsumedMessage<
  * @example
  * ```typescript
  * const handler: WorkerInferSafeConsumerHandler<typeof contract, 'processOrder'> =
- *   (message, rawMessage) => {
- *     console.log(message.payload.orderId);  // Typed payload
+ *   ({ payload }, rawMessage) => {
+ *     console.log(payload.orderId);  // Typed payload
  *     console.log(rawMessage.fields.deliveryTag); // Raw AMQP message
  *     return Future.value(Result.Ok(undefined));
  *   };
@@ -239,39 +238,11 @@ export type WorkerInferSafeConsumerHandler<
 ) => Future<Result<void, HandlerError>>;
 
 /**
- * Safe consumer handler type for batch processing.
- * Returns a `Future<Result<void, HandlerError>>` for explicit error handling.
- *
- * @param messages - Array of parsed messages with validated payload and headers
- * @param rawMessages - Array of raw AMQP messages (same order as messages)
- *
- * @example
- * ```typescript
- * const handler: WorkerInferSafeConsumerBatchHandler<typeof contract, 'processOrders'> =
- *   (messages, rawMessages) => {
- *     messages.forEach((msg, i) => {
- *       console.log(msg.payload.orderId);
- *       console.log(rawMessages[i].fields.deliveryTag);
- *     });
- *     return Future.value(Result.Ok(undefined));
- *   };
- * ```
- */
-export type WorkerInferSafeConsumerBatchHandler<
-  TContract extends ContractDefinition,
-  TName extends InferConsumerNames<TContract>,
-> = (
-  messages: Array<WorkerInferConsumedMessage<TContract, TName>>,
-  rawMessages: ConsumeMessage[],
-) => Future<Result<void, HandlerError>>;
-
-/**
  * Safe handler entry for a consumer - either a function or a tuple of [handler, options].
  *
- * Three patterns are supported:
- * 1. Simple handler: `(message, rawMessage) => Future.value(Result.Ok(undefined))`
- * 2. Handler with prefetch and/or retry: `[(message, rawMessage) => ..., { prefetch: 10, retry: { maxRetries: 3 } }]`
- * 3. Batch handler: `[(messages, rawMessages) => ..., { batchSize: 5, batchTimeout: 1000, retry: { mode: "ttl-backoff" } }]`
+ * Two patterns are supported:
+ * 1. Simple handler: `({ payload }, rawMessage) => Future.value(Result.Ok(undefined))`
+ * 2. Handler with prefetch and/or retry: `[({ payload }, rawMessage) => ..., { prefetch: 10, retry: { maxRetries: 3 } }]`
  */
 export type WorkerInferSafeConsumerHandlerEntry<
   TContract extends ContractDefinition,
@@ -280,11 +251,7 @@ export type WorkerInferSafeConsumerHandlerEntry<
   | WorkerInferSafeConsumerHandler<TContract, TName>
   | readonly [
       WorkerInferSafeConsumerHandler<TContract, TName>,
-      { prefetch?: number; batchSize?: never; batchTimeout?: never; retry?: RetryOptions },
-    ]
-  | readonly [
-      WorkerInferSafeConsumerBatchHandler<TContract, TName>,
-      { prefetch?: number; batchSize: number; batchTimeout?: number; retry?: RetryOptions },
+      { prefetch?: number; retry?: RetryOptions },
     ];
 
 /**
@@ -296,17 +263,16 @@ export type WorkerInferSafeConsumerHandlers<TContract extends ContractDefinition
 };
 
 // =============================================================================
-// Unsafe Handler Types (Legacy)
+// Unsafe Handler Types
 // =============================================================================
 // These handlers return Promise<void> and use exceptions for error handling.
-// They are considered "unsafe" because errors can be missed or mishandled.
-// Use safe handlers for new code.
+// They are converted to safe handlers internally by the defineUnsafeHandler function.
 
 /**
  * Unsafe consumer handler type for a specific consumer.
  * Returns a `Promise<void>` - throws exceptions on error.
  *
- * @deprecated Prefer using safe handlers (WorkerInferSafeConsumerHandler) that return
+ * Prefer using safe handlers (WorkerInferSafeConsumerHandler) that return
  * `Future<Result<void, HandlerError>>` for better error handling.
  *
  * @param message - The parsed message containing validated payload and headers
@@ -325,27 +291,9 @@ export type WorkerInferUnsafeConsumerHandler<
 ) => Promise<void>;
 
 /**
- * Unsafe consumer handler type for batch processing.
- * Returns a `Promise<void>` - throws exceptions on error.
- *
- * @deprecated Prefer using safe handlers (WorkerInferSafeConsumerBatchHandler) that return
- * `Future<Result<void, HandlerError>>` for better error handling.
- *
- * @param messages - Array of parsed messages with validated payload and headers
- * @param rawMessages - Array of raw AMQP messages (same order as messages)
- */
-export type WorkerInferUnsafeConsumerBatchHandler<
-  TContract extends ContractDefinition,
-  TName extends InferConsumerNames<TContract>,
-> = (
-  messages: Array<WorkerInferConsumedMessage<TContract, TName>>,
-  rawMessages: ConsumeMessage[],
-) => Promise<void>;
-
-/**
  * Unsafe handler entry for a consumer - either a function or a tuple of [handler, options].
  *
- * @deprecated Prefer using safe handler entries (WorkerInferSafeConsumerHandlerEntry).
+ * Prefer using safe handler entries (WorkerInferSafeConsumerHandlerEntry).
  */
 export type WorkerInferUnsafeConsumerHandlerEntry<
   TContract extends ContractDefinition,
@@ -354,52 +302,14 @@ export type WorkerInferUnsafeConsumerHandlerEntry<
   | WorkerInferUnsafeConsumerHandler<TContract, TName>
   | readonly [
       WorkerInferUnsafeConsumerHandler<TContract, TName>,
-      { prefetch?: number; batchSize?: never; batchTimeout?: never; retry?: RetryOptions },
-    ]
-  | readonly [
-      WorkerInferUnsafeConsumerBatchHandler<TContract, TName>,
-      { prefetch?: number; batchSize: number; batchTimeout?: number; retry?: RetryOptions },
+      { prefetch?: number; retry?: RetryOptions },
     ];
 
 /**
  * Unsafe consumer handlers for a contract.
  *
- * @deprecated Prefer using safe handlers (WorkerInferSafeConsumerHandlers).
+ * Prefer using safe handlers (WorkerInferSafeConsumerHandlers).
  */
 export type WorkerInferUnsafeConsumerHandlers<TContract extends ContractDefinition> = {
   [K in InferConsumerNames<TContract>]: WorkerInferUnsafeConsumerHandlerEntry<TContract, K>;
 };
-
-// =============================================================================
-// Legacy Type Aliases (for backwards compatibility)
-// =============================================================================
-
-/**
- * @deprecated Use WorkerInferUnsafeConsumerHandler instead
- */
-export type WorkerInferConsumerHandler<
-  TContract extends ContractDefinition,
-  TName extends InferConsumerNames<TContract>,
-> = WorkerInferUnsafeConsumerHandler<TContract, TName>;
-
-/**
- * @deprecated Use WorkerInferUnsafeConsumerBatchHandler instead
- */
-export type WorkerInferConsumerBatchHandler<
-  TContract extends ContractDefinition,
-  TName extends InferConsumerNames<TContract>,
-> = WorkerInferUnsafeConsumerBatchHandler<TContract, TName>;
-
-/**
- * @deprecated Use WorkerInferUnsafeConsumerHandlerEntry instead
- */
-export type WorkerInferConsumerHandlerEntry<
-  TContract extends ContractDefinition,
-  TName extends InferConsumerNames<TContract>,
-> = WorkerInferUnsafeConsumerHandlerEntry<TContract, TName>;
-
-/**
- * @deprecated Use WorkerInferUnsafeConsumerHandlers instead
- */
-export type WorkerInferConsumerHandlers<TContract extends ContractDefinition> =
-  WorkerInferUnsafeConsumerHandlers<TContract>;

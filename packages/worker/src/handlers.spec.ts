@@ -39,8 +39,8 @@ describe("handlers", () => {
   describe("defineUnsafeHandler", () => {
     it("should create a wrapped safe handler without options", () => {
       // GIVEN
-      const handler = async (message: { payload: { id: string; data: string } }) => {
-        console.log(message.payload.id);
+      const handler = async ({ payload }: { payload: { id: string; data: string } }) => {
+        console.log(payload.id);
       };
 
       // WHEN
@@ -53,8 +53,8 @@ describe("handlers", () => {
 
     it("should create a wrapped safe handler with prefetch option", () => {
       // GIVEN
-      const handler = async (message: { payload: { id: string; data: string } }) => {
-        console.log(message.payload.id);
+      const handler = async ({ payload }: { payload: { id: string; data: string } }) => {
+        console.log(payload.id);
       };
 
       // WHEN
@@ -68,30 +68,10 @@ describe("handlers", () => {
       expect(options).toEqual({ prefetch: 10 });
     });
 
-    it("should create a wrapped batch handler with batchSize", () => {
-      // GIVEN
-      const batchHandler = async (messages: Array<{ payload: { id: string; data: string } }>) => {
-        console.log(messages.length);
-      };
-
-      // WHEN
-      const result = defineUnsafeHandler(testContract, "testConsumer", batchHandler, {
-        batchSize: 5,
-        batchTimeout: 1000,
-      });
-
-      // THEN - result is a tuple with wrapped handler and options
-      expect(Array.isArray(result)).toBe(true);
-      const [wrappedHandler, options] = result as [unknown, unknown];
-      expect(typeof wrappedHandler).toBe("function");
-      expect(wrappedHandler).not.toBe(batchHandler);
-      expect(options).toEqual({ batchSize: 5, batchTimeout: 1000 });
-    });
-
     it("should throw error if consumer not found in contract", () => {
       // GIVEN
-      const handler = async (message: { id: string; data: string }) => {
-        console.log(message.id);
+      const handler = async ({ payload }: { payload: { id: string; data: string } }) => {
+        console.log(payload.id);
       };
 
       // WHEN/THEN
@@ -169,11 +149,11 @@ describe("handlers", () => {
     it("should create wrapped safe handlers", () => {
       // GIVEN
       const handlers = {
-        testConsumer: async (message: { payload: { id: string; data: string } }) => {
-          console.log(message.payload.id);
+        testConsumer: async ({ payload }: { payload: { id: string; data: string } }) => {
+          console.log(payload.id);
         },
-        anotherConsumer: async (message: { payload: { id: string; data: string } }) => {
-          console.log(message.payload.data);
+        anotherConsumer: async ({ payload }: { payload: { id: string; data: string } }) => {
+          console.log(payload.data);
         },
       };
 
@@ -190,11 +170,11 @@ describe("handlers", () => {
 
     it("should create wrapped handlers with mixed options", () => {
       // GIVEN
-      const handler1 = async (message: { payload: { id: string; data: string } }) => {
-        console.log(message.payload.id);
+      const handler1 = async ({ payload }: { payload: { id: string; data: string } }) => {
+        console.log(payload.id);
       };
-      const handler2 = async (message: { payload: { id: string; data: string } }) => {
-        console.log(message.payload.data);
+      const handler2 = async ({ payload }: { payload: { id: string; data: string } }) => {
+        console.log(payload.data);
       };
 
       const handlers = {
@@ -216,11 +196,11 @@ describe("handlers", () => {
     it("should throw error if handler references non-existent consumer", () => {
       // GIVEN
       const handlers = {
-        testConsumer: async (message: { payload: { id: string; data: string } }) => {
-          console.log(message.payload.id);
+        testConsumer: async ({ payload }: { payload: { id: string; data: string } }) => {
+          console.log(payload.id);
         },
-        nonExistentConsumer: async (message: { payload: { id: string; data: string } }) => {
-          console.log(message.payload.data);
+        nonExistentConsumer: async ({ payload }: { payload: { id: string; data: string } }) => {
+          console.log(payload.data);
         },
       };
 
@@ -241,8 +221,8 @@ describe("handlers", () => {
       });
 
       const handlers = {
-        testConsumer: async (message: { payload: { id: string; data: string } }) => {
-          console.log(message.payload.id);
+        testConsumer: async ({ payload }: { payload: { id: string; data: string } }) => {
+          console.log(payload.id);
         },
       };
 
@@ -257,8 +237,8 @@ describe("handlers", () => {
   describe("defineHandler (safe handlers)", () => {
     it("should create a simple safe handler without options", () => {
       // GIVEN
-      const handler = (message: { payload: { id: string; data: string } }) => {
-        console.log(message.payload.id);
+      const handler = ({ payload }: { payload: { id: string; data: string } }) => {
+        console.log(payload.id);
         return Future.value(Result.Ok(undefined));
       };
 
@@ -271,8 +251,8 @@ describe("handlers", () => {
 
     it("should create a safe handler with prefetch option", () => {
       // GIVEN
-      const handler = (message: { payload: { id: string; data: string } }) => {
-        console.log(message.payload.id);
+      const handler = ({ payload }: { payload: { id: string; data: string } }) => {
+        console.log(payload.id);
         return Future.value(Result.Ok(undefined));
       };
 
@@ -283,27 +263,10 @@ describe("handlers", () => {
       expect(result).toEqual([handler, { prefetch: 10 }]);
     });
 
-    it("should create a safe batch handler with batchSize", () => {
-      // GIVEN
-      const batchHandler = (messages: Array<{ payload: { id: string; data: string } }>) => {
-        console.log(messages.length);
-        return Future.value(Result.Ok(undefined));
-      };
-
-      // WHEN
-      const result = defineHandler(testContract, "testConsumer", batchHandler, {
-        batchSize: 5,
-        batchTimeout: 1000,
-      });
-
-      // THEN
-      expect(result).toEqual([batchHandler, { batchSize: 5, batchTimeout: 1000 }]);
-    });
-
     it("should throw error if consumer not found in contract", () => {
       // GIVEN
-      const handler = (message: { payload: { id: string; data: string } }) => {
-        console.log(message.payload.id);
+      const handler = ({ payload }: { payload: { id: string; data: string } }) => {
+        console.log(payload.id);
         return Future.value(Result.Ok(undefined));
       };
 
@@ -321,12 +284,12 @@ describe("handlers", () => {
     it("should create multiple safe handlers", () => {
       // GIVEN
       const handlers = {
-        testConsumer: (message: { payload: { id: string; data: string } }) => {
-          console.log(message.payload.id);
+        testConsumer: ({ payload }: { payload: { id: string; data: string } }) => {
+          console.log(payload.id);
           return Future.value(Result.Ok(undefined));
         },
-        anotherConsumer: (message: { payload: { id: string; data: string } }) => {
-          console.log(message.payload.data);
+        anotherConsumer: ({ payload }: { payload: { id: string; data: string } }) => {
+          console.log(payload.data);
           return Future.value(Result.Ok(undefined));
         },
       };
@@ -341,12 +304,12 @@ describe("handlers", () => {
     it("should throw error if handler references non-existent consumer", () => {
       // GIVEN
       const handlers = {
-        testConsumer: (message: { payload: { id: string; data: string } }) => {
-          console.log(message.payload.id);
+        testConsumer: ({ payload }: { payload: { id: string; data: string } }) => {
+          console.log(payload.id);
           return Future.value(Result.Ok(undefined));
         },
-        nonExistentConsumer: (message: { payload: { id: string; data: string } }) => {
-          console.log(message.payload.data);
+        nonExistentConsumer: ({ payload }: { payload: { id: string; data: string } }) => {
+          console.log(payload.data);
           return Future.value(Result.Ok(undefined));
         },
       };

@@ -21,7 +21,6 @@ import type {
   RetryMode,
   RetryOptions,
   WorkerInferConsumedMessage,
-  WorkerInferSafeConsumerBatchHandler,
   WorkerInferSafeConsumerHandler,
   WorkerInferSafeConsumerHandlers,
 } from "./types.js";
@@ -31,28 +30,13 @@ import { decompressBuffer } from "./decompression.js";
 /**
  * Internal type for consumer options extracted from handler tuples.
  * Not exported - options are specified inline in the handler tuple types.
- * Uses discriminated union to enforce mutual exclusivity:
- * - Prefetch-only mode: Cannot have batchSize or batchTimeout
- * - Batch mode: Requires batchSize, allows batchTimeout and prefetch
- * Both modes support optional retry configuration.
  */
-type ConsumerOptions =
-  | {
-      /** Prefetch-based processing (no batching) */
-      prefetch?: number;
-      batchSize?: never;
-      batchTimeout?: never;
-      /** Retry configuration for this consumer */
-      retry?: RetryOptions;
-    }
-  | {
-      /** Batch-based processing */
-      prefetch?: number;
-      batchSize: number;
-      batchTimeout?: number;
-      /** Retry configuration for this consumer */
-      retry?: RetryOptions;
-    };
+type ConsumerOptions = {
+  /** Number of messages to prefetch */
+  prefetch?: number;
+  /** Retry configuration for this consumer */
+  retry?: RetryOptions;
+};
 
 /**
  * Internal retry configuration with all values resolved.
@@ -77,13 +61,13 @@ type ResolvedRetryConfig = {
  *   contract: myContract,
  *   handlers: {
  *     // Simple handler (uses default retry configuration)
- *     processOrder: async (message) => {
- *       console.log('Processing order:', message.orderId);
+ *     processOrder: async ({ payload }) => {
+ *       console.log('Processing order:', payload.orderId);
  *     },
  *     // Handler with prefetch and retry configuration
  *     processPayment: [
- *       async (message) => {
- *         console.log('Processing payment:', message.paymentId);
+ *       async ({ payload }) => {
+ *         console.log('Processing payment:', payload.paymentId);
  *       },
  *       {
  *         prefetch: 10,
@@ -94,17 +78,6 @@ type ResolvedRetryConfig = {
  *           backoffMultiplier: 2,
  *           jitter: true
  *         }
- *       }
- *     ],
- *     // Handler with batch processing and retry
- *     processNotifications: [
- *       async (messages) => {
- *         console.log('Processing batch:', messages.length);
- *       },
- *       {
- *         batchSize: 5,
- *         batchTimeout: 1000,
- *         retry: { mode: 'quorum-native' }
  *       }
  *     ]
  *   },
@@ -195,7 +168,6 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     >
   >;
   private readonly consumerOptions: Partial<Record<InferConsumerNames<TContract>, ConsumerOptions>>;
-  private readonly batchTimers: Map<string, NodeJS.Timeout> = new Map();
   private readonly consumerTags: Set<string> = new Set();
   private readonly telemetry: TelemetryProvider;
 
@@ -221,15 +193,16 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
       if (Array.isArray(handlerEntry)) {
         // Tuple format: [handler, options]
-        this.actualHandlers[typedConsumerName] = handlerEntry[0] as
-          | WorkerInferSafeConsumerHandler<TContract, InferConsumerNames<TContract>>
-          | WorkerInferSafeConsumerBatchHandler<TContract, InferConsumerNames<TContract>>;
+        this.actualHandlers[typedConsumerName] =
+          handlerEntry[0] as WorkerInferSafeConsumerHandler<
+            TContract,
+            InferConsumerNames<TContract>
+          >;
         this.consumerOptions[typedConsumerName] = handlerEntry[1] as ConsumerOptions;
       } else {
         // Direct function format
-        this.actualHandlers[typedConsumerName] = handlerEntry as
-          | WorkerInferSafeConsumerHandler<TContract, InferConsumerNames<TContract>>
-          | WorkerInferSafeConsumerBatchHandler<TContract, InferConsumerNames<TContract>>;
+        this.actualHandlers[typedConsumerName] =
+          handlerEntry as WorkerInferSafeConsumerHandler<TContract, InferConsumerNames<TContract>>;
       }
     }
   }
@@ -253,7 +226,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * const worker = await TypedAmqpWorker.create({
    *   contract: myContract,
    *   handlers: {
-   *     processOrder: async (msg) => console.log('Order:', msg.orderId)
+   *     processOrder: async ({ payload }) => console.log('Order:', payload.orderId)
    *   },
    *   urls: ['amqp://localhost']
    * }).resultToPromise();
@@ -302,12 +275,6 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * ```
    */
   close(): Future<Result<void, TechnicalError>> {
-    // Clear all pending batch timers
-    for (const timer of this.batchTimers.values()) {
-      clearTimeout(timer);
-    }
-    this.batchTimers.clear();
-
     return Future.all(
       Array.from(this.consumerTags).map((consumerTag) =>
         Future.fromPromise(this.amqpClient.channel.cancel(consumerTag)).mapErrorToResult(
@@ -517,11 +484,6 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         }
         maxPrefetch = Math.max(maxPrefetch, options.prefetch);
       }
-      if (options?.batchSize !== undefined) {
-        // Batch consumers need prefetch at least equal to batch size
-        const effectivePrefetch = options.prefetch ?? options.batchSize;
-        maxPrefetch = Math.max(maxPrefetch, effectivePrefetch);
-      }
     }
 
     // Apply the maximum prefetch if any consumer specified it
@@ -573,64 +535,15 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       );
     }
 
-    // Get consumer-specific options
-    const options = this.consumerOptions[consumerName] ?? {};
-
-    // Validate batch size if specified
-    if (options.batchSize !== undefined) {
-      if (options.batchSize <= 0 || !Number.isInteger(options.batchSize)) {
-        return Future.value(
-          Result.Error(
-            new TechnicalError(
-              `Invalid batchSize for "${String(consumerName)}": must be a positive integer`,
-            ),
-          ),
-        );
-      }
-    }
-
-    // Validate batch timeout if specified
-    if (options.batchTimeout !== undefined) {
-      if (
-        typeof options.batchTimeout !== "number" ||
-        !Number.isFinite(options.batchTimeout) ||
-        options.batchTimeout <= 0
-      ) {
-        return Future.value(
-          Result.Error(
-            new TechnicalError(
-              `Invalid batchTimeout for "${String(consumerName)}": must be a positive number`,
-            ),
-          ),
-        );
-      }
-    }
-
-    // Check if this is a batch consumer
-    const isBatchConsumer = options.batchSize !== undefined && options.batchSize > 0;
-
-    if (isBatchConsumer) {
-      return this.consumeBatch(
-        consumerName,
-        consumer,
-        options,
-        // All handlers are now safe handlers (Future<Result>)
-        handler as (
-          messages: Array<WorkerInferConsumedMessage<TContract, TName>>,
-          rawMessages: ConsumeMessage[],
-        ) => Future<Result<void, HandlerError>>,
-      );
-    } else {
-      return this.consumeSingle(
-        consumerName,
-        consumer,
-        // All handlers are now safe handlers (Future<Result>)
-        handler as (
-          message: WorkerInferConsumedMessage<TContract, TName>,
-          rawMessage: ConsumeMessage,
-        ) => Future<Result<void, HandlerError>>,
-      );
-    }
+    return this.consumeSingle(
+      consumerName,
+      consumer,
+      // All handlers are now safe handlers (Future<Result>)
+      handler as (
+        message: WorkerInferConsumedMessage<TContract, TName>,
+        rawMessage: ConsumeMessage,
+      ) => Future<Result<void, HandlerError>>,
+    );
   }
 
   /**
@@ -852,205 +765,6 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
             recordConsumeMetric(this.telemetry, queueName, String(consumerName), false, durationMs);
           })
           .toPromise();
-      }),
-    )
-      .tapOk((reply) => {
-        // Store consumer tag for later cancellation
-        this.consumerTags.add(reply.consumerTag);
-      })
-      .mapError(
-        (error) =>
-          new TechnicalError(`Failed to start consuming for "${String(consumerName)}"`, error),
-      )
-      .mapOk(() => undefined);
-  }
-
-  /**
-   * Handle batch processing error by applying error handling to all messages.
-   */
-  private handleBatchError(
-    error: HandlerError,
-    currentBatch: Array<{ amqpMessage: ConsumeMessage }>,
-    consumerName: string,
-    consumer: ConsumerDefinition,
-  ): Future<Result<void, TechnicalError>> {
-    return Future.all(
-      currentBatch.map((item) => this.handleError(error, item.amqpMessage, consumerName, consumer)),
-    )
-      .map(Result.all)
-      .mapOk(() => undefined);
-  }
-
-  /**
-   * Consume messages in batches
-   */
-  private consumeBatch<TName extends InferConsumerNames<TContract>>(
-    consumerName: TName,
-    consumer: ConsumerDefinition,
-    options: ConsumerOptions,
-    handler: (
-      messages: Array<WorkerInferConsumedMessage<TContract, TName>>,
-      rawMessages: ConsumeMessage[],
-    ) => Future<Result<void, HandlerError>>,
-  ): Future<Result<void, TechnicalError>> {
-    const batchSize = options.batchSize!;
-    const batchTimeout = options.batchTimeout ?? 1000;
-    const timerKey = String(consumerName);
-    const queueName = consumer.queue.name;
-
-    // Note: Prefetch is handled globally in consumeAll()
-    // Batch accumulation state
-    type BatchItem = {
-      message: WorkerInferConsumedMessage<TContract, TName>;
-      amqpMessage: ConsumeMessage;
-    };
-    let batch: BatchItem[] = [];
-    // Track if batch processing is currently in progress to avoid race conditions
-    let isProcessing = false;
-
-    const processBatch = (): Future<Result<void, TechnicalError>> => {
-      // Prevent concurrent batch processing
-      if (isProcessing || batch.length === 0) {
-        return Future.value(Result.Ok(undefined));
-      }
-
-      isProcessing = true;
-
-      const currentBatch = batch;
-      batch = [];
-
-      // Clear timer from tracking
-      const timer = this.batchTimers.get(timerKey);
-      if (timer) {
-        clearTimeout(timer);
-        this.batchTimers.delete(timerKey);
-      }
-
-      const messages = currentBatch.map((item) => item.message);
-      const rawMessages = currentBatch.map((item) => item.amqpMessage);
-      const batchCount = currentBatch.length;
-
-      // Start telemetry span for batch processing
-      const startTime = Date.now();
-      const span = startConsumeSpan(this.telemetry, queueName, String(consumerName), {
-        "amqp.batch.size": batchCount,
-      });
-
-      this.logger?.info("Processing batch", {
-        consumerName: String(consumerName),
-        queueName,
-        batchSize: batchCount,
-      });
-
-      return handler(messages, rawMessages)
-        .flatMapOk(() => {
-          // Acknowledge all messages in the batch on success
-          for (const item of currentBatch) {
-            this.amqpClient.channel.ack(item.amqpMessage);
-          }
-
-          this.logger?.info("Batch processed successfully", {
-            consumerName: String(consumerName),
-            queueName,
-            batchSize: batchCount,
-          });
-
-          // Record telemetry success
-          const durationMs = Date.now() - startTime;
-          endSpanSuccess(span);
-          recordConsumeMetric(this.telemetry, queueName, String(consumerName), true, durationMs);
-
-          return Future.value(Result.Ok<void, TechnicalError>(undefined));
-        })
-        .flatMapError((handlerError: HandlerError) => {
-          // Handler returned an error - log it
-          this.logger?.error("Error processing batch", {
-            consumerName: String(consumerName),
-            queueName,
-            batchSize: batchCount,
-            errorType: handlerError.name,
-            error: handlerError.message,
-          });
-
-          // Record telemetry failure
-          const durationMs = Date.now() - startTime;
-          endSpanError(span, handlerError);
-          recordConsumeMetric(this.telemetry, queueName, String(consumerName), false, durationMs);
-
-          // Handle error for each message in the batch
-          return this.handleBatchError(handlerError, currentBatch, String(consumerName), consumer);
-        })
-        .tap(() => {
-          isProcessing = false;
-        });
-    };
-
-    const scheduleBatchProcessing = () => {
-      // Don't schedule if batch is currently being processed
-      if (isProcessing) {
-        return;
-      }
-
-      // Clear existing timer
-      const existingTimer = this.batchTimers.get(timerKey);
-      if (existingTimer) {
-        clearTimeout(existingTimer);
-      }
-
-      // Schedule new timer and track it
-      const timer = setTimeout(() => {
-        processBatch().toPromise();
-      }, batchTimeout);
-
-      this.batchTimers.set(timerKey, timer);
-    };
-
-    // Start consuming
-    return Future.fromPromise(
-      this.amqpClient.channel.consume(queueName, async (msg) => {
-        // Handle null messages (consumer cancellation)
-        if (msg === null) {
-          this.logger?.warn("Consumer cancelled by server", {
-            consumerName: String(consumerName),
-            queueName,
-          });
-          // Process any remaining messages in the batch
-          await processBatch().toPromise();
-          return;
-        }
-
-        // Parse and validate message
-        const validationResult = await this.parseAndValidateMessage(
-          msg,
-          consumer,
-          consumerName,
-        ).toPromise();
-
-        if (validationResult.isError()) {
-          // Error already handled in parseAndValidateMessage (nacked)
-          return;
-        }
-
-        // Add to batch
-        batch.push({
-          message: validationResult.value,
-          amqpMessage: msg,
-        });
-
-        // Process batch if full
-        if (batch.length >= batchSize) {
-          await processBatch().toPromise();
-          // After processing a full batch, schedule timer for any subsequent messages
-          // This ensures that if more messages arrive at a slow rate, they won't be held indefinitely
-          if (batch.length > 0 && !this.batchTimers.has(timerKey)) {
-            scheduleBatchProcessing();
-          }
-        } else {
-          // Schedule batch processing if not already scheduled
-          if (!this.batchTimers.has(timerKey)) {
-            scheduleBatchProcessing();
-          }
-        }
       }),
     )
       .tapOk((reply) => {
