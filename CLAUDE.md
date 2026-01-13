@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+For detailed coding standards, anti-patterns, and comprehensive examples, see [.github/copilot-instructions.md](.github/copilot-instructions.md).
+
 ## Project Overview
 
 **amqp-contract** is a TypeScript monorepo providing type-safe contracts for AMQP/RabbitMQ messaging with automatic runtime validation.
