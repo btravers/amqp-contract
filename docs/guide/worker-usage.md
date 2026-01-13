@@ -972,13 +972,14 @@ These headers can be useful for monitoring and debugging:
 ### Example: Complete Retry Setup
 
 ```typescript
-import { TypedAmqpWorker, RetryableError } from "@amqp-contract/worker";
+import { TypedAmqpWorker, RetryableError, NonRetryableError } from "@amqp-contract/worker";
 import {
   defineContract,
   defineQueue,
   defineExchange,
   defineQueueBinding,
 } from "@amqp-contract/contract";
+import { Future, Result } from "@swan-io/boxed";
 
 // Define contract with DLX
 const dlxExchange = defineExchange("orders-dlx", "topic", { durable: true });
@@ -1019,22 +1020,22 @@ const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: [
-      async (message) => {
-        try {
-          // Validate before processing (don't retry validation errors)
-          if (!message.amount || message.amount <= 0) {
-            throw new Error("Invalid order amount");
-          }
-
-          // Process with external service (retry on failure)
-          await paymentService.charge(message);
-          await inventoryService.reserve(message);
-          await notificationService.send(message);
-        } catch (error) {
-          // All errors will be retried
-          console.error("Order processing failed:", error);
-          throw error;
+      (message) => {
+        // Validate before processing (don't retry validation errors)
+        if (!message.amount || message.amount <= 0) {
+          return Future.value(Result.Error(new NonRetryableError("Invalid order amount")));
         }
+
+        // Process with external service (retry on failure)
+        return Future.fromPromise(
+          Promise.all([
+            paymentService.charge(message),
+            inventoryService.reserve(message),
+            notificationService.send(message),
+          ]),
+        )
+          .mapOk(() => undefined)
+          .mapError((error) => new RetryableError("Order processing failed", error));
       },
       {
         retry: {

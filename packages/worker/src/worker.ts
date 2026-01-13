@@ -76,7 +76,7 @@ type ResolvedRetryConfig = {
  * const options: CreateWorkerOptions<typeof contract> = {
  *   contract: myContract,
  *   handlers: {
- *     // Simple handler (no retry)
+ *     // Simple handler (uses default retry configuration)
  *     processOrder: async (message) => {
  *       console.log('Processing order:', message.orderId);
  *     },
