@@ -242,7 +242,7 @@ describe("handlers", () => {
         // oxlint-disable-next-line no-explicit-any
         defineUnsafeHandlers(testContract, handlers as any);
       }).toThrow(
-        'Consumer "nonExistentConsumer" not found in contract. Available consumers: testConsumer, anotherConsumer',
+        'Handler "nonExistentConsumer" references non-existent consumer. Available consumers: testConsumer, anotherConsumer',
       );
     });
 
@@ -263,7 +263,9 @@ describe("handlers", () => {
       expect(() => {
         // oxlint-disable-next-line no-explicit-any
         defineUnsafeHandlers(emptyContract, handlers as any);
-      }).toThrow('Consumer "testConsumer" not found in contract. Available consumers: none');
+      }).toThrow(
+        'Handler "testConsumer" references non-existent consumer. Available consumers: none',
+      );
     });
   });
 
@@ -352,7 +354,7 @@ describe("handlers", () => {
         // oxlint-disable-next-line no-explicit-any
         defineHandlers(testContract, handlers as any);
       }).toThrow(
-        'Consumer "nonExistentConsumer" not found in contract. Available consumers: testConsumer, anotherConsumer',
+        'Handler "nonExistentConsumer" references non-existent consumer. Available consumers: testConsumer, anotherConsumer',
       );
     });
   });

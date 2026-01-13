@@ -1,6 +1,6 @@
 import type { ContractDefinition, InferConsumerNames } from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
-import { NonRetryableError, RetryableError } from "./errors.js";
+import { NonRetryableError, RetryableError, TechnicalError } from "./errors.js";
 import type {
   RetryOptions,
   WorkerConsumedMessage,
@@ -17,7 +17,8 @@ import type { HandlerError } from "./errors.js";
 // =============================================================================
 
 /**
- * Validate that a consumer exists in the contract
+ * Validate that a consumer exists in the contract.
+ * @throws {TechnicalError} if the consumer is not found in the contract
  */
 function validateConsumerExists<TContract extends ContractDefinition>(
   contract: TContract,
@@ -28,14 +29,15 @@ function validateConsumerExists<TContract extends ContractDefinition>(
   if (!consumers || !(consumerName in consumers)) {
     const availableConsumers = consumers ? Object.keys(consumers) : [];
     const available = availableConsumers.length > 0 ? availableConsumers.join(", ") : "none";
-    throw new Error(
+    throw new TechnicalError(
       `Consumer "${consumerName}" not found in contract. Available consumers: ${available}`,
     );
   }
 }
 
 /**
- * Validate that all handlers reference valid consumers
+ * Validate that all handlers reference valid consumers.
+ * @throws {TechnicalError} if any handler references a non-existent consumer
  */
 function validateHandlers<TContract extends ContractDefinition>(
   contract: TContract,
@@ -48,8 +50,8 @@ function validateHandlers<TContract extends ContractDefinition>(
 
   for (const handlerName of Object.keys(handlers)) {
     if (!consumers || !(handlerName in consumers)) {
-      throw new Error(
-        `Consumer "${handlerName}" not found in contract. Available consumers: ${availableConsumerNames}`,
+      throw new TechnicalError(
+        `Handler "${handlerName}" references non-existent consumer. Available consumers: ${availableConsumerNames}`,
       );
     }
   }

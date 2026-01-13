@@ -1,10 +1,11 @@
-import { deflate, gzip } from "node:zlib";
+import { brotliCompress, deflate, gzip } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { decompressBuffer } from "./decompression.js";
 import { promisify } from "node:util";
 
 const gzipAsync = promisify(gzip);
 const deflateAsync = promisify(deflate);
+const brotliCompressAsync = promisify(brotliCompress);
 
 describe("Decompression utilities", () => {
   describe("decompressBuffer", () => {
@@ -13,6 +14,14 @@ describe("Decompression utilities", () => {
       const result = await decompressBuffer(testData, undefined);
 
       expect(result).toEqual(testData);
+    });
+
+    it("should return empty buffer as-is even with content-encoding", async () => {
+      const emptyBuffer = Buffer.alloc(0);
+      const result = await decompressBuffer(emptyBuffer, "gzip");
+
+      expect(result).toEqual(emptyBuffer);
+      expect(result.length).toBe(0);
     });
 
     it("should decompress gzip-compressed data", async () => {
@@ -33,6 +42,15 @@ describe("Decompression utilities", () => {
       expect(decompressed).toEqual(testData);
     });
 
+    it("should decompress brotli-compressed data", async () => {
+      const testData = Buffer.from(JSON.stringify({ message: "Hello, World!" }));
+      const compressed = await brotliCompressAsync(testData);
+
+      const decompressed = await decompressBuffer(compressed, "br");
+
+      expect(decompressed).toEqual(testData);
+    });
+
     it("should handle case-insensitive content-encoding", async () => {
       const testData = Buffer.from(JSON.stringify({ message: "Hello, World!" }));
       const compressed = await gzipAsync(testData);
@@ -46,7 +64,7 @@ describe("Decompression utilities", () => {
       const testData = Buffer.from(JSON.stringify({ message: "Hello, World!" }));
 
       await expect(decompressBuffer(testData, "unknown-encoding")).rejects.toThrow(
-        "Unsupported content-encoding: unknown-encoding",
+        'Unsupported content-encoding: "unknown-encoding". Supported encodings: gzip, deflate, br',
       );
     });
 

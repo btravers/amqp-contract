@@ -17,6 +17,29 @@ import type {
 } from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
 import { MessageValidationError, NonRetryableError, TechnicalError } from "./errors.js";
+
+// =============================================================================
+// Default Configuration Constants
+// =============================================================================
+
+/**
+ * Default retry configuration values for TTL-backoff mode.
+ * These can be overridden per-consumer via handler options.
+ */
+const DEFAULT_RETRY_CONFIG = {
+  /** Maximum number of retry attempts before sending to DLQ */
+  MAX_RETRIES: 3,
+  /** Initial delay in milliseconds before first retry */
+  INITIAL_DELAY_MS: 1000,
+  /** Maximum delay in milliseconds between retries */
+  MAX_DELAY_MS: 30000,
+  /** Multiplier for exponential backoff */
+  BACKOFF_MULTIPLIER: 2,
+  /** Whether to add jitter to prevent thundering herd */
+  JITTER: true,
+  /** Jitter range: random value between this and 1.0 of calculated delay */
+  JITTER_MIN_FACTOR: 0.5,
+} as const;
 import type {
   RetryMode,
   RetryOptions,
@@ -85,18 +108,23 @@ function isStandardSchema(value: unknown): value is StandardSchemaV1 {
  *
  * @example
  * ```typescript
+ * import { Future, Result } from '@swan-io/boxed';
+ * import { RetryableError } from '@amqp-contract/worker';
+ *
  * const options: CreateWorkerOptions<typeof contract> = {
  *   contract: myContract,
  *   handlers: {
  *     // Simple handler (uses default retry configuration)
- *     processOrder: async ({ payload }) => {
+ *     processOrder: ({ payload }) => {
  *       console.log('Processing order:', payload.orderId);
+ *       return Future.value(Result.Ok(undefined));
  *     },
  *     // Handler with prefetch and retry configuration
  *     processPayment: [
- *       async ({ payload }) => {
- *         console.log('Processing payment:', payload.paymentId);
- *       },
+ *       ({ payload }) =>
+ *         Future.fromPromise(processPayment(payload))
+ *           .mapOk(() => undefined)
+ *           .mapError((error) => new RetryableError('Payment failed', error)),
  *       {
  *         prefetch: 10,
  *         retry: {
@@ -153,7 +181,8 @@ export type CreateWorkerOptions<TContract extends ContractDefinition> = {
  *
  * @example
  * ```typescript
- * import { TypedAmqpWorker } from '@amqp-contract/worker';
+ * import { TypedAmqpWorker, RetryableError } from '@amqp-contract/worker';
+ * import { Future, Result } from '@swan-io/boxed';
  * import { z } from 'zod';
  *
  * const contract = defineContract({
@@ -171,9 +200,9 @@ export type CreateWorkerOptions<TContract extends ContractDefinition> = {
  * const worker = await TypedAmqpWorker.create({
  *   contract,
  *   handlers: {
- *     processOrder: async (message) => {
- *       console.log('Processing order', message.orderId);
- *       // Process the order...
+ *     processOrder: ({ payload }) => {
+ *       console.log('Processing order', payload.orderId);
+ *       return Future.value(Result.Ok(undefined));
  *     }
  *   },
  *   urls: ['amqp://localhost']
@@ -255,7 +284,10 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * const worker = await TypedAmqpWorker.create({
    *   contract: myContract,
    *   handlers: {
-   *     processOrder: async ({ payload }) => console.log('Order:', payload.orderId)
+   *     processOrder: ({ payload }) => {
+   *       console.log('Order:', payload.orderId);
+   *       return Future.value(Result.Ok(undefined));
+   *     }
    *   },
    *   urls: ['amqp://localhost']
    * }).resultToPromise();
@@ -269,6 +301,43 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     logger,
     telemetry,
   }: CreateWorkerOptions<TContract>): Future<Result<TypedAmqpWorker<TContract>, TechnicalError>> {
+    // Validate inputs early to fail fast with clear error messages
+    if (!contract) {
+      return Future.value(Result.Error(new TechnicalError("Contract is required")));
+    }
+
+    if (!handlers || typeof handlers !== "object") {
+      return Future.value(Result.Error(new TechnicalError("Handlers object is required")));
+    }
+
+    const handlerKeys = Object.keys(handlers);
+    if (handlerKeys.length === 0) {
+      return Future.value(
+        Result.Error(new TechnicalError("At least one handler must be provided")),
+      );
+    }
+
+    if (!urls || urls.length === 0) {
+      return Future.value(
+        Result.Error(new TechnicalError("At least one AMQP URL must be provided")),
+      );
+    }
+
+    // Validate that all handler keys correspond to consumers in the contract
+    const consumerNames = contract.consumers ? Object.keys(contract.consumers) : [];
+    for (const handlerKey of handlerKeys) {
+      if (!consumerNames.includes(handlerKey)) {
+        return Future.value(
+          Result.Error(
+            new TechnicalError(
+              `Handler "${handlerKey}" does not match any consumer in the contract. ` +
+                `Available consumers: ${consumerNames.length > 0 ? consumerNames.join(", ") : "none"}`,
+            ),
+          ),
+        );
+      }
+    }
+
     const worker = new TypedAmqpWorker(
       contract,
       new AmqpClient(contract, {
@@ -430,15 +499,15 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       };
     }
 
-    // TTL-backoff mode (default): extract options with defaults
+    // TTL-backoff mode (default): extract options with defaults from constants
     // At this point, TypeScript knows retryOptions is TtlBackoffRetryOptions
     return {
       mode: "ttl-backoff",
-      maxRetries: retryOptions.maxRetries ?? 3,
-      initialDelayMs: retryOptions.initialDelayMs ?? 1000,
-      maxDelayMs: retryOptions.maxDelayMs ?? 30000,
-      backoffMultiplier: retryOptions.backoffMultiplier ?? 2,
-      jitter: retryOptions.jitter ?? true,
+      maxRetries: retryOptions.maxRetries ?? DEFAULT_RETRY_CONFIG.MAX_RETRIES,
+      initialDelayMs: retryOptions.initialDelayMs ?? DEFAULT_RETRY_CONFIG.INITIAL_DELAY_MS,
+      maxDelayMs: retryOptions.maxDelayMs ?? DEFAULT_RETRY_CONFIG.MAX_DELAY_MS,
+      backoffMultiplier: retryOptions.backoffMultiplier ?? DEFAULT_RETRY_CONFIG.BACKOFF_MULTIPLIER,
+      jitter: retryOptions.jitter ?? DEFAULT_RETRY_CONFIG.JITTER,
     };
   }
 
@@ -957,15 +1026,23 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
   /**
    * Calculate retry delay with exponential backoff and optional jitter.
+   *
+   * Formula: min(initialDelayMs * (backoffMultiplier ^ retryCount), maxDelayMs)
+   * With jitter: delay * random(JITTER_MIN_FACTOR, 1.0)
    */
   private calculateRetryDelay(retryCount: number, config: ResolvedRetryConfig): number {
     const { initialDelayMs, maxDelayMs, backoffMultiplier, jitter } = config;
 
+    // Calculate base delay with exponential backoff, capped at maxDelayMs
     let delay = Math.min(initialDelayMs * Math.pow(backoffMultiplier, retryCount), maxDelayMs);
 
     if (jitter) {
-      // Add jitter: random value between 50% and 100% of calculated delay
-      delay = delay * (0.5 + Math.random() * 0.5);
+      // Add jitter: random value between JITTER_MIN_FACTOR and 1.0 of calculated delay
+      // This helps prevent thundering herd when multiple messages fail simultaneously
+      const jitterFactor =
+        DEFAULT_RETRY_CONFIG.JITTER_MIN_FACTOR +
+        Math.random() * (1 - DEFAULT_RETRY_CONFIG.JITTER_MIN_FACTOR);
+      delay = delay * jitterFactor;
     }
 
     return Math.floor(delay);
