@@ -165,10 +165,13 @@ describe("Client and Worker Integration", () => {
           expect(mockHandler).toHaveBeenNthCalledWith(
             1,
             expect.objectContaining({
-              orderId: "ORD-123",
-              amount: 99.99,
-              customerId: "CUST-456",
+              payload: expect.objectContaining({
+                orderId: "ORD-123",
+                amount: 99.99,
+                customerId: "CUST-456",
+              }),
             }),
+            expect.anything(), // rawMessage
           );
         },
         { timeout: 5000 },
@@ -237,9 +240,15 @@ describe("Client and Worker Integration", () => {
           expect(mockHandler).toHaveBeenCalledTimes(3);
           expect(receivedMessages).toEqual(
             expect.arrayContaining([
-              expect.objectContaining({ eventId: "EVT-1", type: "created" }),
-              expect.objectContaining({ eventId: "EVT-2", type: "updated" }),
-              expect.objectContaining({ eventId: "EVT-3", type: "deleted" }),
+              expect.objectContaining({
+                payload: expect.objectContaining({ eventId: "EVT-1", type: "created" }),
+              }),
+              expect.objectContaining({
+                payload: expect.objectContaining({ eventId: "EVT-2", type: "updated" }),
+              }),
+              expect.objectContaining({
+                payload: expect.objectContaining({ eventId: "EVT-3", type: "deleted" }),
+              }),
             ]),
           );
         },
@@ -391,17 +400,23 @@ describe("Client and Worker Integration", () => {
           expect(emailHandler).toHaveBeenNthCalledWith(
             1,
             expect.objectContaining({
-              recipient: "user@example.com",
-              message: "Test email",
+              payload: expect.objectContaining({
+                recipient: "user@example.com",
+                message: "Test email",
+              }),
             }),
+            expect.anything(), // rawMessage
           );
           expect(smsHandler).toHaveBeenCalledTimes(1);
           expect(smsHandler).toHaveBeenNthCalledWith(
             1,
             expect.objectContaining({
-              recipient: "+1234567890",
-              message: "Test SMS",
+              payload: expect.objectContaining({
+                recipient: "+1234567890",
+                message: "Test SMS",
+              }),
             }),
+            expect.anything(), // rawMessage
           );
         },
         { timeout: 5000 },
