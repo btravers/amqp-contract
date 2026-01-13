@@ -14,7 +14,40 @@ import {
   defineUnsafeHandlers,
 } from "./handlers.js";
 import { describe, expect, it } from "vitest";
+import type { ConsumeMessage } from "amqplib";
 import { z } from "zod";
+
+/**
+ * Creates a mock ConsumeMessage for testing purposes.
+ */
+function createMockConsumeMessage(): ConsumeMessage {
+  return {
+    content: Buffer.from("{}"),
+    fields: {
+      consumerTag: "test-consumer-tag",
+      deliveryTag: 1,
+      redelivered: false,
+      exchange: "test-exchange",
+      routingKey: "test.key",
+    },
+    properties: {
+      contentType: undefined,
+      contentEncoding: undefined,
+      headers: {},
+      deliveryMode: undefined,
+      priority: undefined,
+      correlationId: undefined,
+      replyTo: undefined,
+      expiration: undefined,
+      messageId: undefined,
+      timestamp: undefined,
+      type: undefined,
+      userId: undefined,
+      appId: undefined,
+      clusterId: undefined,
+    },
+  };
+}
 
 describe("handlers", () => {
   // Setup test contract
@@ -327,7 +360,10 @@ describe("handlers", () => {
   describe("safe handlers error handling", () => {
     it("should allow returning RetryableError from safe handler", () => {
       // GIVEN
-      const handler = (_message: { payload: { id: string; data: string } }) => {
+      const handler = (
+        _message: { payload: { id: string; data: string } },
+        _rawMessage: ConsumeMessage,
+      ) => {
         return Future.value(Result.Error(new RetryableError("Transient failure")));
       };
 
@@ -338,13 +374,19 @@ describe("handlers", () => {
       expect(result).toBe(handler);
 
       // Verify the handler returns the expected error
-      const handlerResult = (result as typeof handler)({ payload: { id: "1", data: "test" } });
+      const handlerResult = (result as typeof handler)(
+        { payload: { id: "1", data: "test" } },
+        createMockConsumeMessage(),
+      );
       expect(handlerResult).toBeDefined();
     });
 
     it("should allow returning NonRetryableError from safe handler", () => {
       // GIVEN
-      const handler = (_message: { payload: { id: string; data: string } }) => {
+      const handler = (
+        _message: { payload: { id: string; data: string } },
+        _rawMessage: ConsumeMessage,
+      ) => {
         return Future.value(Result.Error(new NonRetryableError("Invalid message")));
       };
 
@@ -355,7 +397,10 @@ describe("handlers", () => {
       expect(result).toBe(handler);
 
       // Verify the handler returns the expected error
-      const handlerResult = (result as typeof handler)({ payload: { id: "1", data: "test" } });
+      const handlerResult = (result as typeof handler)(
+        { payload: { id: "1", data: "test" } },
+        createMockConsumeMessage(),
+      );
       expect(handlerResult).toBeDefined();
     });
   });

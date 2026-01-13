@@ -25,6 +25,7 @@ import type {
   WorkerInferSafeConsumerHandlers,
 } from "./types.js";
 import type { HandlerError } from "./errors.js";
+import type { StandardSchemaV1 } from "@standard-schema/spec";
 import { decompressBuffer } from "./decompression.js";
 
 /**
@@ -55,6 +56,26 @@ type ResolvedRetryConfig = {
  */
 function isHandlerTuple(entry: unknown): entry is [unknown, ConsumerOptions] {
   return Array.isArray(entry) && entry.length === 2;
+}
+
+/**
+ * Type guard to check if a value is a Standard Schema v1 compliant schema.
+ */
+function isStandardSchema(value: unknown): value is StandardSchemaV1 {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  if (!("~standard" in value)) {
+    return false;
+  }
+  const standard = (value as { "~standard": unknown })["~standard"];
+  if (typeof standard !== "object" || standard === null) {
+    return false;
+  }
+  if (!("validate" in standard)) {
+    return false;
+  }
+  return typeof (standard as { validate: unknown }).validate === "function";
 }
 
 /**
@@ -170,8 +191,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   private readonly actualHandlers: Partial<
     Record<
       InferConsumerNames<TContract>,
-      | WorkerInferSafeConsumerHandler<TContract, InferConsumerNames<TContract>>
-      | WorkerInferSafeConsumerBatchHandler<TContract, InferConsumerNames<TContract>>
+      WorkerInferSafeConsumerHandler<TContract, InferConsumerNames<TContract>>
     >
   >;
   private readonly consumerOptions: Partial<Record<InferConsumerNames<TContract>, ConsumerOptions>>;
@@ -208,8 +228,10 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         this.consumerOptions[typedConsumerName] = options;
       } else {
         // Direct function format
-        this.actualHandlers[typedConsumerName] =
-          handlerEntry as WorkerInferSafeConsumerHandler<TContract, InferConsumerNames<TContract>>;
+        this.actualHandlers[typedConsumerName] = handlerEntry as WorkerInferSafeConsumerHandler<
+          TContract,
+          InferConsumerNames<TContract>
+        >;
       }
     }
   }
@@ -629,36 +651,46 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         return Future.value(Result.Ok<unknown, void>(undefined));
       }
 
+      // Validate that the schema is a Standard Schema v1 compliant schema
+      if (!isStandardSchema(headersSchema)) {
+        const error = new MessageValidationError(
+          String(consumerName),
+          "Invalid headers schema: not a Standard Schema v1 compliant schema",
+        );
+        this.logger?.error("Message headers validation failed", {
+          consumerName: String(consumerName),
+          queueName: consumer.queue.name,
+          error,
+        });
+        // Reject message with no requeue (invalid schema configuration)
+        this.amqpClient.channel.nack(msg, false, false);
+        return Future.value(Result.Error<unknown, void>(undefined));
+      }
+
+      // After type guard, we know headersSchema is a valid StandardSchemaV1
+      const validSchema: StandardSchemaV1 = headersSchema;
       const rawHeaders = msg.properties.headers ?? {};
-      // Type assertion needed because headers is typed as THeaders | undefined
-      // but we've already checked it's defined above
-      const schema = headersSchema as { "~standard": { validate: (data: unknown) => unknown } };
-      const rawValidation = schema["~standard"].validate(rawHeaders);
+      const rawValidation = validSchema["~standard"].validate(rawHeaders);
       return Future.fromPromise(
         rawValidation instanceof Promise ? rawValidation : Promise.resolve(rawValidation),
       )
         .mapError((): void => undefined)
-        .mapOkToResult(
-          (validationResult: { issues?: unknown; value?: unknown } | { value: unknown }) => {
-            if ("issues" in validationResult && validationResult.issues) {
-              const error = new MessageValidationError(
-                String(consumerName),
-                `Headers validation failed: ${JSON.stringify(validationResult.issues)}`,
-              );
-              this.logger?.error("Message headers validation failed", {
-                consumerName: String(consumerName),
-                queueName: consumer.queue.name,
-                error,
-              });
+        .mapOkToResult((validationResult: StandardSchemaV1.Result<unknown>) => {
+          if (validationResult.issues) {
+            const error = new MessageValidationError(String(consumerName), validationResult.issues);
+            this.logger?.error("Message headers validation failed", {
+              consumerName: String(consumerName),
+              queueName: consumer.queue.name,
+              error,
+            });
 
-              // Reject message with no requeue (validation failed)
-              this.amqpClient.channel.nack(msg, false, false);
-              return Result.Error<unknown, void>(undefined);
-            }
+            // Reject message with no requeue (validation failed)
+            this.amqpClient.channel.nack(msg, false, false);
+            return Result.Error<unknown, void>(undefined);
+          }
 
-            return Result.Ok<unknown, void>(validationResult.value);
-          },
-        );
+          return Result.Ok<unknown, void>(validationResult.value);
+        });
     };
 
     // Build the consumed message
@@ -666,11 +698,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       validatedPayload: unknown,
     ): Future<Result<WorkerInferConsumedMessage<TContract, TName>, void>> => {
       return validateHeaders().mapOk((validatedHeaders) => {
-        if (validatedHeaders === undefined) {
-          // No headers schema - return payload only
-          return { payload: validatedPayload } as WorkerInferConsumedMessage<TContract, TName>;
-        }
-        // Headers schema defined - return both payload and headers
+        // Always return both payload and headers (headers may be undefined)
         return {
           payload: validatedPayload,
           headers: validatedHeaders,

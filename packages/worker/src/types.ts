@@ -177,17 +177,12 @@ export type WorkerInferConsumerHeaders<
  * });
  * ```
  */
-export type WorkerConsumedMessage<TPayload, THeaders = undefined> = THeaders extends undefined
-  ? {
-      /** The validated message payload */
-      payload: TPayload;
-    }
-  : {
-      /** The validated message payload */
-      payload: TPayload;
-      /** The validated message headers */
-      headers: THeaders;
-    };
+export type WorkerConsumedMessage<TPayload, THeaders = undefined> = {
+  /** The validated message payload */
+  payload: TPayload;
+  /** The validated message headers (present only when headers schema is defined) */
+  headers: THeaders extends undefined ? undefined : THeaders;
+};
 
 /**
  * Infer the full consumed message type for a specific consumer.
