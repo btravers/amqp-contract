@@ -10,7 +10,9 @@ export class HandleUrgentOrderHandler {
   handleMessage = async ({
     payload,
   }: WorkerInferConsumedMessage<typeof orderContract, "handleUrgentOrder">) => {
-    this.logger.warn(`[URGENT] Priority order update received: ${payload.orderId} -> ${payload.status}`);
+    this.logger.warn(
+      `[URGENT] Priority order update received: ${payload.orderId} -> ${payload.status}`,
+    );
     this.logger.warn(`Urgent update handled for order ${payload.orderId}`);
   };
 

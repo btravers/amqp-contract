@@ -13,7 +13,9 @@ export class ProcessOrderHandler {
     this.logger.log(
       `[PROCESSING] New order received: ${payload.orderId} for customer ${payload.customerId}`,
     );
-    this.logger.debug(`Order details: ${payload.items.length} items, total: $${payload.totalAmount}`);
+    this.logger.debug(
+      `Order details: ${payload.items.length} items, total: $${payload.totalAmount}`,
+    );
     this.logger.log(`Order ${payload.orderId} processed successfully`);
   };
 
