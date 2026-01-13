@@ -421,8 +421,23 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * Resolve retry options to a complete configuration with defaults.
    */
   private resolveRetryConfig(retryOptions: RetryOptions): ResolvedRetryConfig {
+    // For quorum-native mode, TTL-backoff options are not used
+    // but we still provide defaults for internal consistency
+    if (retryOptions.mode === "quorum-native") {
+      return {
+        mode: "quorum-native",
+        maxRetries: 0, // Not used in quorum-native mode
+        initialDelayMs: 0, // Not used in quorum-native mode
+        maxDelayMs: 0, // Not used in quorum-native mode
+        backoffMultiplier: 0, // Not used in quorum-native mode
+        jitter: false, // Not used in quorum-native mode
+      };
+    }
+
+    // TTL-backoff mode (default): extract options with defaults
+    // At this point, TypeScript knows retryOptions is TtlBackoffRetryOptions
     return {
-      mode: retryOptions.mode ?? "ttl-backoff",
+      mode: "ttl-backoff",
       maxRetries: retryOptions.maxRetries ?? 3,
       initialDelayMs: retryOptions.initialDelayMs ?? 1000,
       maxDelayMs: retryOptions.maxDelayMs ?? 30000,

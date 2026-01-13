@@ -14,9 +14,11 @@ export {
   defineUnsafeHandlers,
 } from "./handlers.js";
 export type {
-  // Retry configuration types
+  // Retry configuration types (discriminated union)
+  QuorumNativeRetryOptions,
   RetryMode,
   RetryOptions,
+  TtlBackoffRetryOptions,
   // Safe handler types (recommended)
   WorkerInferSafeConsumerBatchHandler,
   WorkerInferSafeConsumerHandler,

@@ -567,16 +567,18 @@ Retry is enabled by default for all consumers with sensible defaults. You can cu
 This mode provides exponential backoff using RabbitMQ's TTL and Dead Letter Exchange (DLX) pattern:
 
 ```typescript
-import { TypedAmqpWorker } from "@amqp-contract/worker";
+import { TypedAmqpWorker, RetryableError } from "@amqp-contract/worker";
+import { Future } from "@swan-io/boxed";
 
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     // Handler with custom retry configuration
     processOrder: [
-      async (message) => {
-        await processPayment(message);
-      },
+      (message) =>
+        Future.fromPromise(processPayment(message))
+          .mapOk(() => undefined)
+          .mapError((error) => new RetryableError("Payment failed", error)),
       {
         retry: {
           mode: "ttl-backoff", // This is the default
@@ -589,9 +591,10 @@ const worker = await TypedAmqpWorker.create({
       },
     ],
     // Simple handler uses default retry configuration
-    notifyOrder: async (message) => {
-      await sendNotification(message);
-    },
+    notifyOrder: (message) =>
+      Future.fromPromise(sendNotification(message))
+        .mapOk(() => undefined)
+        .mapError((error) => new RetryableError("Notification failed", error)),
   },
   urls: ["amqp://localhost"],
 }).resultToPromise();
@@ -616,6 +619,8 @@ A simpler mode that leverages RabbitMQ quorum queue's native `x-delivery-limit` 
 
 ```typescript
 import { defineQueue, defineExchange } from "@amqp-contract/contract";
+import { TypedAmqpWorker, RetryableError } from "@amqp-contract/worker";
+import { Future } from "@swan-io/boxed";
 
 // 1. Define queue with deliveryLimit
 const dlx = defineExchange("orders-dlx", "topic", { durable: true });
@@ -633,9 +638,10 @@ const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: [
-      async (message) => {
-        await processPayment(message);
-      },
+      (message) =>
+        Future.fromPromise(processPayment(message))
+          .mapOk(() => undefined)
+          .mapError((error) => new RetryableError("Payment failed", error)),
       {
         retry: {
           mode: "quorum-native", // Use quorum queue's native delivery limit
@@ -679,20 +685,17 @@ Retry is enabled by default with sensible defaults. To customize the retry confi
 
 ```typescript
 import { TypedAmqpWorker, RetryableError } from "@amqp-contract/worker";
+import { Future } from "@swan-io/boxed";
 
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     // Custom retry configuration for this consumer
     processOrder: [
-      async (message) => {
-        try {
-          await processPayment(message);
-        } catch (error) {
-          // Throw to trigger retry
-          throw new Error("Payment processing failed");
-        }
-      },
+      (message) =>
+        Future.fromPromise(processPayment(message))
+          .mapOk(() => undefined)
+          .mapError((error) => new RetryableError("Payment processing failed", error)),
       {
         retry: {
           maxRetries: 5, // Custom: 5 retries instead of default 3
@@ -704,9 +707,10 @@ const worker = await TypedAmqpWorker.create({
       },
     ],
     // Uses default retry configuration
-    notifyOrder: async (message) => {
-      await sendNotification(message);
-    },
+    notifyOrder: (message) =>
+      Future.fromPromise(sendNotification(message))
+        .mapOk(() => undefined)
+        .mapError((error) => new RetryableError("Notification failed", error)),
   },
   urls: ["amqp://localhost"],
 }).resultToPromise();
@@ -792,20 +796,22 @@ The library provides two error classes for explicit error signaling:
 Use `RetryableError` for transient failures that may succeed on retry:
 
 ```typescript
-import { RetryableError, defineUnsafeHandler } from "@amqp-contract/worker";
+import { RetryableError, defineHandler } from "@amqp-contract/worker";
+import { Future } from "@swan-io/boxed";
 
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: [
-      defineUnsafeHandler(contract, "processOrder", async (message) => {
-        try {
-          await externalApiCall(message);
-        } catch (error) {
-          // Explicitly signal this should be retried
-          throw new RetryableError("External API temporarily unavailable", error);
-        }
-      }),
+      defineHandler(contract, "processOrder", (message) =>
+        Future.fromPromise(externalApiCall(message))
+          .mapOk(() => undefined)
+          .mapError(
+            (error) =>
+              // Explicitly signal this should be retried
+              new RetryableError("External API temporarily unavailable", error),
+          ),
+      ),
       {
         retry: {
           maxRetries: 5,
@@ -823,18 +829,21 @@ const worker = await TypedAmqpWorker.create({
 Use `NonRetryableError` for permanent failures that should NOT be retried:
 
 ```typescript
-import { NonRetryableError, defineUnsafeHandler } from "@amqp-contract/worker";
+import { NonRetryableError, RetryableError, defineHandler } from "@amqp-contract/worker";
+import { Future, Result } from "@swan-io/boxed";
 
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: [
-      defineUnsafeHandler(contract, "processOrder", async (message) => {
+      defineHandler(contract, "processOrder", (message) => {
         // Validation errors should not be retried
         if (message.amount <= 0) {
-          throw new NonRetryableError("Invalid order amount");
+          return Future.value(Result.Error(new NonRetryableError("Invalid order amount")));
         }
-        await processPayment(message);
+        return Future.fromPromise(processPayment(message))
+          .mapOk(() => undefined)
+          .mapError((error) => new RetryableError("Payment failed", error));
       }),
       {
         retry: {
