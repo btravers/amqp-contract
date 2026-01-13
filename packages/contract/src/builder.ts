@@ -19,39 +19,77 @@ import type { StandardSchemaV1 } from "@standard-schema/spec";
 import { z } from "zod";
 
 /**
- * Zod schema for maxPriority validation.
- * Validates that maxPriority is an integer between 1 and 255.
+ * Zod schema for quorum queue options validation.
+ * Validates deliveryLimit as a positive integer (>= 1).
  * @internal
  */
-const maxPrioritySchema = z.number().int().min(1).max(255);
+const quorumQueueOptionsSchema = z.object({
+  type: z.literal("quorum"),
+  deliveryLimit: z.number().int().min(1).optional(),
+});
 
 /**
- * Zod schema for deliveryLimit validation.
- * Validates that deliveryLimit is a positive integer (>= 1).
+ * Zod schema for classic queue options validation.
+ * Validates maxPriority as an integer between 1 and 255.
  * @internal
  */
-const deliveryLimitSchema = z.number().int().min(1);
+const classicQueueOptionsSchema = z.object({
+  type: z.literal("classic"),
+  maxPriority: z.number().int().min(1).max(255).optional(),
+});
 
 /**
- * Parses a value with a Zod schema and throws an error with a custom message on failure.
+ * Zod schema for DefineQueueOptions as a discriminated union on the `type` property.
+ * - When `type` is "quorum", validates quorum queue options
+ * - When `type` is "classic", validates classic queue options
+ * @internal
+ */
+const defineQueueOptionsSchema = z.discriminatedUnion("type", [
+  classicQueueOptionsSchema,
+  quorumQueueOptionsSchema,
+]);
+
+/**
+ * Validates queue options using the Zod schema and throws an error with a descriptive message on failure.
  *
- * @param schema - The Zod schema to validate against
- * @param value - The value to parse
- * @param errorMessageFn - A function that generates the error message when validation fails
- * @returns The parsed and validated value
- * @throws Error with custom message when validation fails
+ * @param options - The queue options to validate
+ * @returns The validated queue options
+ * @throws Error with descriptive message when validation fails
  * @internal
  */
-function parseWithCustomError<T>(
-  schema: z.ZodType<T>,
-  value: unknown,
-  errorMessageFn: (value: unknown) => string,
-): T {
-  const result = schema.safeParse(value);
+function validateQueueOptions(options: DefineQueueOptions): DefineQueueOptions {
+  // Handle the case where type is undefined (defaults to "quorum")
+  const type = options.type ?? "quorum";
+
+  // Extract the fields to validate based on queue type
+  const maxPriority = type === "classic" ? (options as ClassicQueueOptions).maxPriority : undefined;
+  const deliveryLimit =
+    type === "quorum" ? (options as QuorumQueueOptions).deliveryLimit : undefined;
+
+  const optionsToValidate = {
+    type,
+    ...(type === "classic" ? { maxPriority } : { deliveryLimit }),
+  };
+
+  const result = defineQueueOptionsSchema.safeParse(optionsToValidate);
   if (!result.success) {
-    throw new Error(errorMessageFn(value));
+    const issue = result.error.issues[0];
+    const path = issue?.path.join(".");
+
+    // Generate descriptive error messages based on the field
+    if (path === "maxPriority") {
+      throw new Error(
+        `Invalid maxPriority: ${maxPriority}. Must be between 1 and 255. Recommended range: 1-10.`,
+      );
+    }
+    if (path === "deliveryLimit") {
+      throw new Error(`Invalid deliveryLimit: ${deliveryLimit}. Must be a positive integer.`);
+    }
+
+    throw new Error(`Invalid queue options: ${issue?.message ?? "validation failed"}`);
   }
-  return result.data;
+
+  return options;
 }
 
 /**
@@ -220,36 +258,20 @@ export function defineExchange(
  */
 export function defineQueue(name: string, options?: DefineQueueOptions): QueueDefinition {
   const opts = options ?? {};
+
+  // Validate options using the Zod schema
+  validateQueueOptions(opts);
+
   const type = opts.type ?? "quorum";
 
   // Extract maxPriority only if it's a classic queue (type safety enforced at compile time)
-  const rawMaxPriority = type === "classic" ? (opts as ClassicQueueOptions).maxPriority : undefined;
-  const exclusive = type === "classic" ? (opts as ClassicQueueOptions).exclusive : undefined;
+  const maxPriority =
+    type === "classic" ? (opts as { maxPriority?: number }).maxPriority : undefined;
+  const exclusive = type === "classic" ? (opts as { exclusive?: boolean }).exclusive : undefined;
 
   // Extract deliveryLimit only if it's a quorum queue
-  const rawDeliveryLimit =
-    type === "quorum" ? (opts as QuorumQueueOptions).deliveryLimit : undefined;
-
-  // Validate maxPriority using Zod schema (only applicable for classic queues)
-  const maxPriority =
-    rawMaxPriority !== undefined
-      ? parseWithCustomError(
-          maxPrioritySchema,
-          rawMaxPriority,
-          (val) =>
-            `Invalid maxPriority: ${val}. Must be between 1 and 255. Recommended range: 1-10.`,
-        )
-      : undefined;
-
-  // Validate deliveryLimit using Zod schema (only applicable for quorum queues)
   const deliveryLimit =
-    rawDeliveryLimit !== undefined
-      ? parseWithCustomError(
-          deliveryLimitSchema,
-          rawDeliveryLimit,
-          (val) => `Invalid deliveryLimit: ${val}. Must be a positive integer.`,
-        )
-      : undefined;
+    type === "quorum" ? (opts as { deliveryLimit?: number }).deliveryLimit : undefined;
 
   // Build the queue definition - only include defined properties
   const queueDefinition: QueueDefinition = {

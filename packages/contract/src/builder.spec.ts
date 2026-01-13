@@ -239,6 +239,13 @@ describe("builder", () => {
       );
     });
 
+    it("should throw error for non-integer maxPriority", () => {
+      // WHEN/THEN
+      expect(() => defineQueue("priority-queue", { type: "classic", maxPriority: 2.5 })).toThrow(
+        "Invalid maxPriority: 2.5. Must be between 1 and 255. Recommended range: 1-10.",
+      );
+    });
+
     it("should accept maxPriority of 1", () => {
       // WHEN
       const queue = defineQueue("priority-queue", { type: "classic", maxPriority: 1 });
