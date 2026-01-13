@@ -29,10 +29,10 @@ async function main() {
       processOrder: async (message) => {
         logger.info(
           {
-            orderId: message.orderId,
-            customerId: message.customerId,
-            items: message.items.length,
-            total: message.totalAmount,
+            orderId: message.payload.orderId,
+            customerId: message.payload.customerId,
+            items: message.payload.items.length,
+            total: message.payload.totalAmount,
           },
           "[PROCESSING] New order received",
         );
@@ -40,19 +40,19 @@ async function main() {
         // Simulate processing
         await new Promise((resolve) => setTimeout(resolve, 500));
 
-        logger.info({ orderId: message.orderId }, "Order processed successfully");
+        logger.info({ orderId: message.payload.orderId }, "Order processed successfully");
       },
 
       // Handler for ALL order notifications (order.#)
       notifyOrder: async (message) => {
         // Check if it's a new order or a status update
-        if ("items" in message) {
+        if ("items" in message.payload) {
           // It's a full order
           logger.info(
             {
               type: "new_order",
-              orderId: message.orderId,
-              customerId: message.customerId,
+              orderId: message.payload.orderId,
+              customerId: message.payload.customerId,
             },
             "[NOTIFICATIONS] Event received",
           );
@@ -61,8 +61,8 @@ async function main() {
           logger.info(
             {
               type: "status_update",
-              orderId: message.orderId,
-              status: message.status,
+              orderId: message.payload.orderId,
+              status: message.payload.status,
             },
             "[NOTIFICATIONS] Event received",
           );
@@ -78,8 +78,8 @@ async function main() {
       shipOrder: async (message) => {
         logger.info(
           {
-            orderId: message.orderId,
-            status: message.status,
+            orderId: message.payload.orderId,
+            status: message.payload.status,
           },
           "[SHIPPING] Shipment notification received",
         );
@@ -87,15 +87,15 @@ async function main() {
         // Simulate shipping preparation
         await new Promise((resolve) => setTimeout(resolve, 400));
 
-        logger.info({ orderId: message.orderId }, "Shipping label prepared");
+        logger.info({ orderId: message.payload.orderId }, "Shipping label prepared");
       },
 
       // Handler for URGENT orders (order.*.urgent)
       handleUrgentOrder: async (message) => {
         logger.warn(
           {
-            orderId: message.orderId,
-            status: message.status,
+            orderId: message.payload.orderId,
+            status: message.payload.status,
           },
           "[URGENT] Priority order update received!",
         );
@@ -103,20 +103,20 @@ async function main() {
         // Simulate urgent processing
         await new Promise((resolve) => setTimeout(resolve, 200));
 
-        logger.warn({ orderId: message.orderId }, "Urgent update handled");
+        logger.warn({ orderId: message.payload.orderId }, "Urgent update handled");
       },
 
       // Handler for ANALYTICS processing (receives events through exchange-to-exchange binding)
       processAnalytics: async (message) => {
         // Check if it's a new order or a status update
-        if ("items" in message) {
+        if ("items" in message.payload) {
           // It's a full order
           logger.info(
             {
               type: "analytics",
-              orderId: message.orderId,
-              customerId: message.customerId,
-              totalAmount: message.totalAmount,
+              orderId: message.payload.orderId,
+              customerId: message.payload.customerId,
+              totalAmount: message.payload.totalAmount,
             },
             "[ANALYTICS] New order data received via exchange-to-exchange binding",
           );
@@ -125,8 +125,8 @@ async function main() {
           logger.info(
             {
               type: "analytics",
-              orderId: message.orderId,
-              status: message.status,
+              orderId: message.payload.orderId,
+              status: message.payload.status,
             },
             "[ANALYTICS] Status update received via exchange-to-exchange binding",
           );
@@ -142,9 +142,9 @@ async function main() {
       handleFailedOrders: async (message) => {
         logger.error(
           {
-            orderId: message.orderId,
-            customerId: message.customerId,
-            totalAmount: message.totalAmount,
+            orderId: message.payload.orderId,
+            customerId: message.payload.customerId,
+            totalAmount: message.payload.totalAmount,
           },
           "[DLX] Failed order received from dead letter exchange",
         );
@@ -153,7 +153,7 @@ async function main() {
         // For this example, we just log the failure
         await new Promise((resolve) => setTimeout(resolve, 200));
 
-        logger.error({ orderId: message.orderId }, "Failed order logged for investigation");
+        logger.error({ orderId: message.payload.orderId }, "Failed order logged for investigation");
       },
     }),
     urls: [env.AMQP_URL],

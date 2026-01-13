@@ -643,22 +643,24 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     consumerName: TName,
   ): Future<Result<WorkerInferConsumedMessage<TContract, TName>, void>> {
     // Decompress message if needed
-    const decompressMessage = Future.fromPromise(
+    const decompressMessage: Future<Result<Buffer, void>> = Future.fromPromise(
       decompressBuffer(msg.content, msg.properties.contentEncoding),
-    ).tapError((error) => {
-      this.logger?.error("Error decompressing message", {
-        consumerName: String(consumerName),
-        queueName: consumer.queue.name,
-        contentEncoding: msg.properties.contentEncoding,
-        error,
-      });
+    )
+      .tapError((error) => {
+        this.logger?.error("Error decompressing message", {
+          consumerName: String(consumerName),
+          queueName: consumer.queue.name,
+          contentEncoding: msg.properties.contentEncoding,
+          error,
+        });
 
-      // Reject message with no requeue (decompression failed)
-      this.amqpClient.channel.nack(msg, false, false);
-    });
+        // Reject message with no requeue (decompression failed)
+        this.amqpClient.channel.nack(msg, false, false);
+      })
+      .mapError((): void => undefined);
 
     // Parse message
-    const parseMessage = (buffer: Buffer) => {
+    const parseMessage = (buffer: Buffer): Future<Result<unknown, void>> => {
       const parseResult = Result.fromExecution(() => JSON.parse(buffer.toString()));
       if (parseResult.isError()) {
         this.logger?.error("Error parsing message", {
@@ -669,57 +671,22 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
         // Reject message with no requeue (malformed JSON)
         this.amqpClient.channel.nack(msg, false, false);
-        return Future.value(Result.Error(undefined));
+        return Future.value(Result.Error<unknown, void>(undefined));
       }
-      return Future.value(Result.Ok(parseResult.value));
+      return Future.value(Result.Ok<unknown, void>(parseResult.value));
     };
 
     // Validate payload
-    const validatePayload = (parsedMessage: unknown) => {
+    const validatePayload = (parsedMessage: unknown): Future<Result<unknown, void>> => {
       const rawValidation = consumer.message.payload["~standard"].validate(parsedMessage);
       return Future.fromPromise(
         rawValidation instanceof Promise ? rawValidation : Promise.resolve(rawValidation),
-      ).mapOkToResult((validationResult) => {
-        if (validationResult.issues) {
-          const error = new MessageValidationError(String(consumerName), validationResult.issues);
-          this.logger?.error("Message payload validation failed", {
-            consumerName: String(consumerName),
-            queueName: consumer.queue.name,
-            error,
-          });
-
-          // Reject message with no requeue (validation failed)
-          this.amqpClient.channel.nack(msg, false, false);
-          return Result.Error(undefined);
-        }
-
-        return Result.Ok(validationResult.value);
-      });
-    };
-
-    // Validate headers (if schema is defined)
-    const validateHeaders = (): Future<Result<unknown, void>> => {
-      const headersSchema = consumer.message.headers;
-      if (!headersSchema) {
-        // No headers schema defined - return undefined for headers
-        return Future.value(Result.Ok(undefined));
-      }
-
-      const rawHeaders = msg.properties.headers ?? {};
-      // Type assertion needed because headers is typed as THeaders | undefined
-      // but we've already checked it's defined above
-      const schema = headersSchema as { "~standard": { validate: (data: unknown) => unknown } };
-      const rawValidation = schema["~standard"].validate(rawHeaders);
-      return Future.fromPromise(
-        rawValidation instanceof Promise ? rawValidation : Promise.resolve(rawValidation),
-      ).mapOkToResult(
-        (validationResult: { issues?: unknown; value?: unknown } | { value: unknown }) => {
-          if ("issues" in validationResult && validationResult.issues) {
-            const error = new MessageValidationError(
-              String(consumerName),
-              `Headers validation failed: ${JSON.stringify(validationResult.issues)}`,
-            );
-            this.logger?.error("Message headers validation failed", {
+      )
+        .mapError((): void => undefined)
+        .mapOkToResult((validationResult) => {
+          if (validationResult.issues) {
+            const error = new MessageValidationError(String(consumerName), validationResult.issues);
+            this.logger?.error("Message payload validation failed", {
               consumerName: String(consumerName),
               queueName: consumer.queue.name,
               error,
@@ -731,8 +698,47 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           }
 
           return Result.Ok<unknown, void>(validationResult.value);
-        },
-      );
+        });
+    };
+
+    // Validate headers (if schema is defined)
+    const validateHeaders = (): Future<Result<unknown, void>> => {
+      const headersSchema = consumer.message.headers;
+      if (!headersSchema) {
+        // No headers schema defined - return undefined for headers
+        return Future.value(Result.Ok<unknown, void>(undefined));
+      }
+
+      const rawHeaders = msg.properties.headers ?? {};
+      // Type assertion needed because headers is typed as THeaders | undefined
+      // but we've already checked it's defined above
+      const schema = headersSchema as { "~standard": { validate: (data: unknown) => unknown } };
+      const rawValidation = schema["~standard"].validate(rawHeaders);
+      return Future.fromPromise(
+        rawValidation instanceof Promise ? rawValidation : Promise.resolve(rawValidation),
+      )
+        .mapError((): void => undefined)
+        .mapOkToResult(
+          (validationResult: { issues?: unknown; value?: unknown } | { value: unknown }) => {
+            if ("issues" in validationResult && validationResult.issues) {
+              const error = new MessageValidationError(
+                String(consumerName),
+                `Headers validation failed: ${JSON.stringify(validationResult.issues)}`,
+              );
+              this.logger?.error("Message headers validation failed", {
+                consumerName: String(consumerName),
+                queueName: consumer.queue.name,
+                error,
+              });
+
+              // Reject message with no requeue (validation failed)
+              this.amqpClient.channel.nack(msg, false, false);
+              return Result.Error<unknown, void>(undefined);
+            }
+
+            return Result.Ok<unknown, void>(validationResult.value);
+          },
+        );
     };
 
     // Build the consumed message

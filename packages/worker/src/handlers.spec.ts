@@ -39,8 +39,8 @@ describe("handlers", () => {
   describe("defineUnsafeHandler", () => {
     it("should create a wrapped safe handler without options", () => {
       // GIVEN
-      const handler = async (message: { id: string; data: string }) => {
-        console.log(message.id);
+      const handler = async (message: { payload: { id: string; data: string } }) => {
+        console.log(message.payload.id);
       };
 
       // WHEN
@@ -53,8 +53,8 @@ describe("handlers", () => {
 
     it("should create a wrapped safe handler with prefetch option", () => {
       // GIVEN
-      const handler = async (message: { id: string; data: string }) => {
-        console.log(message.id);
+      const handler = async (message: { payload: { id: string; data: string } }) => {
+        console.log(message.payload.id);
       };
 
       // WHEN
@@ -70,7 +70,7 @@ describe("handlers", () => {
 
     it("should create a wrapped batch handler with batchSize", () => {
       // GIVEN
-      const batchHandler = async (messages: Array<{ id: string; data: string }>) => {
+      const batchHandler = async (messages: Array<{ payload: { id: string; data: string } }>) => {
         console.log(messages.length);
       };
 
@@ -122,15 +122,18 @@ describe("handlers", () => {
 
     it("should wrap errors in RetryableError by default", async () => {
       // GIVEN
-      const handler = async (_message: { id: string; data: string }) => {
+      const handler = async (_message: { payload: { id: string; data: string } }) => {
         throw new Error("Test error");
       };
 
       // WHEN
       const result = defineUnsafeHandler(testContract, "testConsumer", handler);
       const wrappedResult = await (
-        result as (input: { id: string; data: string }) => Future<Result<void, unknown>>
-      )({ id: "1", data: "test" }).toPromise();
+        result as (
+          input: { payload: { id: string; data: string } },
+          raw: unknown,
+        ) => Future<Result<void, unknown>>
+      )({ payload: { id: "1", data: "test" } }, {}).toPromise();
 
       // THEN
       expect(wrappedResult.isError()).toBe(true);
@@ -141,15 +144,18 @@ describe("handlers", () => {
 
     it("should preserve NonRetryableError thrown by handler", async () => {
       // GIVEN
-      const handler = async (_message: { id: string; data: string }) => {
+      const handler = async (_message: { payload: { id: string; data: string } }) => {
         throw new NonRetryableError("Invalid data");
       };
 
       // WHEN
       const result = defineUnsafeHandler(testContract, "testConsumer", handler);
       const wrappedResult = await (
-        result as (input: { id: string; data: string }) => Future<Result<void, unknown>>
-      )({ id: "1", data: "test" }).toPromise();
+        result as (
+          input: { payload: { id: string; data: string } },
+          raw: unknown,
+        ) => Future<Result<void, unknown>>
+      )({ payload: { id: "1", data: "test" } }, {}).toPromise();
 
       // THEN
       expect(wrappedResult.isError()).toBe(true);
@@ -163,11 +169,11 @@ describe("handlers", () => {
     it("should create wrapped safe handlers", () => {
       // GIVEN
       const handlers = {
-        testConsumer: async (message: { id: string; data: string }) => {
-          console.log(message.id);
+        testConsumer: async (message: { payload: { id: string; data: string } }) => {
+          console.log(message.payload.id);
         },
-        anotherConsumer: async (message: { id: string; data: string }) => {
-          console.log(message.data);
+        anotherConsumer: async (message: { payload: { id: string; data: string } }) => {
+          console.log(message.payload.data);
         },
       };
 
@@ -184,11 +190,11 @@ describe("handlers", () => {
 
     it("should create wrapped handlers with mixed options", () => {
       // GIVEN
-      const handler1 = async (message: { id: string; data: string }) => {
-        console.log(message.id);
+      const handler1 = async (message: { payload: { id: string; data: string } }) => {
+        console.log(message.payload.id);
       };
-      const handler2 = async (message: { id: string; data: string }) => {
-        console.log(message.data);
+      const handler2 = async (message: { payload: { id: string; data: string } }) => {
+        console.log(message.payload.data);
       };
 
       const handlers = {
@@ -200,9 +206,9 @@ describe("handlers", () => {
       const result = defineUnsafeHandlers(testContract, handlers);
 
       // THEN - result contains wrapped handlers
-      expect(typeof result.testConsumer).toBe("function");
-      expect(Array.isArray(result.anotherConsumer)).toBe(true);
-      const [wrappedHandler2, options] = result.anotherConsumer as [unknown, unknown];
+      expect(typeof result["testConsumer"]).toBe("function");
+      expect(Array.isArray(result["anotherConsumer"])).toBe(true);
+      const [wrappedHandler2, options] = result["anotherConsumer"] as [unknown, unknown];
       expect(typeof wrappedHandler2).toBe("function");
       expect(options).toEqual({ prefetch: 5 });
     });
@@ -210,11 +216,11 @@ describe("handlers", () => {
     it("should throw error if handler references non-existent consumer", () => {
       // GIVEN
       const handlers = {
-        testConsumer: async (message: { id: string; data: string }) => {
-          console.log(message.id);
+        testConsumer: async (message: { payload: { id: string; data: string } }) => {
+          console.log(message.payload.id);
         },
-        nonExistentConsumer: async (message: { id: string; data: string }) => {
-          console.log(message.data);
+        nonExistentConsumer: async (message: { payload: { id: string; data: string } }) => {
+          console.log(message.payload.data);
         },
       };
 
@@ -235,8 +241,8 @@ describe("handlers", () => {
       });
 
       const handlers = {
-        testConsumer: async (message: { id: string; data: string }) => {
-          console.log(message.id);
+        testConsumer: async (message: { payload: { id: string; data: string } }) => {
+          console.log(message.payload.id);
         },
       };
 
@@ -251,8 +257,8 @@ describe("handlers", () => {
   describe("defineHandler (safe handlers)", () => {
     it("should create a simple safe handler without options", () => {
       // GIVEN
-      const handler = (message: { id: string; data: string }) => {
-        console.log(message.id);
+      const handler = (message: { payload: { id: string; data: string } }) => {
+        console.log(message.payload.id);
         return Future.value(Result.Ok(undefined));
       };
 
@@ -265,8 +271,8 @@ describe("handlers", () => {
 
     it("should create a safe handler with prefetch option", () => {
       // GIVEN
-      const handler = (message: { id: string; data: string }) => {
-        console.log(message.id);
+      const handler = (message: { payload: { id: string; data: string } }) => {
+        console.log(message.payload.id);
         return Future.value(Result.Ok(undefined));
       };
 
@@ -279,7 +285,7 @@ describe("handlers", () => {
 
     it("should create a safe batch handler with batchSize", () => {
       // GIVEN
-      const batchHandler = (messages: Array<{ id: string; data: string }>) => {
+      const batchHandler = (messages: Array<{ payload: { id: string; data: string } }>) => {
         console.log(messages.length);
         return Future.value(Result.Ok(undefined));
       };
@@ -296,8 +302,8 @@ describe("handlers", () => {
 
     it("should throw error if consumer not found in contract", () => {
       // GIVEN
-      const handler = (message: { id: string; data: string }) => {
-        console.log(message.id);
+      const handler = (message: { payload: { id: string; data: string } }) => {
+        console.log(message.payload.id);
         return Future.value(Result.Ok(undefined));
       };
 
@@ -315,12 +321,12 @@ describe("handlers", () => {
     it("should create multiple safe handlers", () => {
       // GIVEN
       const handlers = {
-        testConsumer: (message: { id: string; data: string }) => {
-          console.log(message.id);
+        testConsumer: (message: { payload: { id: string; data: string } }) => {
+          console.log(message.payload.id);
           return Future.value(Result.Ok(undefined));
         },
-        anotherConsumer: (message: { id: string; data: string }) => {
-          console.log(message.data);
+        anotherConsumer: (message: { payload: { id: string; data: string } }) => {
+          console.log(message.payload.data);
           return Future.value(Result.Ok(undefined));
         },
       };
@@ -335,12 +341,12 @@ describe("handlers", () => {
     it("should throw error if handler references non-existent consumer", () => {
       // GIVEN
       const handlers = {
-        testConsumer: (message: { id: string; data: string }) => {
-          console.log(message.id);
+        testConsumer: (message: { payload: { id: string; data: string } }) => {
+          console.log(message.payload.id);
           return Future.value(Result.Ok(undefined));
         },
-        nonExistentConsumer: (message: { id: string; data: string }) => {
-          console.log(message.data);
+        nonExistentConsumer: (message: { payload: { id: string; data: string } }) => {
+          console.log(message.payload.data);
           return Future.value(Result.Ok(undefined));
         },
       };
@@ -358,7 +364,7 @@ describe("handlers", () => {
   describe("safe handlers error handling", () => {
     it("should allow returning RetryableError from safe handler", () => {
       // GIVEN
-      const handler = (_message: { id: string; data: string }) => {
+      const handler = (_message: { payload: { id: string; data: string } }) => {
         return Future.value(Result.Error(new RetryableError("Transient failure")));
       };
 
@@ -369,13 +375,13 @@ describe("handlers", () => {
       expect(result).toBe(handler);
 
       // Verify the handler returns the expected error
-      const handlerResult = (result as typeof handler)({ id: "1", data: "test" });
+      const handlerResult = (result as typeof handler)({ payload: { id: "1", data: "test" } });
       expect(handlerResult).toBeDefined();
     });
 
     it("should allow returning NonRetryableError from safe handler", () => {
       // GIVEN
-      const handler = (_message: { id: string; data: string }) => {
+      const handler = (_message: { payload: { id: string; data: string } }) => {
         return Future.value(Result.Error(new NonRetryableError("Invalid message")));
       };
 
@@ -386,7 +392,7 @@ describe("handlers", () => {
       expect(result).toBe(handler);
 
       // Verify the handler returns the expected error
-      const handlerResult = (result as typeof handler)({ id: "1", data: "test" });
+      const handlerResult = (result as typeof handler)({ payload: { id: "1", data: "test" } });
       expect(handlerResult).toBeDefined();
     });
   });

@@ -1,7 +1,5 @@
 import type { ContractDefinition, InferConsumerNames } from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
-import type { ConsumeMessage } from "amqplib";
-import type { HandlerError } from "./errors.js";
 import { NonRetryableError, RetryableError } from "./errors.js";
 import type {
   RetryOptions,
@@ -11,6 +9,8 @@ import type {
   WorkerInferSafeConsumerHandlerEntry,
   WorkerInferSafeConsumerHandlers,
 } from "./types.js";
+import type { ConsumeMessage } from "amqplib";
+import type { HandlerError } from "./errors.js";
 
 // =============================================================================
 // Helper Functions

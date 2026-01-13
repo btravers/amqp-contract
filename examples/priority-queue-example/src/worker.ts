@@ -32,12 +32,14 @@ async function main() {
     handlers: defineUnsafeHandlers(priorityQueueContract, {
       processTask: async (task) => {
         // Simulate task processing
-        logger.info(`📥 Processing: ${task.taskId} - "${task.title}" (priority: ${task.priority})`);
+        logger.info(
+          `📥 Processing: ${task.payload.taskId} - "${task.payload.title}" (priority: ${task.payload.priority})`,
+        );
 
         // Simulate some work
         await new Promise((resolve) => setTimeout(resolve, 500));
 
-        logger.info(`✅ Completed: ${task.taskId}`);
+        logger.info(`✅ Completed: ${task.payload.taskId}`);
       },
     }),
   })

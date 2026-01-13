@@ -57,7 +57,7 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
         contract,
         "testConsumer",
         (msg) => {
-          messages.push(msg);
+          messages.push(msg.payload);
           // Simulate slow processing to test prefetch
           return Future.fromPromise(new Promise((resolve) => setTimeout(resolve, 100)))
             .mapOk(() => undefined)
@@ -129,8 +129,8 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
       batchConsumer: defineHandler(
         contract,
         "batchConsumer",
-        (messages: Array<{ id: string; value: number }>) => {
-          batches.push(messages);
+        (messages) => {
+          batches.push(messages.map((m) => m.payload));
           return Future.value(Result.Ok(undefined));
         },
         {
@@ -215,8 +215,8 @@ describe("AmqpWorker Prefetch and Batch Integration", () => {
       batchConsumer: defineHandler(
         contract,
         "batchConsumer",
-        (messages: Array<{ id: string; text: string }>) => {
-          batches.push(messages);
+        (messages) => {
+          batches.push(messages.map((m) => m.payload));
           return Future.value(Result.Ok(undefined));
         },
         {

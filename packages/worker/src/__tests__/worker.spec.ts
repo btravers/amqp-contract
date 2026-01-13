@@ -484,11 +484,11 @@ describe("AmqpWorker Integration", () => {
       contract,
       defineHandlers(contract, {
         orderConsumer: (msg) => {
-          orders.push(msg);
+          orders.push(msg.payload);
           return Future.value(Result.Ok(undefined));
         },
         notificationConsumer: (msg) => {
-          notifications.push(msg);
+          notifications.push(msg.payload);
           return Future.value(Result.Ok(undefined));
         },
       }),

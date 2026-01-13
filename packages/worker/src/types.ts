@@ -4,10 +4,10 @@ import type {
   InferConsumerNames,
   MessageDefinition,
 } from "@amqp-contract/contract";
-import type { StandardSchemaV1 } from "@standard-schema/spec";
 import type { Future, Result } from "@swan-io/boxed";
 import type { ConsumeMessage } from "amqplib";
 import type { HandlerError } from "./errors.js";
+import type { StandardSchemaV1 } from "@standard-schema/spec";
 
 /**
  * TTL-Backoff retry options for exponential backoff with configurable delays.

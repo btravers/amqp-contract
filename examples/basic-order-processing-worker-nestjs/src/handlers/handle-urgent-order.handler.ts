@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import type { WorkerInferConsumerInput } from "@amqp-contract/worker";
+import type { WorkerInferConsumedMessage } from "@amqp-contract/worker";
 import { defineUnsafeHandler } from "@amqp-contract/worker";
 import { orderContract } from "@amqp-contract-examples/basic-order-processing-contract";
 
@@ -8,12 +8,12 @@ export class HandleUrgentOrderHandler {
   private readonly logger = new Logger(HandleUrgentOrderHandler.name);
 
   handleMessage = async (
-    message: WorkerInferConsumerInput<typeof orderContract, "handleUrgentOrder">,
+    message: WorkerInferConsumedMessage<typeof orderContract, "handleUrgentOrder">,
   ) => {
     this.logger.warn(
-      `[URGENT] Priority order update received: ${message.orderId} -> ${message.status}`,
+      `[URGENT] Priority order update received: ${message.payload.orderId} -> ${message.payload.status}`,
     );
-    this.logger.warn(`Urgent update handled for order ${message.orderId}`);
+    this.logger.warn(`Urgent update handled for order ${message.payload.orderId}`);
   };
 
   handler = defineUnsafeHandler(orderContract, "handleUrgentOrder", async (message) =>
