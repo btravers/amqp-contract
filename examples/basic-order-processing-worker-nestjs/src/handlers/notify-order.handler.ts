@@ -7,19 +7,19 @@ import { orderContract } from "@amqp-contract-examples/basic-order-processing-co
 export class NotifyOrderHandler {
   private readonly logger = new Logger(NotifyOrderHandler.name);
 
-  handleMessage = async (
-    message: WorkerInferConsumedMessage<typeof orderContract, "notifyOrder">,
-  ) => {
+  handleMessage = async ({
+    payload,
+  }: WorkerInferConsumedMessage<typeof orderContract, "notifyOrder">) => {
     // Check if it's a new order or a status update
-    if ("items" in message.payload) {
+    if ("items" in payload) {
       // It's a full order
       this.logger.log(
-        `[NOTIFICATIONS] New order event received: ${message.payload.orderId} for customer ${message.payload.customerId}`,
+        `[NOTIFICATIONS] New order event received: ${payload.orderId} for customer ${payload.customerId}`,
       );
     } else {
       // It's a status update
       this.logger.log(
-        `[NOTIFICATIONS] Status update received: ${message.payload.orderId} -> ${message.payload.status}`,
+        `[NOTIFICATIONS] Status update received: ${payload.orderId} -> ${payload.status}`,
       );
     }
     this.logger.debug("Notification sent");

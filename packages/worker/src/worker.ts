@@ -51,6 +51,13 @@ type ResolvedRetryConfig = {
 };
 
 /**
+ * Type guard to check if a handler entry is a tuple format [handler, options].
+ */
+function isHandlerTuple(entry: unknown): entry is [unknown, ConsumerOptions] {
+  return Array.isArray(entry) && entry.length === 2;
+}
+
+/**
  * Options for creating a type-safe AMQP worker.
  *
  * @typeParam TContract - The contract definition type
@@ -191,14 +198,14 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       const handlerEntry = handlersRecord[consumerName];
       const typedConsumerName = consumerName as InferConsumerNames<TContract>;
 
-      if (Array.isArray(handlerEntry)) {
+      if (isHandlerTuple(handlerEntry)) {
         // Tuple format: [handler, options]
-        this.actualHandlers[typedConsumerName] =
-          handlerEntry[0] as WorkerInferSafeConsumerHandler<
-            TContract,
-            InferConsumerNames<TContract>
-          >;
-        this.consumerOptions[typedConsumerName] = handlerEntry[1] as ConsumerOptions;
+        const [handler, options] = handlerEntry;
+        this.actualHandlers[typedConsumerName] = handler as WorkerInferSafeConsumerHandler<
+          TContract,
+          InferConsumerNames<TContract>
+        >;
+        this.consumerOptions[typedConsumerName] = options;
       } else {
         // Direct function format
         this.actualHandlers[typedConsumerName] =

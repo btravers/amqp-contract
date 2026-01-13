@@ -7,16 +7,14 @@ import { orderContract } from "@amqp-contract-examples/basic-order-processing-co
 export class ProcessOrderHandler {
   private readonly logger = new Logger(ProcessOrderHandler.name);
 
-  handleMessage = async (
-    message: WorkerInferConsumedMessage<typeof orderContract, "processOrder">,
-  ) => {
+  handleMessage = async ({
+    payload,
+  }: WorkerInferConsumedMessage<typeof orderContract, "processOrder">) => {
     this.logger.log(
-      `[PROCESSING] New order received: ${message.payload.orderId} for customer ${message.payload.customerId}`,
+      `[PROCESSING] New order received: ${payload.orderId} for customer ${payload.customerId}`,
     );
-    this.logger.debug(
-      `Order details: ${message.payload.items.length} items, total: $${message.payload.totalAmount}`,
-    );
-    this.logger.log(`Order ${message.payload.orderId} processed successfully`);
+    this.logger.debug(`Order details: ${payload.items.length} items, total: $${payload.totalAmount}`);
+    this.logger.log(`Order ${payload.orderId} processed successfully`);
   };
 
   handler = defineUnsafeHandler(orderContract, "processOrder", async (message) =>

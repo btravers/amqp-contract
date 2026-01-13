@@ -7,13 +7,11 @@ import { orderContract } from "@amqp-contract-examples/basic-order-processing-co
 export class HandleUrgentOrderHandler {
   private readonly logger = new Logger(HandleUrgentOrderHandler.name);
 
-  handleMessage = async (
-    message: WorkerInferConsumedMessage<typeof orderContract, "handleUrgentOrder">,
-  ) => {
-    this.logger.warn(
-      `[URGENT] Priority order update received: ${message.payload.orderId} -> ${message.payload.status}`,
-    );
-    this.logger.warn(`Urgent update handled for order ${message.payload.orderId}`);
+  handleMessage = async ({
+    payload,
+  }: WorkerInferConsumedMessage<typeof orderContract, "handleUrgentOrder">) => {
+    this.logger.warn(`[URGENT] Priority order update received: ${payload.orderId} -> ${payload.status}`);
+    this.logger.warn(`Urgent update handled for order ${payload.orderId}`);
   };
 
   handler = defineUnsafeHandler(orderContract, "handleUrgentOrder", async (message) =>
