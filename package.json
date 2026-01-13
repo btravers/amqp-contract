@@ -13,7 +13,6 @@
     "lint": "oxlint .",
     "prepare": "lefthook install",
     "release": "pnpm build && changeset publish",
-    "setup": "pnpm install && pnpm build",
     "sort-package-json": "sort-package-json '**/package.json' '!**/node_modules/**'",
     "test": "turbo run test",
     "test:integration": "turbo run test:integration",
