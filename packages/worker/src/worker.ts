@@ -17,6 +17,16 @@ import type {
 } from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
 import { MessageValidationError, NonRetryableError, TechnicalError } from "./errors.js";
+import type {
+  RetryMode,
+  RetryOptions,
+  WorkerInferConsumedMessage,
+  WorkerInferSafeConsumerHandler,
+  WorkerInferSafeConsumerHandlers,
+} from "./types.js";
+import type { HandlerError } from "./errors.js";
+import type { StandardSchemaV1 } from "@standard-schema/spec";
+import { decompressBuffer } from "./decompression.js";
 
 // =============================================================================
 // Default Configuration Constants
@@ -40,16 +50,6 @@ const DEFAULT_RETRY_CONFIG = {
   /** Jitter range: random value between this and 1.0 of calculated delay */
   JITTER_MIN_FACTOR: 0.5,
 } as const;
-import type {
-  RetryMode,
-  RetryOptions,
-  WorkerInferConsumedMessage,
-  WorkerInferSafeConsumerHandler,
-  WorkerInferSafeConsumerHandlers,
-} from "./types.js";
-import type { HandlerError } from "./errors.js";
-import type { StandardSchemaV1 } from "@standard-schema/spec";
-import { decompressBuffer } from "./decompression.js";
 
 /**
  * Internal type for consumer options extracted from handler tuples.
