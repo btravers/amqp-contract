@@ -331,7 +331,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   /**
    * Set up wait queues for retry mechanism.
    * Creates and binds wait queues for each consumer queue that has DLX configuration
-   * and uses "ttl-backoff" retry mode.
+   * and uses "ttl-backoff" retry mode (the default).
    */
   private setupWaitQueues(): Future<Result<void, TechnicalError>> {
     if (!this.contract.consumers || !this.contract.queues) {
@@ -346,14 +346,11 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       const consumer = this.contract.consumers[consumerName as string];
       if (!consumer) continue;
 
-      // Get consumer-specific retry config
+      // Get consumer-specific retry config (with defaults)
       const options = this.consumerOptions[consumerName] ?? {};
-      const retryOptions = options.retry;
+      const retryOptions = options.retry ?? {};
 
-      // Skip if no retry configuration for this consumer
-      if (!retryOptions) continue;
-
-      // Resolve retry config
+      // Resolve retry config with defaults
       const retryConfig = this.resolveRetryConfig(retryOptions);
 
       // For quorum-native mode, validate queue configuration and skip wait queue setup
@@ -1025,19 +1022,9 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     // Get consumer-specific retry config
     const typedConsumerName = consumerName as InferConsumerNames<TContract>;
     const options = this.consumerOptions[typedConsumerName] ?? {};
-    const retryOptions = options.retry;
+    const retryOptions = options.retry ?? {};
 
-    // If no retry config for this consumer, use legacy behavior
-    if (!retryOptions) {
-      this.logger?.warn("Error in handler (legacy mode: immediate requeue)", {
-        consumerName,
-        error: error.message,
-      });
-      this.amqpClient.channel.nack(msg, false, true); // Requeue immediately
-      return Future.value(Result.Ok(undefined));
-    }
-
-    // Resolve retry config with defaults
+    // Resolve retry config with defaults (retry is always enabled)
     const config = this.resolveRetryConfig(retryOptions);
 
     // Quorum-native mode: let RabbitMQ handle retry via x-delivery-count
