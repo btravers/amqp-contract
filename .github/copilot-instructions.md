@@ -385,6 +385,7 @@ packages/[package-name]/
    import { Module } from "@nestjs/common";
    import { AmqpClientModule } from "@amqp-contract/client-nestjs";
    import { AmqpWorkerModule } from "@amqp-contract/worker-nestjs";
+   import { Future, Result } from "@swan-io/boxed";
    import { contract } from "./contract";
 
    @Module({
