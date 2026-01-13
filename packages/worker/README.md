@@ -30,8 +30,9 @@ pnpm add @amqp-contract/worker
 ### Basic Usage
 
 ```typescript
-import { TypedAmqpWorker } from "@amqp-contract/worker";
+import { TypedAmqpWorker, RetryableError } from "@amqp-contract/worker";
 import type { Logger } from "@amqp-contract/core";
+import { Future } from "@swan-io/boxed";
 import { contract } from "./contract";
 
 // Optional: Create a logger implementation

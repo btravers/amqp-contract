@@ -12,17 +12,20 @@ Create a worker with type-safe message handlers:
 
 ```typescript
 import { TypedAmqpWorker } from "@amqp-contract/worker";
+import { Future, Result } from "@swan-io/boxed";
 import { contract } from "./contract";
 
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    processOrder: async ({ payload }) => {
+    processOrder: ({ payload }) => {
       console.log("Processing:", payload.orderId);
       // Your business logic here
+      return Future.value(Result.Ok(undefined));
     },
-    notifyOrder: async ({ payload }) => {
+    notifyOrder: ({ payload }) => {
       console.log("Notifying:", payload.orderId);
+      return Future.value(Result.Ok(undefined));
     },
   },
   urls: ["amqp://localhost"],
@@ -38,10 +41,12 @@ The worker automatically connects and starts consuming messages from all queues.
 Handlers receive validated, fully-typed messages with `{ payload, headers }`:
 
 ```typescript
+import { Future, Result } from "@swan-io/boxed";
+
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    processOrder: async ({ payload }) => {
+    processOrder: ({ payload }) => {
       // Payload is fully typed!
       console.log(payload.orderId); // ✅ string
       console.log(payload.amount); // ✅ number
@@ -50,6 +55,7 @@ const worker = await TypedAmqpWorker.create({
       for (const item of payload.items) {
         console.log(`${item.productId}: ${item.quantity}`);
       }
+      return Future.value(Result.Ok(undefined));
     },
   },
   connection,
@@ -69,7 +75,7 @@ The worker enforces:
 const workerResult = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    notifyOrder: async ({ payload }) => { ... },
+    notifyOrder: ({ payload }) => { ... },
     // Missing processOrder handler!
   },
   urls: ['amqp://localhost'],
@@ -79,8 +85,8 @@ const workerResult = await TypedAmqpWorker.create({
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    processOrder: async ({ payload }) => { ... },
-    notifyOrder: async ({ payload }) => { ... },
+    processOrder: ({ payload }) => { ... },
+    notifyOrder: ({ payload }) => { ... },
   },
   urls: ['amqp://localhost'],
 }).resultToPromise();
@@ -116,7 +122,7 @@ const validateOrderHandler = defineHandler(contract, "validateOrder", ({ payload
 });
 ```
 
-### Unsafe Handlers (Legacy)
+### Unsafe Handlers (Legacy/Deprecated)
 
 For simpler use cases or migration from existing code, use unsafe handlers that return `Promise<void>`:
 
@@ -158,7 +164,7 @@ const handlers = defineHandlers(contract, {
       .mapError((error) => new RetryableError("Email failed", error)),
 });
 
-// Or use unsafe handlers for simpler code
+// Or use unsafe handlers for simpler code (deprecated)
 import { defineUnsafeHandlers } from "@amqp-contract/worker";
 
 const unsafeHandlers = defineUnsafeHandlers(contract, {
@@ -276,8 +282,8 @@ By default, `TypedAmqpWorker.create` automatically starts all consumers defined 
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    processOrder: async ({ payload }) => { ... },
-    notifyOrder: async ({ payload }) => { ... },
+    processOrder: ({ payload }) => { ... },
+    notifyOrder: ({ payload }) => { ... },
   },
   connection,
 });
@@ -293,8 +299,8 @@ If you need more control, you can create a worker using the `TypedAmqpWorker` cl
 import { TypedAmqpWorker } from '@amqp-contract/worker';
 
 const worker = new TypedAmqpWorker(contract, {
-  processOrder: async ({ payload }) => { ... },
-  notifyOrder: async ({ payload }) => { ... },
+  processOrder: ({ payload }) => { ... },
+  notifyOrder: ({ payload }) => { ... },
 });
 
 await worker.connect(connection);
@@ -313,12 +319,15 @@ await worker.consume('notifyOrder');
 By default, messages are automatically acknowledged after successful processing:
 
 ```typescript
+import { Future, Result } from "@swan-io/boxed";
+
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    processOrder: async ({ payload }) => {
+    processOrder: ({ payload }) => {
       console.log("Processing:", payload.orderId);
       // Message is automatically acked after this handler completes
+      return Future.value(Result.Ok(undefined));
     },
   },
   connection,
@@ -429,15 +438,20 @@ Control the number of unacknowledged messages a consumer can have at once. This 
 Use the tuple syntax `[handler, options]` to configure prefetch per-handler:
 
 ```typescript
+import { Future } from "@swan-io/boxed";
+import { RetryableError } from "@amqp-contract/worker";
+
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: [
-      async ({ payload }) => {
-        // Process one message at a time
-        console.log("Order:", payload.orderId);
-        await saveToDatabase(payload);
-      },
+      ({ payload }) =>
+        Future.fromPromise(saveToDatabase(payload))
+          .mapOk(() => {
+            console.log("Order:", payload.orderId);
+            return undefined;
+          })
+          .mapError((error) => new RetryableError("Failed to save order", error)),
       { prefetch: 10 }, // Process up to 10 messages concurrently
     ],
   },
@@ -456,24 +470,28 @@ For example, if you have two consumers with prefetch values of 5 and 10, the eff
 Process multiple messages at once for better throughput. This is especially useful for bulk database operations or API calls.
 
 ```typescript
+import { Future } from "@swan-io/boxed";
+import { RetryableError } from "@amqp-contract/worker";
+
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrders: [
-      async (messages) => {
+      (messages) => {
         // Handler receives array of messages for batch processing
         console.log(`Processing ${messages.length} orders`);
 
         // Batch insert to database
-        await db.orders.insertMany(
-          messages.map(({ payload }) => ({
-            id: payload.orderId,
-            amount: payload.amount,
-          })),
-        );
-
-        // All messages are acked together on success
-        // Or nacked together on error
+        return Future.fromPromise(
+          db.orders.insertMany(
+            messages.map(({ payload }) => ({
+              id: payload.orderId,
+              amount: payload.amount,
+            })),
+          ),
+        )
+          .mapOk(() => undefined) // All messages are acked together on success
+          .mapError((error) => new RetryableError("Batch insert failed", error)); // Or nacked together on error
       },
       {
         batchSize: 5, // Process messages in batches of 5
@@ -500,10 +518,10 @@ TypeScript automatically enforces the correct handler signature based on configu
 
 ```typescript
 // Single message handler (no batchSize)
-[async ({ payload }) => { ... }, { prefetch: 10 }]
+[({ payload }) => { ... }, { prefetch: 10 }]
 
 // Batch handler (with batchSize)
-[async (messages) => { ... }, { batchSize: 5 }]
+[(messages) => { ... }, { batchSize: 5 }]
 ```
 
 ### Handler Configuration Patterns
@@ -514,8 +532,9 @@ Three configuration patterns are supported:
 
 ```typescript
 handlers: {
-  processOrder: async ({ payload }) => {
+  processOrder: ({ payload }) => {
     // Single message processing
+    return Future.value(Result.Ok(undefined));
   };
 }
 ```
@@ -525,8 +544,9 @@ handlers: {
 ```typescript
 handlers: {
   processOrder: [
-    async ({ payload }) => {
+    ({ payload }) => {
       // Single message processing with prefetch
+      return Future.value(Result.Ok(undefined));
     },
     { prefetch: 10 },
   ];
@@ -538,11 +558,12 @@ handlers: {
 ```typescript
 handlers: {
   processOrders: [
-    async (messages) => {
+    (messages) => {
       // Batch processing - each message has { payload, headers }
       for (const { payload } of messages) {
         console.log(payload.orderId);
       }
+      return Future.value(Result.Ok(undefined));
     },
     { batchSize: 5, batchTimeout: 1000 },
   ];
@@ -929,18 +950,17 @@ const worker = await TypedAmqpWorker.create({
 Retry works with batch processing. If a batch handler throws an error, all messages in the batch are retried:
 
 ```typescript
+import { Future } from "@swan-io/boxed";
+import { RetryableError } from "@amqp-contract/worker";
+
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrders: [
-      async (messages) => {
-        try {
-          await db.orders.insertMany(messages);
-        } catch (error) {
-          // All messages in batch will be retried
-          throw new Error("Batch insert failed");
-        }
-      },
+      (messages) =>
+        Future.fromPromise(db.orders.insertMany(messages))
+          .mapOk(() => undefined)
+          .mapError((error) => new RetryableError("Batch insert failed", error)), // All messages in batch will be retried
       {
         batchSize: 10,
         batchTimeout: 1000,

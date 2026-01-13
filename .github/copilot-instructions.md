@@ -396,8 +396,9 @@ packages/[package-name]/
        AmqpWorkerModule.forRoot({
          contract,
          handlers: {
-           processOrder: async ({ payload }) => {
+           processOrder: ({ payload }) => {
              console.log("Processing:", payload.orderId);
+             return Future.value(Result.Ok(undefined));
            },
          },
          urls: ["amqp://localhost"],

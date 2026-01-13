@@ -166,10 +166,11 @@ await client
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    processOrder: async ({ payload }) => {
+    processOrder: ({ payload }) => {
       console.log(payload.orderId); // ✅ Fully typed!
       console.log(payload.customerId); // ✅ Autocomplete!
       console.log(payload.amount); // ✅ Type safe!
+      return Future.value(Result.Ok(undefined));
     },
   },
   urls: ["amqp://localhost"],

@@ -21,6 +21,7 @@ pnpm add @amqp-contract/worker-nestjs @amqp-contract/worker @amqp-contract/contr
 ```typescript
 import { Module } from "@nestjs/common";
 import { AmqpWorkerModule } from "@amqp-contract/worker-nestjs";
+import { Future, Result } from "@swan-io/boxed";
 import { contract } from "./contract";
 
 @Module({
@@ -28,8 +29,9 @@ import { contract } from "./contract";
     AmqpWorkerModule.forRoot({
       contract,
       handlers: {
-        processOrder: async ({ payload }) => {
+        processOrder: ({ payload }) => {
           console.log("Processing order:", payload.orderId);
+          return Future.value(Result.Ok(undefined));
         },
       },
       urls: ["amqp://localhost"],

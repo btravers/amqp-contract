@@ -180,7 +180,7 @@ const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     // ✅ payload is fully typed based on your schema
-    processOrder: async ({ payload }) => {
+    processOrder: ({ payload }) => {
       console.log(`Processing order: ${payload.orderId}`);
       console.log(`Customer: ${payload.customerId}`);
       console.log(`Total: $${payload.totalAmount}`);
@@ -192,6 +192,7 @@ const worker = await TypedAmqpWorker.create({
 
       // ✅ TypeScript catches typos and wrong field names
       // console.log(payload.ordreId); // ❌ TypeScript error!
+      return Future.value(Result.Ok(undefined));
     },
   },
   urls: ["amqp://localhost"],
@@ -301,8 +302,9 @@ import { contract } from "./contract";
     AmqpWorkerModule.forRoot({
       contract,
       handlers: {
-        processOrder: async ({ payload }) => {
+        processOrder: ({ payload }) => {
           console.log("Processing:", payload.orderId);
+          return Future.value(Result.Ok(undefined));
         },
       },
       urls: [process.env.RABBITMQ_URL],

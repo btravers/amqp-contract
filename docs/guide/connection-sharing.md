@@ -44,19 +44,24 @@ const worker = await TypedAmqpWorker.create({
   contract,
   urls: ["amqp://localhost"], // ← Same URLs = automatic sharing
   handlers: {
-    processOrder: async ({ payload }) => {
+    processOrder: ({ payload }) => {
       console.log("Processing order:", payload.orderId);
 
       // Can publish from within consumer
-      const publishResult = await client.publish("orderProcessed", {
-        orderId: payload.orderId,
-        status: "completed",
-      });
-
-      publishResult.match({
-        Ok: () => console.log("Order processed event published"),
-        Error: (error) => console.error("Failed to publish:", error),
-      });
+      return Future.fromPromise(
+        client.publish("orderProcessed", {
+          orderId: payload.orderId,
+          status: "completed",
+        }),
+      )
+        .mapOk(() => {
+          console.log("Order processed event published");
+          return undefined;
+        })
+        .mapError((error) => {
+          console.error("Failed to publish:", error);
+          return new RetryableError("Failed to publish", error);
+        });
     },
   },
 }).resultToPromise();

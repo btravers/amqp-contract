@@ -102,6 +102,7 @@ Import and configure the worker module:
 // app.module.ts
 import { Module } from "@nestjs/common";
 import { AmqpWorkerModule } from "@amqp-contract/worker-nestjs";
+import { Future, Result } from "@swan-io/boxed";
 import { contract } from "./contract";
 
 @Module({
@@ -109,12 +110,13 @@ import { contract } from "./contract";
     AmqpWorkerModule.forRoot({
       contract,
       handlers: {
-        processOrder: async ({ payload }) => {
+        processOrder: ({ payload }) => {
           console.log(`Processing order: ${payload.orderId}`);
           console.log(`Customer: ${payload.customerId}`);
           console.log(`Amount: $${payload.amount}`);
 
           // Your business logic here
+          return Future.value(Result.Ok(undefined));
         },
       },
       urls: ["amqp://localhost"],
@@ -172,6 +174,8 @@ export class OrderService {
 // app.module.ts
 import { Module } from "@nestjs/common";
 import { AmqpWorkerModule } from "@amqp-contract/worker-nestjs";
+import { RetryableError } from "@amqp-contract/worker";
+import { Future } from "@swan-io/boxed";
 import { contract } from "./contract";
 import { OrderService } from "./order.service";
 
@@ -181,13 +185,15 @@ import { OrderService } from "./order.service";
       useFactory: (orderService: OrderService) => ({
         contract,
         handlers: {
-          processOrder: async ({ payload }) => {
-            await orderService.saveOrder(payload);
-            await orderService.sendConfirmation(payload.customerId);
-            // Success - message will be acknowledged automatically
-            // Throw RetryableError for retryable failures
-            // Throw NonRetryableError for permanent failures
-          },
+          processOrder: ({ payload }) =>
+            Future.fromPromise(
+              Promise.all([
+                orderService.saveOrder(payload),
+                orderService.sendConfirmation(payload.customerId),
+              ]),
+            )
+              .mapOk(() => undefined) // Success - message will be acknowledged automatically
+              .mapError((error) => new RetryableError("Order processing failed", error)),
         },
         urls: ["amqp://localhost"],
       }),
@@ -207,6 +213,8 @@ Use `@nestjs/config` for environment-based configuration:
 import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { AmqpWorkerModule } from "@amqp-contract/worker-nestjs";
+import { RetryableError } from "@amqp-contract/worker";
+import { Future } from "@swan-io/boxed";
 import { contract } from "./contract";
 import { OrderService } from "./order.service";
 
@@ -218,10 +226,10 @@ import { OrderService } from "./order.service";
       useFactory: (configService: ConfigService, orderService: OrderService) => ({
         contract,
         handlers: {
-          processOrder: async ({ payload }) => {
-            await orderService.saveOrder(payload);
-            // Success - message will be acknowledged automatically
-          },
+          processOrder: ({ payload }) =>
+            Future.fromPromise(orderService.saveOrder(payload))
+              .mapOk(() => undefined) // Success - message will be acknowledged automatically
+              .mapError((error) => new RetryableError("Order processing failed", error)),
         },
         urls: [configService.get("RABBITMQ_URL") ?? "amqp://localhost"],
       }),
@@ -249,16 +257,18 @@ Messages are automatically acknowledged based on handler completion:
 
 ```typescript
 import { RetryableError, NonRetryableError } from "@amqp-contract/worker";
+import { Future, Result } from "@swan-io/boxed";
 
 AmqpWorkerModule.forRoot({
   contract,
   handlers: {
-    processOrder: async ({ payload }) => {
+    processOrder: ({ payload }) => {
       console.log("Processing:", payload.orderId);
 
       // Success - message is automatically acknowledged
-      // For retryable errors, throw RetryableError
-      // For permanent failures, throw NonRetryableError
+      // For retryable errors, return Result.Error(new RetryableError(...))
+      // For permanent failures, return Result.Error(new NonRetryableError(...))
+      return Future.value(Result.Ok(undefined));
     },
   },
   urls: ["amqp://localhost"],
@@ -271,22 +281,21 @@ Use typed errors for explicit retry control:
 
 ```typescript
 import { RetryableError, NonRetryableError } from "@amqp-contract/worker";
+import { Future, Result } from "@swan-io/boxed";
 
 AmqpWorkerModule.forRoot({
   contract,
   handlers: {
-    processOrder: async ({ payload }) => {
-      try {
-        await processOrder(payload);
-        // Success - message acknowledged
-      } catch (error) {
-        if (isTemporaryFailure(error)) {
-          throw new RetryableError("Temporary failure, will retry");
-        } else {
-          throw new NonRetryableError("Permanent failure, send to DLQ");
-        }
-      }
-    },
+    processOrder: ({ payload }) =>
+      Future.fromPromise(processOrder(payload))
+        .mapOk(() => undefined) // Success - message acknowledged
+        .mapError((error) => {
+          if (isTemporaryFailure(error)) {
+            return new RetryableError("Temporary failure, will retry");
+          } else {
+            return new NonRetryableError("Permanent failure, send to DLQ");
+          }
+        }),
   },
   urls: ["amqp://localhost"],
 });
@@ -318,30 +327,29 @@ export class OrderService {
 
 ```typescript
 import { RetryableError, NonRetryableError } from "@amqp-contract/worker";
+import { Future } from "@swan-io/boxed";
 
 AmqpWorkerModule.forRootAsync({
   useFactory: (orderService: OrderService) => ({
     contract,
     handlers: {
-      processOrder: async ({ payload }) => {
-        try {
-          await orderService.processOrder(payload);
-          // Success - message acknowledged automatically
-        } catch (error) {
-          console.error("Handler error:", error);
+      processOrder: ({ payload }) =>
+        Future.fromPromise(orderService.processOrder(payload))
+          .mapOk(() => undefined) // Success - message acknowledged automatically
+          .mapError((error) => {
+            console.error("Handler error:", error);
 
-          if (error instanceof ValidationError) {
-            // Don't retry validation errors
-            throw new NonRetryableError("Validation failed");
-          } else if (error instanceof TemporaryError) {
-            // Retry temporary errors
-            throw new RetryableError("Temporary failure");
-          } else {
-            // Unknown error, don't retry by default
-            throw new NonRetryableError("Unknown error");
-          }
-        }
-      },
+            if (error instanceof ValidationError) {
+              // Don't retry validation errors
+              return new NonRetryableError("Validation failed");
+            } else if (error instanceof TemporaryError) {
+              // Retry temporary errors
+              return new RetryableError("Temporary failure");
+            } else {
+              // Unknown error, don't retry by default
+              return new NonRetryableError("Unknown error");
+            }
+          }),
     },
     urls: ["amqp://localhost"],
   }),
@@ -379,14 +387,17 @@ export class OrderService {
 Create separate modules for different domains:
 
 ```typescript
+import { Future, Result } from "@swan-io/boxed";
+
 // order-worker.module.ts
 @Module({
   imports: [
     AmqpWorkerModule.forRoot({
       contract: orderContract,
       handlers: {
-        processOrder: async ({ payload }) => {
+        processOrder: ({ payload }) => {
           // Handle order processing
+          return Future.value(Result.Ok(undefined));
         },
       },
       urls: ["amqp://localhost"],
@@ -401,8 +412,9 @@ export class OrderWorkerModule {}
     AmqpWorkerModule.forRoot({
       contract: paymentContract,
       handlers: {
-        processPayment: async ({ payload }) => {
+        processPayment: ({ payload }) => {
           // Handle payment processing
+          return Future.value(Result.Ok(undefined));
         },
       },
       urls: ["amqp://localhost"],
@@ -652,6 +664,7 @@ import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { AmqpWorkerModule } from "@amqp-contract/worker-nestjs";
 import { RetryableError, NonRetryableError } from "@amqp-contract/worker";
+import { Future } from "@swan-io/boxed";
 import { contract } from "./contract";
 import { OrderService, BusinessRuleError, TemporaryError } from "./order.service";
 
@@ -663,25 +676,23 @@ import { OrderService, BusinessRuleError, TemporaryError } from "./order.service
       useFactory: (configService: ConfigService, orderService: OrderService) => ({
         contract,
         handlers: {
-          processOrder: async ({ payload }) => {
-            try {
-              await orderService.processOrder(payload);
-              // Success - message acknowledged automatically
-            } catch (error) {
-              // Use custom error classes with instanceof for type-safe error handling
-              // BusinessRuleError and TemporaryError are custom error classes defined in OrderService
-              if (error instanceof BusinessRuleError) {
-                // Business rule violation, don't retry
-                throw new NonRetryableError("Business rule violation");
-              } else if (error instanceof TemporaryError) {
-                // Temporary error, retry
-                throw new RetryableError("Temporary error, will retry");
-              } else {
-                // Unknown error, don't retry by default
-                throw new NonRetryableError("Unknown error");
-              }
-            }
-          },
+          processOrder: ({ payload }) =>
+            Future.fromPromise(orderService.processOrder(payload))
+              .mapOk(() => undefined) // Success - message acknowledged automatically
+              .mapError((error) => {
+                // Use custom error classes with instanceof for type-safe error handling
+                // BusinessRuleError and TemporaryError are custom error classes defined in OrderService
+                if (error instanceof BusinessRuleError) {
+                  // Business rule violation, don't retry
+                  return new NonRetryableError("Business rule violation");
+                } else if (error instanceof TemporaryError) {
+                  // Temporary error, retry
+                  return new RetryableError("Temporary error, will retry");
+                } else {
+                  // Unknown error, don't retry by default
+                  return new NonRetryableError("Unknown error");
+                }
+              }),
         },
         urls: [configService.get("RABBITMQ_URL") ?? "amqp://localhost"],
       }),

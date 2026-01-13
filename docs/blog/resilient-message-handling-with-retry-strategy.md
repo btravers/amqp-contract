@@ -24,14 +24,16 @@ Building reliable message-driven applications means dealing with the inevitable:
 In any distributed system using message queues, you'll encounter various types of failures:
 
 ```typescript
-// ❌ Without proper retry handling
+// ❌ Without proper retry handling (using deprecated unsafe handler pattern)
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    processOrder: async ({ payload }) => {
+    processOrder: ({ payload }) => {
       // What happens when the payment service is temporarily down?
-      await paymentService.charge(payload);
-      // Message is lost or immediately requeued in a tight loop
+      return Future.fromPromise(paymentService.charge(payload))
+        .mapOk(() => undefined)
+        .mapError((error) => new RetryableError("Payment failed", error));
+      // Without retry configuration, message may be lost or stuck
     },
   },
   urls: ["amqp://localhost"],

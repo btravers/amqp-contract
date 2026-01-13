@@ -34,6 +34,7 @@ import {
 } from "@amqp-contract/contract";
 import { TypedAmqpClient } from "@amqp-contract/client";
 import { TypedAmqpWorker } from "@amqp-contract/worker";
+import { Future, Result } from "@swan-io/boxed";
 import { z } from "zod";
 
 // 1. Define resources with Dead Letter Exchange for retry support

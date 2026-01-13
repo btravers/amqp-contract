@@ -217,8 +217,9 @@ Property 'orderId' does not exist on type 'never'.
    ```typescript
    // ✅ Payload is automatically typed
    handlers: {
-     processEmail: async ({ payload }) => {
+     processEmail: ({ payload }) => {
        console.log(payload.to);  // Type-safe!
+       return Future.value(Result.Ok(undefined));
      },
    }
    ```
@@ -455,9 +456,11 @@ const orderMessage = defineMessage(
    ```typescript
    // ❌ Blocking operation
    handlers: {
-     processOrder: async ({ payload }) => {
-       const result = await fetch("http://slow-api.com/process");  // Slow!
-       await processResult(result);
+     processOrder: ({ payload }) => {
+       return Future.fromPromise(fetch("http://slow-api.com/process"))  // Slow!
+         .flatMapOk((result) => Future.fromPromise(processResult(result)))
+         .mapOk(() => undefined)
+         .mapError((error) => new RetryableError("Processing failed", error));
      },
    }
 
@@ -476,9 +479,11 @@ const orderMessage = defineMessage(
    ```typescript
    // ✅ Offload heavy work
    handlers: {
-     processImage: async ({ payload }) => {
+     processImage: ({ payload }) => {
        // Queue heavy work to worker pool
-       await jobQueue.add("process-image", payload);
+       return Future.fromPromise(jobQueue.add("process-image", payload))
+         .mapOk(() => undefined)
+         .mapError((error) => new RetryableError("Failed to queue job", error));
      },
    }
    ```
@@ -488,18 +493,27 @@ const orderMessage = defineMessage(
    ```typescript
    // ❌ N+1 query problem
    handlers: {
-     processOrder: async ({ payload }) => {
-       for (const item of payload.items) {
-         await db.query("SELECT * FROM products WHERE id = ?", [item.id]);
-       }
+     processOrder: ({ payload }) => {
+       // Inefficient - multiple sequential queries
+       return Future.fromPromise(
+         (async () => {
+           for (const item of payload.items) {
+             await db.query("SELECT * FROM products WHERE id = ?", [item.id]);
+           }
+         })()
+       )
+         .mapOk(() => undefined)
+         .mapError((error) => new RetryableError("Query failed", error));
      },
    }
 
    // ✅ Batch queries
    handlers: {
-     processOrder: async ({ payload }) => {
+     processOrder: ({ payload }) => {
        const ids = payload.items.map(item => item.id);
-       await db.query("SELECT * FROM products WHERE id IN (?)", [ids]);
+       return Future.fromPromise(db.query("SELECT * FROM products WHERE id IN (?)", [ids]))
+         .mapOk(() => undefined)
+         .mapError((error) => new RetryableError("Query failed", error));
      },
    }
    ```

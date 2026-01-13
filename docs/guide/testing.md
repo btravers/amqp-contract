@@ -111,6 +111,7 @@ import { describe, expect } from "vitest";
 import { it } from "@amqp-contract/testing/extension";
 import { TypedAmqpClient } from "@amqp-contract/client";
 import { TypedAmqpWorker } from "@amqp-contract/worker";
+import { Future, Result } from "@swan-io/boxed";
 import { contract } from "./contract.js";
 
 describe("Order Processing Contract", () => {
@@ -129,8 +130,9 @@ describe("Order Processing Contract", () => {
     const worker = await TypedAmqpWorker.create({
       contract,
       handlers: {
-        processOrder: async ({ payload }) => {
+        processOrder: ({ payload }) => {
           receivedPayloads.push(payload);
+          return Future.value(Result.Ok(undefined));
         },
       },
       urls: [amqpConnectionUrl],

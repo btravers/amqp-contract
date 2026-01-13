@@ -92,10 +92,11 @@ import { contract } from "./contract";
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    processOrder: async ({ payload }) => {
+    processOrder: ({ payload }) => {
       // Message is automatically decompressed
       console.log("Processing order:", payload.orderId);
       console.log("Items:", payload.items); // Already decompressed
+      return Future.value(Result.Ok(undefined));
     },
   },
   urls: ["amqp://localhost"],
@@ -165,9 +166,10 @@ import { contract } from "./contract";
     AmqpWorkerModule.forRoot({
       contract,
       handlers: {
-        processOrder: async ({ payload }) => {
+        processOrder: ({ payload }) => {
           // Automatically decompressed, regardless of compression used
           console.log("Processing:", payload.orderId);
+          return Future.value(Result.Ok(undefined));
         },
       },
       urls: ["amqp://localhost"],
