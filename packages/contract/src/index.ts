@@ -9,6 +9,7 @@ export {
   defineQueue,
   definePublisherFirst,
   defineConsumerFirst,
+  defineQueueWithRetry,
 } from "./builder.js";
 export type {
   PublisherFirstResult,
@@ -18,6 +19,9 @@ export type {
   RoutingKey,
   BindingPattern,
   MatchingRoutingKey,
+  QueueWithRetryResult,
+  DefineQueueWithRetryOptions,
+  QueueTtlBackoffRetryOptions,
 } from "./builder.js";
 export type {
   AnySchema,
@@ -42,6 +46,10 @@ export type {
   QuorumQueueOptions,
   InferPublisherNames,
   InferConsumerNames,
+  // Retry configuration types
+  TtlBackoffRetryConfig,
+  QuorumNativeRetryConfig,
+  QueueRetryConfig,
 } from "./types.js";
 
 // Validation utilities

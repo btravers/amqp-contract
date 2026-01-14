@@ -70,6 +70,102 @@ export type CompressionAlgorithm = "gzip" | "deflate";
  */
 export type QueueType = "quorum" | "classic";
 
+// =============================================================================
+// Retry Configuration Types
+// =============================================================================
+
+/**
+ * TTL-backoff retry configuration.
+ *
+ * This mode uses a wait queue pattern with per-message TTL for exponential backoff.
+ * When a message fails processing, it is published to a wait queue with a TTL.
+ * When the TTL expires, the message is dead-lettered back to the main queue for retry.
+ *
+ * @example
+ * ```typescript
+ * const retryConfig: TtlBackoffRetryConfig = {
+ *   mode: "ttl-backoff",
+ *   maxRetries: 5,
+ *   initialDelayMs: 1000,
+ *   maxDelayMs: 30000,
+ *   backoffMultiplier: 2,
+ *   jitter: true,
+ * };
+ * ```
+ */
+export type TtlBackoffRetryConfig = {
+  /** Retry mode identifier */
+  mode: "ttl-backoff";
+
+  /**
+   * Maximum number of retry attempts before sending to DLQ.
+   * @default 3
+   */
+  maxRetries: number;
+
+  /**
+   * Initial delay in milliseconds before first retry.
+   * @default 1000
+   */
+  initialDelayMs: number;
+
+  /**
+   * Maximum delay in milliseconds between retries.
+   * The exponential backoff will be capped at this value.
+   * @default 30000
+   */
+  maxDelayMs: number;
+
+  /**
+   * Multiplier for exponential backoff calculation.
+   * Formula: delay = min(initialDelayMs * (backoffMultiplier ^ retryCount), maxDelayMs)
+   * @default 2
+   */
+  backoffMultiplier: number;
+
+  /**
+   * Whether to add random jitter to prevent thundering herd.
+   * When enabled, the delay is multiplied by a random factor between 0.5 and 1.0.
+   * @default true
+   */
+  jitter: boolean;
+};
+
+/**
+ * Quorum-native retry configuration.
+ *
+ * This mode uses RabbitMQ's native delivery limit feature for quorum queues.
+ * No wait queue is needed - RabbitMQ handles retry tracking via x-delivery-count.
+ * Messages are dead-lettered when the delivery limit is exceeded.
+ *
+ * Requirements:
+ * - Queue must be a quorum queue (type: "quorum")
+ * - Queue must have `deliveryLimit` configured
+ *
+ * @example
+ * ```typescript
+ * const queue = defineQueue("orders", {
+ *   type: "quorum",
+ *   deliveryLimit: 5,
+ *   deadLetter: { exchange: dlx },
+ * });
+ * // The queue inherently uses quorum-native retry via deliveryLimit
+ * ```
+ */
+export type QuorumNativeRetryConfig = {
+  /** Retry mode identifier */
+  mode: "quorum-native";
+};
+
+/**
+ * Retry configuration for a queue.
+ *
+ * This is a discriminated union based on the `mode` property:
+ * - `ttl-backoff`: Uses wait queue pattern with exponential backoff
+ * - `quorum-native`: Uses RabbitMQ's native delivery limit (quorum queues only)
+ */
+export type QueueRetryConfig = TtlBackoffRetryConfig | QuorumNativeRetryConfig;
+
 /**
  * Common queue options shared between quorum and classic queues.
  */
@@ -453,6 +549,26 @@ export type QueueDefinition = {
    * ```
    */
   arguments?: Record<string, unknown>;
+
+  /**
+   * Retry configuration for message processing failures.
+   *
+   * This is set by the `defineQueueWithRetry` helper when using TTL-backoff retry mode.
+   * The worker uses this configuration to determine retry behavior.
+   *
+   * - `ttl-backoff`: Uses wait queue pattern with exponential backoff (set by defineQueueWithRetry)
+   * - `quorum-native`: Uses RabbitMQ's native delivery limit (set automatically when deliveryLimit is configured)
+   *
+   * @example
+   * ```typescript
+   * const { queue } = defineQueueWithRetry("orders", {
+   *   deadLetterExchange: dlx,
+   *   retry: { maxRetries: 5, initialDelayMs: 2000 },
+   * });
+   * // queue.retryConfig is automatically populated
+   * ```
+   */
+  retryConfig?: QueueRetryConfig;
 };
 
 /**

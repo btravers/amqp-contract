@@ -14,6 +14,7 @@ import type {
   QueueDefinition,
   QuorumQueueOptions,
   TopicExchangeDefinition,
+  TtlBackoffRetryConfig,
 } from "./types.js";
 import {
   validateDeliveryLimit,
@@ -1584,4 +1585,253 @@ export function defineConsumerFirst<TMessage extends MessageDefinition>(
     binding,
     createPublisher,
   } as ConsumerFirstResult<TMessage, ConsumerDefinition<TMessage>, QueueBindingDefinition>;
+}
+
+// =============================================================================
+// Queue with Retry Infrastructure
+// =============================================================================
+
+/**
+ * Default retry configuration values for TTL-backoff mode.
+ */
+const DEFAULT_RETRY_CONFIG = {
+  MAX_RETRIES: 3,
+  INITIAL_DELAY_MS: 1000,
+  MAX_DELAY_MS: 30000,
+  BACKOFF_MULTIPLIER: 2,
+  JITTER: true,
+} as const;
+
+/**
+ * Options for TTL-backoff retry configuration.
+ */
+export type QueueTtlBackoffRetryOptions = {
+  /**
+   * Maximum retry attempts before sending to DLQ.
+   * @default 3
+   */
+  maxRetries?: number;
+  /**
+   * Initial delay in ms before first retry.
+   * @default 1000
+   */
+  initialDelayMs?: number;
+  /**
+   * Maximum delay in ms between retries.
+   * @default 30000
+   */
+  maxDelayMs?: number;
+  /**
+   * Exponential backoff multiplier.
+   * @default 2
+   */
+  backoffMultiplier?: number;
+  /**
+   * Add jitter to prevent thundering herd.
+   * @default true
+   */
+  jitter?: boolean;
+};
+
+/**
+ * Options for defining a queue with TTL-backoff retry infrastructure.
+ */
+export type DefineQueueWithRetryOptions = Omit<DefineQueueOptions, "deadLetter"> & {
+  /**
+   * Dead letter exchange for failed messages.
+   * Required for retry to work. Must be a topic or direct exchange.
+   */
+  deadLetterExchange: DirectExchangeDefinition | TopicExchangeDefinition;
+
+  /**
+   * Optional routing key for final DLQ routing (after all retries exhausted).
+   * If not specified, defaults to `{queueName}.dlq`.
+   */
+  deadLetterRoutingKey?: string;
+
+  /**
+   * TTL-backoff retry configuration.
+   */
+  retry?: QueueTtlBackoffRetryOptions;
+};
+
+/**
+ * Result of defineQueueWithRetry containing all generated resources.
+ */
+export type QueueWithRetryResult = {
+  /**
+   * The main queue definition with retry configuration attached.
+   */
+  queue: QueueDefinition;
+
+  /**
+   * The wait queue for holding messages during retry delay.
+   * Named `{queueName}-wait`.
+   */
+  waitQueue: QueueDefinition;
+
+  /**
+   * Binding: DLX -> wait queue (for failed messages entering retry).
+   * Routing key: `{queueName}-wait`
+   */
+  dlxToWaitQueueBinding: QueueBindingDefinition;
+
+  /**
+   * Binding: DLX -> main queue (for messages returning from wait queue).
+   * Routing key: `{queueName}`
+   */
+  dlxToMainQueueBinding: QueueBindingDefinition;
+};
+
+/**
+ * Define a queue with TTL-backoff retry infrastructure.
+ *
+ * This helper creates all necessary resources for TTL-backoff retry:
+ * 1. The main queue with DLX configured
+ * 2. A wait queue (`{queueName}-wait`) with DLX pointing back to main queue
+ * 3. Binding from DLX to wait queue (routing key: `{queueName}-wait`)
+ * 4. Binding from DLX to main queue (routing key: `{queueName}`)
+ *
+ * The retry configuration is attached to the queue definition and will be used
+ * by the worker to determine retry behavior. No handler-level retry options
+ * are needed when using this helper.
+ *
+ * @param name - The name of the main queue
+ * @param options - Queue configuration including retry options
+ * @returns An object containing queue, waitQueue, and binding definitions
+ *
+ * @example
+ * ```typescript
+ * const dlx = defineExchange('orders-dlx', 'topic', { durable: true });
+ *
+ * const { queue, waitQueue, dlxToWaitQueueBinding, dlxToMainQueueBinding } =
+ *   defineQueueWithRetry('order-processing', {
+ *     deadLetterExchange: dlx,
+ *     retry: {
+ *       maxRetries: 5,
+ *       initialDelayMs: 2000,
+ *       maxDelayMs: 60000,
+ *       backoffMultiplier: 2,
+ *       jitter: true,
+ *     },
+ *   });
+ *
+ * const contract = defineContract({
+ *   exchanges: { ordersDlx: dlx },
+ *   queues: {
+ *     orderProcessing: queue,
+ *     orderProcessingWait: waitQueue,
+ *   },
+ *   bindings: {
+ *     dlxToWait: dlxToWaitQueueBinding,
+ *     dlxToMain: dlxToMainQueueBinding,
+ *   },
+ *   consumers: {
+ *     processOrder: defineConsumer(queue, orderMessage),
+ *   },
+ * });
+ *
+ * // Worker uses contract-defined retry - no handler options needed
+ * await TypedAmqpWorker.create({
+ *   contract,
+ *   handlers: { processOrder: handler },
+ *   urls,
+ * });
+ * ```
+ */
+export function defineQueueWithRetry(
+  name: string,
+  options: DefineQueueWithRetryOptions,
+): QueueWithRetryResult {
+  // Validate queue name
+  validateQueueName(name);
+
+  const waitQueueName = `${name}-wait`;
+  const dlx = options.deadLetterExchange;
+
+  // Resolve retry options with defaults
+  const retryConfig: TtlBackoffRetryConfig = {
+    mode: "ttl-backoff",
+    maxRetries: options.retry?.maxRetries ?? DEFAULT_RETRY_CONFIG.MAX_RETRIES,
+    initialDelayMs: options.retry?.initialDelayMs ?? DEFAULT_RETRY_CONFIG.INITIAL_DELAY_MS,
+    maxDelayMs: options.retry?.maxDelayMs ?? DEFAULT_RETRY_CONFIG.MAX_DELAY_MS,
+    backoffMultiplier: options.retry?.backoffMultiplier ?? DEFAULT_RETRY_CONFIG.BACKOFF_MULTIPLIER,
+    jitter: options.retry?.jitter ?? DEFAULT_RETRY_CONFIG.JITTER,
+  };
+
+  // Build main queue options
+  const mainQueueOptions: DefineQueueOptions = {
+    type: options.type ?? "quorum",
+    deadLetter: {
+      exchange: dlx,
+      routingKey: options.deadLetterRoutingKey ?? `${name}.dlq`,
+    },
+  };
+  if (options.durable !== undefined) {
+    mainQueueOptions.durable = options.durable;
+  }
+  if (options.autoDelete !== undefined) {
+    mainQueueOptions.autoDelete = options.autoDelete;
+  }
+  if (options.arguments !== undefined) {
+    mainQueueOptions.arguments = options.arguments;
+  }
+  // Handle queue type-specific options
+  if (options.type === "classic") {
+    const classicOptions = options as ClassicQueueOptions;
+    if (classicOptions.exclusive !== undefined) {
+      (mainQueueOptions as ClassicQueueOptions).exclusive = classicOptions.exclusive;
+    }
+    if (classicOptions.maxPriority !== undefined) {
+      (mainQueueOptions as ClassicQueueOptions).maxPriority = classicOptions.maxPriority;
+    }
+  } else {
+    const quorumOptions = options as QuorumQueueOptions;
+    if (quorumOptions.deliveryLimit !== undefined) {
+      (mainQueueOptions as QuorumQueueOptions).deliveryLimit = quorumOptions.deliveryLimit;
+    }
+  }
+
+  // Create main queue with DLX pointing to the DLX exchange
+  // The DLQ routing key is used when messages are finally dead-lettered after all retries
+  const mainQueue = defineQueue(name, mainQueueOptions);
+
+  // Attach retry configuration to main queue
+  mainQueue.retryConfig = retryConfig;
+
+  // Create wait queue with DLX pointing back to main queue via the DLX
+  // When messages expire in wait queue, they're dead-lettered with routing key = queue name
+  const waitQueueOptions: DefineQueueOptions = {
+    type: options.type ?? "quorum",
+    deadLetter: {
+      exchange: dlx,
+      routingKey: name, // Routes back to main queue
+    },
+  };
+  if (options.durable !== undefined) {
+    waitQueueOptions.durable = options.durable;
+  }
+  if (options.autoDelete !== undefined) {
+    waitQueueOptions.autoDelete = options.autoDelete;
+  }
+  const waitQueue = defineQueue(waitQueueName, waitQueueOptions);
+
+  // Create binding: DLX -> wait queue
+  // Failed messages are published to DLX with routing key `{queueName}-wait`
+  const dlxToWaitQueueBinding = callDefineQueueBinding(waitQueue, dlx, {
+    routingKey: `${name}-wait`,
+  });
+
+  // Create binding: DLX -> main queue
+  // Messages returning from wait queue use routing key `{queueName}`
+  const dlxToMainQueueBinding = callDefineQueueBinding(mainQueue, dlx, {
+    routingKey: name,
+  });
+
+  return {
+    queue: mainQueue,
+    waitQueue,
+    dlxToWaitQueueBinding,
+    dlxToMainQueueBinding,
+  };
 }
