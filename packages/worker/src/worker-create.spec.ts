@@ -68,7 +68,7 @@ describe("TypedAmqpWorker.create validation", () => {
     expect(result.isError()).toBe(true);
     if (result.isError()) {
       expect(result.getError()).toBeInstanceOf(TechnicalError);
-      expect(result.getError().message).toBe("Handlers object is required");
+      expect(result.getError().message).toContain("expected record");
     }
   });
 
@@ -85,7 +85,7 @@ describe("TypedAmqpWorker.create validation", () => {
     expect(result.isError()).toBe(true);
     if (result.isError()) {
       expect(result.getError()).toBeInstanceOf(TechnicalError);
-      expect(result.getError().message).toBe("Handlers object is required");
+      expect(result.getError().message).toContain("expected record");
     }
   });
 
@@ -119,7 +119,7 @@ describe("TypedAmqpWorker.create validation", () => {
     expect(result.isError()).toBe(true);
     if (result.isError()) {
       expect(result.getError()).toBeInstanceOf(TechnicalError);
-      expect(result.getError().message).toBe("At least one AMQP URL must be provided");
+      expect(result.getError().message).toContain("expected array");
     }
   });
 

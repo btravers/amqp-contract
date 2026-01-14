@@ -10,13 +10,17 @@ import {
 } from "@amqp-contract/core";
 import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
 import type { Channel, ConsumeMessage, Message } from "amqplib";
-import type {
-  ConsumerDefinition,
-  ContractDefinition,
-  InferConsumerNames,
-  QueueDefinition,
-  QueueRetryConfig,
-  TtlBackoffRetryConfig,
+import {
+  type ConsumerDefinition,
+  type ContractDefinition,
+  ContractValidationError,
+  type InferConsumerNames,
+  type QueueDefinition,
+  type QueueRetryConfig,
+  type TtlBackoffRetryConfig,
+  validateHandlers,
+  validatePrefetch,
+  validateWorkerUrls,
 } from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
 import { MessageValidationError, NonRetryableError, TechnicalError } from "./errors.js";
@@ -296,26 +300,18 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     logger,
     telemetry,
   }: CreateWorkerOptions<TContract>): Future<Result<TypedAmqpWorker<TContract>, TechnicalError>> {
-    // Validate inputs early to fail fast with clear error messages
-    if (!contract) {
-      return Future.value(Result.Error(new TechnicalError("Contract is required")));
-    }
-
-    if (!handlers || typeof handlers !== "object") {
-      return Future.value(Result.Error(new TechnicalError("Handlers object is required")));
-    }
-
-    const handlerKeys = Object.keys(handlers);
-    if (handlerKeys.length === 0) {
-      return Future.value(
-        Result.Error(new TechnicalError("At least one handler must be provided")),
-      );
-    }
-
-    if (!urls || urls.length === 0) {
-      return Future.value(
-        Result.Error(new TechnicalError("At least one AMQP URL must be provided")),
-      );
+    // Validate inputs using contract schema validation
+    try {
+      if (!contract) {
+        throw new ContractValidationError("Contract is required", "MISSING_CONTRACT");
+      }
+      validateWorkerUrls(urls);
+      validateHandlers(handlers);
+    } catch (error) {
+      if (error instanceof ContractValidationError) {
+        return Future.value(Result.Error(new TechnicalError(error.message)));
+      }
+      throw error;
     }
 
     // Note: Handler-to-consumer validation is already performed by defineHandlers/defineUnsafeHandlers
@@ -408,14 +404,13 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     for (const consumerName of consumerNames) {
       const options = this.consumerOptions[consumerName];
       if (options?.prefetch !== undefined) {
-        if (options.prefetch <= 0 || !Number.isInteger(options.prefetch)) {
-          return Future.value(
-            Result.Error(
-              new TechnicalError(
-                `Invalid prefetch value for "${String(consumerName)}": must be a positive integer`,
-              ),
-            ),
-          );
+        try {
+          validatePrefetch(options.prefetch, String(consumerName));
+        } catch (error) {
+          if (error instanceof ContractValidationError) {
+            return Future.value(Result.Error(new TechnicalError(error.message)));
+          }
+          throw error;
         }
         maxPrefetch = Math.max(maxPrefetch, options.prefetch);
       }

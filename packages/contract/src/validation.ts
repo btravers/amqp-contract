@@ -58,6 +58,12 @@ export const ValidationErrorCode = {
   BINDING_REFERENCES_UNDEFINED_QUEUE: "BINDING_REFERENCES_UNDEFINED_QUEUE",
   PUBLISHER_REFERENCES_UNDEFINED_EXCHANGE: "PUBLISHER_REFERENCES_UNDEFINED_EXCHANGE",
   CONSUMER_REFERENCES_UNDEFINED_QUEUE: "CONSUMER_REFERENCES_UNDEFINED_QUEUE",
+
+  // Worker validation
+  INVALID_WORKER_URLS: "INVALID_WORKER_URLS",
+  INVALID_HANDLERS: "INVALID_HANDLERS",
+  INVALID_PREFETCH: "INVALID_PREFETCH",
+  MISSING_CONTRACT: "MISSING_CONTRACT",
 } as const;
 
 export type ValidationErrorCode = (typeof ValidationErrorCode)[keyof typeof ValidationErrorCode];
@@ -136,6 +142,59 @@ export const RoutingKeySchema = z
   .min(1, { message: "cannot be empty." })
   .refine((value) => !value.includes("*") && !value.includes("#"), {
     message: "Routing keys for publishing cannot contain wildcards (* or #).",
+  });
+
+// =============================================================================
+// Worker Validation Schemas
+// =============================================================================
+
+/**
+ * Schema for AMQP URL validation.
+ * Must be a non-empty string.
+ */
+export const AmqpUrlSchema = z.string().min(1, { message: "URL cannot be empty" });
+
+/**
+ * Schema for worker URLs validation.
+ * Must be a non-empty array of AMQP URLs.
+ */
+export const WorkerUrlsSchema = z
+  .array(AmqpUrlSchema)
+  .min(1, { message: "At least one AMQP URL must be provided" });
+
+/**
+ * Schema for prefetch validation.
+ * Must be a positive integer.
+ */
+export const PrefetchSchema = z
+  .number()
+  .int({ message: "Prefetch must be an integer" })
+  .positive({ message: "Prefetch must be a positive integer" });
+
+/**
+ * Schema for consumer options validation.
+ */
+export const ConsumerOptionsSchema = z.object({
+  prefetch: PrefetchSchema.optional(),
+});
+
+/**
+ * Schema for handler entry validation.
+ * Can be a function or a tuple of [function, options].
+ */
+export const HandlerEntrySchema = z.union([
+  z.function(),
+  z.tuple([z.function(), ConsumerOptionsSchema]),
+]);
+
+/**
+ * Schema for handlers record validation.
+ * Must be a non-empty record of handler entries.
+ */
+export const HandlersRecordSchema = z
+  .record(z.string(), HandlerEntrySchema)
+  .refine((handlers) => Object.keys(handlers).length > 0, {
+    message: "At least one handler must be provided",
   });
 
 // =============================================================================
@@ -261,6 +320,62 @@ export function validateRoutingKey(routingKey: string): void {
         ? ValidationErrorCode.ROUTING_KEY_CONTAINS_WILDCARDS
         : ValidationErrorCode.EMPTY_ROUTING_KEY,
       { value: routingKey },
+    );
+  }
+}
+
+// =============================================================================
+// Worker Validation
+// =============================================================================
+
+/**
+ * Validate worker URLs.
+ *
+ * @param urls - The URLs to validate
+ * @throws {ContractValidationError} if URLs are invalid
+ */
+export function validateWorkerUrls(urls: unknown): void {
+  const result = WorkerUrlsSchema.safeParse(urls);
+  if (!result.success) {
+    throw new ContractValidationError(
+      result.error.issues[0]?.message ?? "Invalid URLs",
+      ValidationErrorCode.INVALID_WORKER_URLS,
+      { value: urls },
+    );
+  }
+}
+
+/**
+ * Validate handlers record.
+ *
+ * @param handlers - The handlers to validate
+ * @throws {ContractValidationError} if handlers are invalid
+ */
+export function validateHandlers(handlers: unknown): void {
+  const result = HandlersRecordSchema.safeParse(handlers);
+  if (!result.success) {
+    throw new ContractValidationError(
+      result.error.issues[0]?.message ?? "Invalid handlers",
+      ValidationErrorCode.INVALID_HANDLERS,
+      { value: handlers },
+    );
+  }
+}
+
+/**
+ * Validate prefetch value.
+ *
+ * @param prefetch - The prefetch value to validate
+ * @param consumerName - The consumer name for error context
+ * @throws {ContractValidationError} if prefetch is invalid
+ */
+export function validatePrefetch(prefetch: unknown, consumerName: string): void {
+  const result = PrefetchSchema.safeParse(prefetch);
+  if (!result.success) {
+    throw new ContractValidationError(
+      `Invalid prefetch value for "${consumerName}": ${result.error.issues[0]?.message}`,
+      ValidationErrorCode.INVALID_PREFETCH,
+      { consumerName, value: prefetch },
     );
   }
 }
