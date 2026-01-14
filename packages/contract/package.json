@@ -56,7 +56,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@standard-schema/spec": "catalog:"
+    "@standard-schema/spec": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@amqp-contract/tsconfig": "workspace:*",
@@ -66,7 +67,6 @@
     "typedoc": "catalog:",
     "typedoc-plugin-markdown": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:",
-    "zod": "catalog:"
+    "vitest": "catalog:"
   }
 }

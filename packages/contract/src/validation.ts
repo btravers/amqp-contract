@@ -4,6 +4,7 @@ import type {
   ContractDefinition,
   PublisherDefinition,
 } from "./types.js";
+import { z } from "zod";
 
 // =============================================================================
 // Validation Error Types
@@ -62,7 +63,7 @@ export const ValidationErrorCode = {
 export type ValidationErrorCode = (typeof ValidationErrorCode)[keyof typeof ValidationErrorCode];
 
 // =============================================================================
-// Queue Validation
+// Zod Schemas
 // =============================================================================
 
 /**
@@ -80,42 +81,84 @@ export const QueueConstraints = {
 } as const;
 
 /**
+ * Schema for maxPriority validation.
+ * Must be an integer between 1 and 255.
+ */
+export const MaxPrioritySchema = z
+  .number()
+  .int({ message: "Must be an integer." })
+  .min(QueueConstraints.MAX_PRIORITY.MIN, {
+    message: `Must be at least ${QueueConstraints.MAX_PRIORITY.MIN}.`,
+  })
+  .max(QueueConstraints.MAX_PRIORITY.MAX, {
+    message: `Must be at most ${QueueConstraints.MAX_PRIORITY.MAX}. Recommended range: ${QueueConstraints.MAX_PRIORITY.MIN}-${QueueConstraints.MAX_PRIORITY.RECOMMENDED_MAX}.`,
+  });
+
+/**
+ * Schema for deliveryLimit validation.
+ * Must be a positive integer (minimum 1).
+ */
+export const DeliveryLimitSchema = z
+  .number()
+  .int({ message: "Must be a positive integer." })
+  .min(QueueConstraints.DELIVERY_LIMIT.MIN, {
+    message: `Must be at least ${QueueConstraints.DELIVERY_LIMIT.MIN}.`,
+  });
+
+/**
+ * Schema for queue name validation.
+ * Must be a non-empty string.
+ */
+export const QueueNameSchema = z.string().trim().min(1, { message: "cannot be empty." });
+
+/**
+ * Schema for exchange name validation.
+ * Must be a non-empty string.
+ */
+export const ExchangeNameSchema = z.string().trim().min(1, { message: "cannot be empty." });
+
+/**
+ * Valid exchange types.
+ */
+export const ExchangeTypeSchema = z.enum(["fanout", "direct", "topic"], {
+  message: "Must be one of: fanout, direct, topic.",
+});
+
+export type ExchangeType = z.infer<typeof ExchangeTypeSchema>;
+
+/**
+ * Schema for routing key validation.
+ * Must be a non-empty string without wildcards (* or #).
+ */
+export const RoutingKeySchema = z
+  .string()
+  .trim()
+  .min(1, { message: "cannot be empty." })
+  .refine((value) => !value.includes("*") && !value.includes("#"), {
+    message: "Routing keys for publishing cannot contain wildcards (* or #).",
+  });
+
+// =============================================================================
+// Queue Validation
+// =============================================================================
+
+/**
  * Validate maxPriority value for classic queues.
  *
  * @param maxPriority - The maxPriority value to validate
  * @throws {ContractValidationError} if maxPriority is invalid
  */
 export function validateMaxPriority(maxPriority: number): void {
-  if (!Number.isInteger(maxPriority)) {
+  const result = MaxPrioritySchema.safeParse(maxPriority);
+  if (!result.success) {
+    const issue = result.error.issues[0];
     throw new ContractValidationError(
-      `Invalid maxPriority: ${maxPriority}. Must be an integer.`,
-      ValidationErrorCode.INVALID_MAX_PRIORITY,
-      { value: maxPriority, expected: "integer" },
-    );
-  }
-
-  if (maxPriority < QueueConstraints.MAX_PRIORITY.MIN) {
-    throw new ContractValidationError(
-      `Invalid maxPriority: ${maxPriority}. Must be at least ${QueueConstraints.MAX_PRIORITY.MIN}.`,
+      `Invalid maxPriority: ${maxPriority}. ${issue?.message}`,
       ValidationErrorCode.INVALID_MAX_PRIORITY,
       {
         value: maxPriority,
         min: QueueConstraints.MAX_PRIORITY.MIN,
         max: QueueConstraints.MAX_PRIORITY.MAX,
-      },
-    );
-  }
-
-  if (maxPriority > QueueConstraints.MAX_PRIORITY.MAX) {
-    throw new ContractValidationError(
-      `Invalid maxPriority: ${maxPriority}. Must be at most ${QueueConstraints.MAX_PRIORITY.MAX}. ` +
-        `Recommended range: ${QueueConstraints.MAX_PRIORITY.MIN}-${QueueConstraints.MAX_PRIORITY.RECOMMENDED_MAX}.`,
-      ValidationErrorCode.INVALID_MAX_PRIORITY,
-      {
-        value: maxPriority,
-        min: QueueConstraints.MAX_PRIORITY.MIN,
-        max: QueueConstraints.MAX_PRIORITY.MAX,
-        recommendedMax: QueueConstraints.MAX_PRIORITY.RECOMMENDED_MAX,
       },
     );
   }
@@ -128,17 +171,11 @@ export function validateMaxPriority(maxPriority: number): void {
  * @throws {ContractValidationError} if deliveryLimit is invalid
  */
 export function validateDeliveryLimit(deliveryLimit: number): void {
-  if (!Number.isInteger(deliveryLimit)) {
+  const result = DeliveryLimitSchema.safeParse(deliveryLimit);
+  if (!result.success) {
+    const issue = result.error.issues[0];
     throw new ContractValidationError(
-      `Invalid deliveryLimit: ${deliveryLimit}. Must be a positive integer.`,
-      ValidationErrorCode.INVALID_DELIVERY_LIMIT,
-      { value: deliveryLimit, expected: "positive integer" },
-    );
-  }
-
-  if (deliveryLimit < QueueConstraints.DELIVERY_LIMIT.MIN) {
-    throw new ContractValidationError(
-      `Invalid deliveryLimit: ${deliveryLimit}. Must be at least ${QueueConstraints.DELIVERY_LIMIT.MIN}.`,
+      `Invalid deliveryLimit: ${deliveryLimit}. ${issue?.message}`,
       ValidationErrorCode.INVALID_DELIVERY_LIMIT,
       { value: deliveryLimit, min: QueueConstraints.DELIVERY_LIMIT.MIN },
     );
@@ -152,9 +189,10 @@ export function validateDeliveryLimit(deliveryLimit: number): void {
  * @throws {ContractValidationError} if name is invalid
  */
 export function validateQueueName(name: string): void {
-  if (!name || name.trim().length === 0) {
+  const result = QueueNameSchema.safeParse(name);
+  if (!result.success) {
     throw new ContractValidationError(
-      "Invalid queue name: cannot be empty.",
+      `Invalid queue name: ${result.error.issues[0]?.message}`,
       ValidationErrorCode.INVALID_QUEUE_NAME,
       { value: name },
     );
@@ -165,8 +203,6 @@ export function validateQueueName(name: string): void {
 // Exchange Validation
 // =============================================================================
 
-const VALID_EXCHANGE_TYPES = ["fanout", "direct", "topic"] as const;
-
 /**
  * Validate exchange name.
  *
@@ -174,9 +210,10 @@ const VALID_EXCHANGE_TYPES = ["fanout", "direct", "topic"] as const;
  * @throws {ContractValidationError} if name is invalid
  */
 export function validateExchangeName(name: string): void {
-  if (!name || name.trim().length === 0) {
+  const result = ExchangeNameSchema.safeParse(name);
+  if (!result.success) {
     throw new ContractValidationError(
-      "Invalid exchange name: cannot be empty.",
+      `Invalid exchange name: ${result.error.issues[0]?.message}`,
       ValidationErrorCode.INVALID_EXCHANGE_NAME,
       { value: name },
     );
@@ -190,11 +227,12 @@ export function validateExchangeName(name: string): void {
  * @throws {ContractValidationError} if type is invalid
  */
 export function validateExchangeType(type: string): void {
-  if (!VALID_EXCHANGE_TYPES.includes(type as (typeof VALID_EXCHANGE_TYPES)[number])) {
+  const result = ExchangeTypeSchema.safeParse(type);
+  if (!result.success) {
     throw new ContractValidationError(
-      `Invalid exchange type: "${type}". Must be one of: ${VALID_EXCHANGE_TYPES.join(", ")}.`,
+      `Invalid exchange type: "${type}". ${result.error.issues[0]?.message}`,
       ValidationErrorCode.INVALID_EXCHANGE_TYPE,
-      { value: type, validTypes: VALID_EXCHANGE_TYPES },
+      { value: type, validTypes: ExchangeTypeSchema.options },
     );
   }
 }
@@ -211,18 +249,17 @@ export function validateExchangeType(type: string): void {
  * @throws {ContractValidationError} if routing key contains wildcards
  */
 export function validateRoutingKey(routingKey: string): void {
-  if (!routingKey || routingKey.trim().length === 0) {
+  const result = RoutingKeySchema.safeParse(routingKey);
+  if (!result.success) {
+    const issue = result.error.issues[0];
+    const isWildcardError = issue?.message.includes("wildcards");
     throw new ContractValidationError(
-      "Invalid routing key: cannot be empty.",
-      ValidationErrorCode.EMPTY_ROUTING_KEY,
-      { value: routingKey },
-    );
-  }
-
-  if (routingKey.includes("*") || routingKey.includes("#")) {
-    throw new ContractValidationError(
-      `Invalid routing key: "${routingKey}". Routing keys for publishing cannot contain wildcards (* or #).`,
-      ValidationErrorCode.ROUTING_KEY_CONTAINS_WILDCARDS,
+      isWildcardError
+        ? `Invalid routing key: "${routingKey}". ${issue?.message}`
+        : `Invalid routing key: ${issue?.message}`,
+      isWildcardError
+        ? ValidationErrorCode.ROUTING_KEY_CONTAINS_WILDCARDS
+        : ValidationErrorCode.EMPTY_ROUTING_KEY,
       { value: routingKey },
     );
   }

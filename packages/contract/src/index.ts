@@ -49,6 +49,14 @@ export {
   ContractValidationError,
   ValidationErrorCode,
   QueueConstraints,
+  // Zod schemas
+  MaxPrioritySchema,
+  DeliveryLimitSchema,
+  QueueNameSchema,
+  ExchangeNameSchema,
+  ExchangeTypeSchema,
+  RoutingKeySchema,
+  // Validation functions
   validateMaxPriority,
   validateDeliveryLimit,
   validateQueueName,
@@ -62,4 +70,4 @@ export {
   assertConsumerExists,
   assertHandlersMatchConsumers,
 } from "./validation.js";
-export type { ContractValidationResult } from "./validation.js";
+export type { ContractValidationResult, ExchangeType } from "./validation.js";
