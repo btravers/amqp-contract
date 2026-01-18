@@ -10,6 +10,8 @@ export {
   definePublisherFirst,
   defineConsumerFirst,
   defineQueueWithRetry,
+  mergeContracts,
+  QueueTtlBackoffRetryOptionsSchema,
 } from "./builder.js";
 export type {
   PublisherFirstResult,

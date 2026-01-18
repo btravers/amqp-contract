@@ -24,6 +24,7 @@ import {
   validateQueueName,
 } from "./validation.js";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
+import { z } from "zod";
 
 /**
  * Define a fanout exchange.
@@ -1592,46 +1593,25 @@ export function defineConsumerFirst<TMessage extends MessageDefinition>(
 // =============================================================================
 
 /**
- * Default retry configuration values for TTL-backoff mode.
+ * Zod schema for TTL-backoff retry configuration with defaults.
  */
-const DEFAULT_RETRY_CONFIG = {
-  MAX_RETRIES: 3,
-  INITIAL_DELAY_MS: 1000,
-  MAX_DELAY_MS: 30000,
-  BACKOFF_MULTIPLIER: 2,
-  JITTER: true,
-} as const;
+export const QueueTtlBackoffRetryOptionsSchema = z.object({
+  /** Maximum retry attempts before sending to DLQ. @default 3 */
+  maxRetries: z.number().int().positive().default(3),
+  /** Initial delay in ms before first retry. @default 1000 */
+  initialDelayMs: z.number().int().positive().default(1000),
+  /** Maximum delay in ms between retries. @default 30000 */
+  maxDelayMs: z.number().int().positive().default(30000),
+  /** Exponential backoff multiplier. @default 2 */
+  backoffMultiplier: z.number().positive().default(2),
+  /** Add jitter to prevent thundering herd. @default true */
+  jitter: z.boolean().default(true),
+});
 
 /**
  * Options for TTL-backoff retry configuration.
  */
-export type QueueTtlBackoffRetryOptions = {
-  /**
-   * Maximum retry attempts before sending to DLQ.
-   * @default 3
-   */
-  maxRetries?: number;
-  /**
-   * Initial delay in ms before first retry.
-   * @default 1000
-   */
-  initialDelayMs?: number;
-  /**
-   * Maximum delay in ms between retries.
-   * @default 30000
-   */
-  maxDelayMs?: number;
-  /**
-   * Exponential backoff multiplier.
-   * @default 2
-   */
-  backoffMultiplier?: number;
-  /**
-   * Add jitter to prevent thundering herd.
-   * @default true
-   */
-  jitter?: boolean;
-};
+export type QueueTtlBackoffRetryOptions = z.input<typeof QueueTtlBackoffRetryOptionsSchema>;
 
 /**
  * Options for defining a queue with TTL-backoff retry infrastructure.
@@ -1681,6 +1661,12 @@ export type QueueWithRetryResult = {
    * Routing key: `{queueName}`
    */
   dlxToMainQueueBinding: QueueBindingDefinition;
+
+  /**
+   * Partial contract containing all retry infrastructure resources.
+   * Can be merged with your main contract using `mergeContracts`.
+   */
+  contract: ContractDefinition;
 };
 
 /**
@@ -1749,14 +1735,11 @@ export function defineQueueWithRetry(
   const waitQueueName = `${name}-wait`;
   const dlx = options.deadLetterExchange;
 
-  // Resolve retry options with defaults
+  // Resolve retry options with defaults using Zod schema
+  const parsedRetryOptions = QueueTtlBackoffRetryOptionsSchema.parse(options.retry ?? {});
   const retryConfig: TtlBackoffRetryConfig = {
     mode: "ttl-backoff",
-    maxRetries: options.retry?.maxRetries ?? DEFAULT_RETRY_CONFIG.MAX_RETRIES,
-    initialDelayMs: options.retry?.initialDelayMs ?? DEFAULT_RETRY_CONFIG.INITIAL_DELAY_MS,
-    maxDelayMs: options.retry?.maxDelayMs ?? DEFAULT_RETRY_CONFIG.MAX_DELAY_MS,
-    backoffMultiplier: options.retry?.backoffMultiplier ?? DEFAULT_RETRY_CONFIG.BACKOFF_MULTIPLIER,
-    jitter: options.retry?.jitter ?? DEFAULT_RETRY_CONFIG.JITTER,
+    ...parsedRetryOptions,
   };
 
   // Build main queue options
@@ -1833,5 +1816,72 @@ export function defineQueueWithRetry(
     waitQueue,
     dlxToWaitQueueBinding,
     dlxToMainQueueBinding,
+    /**
+     * Partial contract containing all retry infrastructure resources.
+     * Can be merged with your main contract using `mergeContracts`.
+     */
+    contract: {
+      queues: {
+        [name]: mainQueue,
+        [`${name}Wait`]: waitQueue,
+      },
+      bindings: {
+        [`${name}DlxToWait`]: dlxToWaitQueueBinding,
+        [`${name}DlxToMain`]: dlxToMainQueueBinding,
+      },
+    } as ContractDefinition,
   };
+}
+
+// =============================================================================
+// Contract Merging
+// =============================================================================
+
+/**
+ * Merge multiple contracts into a single contract.
+ *
+ * This is useful when composing contracts from multiple sources, such as
+ * combining retry infrastructure from `defineQueueWithRetry` with your main contract.
+ *
+ * @param contracts - The contracts to merge (later contracts override earlier ones)
+ * @returns A merged contract containing all resources from all input contracts
+ *
+ * @example
+ * ```typescript
+ * const dlx = defineExchange('orders-dlx', 'topic', { durable: true });
+ * const { queue, contract: retryContract } = defineQueueWithRetry('orders', {
+ *   deadLetterExchange: dlx,
+ * });
+ *
+ * const mainContract = defineContract({
+ *   exchanges: { ordersDlx: dlx },
+ *   consumers: { processOrder: defineConsumer(queue, orderMessage) },
+ * });
+ *
+ * // Merge retry infrastructure with main contract
+ * const contract = mergeContracts(mainContract, retryContract);
+ * ```
+ */
+export function mergeContracts(...contracts: ContractDefinition[]): ContractDefinition {
+  const result: ContractDefinition = {};
+
+  for (const contract of contracts) {
+    if (contract.exchanges) {
+      result.exchanges = { ...result.exchanges, ...contract.exchanges };
+    }
+    if (contract.queues) {
+      result.queues = { ...result.queues, ...contract.queues };
+    }
+    if (contract.bindings) {
+      result.bindings = { ...result.bindings, ...contract.bindings };
+    }
+    if (contract.publishers) {
+      result.publishers = { ...result.publishers, ...contract.publishers };
+    }
+    if (contract.consumers) {
+      result.consumers = { ...result.consumers, ...contract.consumers };
+    }
+  }
+
+  return result;
 }
