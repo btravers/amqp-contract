@@ -1688,10 +1688,10 @@ export function defineTtlBackoffRetryInfrastructure(
   const dlx = queue.deadLetter.exchange;
   const waitQueueName = `${queue.name}-wait`;
 
-  // Create the wait queue - always classic for TTL support
+  // Create the wait queue - quorum for better durability
   const waitQueue = defineQueue(waitQueueName, {
-    type: "classic",
-    durable: options?.waitQueueDurable ?? queue.durable ?? false,
+    type: "quorum",
+    durable: options?.waitQueueDurable ?? queue.durable ?? true,
     deadLetter: {
       exchange: dlx,
       routingKey: queue.name, // Routes back to main queue after TTL

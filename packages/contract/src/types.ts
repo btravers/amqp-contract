@@ -520,6 +520,18 @@ export type QuorumQueueDefinition = BaseQueueDefinition & {
   type: "quorum";
 
   /**
+   * Quorum queues do not support exclusive mode.
+   * Use type: 'classic' if you need exclusive queues.
+   */
+  exclusive?: never;
+
+  /**
+   * Quorum queues do not support priority queues.
+   * Use type: 'classic' if you need priority queues.
+   */
+  maxPriority?: never;
+
+  /**
    * Maximum number of delivery attempts before the message is dead-lettered.
    *
    * This is a quorum queue-specific feature. When a message is rejected (nacked)
@@ -554,6 +566,12 @@ export type ClassicQueueDefinition = BaseQueueDefinition & {
    * Queue type discriminator: classic queue.
    */
   type: "classic";
+
+  /**
+   * Classic queues do not support delivery limits.
+   * Use type: 'quorum' if you need native retry with delivery limits.
+   */
+  deliveryLimit?: never;
 
   /**
    * If true, the queue can only be used by the declaring connection and is deleted when
