@@ -55,8 +55,8 @@ catalogs:
       specifier: 0.10.8
       version: 0.10.8
     '@types/node':
-      specifier: 25.0.6
-      version: 25.0.6
+      specifier: 25.0.9
+      version: 25.0.9
     '@vitest/coverage-v8':
       specifier: 4.0.17
       version: 4.0.17
@@ -148,16 +148,16 @@ importers:
     devDependencies:
       '@changesets/cli':
         specifier: 'catalog:'
-        version: 2.29.8(@types/node@25.0.6)
+        version: 2.29.8(@types/node@25.0.9)
       '@commitlint/cli':
         specifier: 'catalog:'
-        version: 20.3.1(@types/node@25.0.6)(typescript@5.9.3)
+        version: 20.3.1(@types/node@25.0.9)(typescript@5.9.3)
       '@commitlint/config-conventional':
         specifier: 'catalog:'
         version: 20.3.1
       knip:
         specifier: 'catalog:'
-        version: 5.82.1(@types/node@25.0.6)(typescript@5.9.3)
+        version: 5.82.1(@types/node@25.0.9)(typescript@5.9.3)
       lefthook:
         specifier: 'catalog:'
         version: 2.0.14
@@ -206,7 +206,7 @@ importers:
         version: link:../tools/tsconfig
       '@types/node':
         specifier: 'catalog:'
-        version: 25.0.6
+        version: 25.0.9
       mermaid:
         specifier: 'catalog:'
         version: 11.12.2
@@ -215,10 +215,10 @@ importers:
         version: 4.21.0
       vitepress:
         specifier: 'catalog:'
-        version: 1.6.4(@algolia/client-search@5.46.1)(@types/node@25.0.6)(postcss@8.5.6)(typescript@5.9.3)
+        version: 1.6.4(@algolia/client-search@5.46.1)(@types/node@25.0.9)(postcss@8.5.6)(typescript@5.9.3)
       vitepress-plugin-mermaid:
         specifier: 'catalog:'
-        version: 2.0.17(mermaid@11.12.2)(vitepress@1.6.4(@algolia/client-search@5.46.1)(@types/node@25.0.6)(postcss@8.5.6)(typescript@5.9.3))
+        version: 2.0.17(mermaid@11.12.2)(vitepress@1.6.4(@algolia/client-search@5.46.1)(@types/node@25.0.9)(postcss@8.5.6)(typescript@5.9.3))
 
   examples/basic-order-processing-client:
     dependencies:
@@ -249,7 +249,7 @@ importers:
         version: 3.2.1(typescript@5.9.3)
       '@vitest/coverage-v8':
         specifier: 'catalog:'
-        version: 4.0.17(vitest@4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+        version: 4.0.17(vitest@4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.9)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
       tsx:
         specifier: 'catalog:'
         version: 4.21.0
@@ -258,7 +258,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
+        version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.9)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
 
   examples/basic-order-processing-client-nestjs:
     dependencies:
@@ -301,7 +301,7 @@ importers:
         version: 3.2.1(typescript@5.9.3)
       '@vitest/coverage-v8':
         specifier: 'catalog:'
-        version: 4.0.17(vitest@4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+        version: 4.0.17(vitest@4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.9)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
       tsx:
         specifier: 'catalog:'
         version: 4.21.0
@@ -310,7 +310,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
+        version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.9)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
 
   examples/basic-order-processing-contract:
     dependencies:
@@ -332,7 +332,7 @@ importers:
         version: 1.13.4(@opentelemetry/api@1.9.0)(@orpc/contract@1.13.4(@opentelemetry/api@1.9.0))(@orpc/server@1.13.4(@opentelemetry/api@1.9.0))(zod@4.3.5)
       '@types/node':
         specifier: 'catalog:'
-        version: 25.0.6
+        version: 25.0.9
       tsdown:
         specifier: 'catalog:'
         version: 0.19.0(oxc-resolver@11.16.2)(typescript@5.9.3)
@@ -375,7 +375,7 @@ importers:
         version: link:../../tools/tsconfig
       '@vitest/coverage-v8':
         specifier: 'catalog:'
-        version: 4.0.17(vitest@4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+        version: 4.0.17(vitest@4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.9)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
       tsx:
         specifier: 'catalog:'
         version: 4.21.0
@@ -384,7 +384,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
+        version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.9)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
 
   examples/basic-order-processing-worker-nestjs:
     dependencies:
@@ -430,7 +430,7 @@ importers:
         version: link:../../tools/tsconfig
       '@vitest/coverage-v8':
         specifier: 'catalog:'
-        version: 4.0.17(vitest@4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+        version: 4.0.17(vitest@4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.9)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
       tsx:
         specifier: 'catalog:'
         version: 4.21.0
@@ -439,7 +439,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
+        version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.9)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
 
   examples/message-compression-example:
     dependencies:
@@ -541,10 +541,10 @@ importers:
         version: 1.13.4(@opentelemetry/api@1.9.0)(@orpc/contract@1.13.4(@opentelemetry/api@1.9.0))(@orpc/server@1.13.4(@opentelemetry/api@1.9.0))(zod@4.3.5)
       '@types/node':
         specifier: 'catalog:'
-        version: 25.0.6
+        version: 25.0.9
       '@vitest/coverage-v8':
         specifier: 'catalog:'
-        version: 4.0.17(vitest@4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+        version: 4.0.17(vitest@4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.9)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
       arktype:
         specifier: 'catalog:'
         version: 2.1.29
@@ -565,7 +565,7 @@ importers:
         version: 1.2.0(typescript@5.9.3)
       vitest:
         specifier: 'catalog:'
-        version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
+        version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.9)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
       zod:
         specifier: 'catalog:'
         version: 4.3.5
@@ -602,10 +602,10 @@ importers:
         version: 0.10.8
       '@types/node':
         specifier: 'catalog:'
-        version: 25.0.6
+        version: 25.0.9
       '@vitest/coverage-v8':
         specifier: 'catalog:'
-        version: 4.0.17(vitest@4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+        version: 4.0.17(vitest@4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.9)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
       amqp-connection-manager:
         specifier: 'catalog:'
         version: 5.0.0(amqplib@0.10.9)
@@ -626,7 +626,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
+        version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.9)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
       zod:
         specifier: 'catalog:'
         version: 4.3.5
@@ -666,10 +666,10 @@ importers:
         version: 0.10.8
       '@types/node':
         specifier: 'catalog:'
-        version: 25.0.6
+        version: 25.0.9
       '@vitest/coverage-v8':
         specifier: 'catalog:'
-        version: 4.0.17(vitest@4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+        version: 4.0.17(vitest@4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.9)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
       amqp-connection-manager:
         specifier: 'catalog:'
         version: 5.0.0(amqplib@0.10.9)
@@ -696,7 +696,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
+        version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.9)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
       zod:
         specifier: 'catalog:'
         version: 4.3.5
@@ -715,7 +715,7 @@ importers:
         version: link:../../tools/typedoc
       '@vitest/coverage-v8':
         specifier: 'catalog:'
-        version: 4.0.17(vitest@4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+        version: 4.0.17(vitest@4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.9)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
       tsdown:
         specifier: 'catalog:'
         version: 0.19.0(oxc-resolver@11.16.2)(typescript@5.9.3)
@@ -730,7 +730,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
+        version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.9)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
       zod:
         specifier: 'catalog:'
         version: 4.3.5
@@ -764,7 +764,7 @@ importers:
         version: 0.10.8
       '@vitest/coverage-v8':
         specifier: 'catalog:'
-        version: 4.0.17(vitest@4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+        version: 4.0.17(vitest@4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.9)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
       tsdown:
         specifier: 'catalog:'
         version: 0.19.0(oxc-resolver@11.16.2)(typescript@5.9.3)
@@ -776,7 +776,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
+        version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.9)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
       zod:
         specifier: 'catalog:'
         version: 4.3.5
@@ -813,7 +813,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
+        version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.9)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
 
   packages/worker:
     dependencies:
@@ -844,10 +844,10 @@ importers:
         version: 0.10.8
       '@types/node':
         specifier: 'catalog:'
-        version: 25.0.6
+        version: 25.0.9
       '@vitest/coverage-v8':
         specifier: 'catalog:'
-        version: 4.0.17(vitest@4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+        version: 4.0.17(vitest@4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.9)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
       amqp-connection-manager:
         specifier: 'catalog:'
         version: 5.0.0(amqplib@0.10.9)
@@ -868,7 +868,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
+        version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.9)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
       zod:
         specifier: 'catalog:'
         version: 4.3.5
@@ -905,10 +905,10 @@ importers:
         version: 3.2.1(typescript@5.9.3)
       '@types/node':
         specifier: 'catalog:'
-        version: 25.0.6
+        version: 25.0.9
       '@vitest/coverage-v8':
         specifier: 'catalog:'
-        version: 4.0.17(vitest@4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+        version: 4.0.17(vitest@4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.9)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
       amqp-connection-manager:
         specifier: 'catalog:'
         version: 5.0.0(amqplib@0.10.9)
@@ -935,7 +935,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
+        version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.9)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
       zod:
         specifier: 'catalog:'
         version: 4.3.5
@@ -960,16 +960,16 @@ importers:
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
-        version: 25.0.6
+        version: 25.0.9
       '@vitest/coverage-v8':
         specifier: 'catalog:'
-        version: 4.0.17(vitest@4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+        version: 4.0.17(vitest@4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.9)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
       vitest:
         specifier: 'catalog:'
-        version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
+        version: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.9)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
       zod:
         specifier: 'catalog:'
         version: 4.3.5
@@ -2532,6 +2532,9 @@ packages:
 
   '@types/node@25.0.6':
     resolution: {integrity: sha512-NNu0sjyNxpoiW3YuVFfNz7mxSQ+S4X2G28uqg2s+CzoqoQjLPsWSbsFFyztIAqt2vb8kfEAsJNepMGPTxFDx3Q==}
+
+  '@types/node@25.0.9':
+    resolution: {integrity: sha512-/rpCXHlCWeqClNBwUhDcusJxXYDjZTyE8v5oTO7WbL8eij2nKhUeU89/6xgjU7N4/Vh3He0BtyhJdQbDyhiXAw==}
 
   '@types/ssh2-streams@0.1.13':
     resolution: {integrity: sha512-faHyY3brO9oLEA0QlcO8N2wT7R0+1sHWZvQ+y3rMLwdY1ZyS1z0W3t65j9PqT4HmQ6ALzNe7RZlNuCNE0wBSWA==}
@@ -5585,7 +5588,7 @@ snapshots:
     dependencies:
       '@changesets/types': 6.1.0
 
-  '@changesets/cli@2.29.8(@types/node@25.0.6)':
+  '@changesets/cli@2.29.8(@types/node@25.0.9)':
     dependencies:
       '@changesets/apply-release-plan': 7.0.14
       '@changesets/assemble-release-plan': 6.0.9
@@ -5601,7 +5604,7 @@ snapshots:
       '@changesets/should-skip-package': 0.1.2
       '@changesets/types': 6.1.0
       '@changesets/write': 0.4.0
-      '@inquirer/external-editor': 1.0.3(@types/node@25.0.6)
+      '@inquirer/external-editor': 1.0.3(@types/node@25.0.9)
       '@manypkg/get-packages': 1.1.3
       ansi-colors: 4.1.3
       ci-info: 3.9.0
@@ -5717,11 +5720,11 @@ snapshots:
 
   '@chevrotain/utils@11.0.3': {}
 
-  '@commitlint/cli@20.3.1(@types/node@25.0.6)(typescript@5.9.3)':
+  '@commitlint/cli@20.3.1(@types/node@25.0.9)(typescript@5.9.3)':
     dependencies:
       '@commitlint/format': 20.3.1
       '@commitlint/lint': 20.3.1
-      '@commitlint/load': 20.3.1(@types/node@25.0.6)(typescript@5.9.3)
+      '@commitlint/load': 20.3.1(@types/node@25.0.9)(typescript@5.9.3)
       '@commitlint/read': 20.3.1
       '@commitlint/types': 20.3.1
       tinyexec: 1.0.2
@@ -5768,7 +5771,7 @@ snapshots:
       '@commitlint/rules': 20.3.1
       '@commitlint/types': 20.3.1
 
-  '@commitlint/load@20.3.1(@types/node@25.0.6)(typescript@5.9.3)':
+  '@commitlint/load@20.3.1(@types/node@25.0.9)(typescript@5.9.3)':
     dependencies:
       '@commitlint/config-validator': 20.3.1
       '@commitlint/execute-rule': 20.0.0
@@ -5776,7 +5779,7 @@ snapshots:
       '@commitlint/types': 20.3.1
       chalk: 5.6.2
       cosmiconfig: 9.0.0(typescript@5.9.3)
-      cosmiconfig-typescript-loader: 6.2.0(@types/node@25.0.6)(cosmiconfig@9.0.0(typescript@5.9.3))(typescript@5.9.3)
+      cosmiconfig-typescript-loader: 6.2.0(@types/node@25.0.9)(cosmiconfig@9.0.0(typescript@5.9.3))(typescript@5.9.3)
       lodash.isplainobject: 4.0.6
       lodash.merge: 4.6.2
       lodash.uniq: 4.5.0
@@ -6051,12 +6054,12 @@ snapshots:
       '@iconify/types': 2.0.0
       mlly: 1.8.0
 
-  '@inquirer/external-editor@1.0.3(@types/node@25.0.6)':
+  '@inquirer/external-editor@1.0.3(@types/node@25.0.9)':
     dependencies:
       chardet: 2.1.1
       iconv-lite: 0.7.2
     optionalDependencies:
-      '@types/node': 25.0.6
+      '@types/node': 25.0.9
 
   '@isaacs/cliui@8.0.2':
     dependencies:
@@ -6859,7 +6862,7 @@ snapshots:
 
   '@types/amqplib@0.10.8':
     dependencies:
-      '@types/node': 25.0.6
+      '@types/node': 25.0.9
 
   '@types/chai@5.2.3':
     dependencies:
@@ -7002,7 +7005,7 @@ snapshots:
 
   '@types/es-aggregate-error@1.0.6':
     dependencies:
-      '@types/node': 25.0.6
+      '@types/node': 25.0.9
 
   '@types/estree@1.0.8': {}
 
@@ -7037,6 +7040,10 @@ snapshots:
     dependencies:
       undici-types: 7.16.0
 
+  '@types/node@25.0.9':
+    dependencies:
+      undici-types: 7.16.0
+
   '@types/ssh2-streams@0.1.13':
     dependencies:
       '@types/node': 25.0.6
@@ -7065,12 +7072,12 @@ snapshots:
     dependencies:
       valibot: 1.2.0(typescript@5.9.3)
 
-  '@vitejs/plugin-vue@5.2.4(vite@5.4.21(@types/node@25.0.6))(vue@3.5.26(typescript@5.9.3))':
+  '@vitejs/plugin-vue@5.2.4(vite@5.4.21(@types/node@25.0.9))(vue@3.5.26(typescript@5.9.3))':
     dependencies:
-      vite: 5.4.21(@types/node@25.0.6)
+      vite: 5.4.21(@types/node@25.0.9)
       vue: 3.5.26(typescript@5.9.3)
 
-  '@vitest/coverage-v8@4.0.17(vitest@4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))':
+  '@vitest/coverage-v8@4.0.17(vitest@4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.9)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))':
     dependencies:
       '@bcoe/v8-coverage': 1.0.2
       '@vitest/utils': 4.0.17
@@ -7082,7 +7089,7 @@ snapshots:
       obug: 2.1.1
       std-env: 3.10.0
       tinyrainbow: 3.0.3
-      vitest: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
+      vitest: 4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.9)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
 
   '@vitest/expect@4.0.17':
     dependencies:
@@ -7093,13 +7100,13 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.0.3
 
-  '@vitest/mocker@4.0.17(vite@7.3.1(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))':
+  '@vitest/mocker@4.0.17(vite@7.3.1(@types/node@25.0.9)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))':
     dependencies:
       '@vitest/spy': 4.0.17
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 7.3.1(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
+      vite: 7.3.1(@types/node@25.0.9)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
 
   '@vitest/pretty-format@4.0.17':
     dependencies:
@@ -7598,9 +7605,9 @@ snapshots:
     dependencies:
       layout-base: 2.0.1
 
-  cosmiconfig-typescript-loader@6.2.0(@types/node@25.0.6)(cosmiconfig@9.0.0(typescript@5.9.3))(typescript@5.9.3):
+  cosmiconfig-typescript-loader@6.2.0(@types/node@25.0.9)(cosmiconfig@9.0.0(typescript@5.9.3))(typescript@5.9.3):
     dependencies:
-      '@types/node': 25.0.6
+      '@types/node': 25.0.9
       cosmiconfig: 9.0.0(typescript@5.9.3)
       jiti: 2.6.1
       typescript: 5.9.3
@@ -8606,10 +8613,10 @@ snapshots:
 
   khroma@2.1.0: {}
 
-  knip@5.82.1(@types/node@25.0.6)(typescript@5.9.3):
+  knip@5.82.1(@types/node@25.0.9)(typescript@5.9.3):
     dependencies:
       '@nodelib/fs.walk': 1.2.8
-      '@types/node': 25.0.6
+      '@types/node': 25.0.9
       fast-glob: 3.3.3
       formatly: 0.3.0
       jiti: 2.6.1
@@ -9907,16 +9914,16 @@ snapshots:
       '@types/unist': 3.0.3
       vfile-message: 4.0.3
 
-  vite@5.4.21(@types/node@25.0.6):
+  vite@5.4.21(@types/node@25.0.9):
     dependencies:
       esbuild: 0.21.5
       postcss: 8.5.6
       rollup: 4.55.1
     optionalDependencies:
-      '@types/node': 25.0.6
+      '@types/node': 25.0.9
       fsevents: 2.3.3
 
-  vite@7.3.1(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2):
+  vite@7.3.1(@types/node@25.0.9)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2):
     dependencies:
       esbuild: 0.27.2
       fdir: 6.5.0(picomatch@4.0.3)
@@ -9925,20 +9932,20 @@ snapshots:
       rollup: 4.55.1
       tinyglobby: 0.2.15
     optionalDependencies:
-      '@types/node': 25.0.6
+      '@types/node': 25.0.9
       fsevents: 2.3.3
       jiti: 2.6.1
       tsx: 4.21.0
       yaml: 2.8.2
 
-  vitepress-plugin-mermaid@2.0.17(mermaid@11.12.2)(vitepress@1.6.4(@algolia/client-search@5.46.1)(@types/node@25.0.6)(postcss@8.5.6)(typescript@5.9.3)):
+  vitepress-plugin-mermaid@2.0.17(mermaid@11.12.2)(vitepress@1.6.4(@algolia/client-search@5.46.1)(@types/node@25.0.9)(postcss@8.5.6)(typescript@5.9.3)):
     dependencies:
       mermaid: 11.12.2
-      vitepress: 1.6.4(@algolia/client-search@5.46.1)(@types/node@25.0.6)(postcss@8.5.6)(typescript@5.9.3)
+      vitepress: 1.6.4(@algolia/client-search@5.46.1)(@types/node@25.0.9)(postcss@8.5.6)(typescript@5.9.3)
     optionalDependencies:
       '@mermaid-js/mermaid-mindmap': 9.3.0
 
-  vitepress@1.6.4(@algolia/client-search@5.46.1)(@types/node@25.0.6)(postcss@8.5.6)(typescript@5.9.3):
+  vitepress@1.6.4(@algolia/client-search@5.46.1)(@types/node@25.0.9)(postcss@8.5.6)(typescript@5.9.3):
     dependencies:
       '@docsearch/css': 3.8.2
       '@docsearch/js': 3.8.2(@algolia/client-search@5.46.1)
@@ -9947,7 +9954,7 @@ snapshots:
       '@shikijs/transformers': 2.5.0
       '@shikijs/types': 2.5.0
       '@types/markdown-it': 14.1.2
-      '@vitejs/plugin-vue': 5.2.4(vite@5.4.21(@types/node@25.0.6))(vue@3.5.26(typescript@5.9.3))
+      '@vitejs/plugin-vue': 5.2.4(vite@5.4.21(@types/node@25.0.9))(vue@3.5.26(typescript@5.9.3))
       '@vue/devtools-api': 7.7.9
       '@vue/shared': 3.5.26
       '@vueuse/core': 12.8.2(typescript@5.9.3)
@@ -9956,7 +9963,7 @@ snapshots:
       mark.js: 8.11.1
       minisearch: 7.2.0
       shiki: 2.5.0
-      vite: 5.4.21(@types/node@25.0.6)
+      vite: 5.4.21(@types/node@25.0.9)
       vue: 3.5.26(typescript@5.9.3)
     optionalDependencies:
       postcss: 8.5.6
@@ -9987,10 +9994,10 @@ snapshots:
       - typescript
       - universal-cookie
 
-  vitest@4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2):
+  vitest@4.0.17(@opentelemetry/api@1.9.0)(@types/node@25.0.9)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2):
     dependencies:
       '@vitest/expect': 4.0.17
-      '@vitest/mocker': 4.0.17(vite@7.3.1(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
+      '@vitest/mocker': 4.0.17(vite@7.3.1(@types/node@25.0.9)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2))
       '@vitest/pretty-format': 4.0.17
       '@vitest/runner': 4.0.17
       '@vitest/snapshot': 4.0.17
@@ -10007,11 +10014,11 @@ snapshots:
       tinyexec: 1.0.2
       tinyglobby: 0.2.15
       tinyrainbow: 3.0.3
-      vite: 7.3.1(@types/node@25.0.6)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
+      vite: 7.3.1(@types/node@25.0.9)(jiti@2.6.1)(tsx@4.21.0)(yaml@2.8.2)
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@opentelemetry/api': 1.9.0
-      '@types/node': 25.0.6
+      '@types/node': 25.0.9
     transitivePeerDependencies:
       - jiti
       - less
