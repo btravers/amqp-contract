@@ -634,8 +634,13 @@ describe("AmqpWorker Integration", () => {
       }),
     );
 
-    // Verify no unexpected warnings were logged during normal operation
-    expect(mockLogger.warn).not.toHaveBeenCalled();
+    // Verify only expected warnings were logged during normal operation
+    // The warning about missing deadLetter configuration is expected for this test
+    const warnCalls = mockLogger.warn.mock.calls;
+    const unexpectedWarnings = warnCalls.filter(
+      (call) => !call[0]?.includes("no deadLetter configured"),
+    );
+    expect(unexpectedWarnings).toHaveLength(0);
 
     // Clean up
     await worker.close().resultToPromise();

@@ -14,12 +14,12 @@ import type {
   ConsumerDefinition,
   ContractDefinition,
   InferConsumerNames,
+  TtlBackoffRetryOptions,
 } from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
 import { MessageValidationError, NonRetryableError, TechnicalError } from "./errors.js";
 import type {
   RetryMode,
-  RetryOptions,
   WorkerInferConsumedMessage,
   WorkerInferSafeConsumerHandler,
   WorkerInferSafeConsumerHandlers,
@@ -31,12 +31,13 @@ import { decompressBuffer } from "./decompression.js";
 /**
  * Internal type for consumer options extracted from handler tuples.
  * Not exported - options are specified inline in the handler tuple types.
+ *
+ * Note: Retry configuration is now defined at the queue level in the contract,
+ * not at the handler level. See `QueueDefinition.retry` for configuration options.
  */
 type ConsumerOptions = {
   /** Number of messages to prefetch */
   prefetch?: number;
-  /** Retry configuration for this consumer */
-  retry?: RetryOptions;
 };
 
 /**
@@ -88,25 +89,18 @@ function isStandardSchema(value: unknown): value is StandardSchemaV1 {
  * const options: CreateWorkerOptions<typeof contract> = {
  *   contract: myContract,
  *   handlers: {
- *     // Simple handler (uses default retry configuration)
- *     processOrder: async ({ payload }) => {
+ *     // Simple handler
+ *     processOrder: ({ payload }) => {
  *       console.log('Processing order:', payload.orderId);
+ *       return Future.value(Result.Ok(undefined));
  *     },
- *     // Handler with prefetch and retry configuration
+ *     // Handler with prefetch configuration
  *     processPayment: [
- *       async ({ payload }) => {
+ *       ({ payload }) => {
  *         console.log('Processing payment:', payload.paymentId);
+ *         return Future.value(Result.Ok(undefined));
  *       },
- *       {
- *         prefetch: 10,
- *         retry: {
- *           maxRetries: 3,
- *           initialDelayMs: 1000,
- *           maxDelayMs: 30000,
- *           backoffMultiplier: 2,
- *           jitter: true
- *         }
- *       }
+ *       { prefetch: 10 }
  *     ]
  *   },
  *   urls: ['amqp://localhost'],
@@ -116,6 +110,9 @@ function isStandardSchema(value: unknown): value is StandardSchemaV1 {
  *   logger: myLogger
  * };
  * ```
+ *
+ * Note: Retry configuration is defined at the queue level in the contract,
+ * not at the handler level. See `QueueDefinition.retry` for configuration options.
  */
 export type CreateWorkerOptions<TContract extends ContractDefinition> = {
   /** The AMQP contract definition specifying consumers and their message schemas */
@@ -124,8 +121,6 @@ export type CreateWorkerOptions<TContract extends ContractDefinition> = {
    * Handlers for each consumer defined in the contract.
    * Handlers must return `Future<Result<void, HandlerError>>` for explicit error handling.
    * Use defineHandler() to create handlers.
-   *
-   * Retry configuration is specified per consumer via handler options.
    */
   handlers: WorkerInferSafeConsumerHandlers<TContract>;
   /** AMQP broker URL(s). Multiple URLs provide failover support */
@@ -278,9 +273,11 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       telemetry,
     );
 
+    // Note: Wait queues are now created by the core package in setupAmqpTopology
+    // when the queue's retry mode is "ttl-backoff"
     return worker
       .waitForConnectionReady()
-      .flatMapOk(() => worker.setupWaitQueues())
+      .flatMapOk(() => worker.validateRetryConfiguration())
       .flatMapOk(() => worker.consumeAll())
       .mapOk(() => worker);
   }
@@ -323,16 +320,15 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   }
 
   /**
-   * Set up wait queues for retry mechanism.
-   * Creates and binds wait queues for each consumer queue that has DLX configuration
-   * and uses "ttl-backoff" retry mode (the default).
+   * Validate retry configuration for all consumers.
+   *
+   * For quorum-native mode, validates that the queue is properly configured.
+   * For TTL-backoff mode, wait queues are created by setupAmqpTopology in the core package.
    */
-  private setupWaitQueues(): Future<Result<void, TechnicalError>> {
-    if (!this.contract.consumers || !this.contract.queues) {
+  private validateRetryConfiguration(): Future<Result<void, TechnicalError>> {
+    if (!this.contract.consumers) {
       return Future.value(Result.Ok(undefined));
     }
-
-    const setupTasks: Array<Future<Result<void, TechnicalError>>> = [];
 
     for (const consumerName of Object.keys(
       this.contract.consumers,
@@ -340,15 +336,11 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       const consumer = this.contract.consumers[consumerName as string];
       if (!consumer) continue;
 
-      // Get consumer-specific retry config (with defaults)
-      const options = this.consumerOptions[consumerName] ?? {};
-      const retryOptions = options.retry ?? {};
+      const queue = consumer.queue;
+      const retryMode = queue.retry?.mode ?? "ttl-backoff";
 
-      // Resolve retry config with defaults
-      const retryConfig = this.resolveRetryConfig(retryOptions);
-
-      // For quorum-native mode, validate queue configuration and skip wait queue setup
-      if (retryConfig.mode === "quorum-native") {
+      // For quorum-native mode, validate queue configuration
+      if (retryMode === "quorum-native") {
         const validationError = this.validateQuorumNativeConfigForConsumer(
           String(consumerName),
           consumer,
@@ -356,65 +348,40 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         if (validationError) {
           return Future.value(Result.Error(validationError));
         }
-        this.logger?.info("Using quorum-native retry mode - no wait queue needed", {
+        this.logger?.info("Using quorum-native retry mode", {
           consumerName: String(consumerName),
+          queueName: queue.name,
         });
-        continue;
-      }
-
-      const queue = consumer.queue;
-      const deadLetter = queue.deadLetter;
-
-      // Only create wait queues for queues with DLX configuration
-      if (!deadLetter) continue;
-
-      const queueName = queue.name;
-      const waitQueueName = `${queueName}-wait`;
-      const dlxName = deadLetter.exchange.name;
-
-      const setupTask = Future.fromPromise(
-        this.amqpClient.channel.addSetup(async (channel: Channel) => {
-          // Create wait queue with DLX pointing back to the main queue
-          await channel.assertQueue(waitQueueName, {
-            durable: queue.durable ?? false,
-            deadLetterExchange: dlxName,
-            deadLetterRoutingKey: queueName,
-          });
-
-          // Bind wait queue to DLX with routing key pattern
-          await channel.bindQueue(waitQueueName, dlxName, `${queueName}-wait`);
-
-          // Bind main queue to DLX for routing retried messages back
-          await channel.bindQueue(queueName, dlxName, queueName);
-
-          this.logger?.info("Wait queue created and bound", {
+      } else {
+        // TTL-backoff mode
+        if (queue.deadLetter) {
+          this.logger?.info("Using TTL-backoff retry mode", {
             consumerName: String(consumerName),
-            queueName,
-            waitQueueName,
-            dlxName,
+            queueName: queue.name,
           });
-        }),
-      ).mapError(
-        (error) =>
-          new TechnicalError(`Failed to setup wait queue for "${String(consumerName)}"`, error),
-      );
-
-      setupTasks.push(setupTask);
+        } else {
+          this.logger?.warn(
+            "Queue has no deadLetter configured - retries will use nack with requeue",
+            {
+              consumerName: String(consumerName),
+              queueName: queue.name,
+            },
+          );
+        }
+      }
     }
 
-    if (setupTasks.length === 0) {
-      return Future.value(Result.Ok(undefined));
-    }
-
-    return Future.all(setupTasks)
-      .map(Result.all)
-      .mapOk(() => undefined);
+    return Future.value(Result.Ok(undefined));
   }
 
   /**
-   * Resolve retry options to a complete configuration with defaults.
+   * Get the resolved retry configuration for a consumer's queue.
+   * Reads retry config from the queue definition in the contract.
    */
-  private resolveRetryConfig(retryOptions: RetryOptions): ResolvedRetryConfig {
+  private getRetryConfigForConsumer(consumer: ConsumerDefinition): ResolvedRetryConfig {
+    const queue = consumer.queue;
+    const retryOptions = queue.retry ?? {};
+
     // For quorum-native mode, TTL-backoff options are not used
     // but we still provide defaults for internal consistency
     if (retryOptions.mode === "quorum-native") {
@@ -429,14 +396,14 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     }
 
     // TTL-backoff mode (default): extract options with defaults
-    // At this point, TypeScript knows retryOptions is TtlBackoffRetryOptions
+    const ttlOptions = retryOptions as TtlBackoffRetryOptions;
     return {
       mode: "ttl-backoff",
-      maxRetries: retryOptions.maxRetries ?? 3,
-      initialDelayMs: retryOptions.initialDelayMs ?? 1000,
-      maxDelayMs: retryOptions.maxDelayMs ?? 30000,
-      backoffMultiplier: retryOptions.backoffMultiplier ?? 2,
-      jitter: retryOptions.jitter ?? true,
+      maxRetries: ttlOptions.maxRetries ?? 3,
+      initialDelayMs: ttlOptions.initialDelayMs ?? 1000,
+      maxDelayMs: ttlOptions.maxDelayMs ?? 30000,
+      backoffMultiplier: ttlOptions.backoffMultiplier ?? 2,
+      jitter: ttlOptions.jitter ?? true,
     };
   }
 
@@ -845,13 +812,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       return Future.value(Result.Ok(undefined));
     }
 
-    // Get consumer-specific retry config
-    const typedConsumerName = consumerName as InferConsumerNames<TContract>;
-    const options = this.consumerOptions[typedConsumerName] ?? {};
-    const retryOptions = options.retry ?? {};
-
-    // Resolve retry config with defaults (retry is always enabled)
-    const config = this.resolveRetryConfig(retryOptions);
+    // Get retry config from the queue definition in the contract
+    const config = this.getRetryConfigForConsumer(consumer);
 
     // Quorum-native mode: let RabbitMQ handle retry via x-delivery-count
     if (config.mode === "quorum-native") {

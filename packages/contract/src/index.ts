@@ -42,4 +42,9 @@ export type {
   QuorumQueueOptions,
   InferPublisherNames,
   InferConsumerNames,
+  // Retry configuration types
+  RetryOptions,
+  RetryMode,
+  TtlBackoffRetryOptions,
+  QuorumNativeRetryOptions,
 } from "./types.js";

@@ -246,6 +246,11 @@ export function defineQueue(name: string, options?: DefineQueueOptions): QueueDe
     };
   }
 
+  // Add retry configuration if specified
+  if (opts.retry !== undefined) {
+    queueDefinition.retry = opts.retry;
+  }
+
   return queueDefinition;
 }
 
