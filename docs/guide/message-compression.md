@@ -381,10 +381,6 @@ const orderMessage = defineMessage(orderSchema, {
 - Check that RabbitMQ version supports content-encoding headers (3.x+)
 - Verify network proxies don't interfere with compressed payloads
 
-## Examples
-
-See the `examples/message-compression-example` directory in the repository for a complete working implementation demonstrating all compression features.
-
 ## Next Steps
 
 - Learn about [Client Usage](/guide/client-usage)
