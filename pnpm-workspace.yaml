@@ -27,7 +27,7 @@ catalog:
   amqp-connection-manager: 5.0.0
   amqplib: 0.10.9
   arktype: 2.1.29
-  knip: 5.80.2
+  knip: 5.82.1
   lefthook: 2.0.14
   mermaid: 11.12.2
   oxfmt: 0.24.0
