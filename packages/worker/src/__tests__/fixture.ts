@@ -2,7 +2,6 @@ import type { ContractDefinition } from "@amqp-contract/contract";
 import { TypedAmqpWorker } from "../worker.js";
 import type { WorkerInferSafeConsumerHandlers } from "../types.js";
 import { it as baseIt } from "@amqp-contract/testing/extension";
-import { setupAmqpTopology } from "@amqp-contract/core";
 
 export const it = baseIt.extend<{
   workerFactory: <TContract extends ContractDefinition>(
@@ -10,7 +9,7 @@ export const it = baseIt.extend<{
     handlers: WorkerInferSafeConsumerHandlers<TContract>,
   ) => Promise<TypedAmqpWorker<TContract>>;
 }>({
-  workerFactory: async ({ amqpConnectionUrl, amqpChannel }, use) => {
+  workerFactory: async ({ amqpConnectionUrl }, use) => {
     const workers: Array<TypedAmqpWorker<ContractDefinition>> = [];
 
     try {
@@ -19,9 +18,8 @@ export const it = baseIt.extend<{
           contract: TContract,
           handlers: WorkerInferSafeConsumerHandlers<TContract>,
         ) => {
-          // Set up topology (exchanges, queues, bindings, wait queues) before creating worker
-          await setupAmqpTopology(amqpChannel, contract);
-
+          // Topology setup (exchanges, queues, bindings, wait queues) is done automatically
+          // by AmqpClient in the channel setup callback
           const worker = await TypedAmqpWorker.create({
             contract,
             handlers,
