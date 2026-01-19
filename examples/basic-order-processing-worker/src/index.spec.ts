@@ -1,4 +1,5 @@
-import { TypedAmqpWorker, defineUnsafeHandlers } from "@amqp-contract/worker";
+import { Future, Result } from "@swan-io/boxed";
+import { TypedAmqpWorker, defineHandlers } from "@amqp-contract/worker";
 import { describe, expect } from "vitest";
 import { it } from "@amqp-contract/testing/extension";
 import { orderContract } from "@amqp-contract-examples/basic-order-processing-contract";
@@ -12,15 +13,16 @@ describe("Basic Order Processing Worker Integration", () => {
     const processedOrders: Array<unknown> = [];
     const worker = await TypedAmqpWorker.create({
       contract: orderContract,
-      handlers: defineUnsafeHandlers(orderContract, {
-        processOrder: async ({ payload }) => {
+      handlers: defineHandlers(orderContract, {
+        processOrder: ({ payload }) => {
           processedOrders.push(payload);
+          return Future.value(Result.Ok(undefined));
         },
-        notifyOrder: async () => {},
-        shipOrder: async () => {},
-        handleUrgentOrder: async () => {},
-        processAnalytics: async () => {},
-        handleFailedOrders: async () => {},
+        notifyOrder: () => Future.value(Result.Ok(undefined)),
+        shipOrder: () => Future.value(Result.Ok(undefined)),
+        handleUrgentOrder: () => Future.value(Result.Ok(undefined)),
+        processAnalytics: () => Future.value(Result.Ok(undefined)),
+        handleFailedOrders: () => Future.value(Result.Ok(undefined)),
       }),
       urls: [amqpConnectionUrl],
     }).resultToPromise();
@@ -56,15 +58,16 @@ describe("Basic Order Processing Worker Integration", () => {
     const notifications: Array<unknown> = [];
     const worker = await TypedAmqpWorker.create({
       contract: orderContract,
-      handlers: defineUnsafeHandlers(orderContract, {
-        processOrder: async () => {},
-        notifyOrder: async ({ payload }) => {
+      handlers: defineHandlers(orderContract, {
+        processOrder: () => Future.value(Result.Ok(undefined)),
+        notifyOrder: ({ payload }) => {
           notifications.push(payload);
+          return Future.value(Result.Ok(undefined));
         },
-        shipOrder: async () => {},
-        handleUrgentOrder: async () => {},
-        processAnalytics: async () => {},
-        handleFailedOrders: async () => {},
+        shipOrder: () => Future.value(Result.Ok(undefined)),
+        handleUrgentOrder: () => Future.value(Result.Ok(undefined)),
+        processAnalytics: () => Future.value(Result.Ok(undefined)),
+        handleFailedOrders: () => Future.value(Result.Ok(undefined)),
       }),
       urls: [amqpConnectionUrl],
     }).resultToPromise();
@@ -112,17 +115,19 @@ describe("Basic Order Processing Worker Integration", () => {
     const notifications: Array<unknown> = [];
     const worker = await TypedAmqpWorker.create({
       contract: orderContract,
-      handlers: defineUnsafeHandlers(orderContract, {
-        processOrder: async ({ payload }) => {
+      handlers: defineHandlers(orderContract, {
+        processOrder: ({ payload }) => {
           processedOrders.push(payload);
+          return Future.value(Result.Ok(undefined));
         },
-        notifyOrder: async ({ payload }) => {
+        notifyOrder: ({ payload }) => {
           notifications.push(payload);
+          return Future.value(Result.Ok(undefined));
         },
-        shipOrder: async () => {},
-        handleUrgentOrder: async () => {},
-        processAnalytics: async () => {},
-        handleFailedOrders: async () => {},
+        shipOrder: () => Future.value(Result.Ok(undefined)),
+        handleUrgentOrder: () => Future.value(Result.Ok(undefined)),
+        processAnalytics: () => Future.value(Result.Ok(undefined)),
+        handleFailedOrders: () => Future.value(Result.Ok(undefined)),
       }),
       urls: [amqpConnectionUrl],
     }).resultToPromise();

@@ -1,4 +1,5 @@
-import { TypedAmqpWorker, defineUnsafeHandlers } from "@amqp-contract/worker";
+import { RetryableError, TypedAmqpWorker, defineHandlers } from "@amqp-contract/worker";
+import { Future } from "@swan-io/boxed";
 import { orderContract } from "@amqp-contract-examples/basic-order-processing-contract";
 import pino from "pino";
 import { z } from "zod";
@@ -24,9 +25,9 @@ async function main() {
   // Create type-safe worker with handlers for each consumer
   const worker = await TypedAmqpWorker.create({
     contract: orderContract,
-    handlers: defineUnsafeHandlers(orderContract, {
+    handlers: defineHandlers(orderContract, {
       // Handler for processing NEW orders (order.created)
-      processOrder: async ({ payload }) => {
+      processOrder: ({ payload }) => {
         logger.info(
           {
             orderId: payload.orderId,
@@ -37,14 +38,15 @@ async function main() {
           "[PROCESSING] New order received",
         );
 
-        // Simulate processing
-        await new Promise((resolve) => setTimeout(resolve, 500));
-
-        logger.info({ orderId: payload.orderId }, "Order processed successfully");
+        return Future.fromPromise(new Promise<void>((resolve) => setTimeout(resolve, 500)))
+          .mapOk(() => {
+            logger.info({ orderId: payload.orderId }, "Order processed successfully");
+          })
+          .mapError((e) => new RetryableError("Processing failed", e));
       },
 
       // Handler for ALL order notifications (order.#)
-      notifyOrder: async ({ payload }) => {
+      notifyOrder: ({ payload }) => {
         // Check if it's a new order or a status update
         if ("items" in payload) {
           // It's a full order
@@ -68,14 +70,15 @@ async function main() {
           );
         }
 
-        // Simulate sending notification
-        await new Promise((resolve) => setTimeout(resolve, 300));
-
-        logger.info("Notification sent");
+        return Future.fromPromise(new Promise<void>((resolve) => setTimeout(resolve, 300)))
+          .mapOk(() => {
+            logger.info("Notification sent");
+          })
+          .mapError((e) => new RetryableError("Notification failed", e));
       },
 
       // Handler for SHIPPED orders (order.shipped)
-      shipOrder: async ({ payload }) => {
+      shipOrder: ({ payload }) => {
         logger.info(
           {
             orderId: payload.orderId,
@@ -84,14 +87,15 @@ async function main() {
           "[SHIPPING] Shipment notification received",
         );
 
-        // Simulate shipping preparation
-        await new Promise((resolve) => setTimeout(resolve, 400));
-
-        logger.info({ orderId: payload.orderId }, "Shipping label prepared");
+        return Future.fromPromise(new Promise<void>((resolve) => setTimeout(resolve, 400)))
+          .mapOk(() => {
+            logger.info({ orderId: payload.orderId }, "Shipping label prepared");
+          })
+          .mapError((e) => new RetryableError("Shipping failed", e));
       },
 
       // Handler for URGENT orders (order.*.urgent)
-      handleUrgentOrder: async ({ payload }) => {
+      handleUrgentOrder: ({ payload }) => {
         logger.warn(
           {
             orderId: payload.orderId,
@@ -100,14 +104,15 @@ async function main() {
           "[URGENT] Priority order update received!",
         );
 
-        // Simulate urgent processing
-        await new Promise((resolve) => setTimeout(resolve, 200));
-
-        logger.warn({ orderId: payload.orderId }, "Urgent update handled");
+        return Future.fromPromise(new Promise<void>((resolve) => setTimeout(resolve, 200)))
+          .mapOk(() => {
+            logger.warn({ orderId: payload.orderId }, "Urgent update handled");
+          })
+          .mapError((e) => new RetryableError("Urgent handling failed", e));
       },
 
       // Handler for ANALYTICS processing (receives events through exchange-to-exchange binding)
-      processAnalytics: async ({ payload }) => {
+      processAnalytics: ({ payload }) => {
         // Check if it's a new order or a status update
         if ("items" in payload) {
           // It's a full order
@@ -132,14 +137,15 @@ async function main() {
           );
         }
 
-        // Simulate analytics processing
-        await new Promise((resolve) => setTimeout(resolve, 100));
-
-        logger.info("Analytics data processed");
+        return Future.fromPromise(new Promise<void>((resolve) => setTimeout(resolve, 100)))
+          .mapOk(() => {
+            logger.info("Analytics data processed");
+          })
+          .mapError((e) => new RetryableError("Analytics processing failed", e));
       },
 
       // Handler for FAILED orders (from dead letter exchange)
-      handleFailedOrders: async ({ payload }) => {
+      handleFailedOrders: ({ payload }) => {
         logger.error(
           {
             orderId: payload.orderId,
@@ -149,11 +155,11 @@ async function main() {
           "[DLX] Failed order received from dead letter exchange",
         );
 
-        // Implement retry logic, alert, or store for manual processing
-        // For this example, we just log the failure
-        await new Promise((resolve) => setTimeout(resolve, 200));
-
-        logger.error({ orderId: payload.orderId }, "Failed order logged for investigation");
+        return Future.fromPromise(new Promise<void>((resolve) => setTimeout(resolve, 200)))
+          .mapOk(() => {
+            logger.error({ orderId: payload.orderId }, "Failed order logged for investigation");
+          })
+          .mapError((e) => new RetryableError("Failed order handling failed", e));
       },
     }),
     urls: [env.AMQP_URL],

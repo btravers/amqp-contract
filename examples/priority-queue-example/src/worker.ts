@@ -1,4 +1,5 @@
-import { TypedAmqpWorker, defineUnsafeHandlers } from "@amqp-contract/worker";
+import { RetryableError, TypedAmqpWorker, defineHandlers } from "@amqp-contract/worker";
+import { Future } from "@swan-io/boxed";
 import pino from "pino";
 import { priorityQueueContract } from "./contract.js";
 import { z } from "zod";
@@ -29,17 +30,18 @@ async function main() {
   const worker = await TypedAmqpWorker.create({
     contract: priorityQueueContract,
     urls: [env.AMQP_URL],
-    handlers: defineUnsafeHandlers(priorityQueueContract, {
-      processTask: async (task) => {
+    handlers: defineHandlers(priorityQueueContract, {
+      processTask: ({ payload }) => {
         // Simulate task processing
         logger.info(
-          `📥 Processing: ${task.payload.taskId} - "${task.payload.title}" (priority: ${task.payload.priority})`,
+          `📥 Processing: ${payload.taskId} - "${payload.title}" (priority: ${payload.priority})`,
         );
 
-        // Simulate some work
-        await new Promise((resolve) => setTimeout(resolve, 500));
-
-        logger.info(`✅ Completed: ${task.payload.taskId}`);
+        return Future.fromPromise(new Promise<void>((resolve) => setTimeout(resolve, 500)))
+          .mapOk(() => {
+            logger.info(`✅ Completed: ${payload.taskId}`);
+          })
+          .mapError((e) => new RetryableError("Task processing failed", e));
       },
     }),
   })

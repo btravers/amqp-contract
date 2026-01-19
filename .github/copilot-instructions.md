@@ -268,21 +268,7 @@ packages/[package-name]/
    });
    ```
 
-2. **Unsafe Handlers (Deprecated)**
-   - Use `defineUnsafeHandler` only for legacy code
-   - Returns `Promise<void>` without explicit error handling
-   - Thrown errors are automatically retried
-
-   ```typescript
-   // ❌ Deprecated - avoid in new code
-   import { defineUnsafeHandler } from "@amqp-contract/worker";
-
-   const legacyHandler = defineUnsafeHandler(contract, "processOrder", async ({ payload }) => {
-     await processPayment(payload.orderId);
-   });
-   ```
-
-3. **Handler Options**
+2. **Handler Options**
    - Configure `prefetch` for per-consumer message flow control
    - Use `batchSize` and `batchTimeout` for batch processing
 
@@ -299,7 +285,7 @@ packages/[package-name]/
    };
    ```
 
-4. **Type Inference for Handlers**
+3. **Type Inference for Handlers**
    - Use `WorkerInferSafeConsumerHandler<Contract, Name>` for handler types
    - Use `WorkerInferSafeConsumerHandlers<Contract>` for all handlers
 
@@ -970,23 +956,7 @@ packages/[package-name]/
    - Don't use topic exchanges when direct would suffice
    - Document routing patterns clearly
 
-10. **Using unsafe handlers in new code**
-
-    ```typescript
-    // ❌ Bad - using deprecated unsafe handler
-    const handler = defineUnsafeHandler(contract, "processOrder", async ({ payload }) => {
-      await processOrder(payload);
-    });
-
-    // ✅ Good - using safe handler with explicit error handling
-    const handler = defineHandler(contract, "processOrder", ({ payload }) =>
-      Future.fromPromise(processOrder(payload))
-        .mapOk(() => undefined)
-        .mapError((err) => new RetryableError("Processing failed", err)),
-    );
-    ```
-
-11. **Not using quorum queues**
+10. **Not using quorum queues**
 
     ```typescript
     // ❌ Bad - using classic queue without good reason
@@ -1002,7 +972,7 @@ packages/[package-name]/
     });
     ```
 
-12. **Not running checks before PR**
+11. **Not running checks before PR**
     ```bash
     # Always run before submitting PR:
     pnpm typecheck
@@ -1094,7 +1064,7 @@ Before submitting code, ensure:
 - [ ] Catalog dependencies used for shared packages
 - [ ] AMQP patterns documented (routing keys, exchange types, bindings)
 - [ ] Message definitions use `defineMessage` with metadata
-- [ ] Safe handlers used (`defineHandler`) instead of unsafe handlers
+- [ ] Handlers use `Future<Result>` pattern (`defineHandler`)
 - [ ] Quorum queues used (default) unless classic queue is specifically needed
 - [ ] Retry strategy configured appropriately (quorum-native or ttl-backoff)
 

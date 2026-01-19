@@ -122,29 +122,6 @@ const validateOrderHandler = defineHandler(contract, "validateOrder", ({ payload
 });
 ```
 
-### Unsafe Handlers (Legacy/Deprecated)
-
-For simpler use cases or migration from existing code, use unsafe handlers that return `Promise<void>`:
-
-```typescript
-import { defineUnsafeHandler } from "@amqp-contract/worker";
-import { contract } from "./contract";
-
-const processOrderHandler = defineUnsafeHandler(contract, "processOrder", async ({ payload }) => {
-  console.log("Processing:", payload.orderId);
-  await saveToDatabase(payload);
-  // Throws on error - will be retried (when retry is configured)
-});
-
-const worker = await TypedAmqpWorker.create({
-  contract,
-  handlers: {
-    processOrder: processOrderHandler,
-  },
-  urls: ["amqp://localhost"],
-});
-```
-
 ### Multiple Handlers
 
 ```typescript
@@ -164,21 +141,9 @@ const handlers = defineHandlers(contract, {
       .mapError((error) => new RetryableError("Email failed", error)),
 });
 
-// Or use unsafe handlers for simpler code (deprecated)
-import { defineUnsafeHandlers } from "@amqp-contract/worker";
-
-const unsafeHandlers = defineUnsafeHandlers(contract, {
-  processOrder: async ({ payload }) => {
-    await processPayment(payload);
-  },
-  notifyOrder: async ({ payload }) => {
-    await sendEmail(payload);
-  },
-});
-
 const worker = await TypedAmqpWorker.create({
   contract,
-  handlers, // or unsafeHandlers
+  handlers,
   urls: ["amqp://localhost"],
 });
 ```
@@ -194,7 +159,7 @@ External handler definitions provide several advantages:
 - **Maintainability**: Easier to modify and refactor handler logic
 - **Explicit Error Control**: Safe handlers force explicit error handling
 
-### Example: Organized Handler Module (Safe Handlers)
+### Example: Organized Handler Module
 
 Create a dedicated module for handlers with explicit error handling:
 
@@ -220,40 +185,6 @@ export const notifyOrderHandler = defineHandler(orderContract, "notifyOrder", ({
 
 // Export all handlers together
 export const orderHandlers = defineHandlers(orderContract, {
-  processOrder: processOrderHandler,
-  notifyOrder: notifyOrderHandler,
-});
-```
-
-### Example: Organized Handler Module (Unsafe Handlers)
-
-For simpler use cases, use unsafe handlers:
-
-```typescript
-// handlers/order-handlers.ts
-import { defineUnsafeHandler, defineUnsafeHandlers } from "@amqp-contract/worker";
-import { orderContract } from "../contract";
-import { processPayment } from "../services/payment";
-import { sendEmail } from "../services/email";
-
-export const processOrderHandler = defineUnsafeHandler(
-  orderContract,
-  "processOrder",
-  async ({ payload }) => {
-    await processPayment(payload);
-  },
-);
-
-export const notifyOrderHandler = defineUnsafeHandler(
-  orderContract,
-  "notifyOrder",
-  async ({ payload }) => {
-    await sendEmail(payload);
-  },
-);
-
-// Export all handlers together
-export const orderHandlers = defineUnsafeHandlers(orderContract, {
   processOrder: processOrderHandler,
   notifyOrder: notifyOrderHandler,
 });
