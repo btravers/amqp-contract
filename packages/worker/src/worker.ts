@@ -14,12 +14,12 @@ import type {
   ConsumerDefinition,
   ContractDefinition,
   InferConsumerNames,
+  RetryMode,
   TtlBackoffRetryOptions,
 } from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
 import { MessageValidationError, NonRetryableError, TechnicalError } from "./errors.js";
 import type {
-  RetryMode,
   WorkerInferConsumedMessage,
   WorkerInferSafeConsumerHandler,
   WorkerInferSafeConsumerHandlers,

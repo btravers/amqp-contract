@@ -3,18 +3,11 @@ import type {
   ContractDefinition,
   InferConsumerNames,
   MessageDefinition,
-  QuorumNativeRetryOptions,
-  RetryMode,
-  RetryOptions,
-  TtlBackoffRetryOptions,
 } from "@amqp-contract/contract";
 import type { Future, Result } from "@swan-io/boxed";
 import type { ConsumeMessage } from "amqplib";
 import type { HandlerError } from "./errors.js";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
-
-// Re-export retry types from contract for backward compatibility
-export type { RetryMode, RetryOptions, TtlBackoffRetryOptions, QuorumNativeRetryOptions };
 
 /**
  * Infer the TypeScript type from a schema

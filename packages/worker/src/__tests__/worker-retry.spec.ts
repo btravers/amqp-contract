@@ -40,6 +40,15 @@ describe("Worker Retry Mechanism", () => {
           jitter: false, // Disable jitter for predictable testing
         },
       });
+      // Wait queue for TTL-backoff retry - must be declared in contract
+      const waitQueue = defineQueue("retry-flow-queue-wait", {
+        type: "classic",
+        durable: false,
+        deadLetter: {
+          exchange: dlx,
+          routingKey: "retry-flow-queue", // Routes back to main queue after TTL
+        },
+      });
       const dlq = defineQueue("retry-flow-dlq", { type: "classic", durable: false });
 
       const contract = defineContract({
@@ -49,11 +58,20 @@ describe("Worker Retry Mechanism", () => {
         },
         queues: {
           main: queue,
+          waitQueue,
           dlq,
         },
         bindings: {
           mainBinding: defineQueueBinding(queue, exchange, {
             routingKey: "test.#",
+          }),
+          // Bind wait queue to DLX for receiving failed messages
+          waitQueueBinding: defineQueueBinding(waitQueue, dlx, {
+            routingKey: "retry-flow-queue-wait",
+          }),
+          // Bind main queue to DLX for receiving retried messages from wait queue
+          mainQueueRetryBinding: defineQueueBinding(queue, dlx, {
+            routingKey: "retry-flow-queue",
           }),
           dlqBinding: defineQueueBinding(dlq, dlx, {
             routingKey: "retry-flow-queue.dlq",
@@ -76,8 +94,8 @@ describe("Worker Retry Mechanism", () => {
       });
 
       // Verify wait queue was created
-      const waitQueue = await amqpChannel.checkQueue("retry-flow-queue-wait");
-      expect(waitQueue.queue).toBe("retry-flow-queue-wait");
+      const waitQueueInfo = await amqpChannel.checkQueue("retry-flow-queue-wait");
+      expect(waitQueueInfo.queue).toBe("retry-flow-queue-wait");
 
       // WHEN publishing a message that fails on first attempt
       publishMessage(exchange.name, "test.message", { id: "retry-1" });
@@ -156,6 +174,15 @@ describe("Worker Retry Mechanism", () => {
           jitter: false,
         },
       });
+      // Wait queue for TTL-backoff retry - must be declared in contract
+      const waitQueue = defineQueue("backoff-queue-wait", {
+        type: "classic",
+        durable: false,
+        deadLetter: {
+          exchange: dlx,
+          routingKey: "backoff-queue", // Routes back to main queue after TTL
+        },
+      });
       const dlq = defineQueue("backoff-dlq", { type: "classic", durable: false });
 
       const contract = defineContract({
@@ -165,11 +192,20 @@ describe("Worker Retry Mechanism", () => {
         },
         queues: {
           main: queue,
+          waitQueue,
           dlq,
         },
         bindings: {
           mainBinding: defineQueueBinding(queue, exchange, {
             routingKey: "test.#",
+          }),
+          // Bind wait queue to DLX for receiving failed messages
+          waitQueueBinding: defineQueueBinding(waitQueue, dlx, {
+            routingKey: "backoff-queue-wait",
+          }),
+          // Bind main queue to DLX for receiving retried messages from wait queue
+          mainQueueRetryBinding: defineQueueBinding(queue, dlx, {
+            routingKey: "backoff-queue",
           }),
           dlqBinding: defineQueueBinding(dlq, dlx, {
             routingKey: "backoff-queue.dlq",
@@ -254,6 +290,15 @@ describe("Worker Retry Mechanism", () => {
           jitter: false,
         },
       });
+      // Wait queue for TTL-backoff retry - must be declared in contract
+      const waitQueue = defineQueue("maxretry-queue-wait", {
+        type: "classic",
+        durable: false,
+        deadLetter: {
+          exchange: dlx,
+          routingKey: "maxretry-queue", // Routes back to main queue after TTL
+        },
+      });
       const dlq = defineQueue("maxretry-dlq", { type: "classic", durable: false });
 
       const contract = defineContract({
@@ -263,11 +308,20 @@ describe("Worker Retry Mechanism", () => {
         },
         queues: {
           main: queue,
+          waitQueue,
           dlq,
         },
         bindings: {
           mainBinding: defineQueueBinding(queue, exchange, {
             routingKey: "test.#",
+          }),
+          // Bind wait queue to DLX for receiving failed messages
+          waitQueueBinding: defineQueueBinding(waitQueue, dlx, {
+            routingKey: "maxretry-queue-wait",
+          }),
+          // Bind main queue to DLX for receiving retried messages from wait queue
+          mainQueueRetryBinding: defineQueueBinding(queue, dlx, {
+            routingKey: "maxretry-queue",
           }),
           dlqBinding: defineQueueBinding(dlq, dlx, {
             routingKey: "maxretry-queue.dlq",
@@ -342,6 +396,15 @@ describe("Worker Retry Mechanism", () => {
           jitter: false,
         },
       });
+      // Wait queue for TTL-backoff retry - must be declared in contract
+      const waitQueue = defineQueue("headers-queue-wait", {
+        type: "classic",
+        durable: false,
+        deadLetter: {
+          exchange: dlx,
+          routingKey: "headers-queue", // Routes back to main queue after TTL
+        },
+      });
       const dlq = defineQueue("headers-dlq", { type: "classic", durable: false });
 
       const contract = defineContract({
@@ -351,11 +414,20 @@ describe("Worker Retry Mechanism", () => {
         },
         queues: {
           main: queue,
+          waitQueue,
           dlq,
         },
         bindings: {
           mainBinding: defineQueueBinding(queue, exchange, {
             routingKey: "test.#",
+          }),
+          // Bind wait queue to DLX for receiving failed messages
+          waitQueueBinding: defineQueueBinding(waitQueue, dlx, {
+            routingKey: "headers-queue-wait",
+          }),
+          // Bind main queue to DLX for receiving retried messages from wait queue
+          mainQueueRetryBinding: defineQueueBinding(queue, dlx, {
+            routingKey: "headers-queue",
           }),
           dlqBinding: defineQueueBinding(dlq, dlx, {
             routingKey: "headers-queue.dlq",

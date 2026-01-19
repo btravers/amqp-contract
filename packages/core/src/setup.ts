@@ -110,50 +110,6 @@ export async function setupAmqpTopology(
     );
   }
 
-  // Setup wait queues for TTL-backoff retry mode
-  const waitQueueSetupTasks: Array<Promise<void>> = [];
-  for (const queue of Object.values(contract.queues ?? {})) {
-    if (shouldCreateWaitQueue(queue)) {
-      const dlx = queue.deadLetter!.exchange;
-      const waitQueueName = `${queue.name}-wait`;
-      const queueType = queue.type ?? "quorum";
-      const durable = queueType === "quorum" ? true : queue.durable;
-
-      waitQueueSetupTasks.push(
-        (async () => {
-          // Create wait queue with DLX pointing back to the main queue via the original DLX
-          // Only set x-queue-type for quorum queues (it's the default, but explicit is better)
-          const queueArguments: Record<string, unknown> =
-            queueType === "quorum" ? { "x-queue-type": "quorum" } : {};
-
-          await channel.assertQueue(waitQueueName, {
-            durable,
-            deadLetterExchange: dlx.name,
-            deadLetterRoutingKey: queue.name,
-            arguments: queueArguments,
-          });
-
-          // Bind wait queue to DLX with routing key pattern
-          await channel.bindQueue(waitQueueName, dlx.name, `${queue.name}-wait`);
-
-          // Bind main queue to DLX for routing retried messages back
-          await channel.bindQueue(queue.name, dlx.name, queue.name);
-        })(),
-      );
-    }
-  }
-
-  const waitQueueResults = await Promise.allSettled(waitQueueSetupTasks);
-  const waitQueueErrors = waitQueueResults.filter(
-    (result): result is PromiseRejectedResult => result.status === "rejected",
-  );
-  if (waitQueueErrors.length > 0) {
-    throw new AggregateError(
-      waitQueueErrors.map(({ reason }) => reason),
-      "Failed to setup wait queues",
-    );
-  }
-
   // Setup bindings
   const bindingResults = await Promise.allSettled(
     Object.values(contract.bindings ?? {}).map((binding) => {
@@ -183,26 +139,6 @@ export async function setupAmqpTopology(
       "Failed to setup bindings",
     );
   }
-}
-
-/**
- * Determine if a wait queue should be created for a queue.
- *
- * A wait queue is created when:
- * 1. Queue has DLX configured (required for TTL-backoff retry pattern)
- * 2. Queue uses TTL-backoff retry mode (default if retry is undefined or mode is not "quorum-native")
- */
-function shouldCreateWaitQueue(queue: QueueDefinition): boolean {
-  // No DLX configured - cannot use TTL-backoff retry
-  if (!queue.deadLetter) {
-    return false;
-  }
-
-  // Check retry mode - default is "ttl-backoff"
-  const retryMode = queue.retry?.mode ?? "ttl-backoff";
-
-  // Only create wait queue for TTL-backoff mode
-  return retryMode === "ttl-backoff";
 }
 
 /**
