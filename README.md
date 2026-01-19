@@ -37,12 +37,12 @@ import { TypedAmqpWorker } from "@amqp-contract/worker";
 import { Future, Result } from "@swan-io/boxed";
 import { z } from "zod";
 
-// 1. Define resources with Dead Letter Exchange for retry support
+// 1. Define resources with Dead Letter Exchange and retry configuration
 const ordersExchange = defineExchange("orders", "topic", { durable: true });
 const ordersDlx = defineExchange("orders-dlx", "topic", { durable: true });
 const orderProcessingQueue = defineQueue("order-processing", {
-  durable: true,
   deadLetter: { exchange: ordersDlx, routingKey: "order.failed" },
+  retry: { mode: "ttl-backoff", maxRetries: 3, initialDelayMs: 1000 }, // Retry configured at queue level
 });
 
 // 2. Define message with schema validation
@@ -81,17 +81,14 @@ await client.publish("orderCreated", {
   amount: 99.99,
 });
 
-// 7. Type-safe consuming with reliable retry (per-consumer configuration)
+// 7. Type-safe consuming with automatic retry (configured at queue level)
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    processOrder: [
-      ({ payload }) => {
-        console.log(payload.orderId); // ✅ TypeScript knows!
-        return Future.value(Result.Ok(undefined));
-      },
-      { retry: { maxRetries: 3, initialDelayMs: 1000 } },
-    ],
+    processOrder: ({ payload }) => {
+      console.log(payload.orderId); // ✅ TypeScript knows!
+      return Future.value(Result.Ok(undefined));
+    },
   },
   urls: ["amqp://localhost"],
 }).resultToPromise();

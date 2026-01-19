@@ -72,7 +72,28 @@ For advanced features like prefetch configuration, batch processing, and **autom
 
 #### Retry with Exponential Backoff
 
-Retry is enabled by default for all consumers. Configure per-consumer retry options using the handler tuple syntax:
+Retry is configured at the queue level in your contract definition. Add `retry` to your queue definition:
+
+```typescript
+import { defineQueue, defineExchange, defineContract } from "@amqp-contract/contract";
+
+const dlx = defineExchange("orders-dlx", "topic", { durable: true });
+
+// Configure retry at queue level
+const orderQueue = defineQueue("order-processing", {
+  deadLetter: { exchange: dlx },
+  retry: {
+    mode: "ttl-backoff",
+    maxRetries: 3, // Retry up to 3 times (default: 3)
+    initialDelayMs: 1000, // Start with 1 second delay (default: 1000)
+    maxDelayMs: 30000, // Max 30 seconds between retries (default: 30000)
+    backoffMultiplier: 2, // Double the delay each time (default: 2)
+    jitter: true, // Add randomness to prevent thundering herd (default: true)
+  },
+});
+```
+
+Then use `RetryableError` in your handlers:
 
 ```typescript
 import { TypedAmqpWorker, RetryableError } from "@amqp-contract/worker";
@@ -81,22 +102,11 @@ import { Future } from "@swan-io/boxed";
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    processOrder: [
-      ({ payload }) =>
-        // If this fails, message is automatically retried with exponential backoff
-        Future.fromPromise(processPayment(payload))
-          .mapOk(() => undefined)
-          .mapError((error) => new RetryableError("Payment failed", error)),
-      {
-        retry: {
-          maxRetries: 3, // Retry up to 3 times (default: 3)
-          initialDelayMs: 1000, // Start with 1 second delay (default: 1000)
-          maxDelayMs: 30000, // Max 30 seconds between retries (default: 30000)
-          backoffMultiplier: 2, // Double the delay each time (default: 2)
-          jitter: true, // Add randomness to prevent thundering herd (default: true)
-        },
-      },
-    ],
+    processOrder: ({ payload }) =>
+      // If this fails with RetryableError, message is automatically retried
+      Future.fromPromise(processPayment(payload))
+        .mapOk(() => undefined)
+        .mapError((error) => new RetryableError("Payment failed", error)),
   },
   urls: ["amqp://localhost"],
 });

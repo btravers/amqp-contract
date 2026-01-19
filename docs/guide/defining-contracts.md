@@ -339,10 +339,80 @@ const orderQueue = defineQueue("order-processing", {
 - **Atomic guarantees** - RabbitMQ handles the retry logic internally
 
 ::: warning Note
-The `deliveryLimit` option only works with quorum queues. For classic queues, use the worker's `ttl-backoff` retry mode which creates wait queues with per-message TTL.
+The `deliveryLimit` option only works with quorum queues. For classic queues, use the `ttl-backoff` retry mode which creates wait queues with per-message TTL.
 :::
 
-See the [Worker Usage Guide](/guide/worker-usage#retry-strategies) for how to configure your worker to use the `quorum-native` retry mode with this feature.
+### Retry Configuration
+
+Configure automatic retry behavior at the queue level using the `retry` option. This determines how failed messages are handled by the worker.
+
+#### Quorum-Native Mode
+
+For quorum queues, use `quorum-native` mode which leverages RabbitMQ's built-in delivery tracking:
+
+```typescript
+import { defineQueue, defineExchange } from "@amqp-contract/contract";
+
+const dlx = defineExchange("orders-dlx", "topic", { durable: true });
+
+const orderQueue = defineQueue("order-processing", {
+  type: "quorum",
+  deliveryLimit: 3, // Dead-letter after 3 delivery attempts
+  deadLetter: { exchange: dlx },
+  retry: { mode: "quorum-native" },
+});
+```
+
+**Benefits:**
+
+- **Simpler architecture** - No wait queues needed
+- **Native tracking** - RabbitMQ tracks delivery count automatically
+- **No head-of-queue blocking** - Messages are requeued immediately
+
+#### TTL-Backoff Mode
+
+For exponential backoff with delays between retries, use `ttl-backoff` mode:
+
+```typescript
+import { defineQueue, defineExchange } from "@amqp-contract/contract";
+
+const dlx = defineExchange("orders-dlx", "topic", { durable: true });
+
+const orderQueue = defineQueue("order-processing", {
+  deadLetter: { exchange: dlx },
+  retry: {
+    mode: "ttl-backoff",
+    maxRetries: 5,
+    initialDelayMs: 1000, // Start with 1 second delay
+    maxDelayMs: 60000, // Cap at 60 seconds
+    backoffMultiplier: 2, // Double delay each retry
+    jitter: true, // Add randomness to prevent thundering herd
+  },
+});
+```
+
+When you use `ttl-backoff` mode, `defineContract` automatically generates:
+
+- A wait queue (`{queueName}-wait`) with per-message TTL
+- Bindings to route messages through the DLX for retry
+
+**Benefits:**
+
+- **Exponential backoff** - Give failing services time to recover
+- **Jitter support** - Prevents thundering herd problems
+- **Works with any queue type** - Classic or quorum
+
+**Default values for TTL-backoff:**
+
+| Option              | Default | Description                        |
+| ------------------- | ------- | ---------------------------------- |
+| `maxRetries`        | 3       | Maximum retry attempts             |
+| `initialDelayMs`    | 1000    | Initial delay in milliseconds      |
+| `maxDelayMs`        | 30000   | Maximum delay cap in milliseconds  |
+| `backoffMultiplier` | 2       | Multiplier for exponential backoff |
+| `jitter`            | true    | Add randomness to delays           |
+
+See the [Worker Usage Guide](/guide/worker-usage#retry-strategies) for more details on retry behavior.
 
 ## Defining Messages
 

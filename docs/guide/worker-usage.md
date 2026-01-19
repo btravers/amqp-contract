@@ -512,76 +512,23 @@ handlers: {
 
 ## Error Handling and Retry
 
-The worker supports automatic retry with two different strategies, configured per-consumer via handler options:
+The worker supports automatic retry with two different strategies, configured at the **queue level** in the contract:
 
-1. **TTL-Backoff Mode** (default) - Uses TTL + wait queue pattern for exponential backoff
-2. **Quorum-Native Mode** - Uses quorum queue's native `x-delivery-limit` feature for simpler retries
-
-Retry is enabled by default for all consumers with sensible defaults. You can customize the retry behavior per-consumer using the handler tuple syntax.
+1. **Quorum-Native Mode** - Uses quorum queue's native `x-delivery-limit` feature for simpler retries
+2. **TTL-Backoff Mode** - Uses TTL + wait queue pattern for exponential backoff
 
 ### Retry Strategies {#retry-strategies}
 
-#### TTL-Backoff Mode (Default)
-
-This mode provides exponential backoff using RabbitMQ's TTL and Dead Letter Exchange (DLX) pattern:
-
-```typescript
-import { TypedAmqpWorker, RetryableError } from "@amqp-contract/worker";
-import { Future } from "@swan-io/boxed";
-
-const worker = await TypedAmqpWorker.create({
-  contract,
-  handlers: {
-    // Handler with custom retry configuration
-    processOrder: [
-      ({ payload }) =>
-        Future.fromPromise(processPayment(payload))
-          .mapOk(() => undefined)
-          .mapError((error) => new RetryableError("Payment failed", error)),
-      {
-        retry: {
-          mode: "ttl-backoff", // This is the default
-          maxRetries: 3, // Maximum retry attempts (default: 3)
-          initialDelayMs: 1000, // Initial delay before first retry (default: 1000ms)
-          maxDelayMs: 30000, // Maximum delay between retries (default: 30000ms)
-          backoffMultiplier: 2, // Exponential backoff multiplier (default: 2)
-          jitter: true, // Add random jitter to prevent thundering herd (default: true)
-        },
-      },
-    ],
-    // Simple handler uses default retry configuration
-    notifyOrder: ({ payload }) =>
-      Future.fromPromise(sendNotification(payload))
-        .mapOk(() => undefined)
-        .mapError((error) => new RetryableError("Notification failed", error)),
-  },
-  urls: ["amqp://localhost"],
-}).resultToPromise();
-```
-
-**How TTL-Backoff works:**
-
-1. **Message is acknowledged** - The worker acks the original message
-2. **Published to wait queue** - Message is republished to a wait queue with a TTL
-3. **Wait in queue** - Message sits in the wait queue for the calculated delay
-4. **Dead-lettered back** - After TTL expires, message is automatically routed back to the main queue
-5. **Retry processing** - Worker processes the message again
-6. **Repeat or DLQ** - Process repeats until success or max retries reached, then sent to Dead Letter Queue (DLQ)
-
-**Best for:** When you need configurable delays between retries to give downstream services time to recover.
-
-**Limitation:** Potential head-of-queue blocking when messages have mixed TTLs (messages with shorter TTLs behind messages with longer TTLs won't expire until the longer ones do).
-
-#### Quorum-Native Mode
+#### Quorum-Native Mode (Recommended)
 
 A simpler mode that leverages RabbitMQ quorum queue's native `x-delivery-limit` feature:
 
 ```typescript
-import { defineQueue, defineExchange } from "@amqp-contract/contract";
+import { defineQueue, defineExchange, defineContract } from "@amqp-contract/contract";
 import { TypedAmqpWorker, RetryableError } from "@amqp-contract/worker";
 import { Future } from "@swan-io/boxed";
 
-// 1. Define queue with deliveryLimit
+// 1. Define queue with deliveryLimit and quorum-native retry
 const dlx = defineExchange("orders-dlx", "topic", { durable: true });
 const ordersQueue = defineQueue("orders", {
   type: "quorum", // Default queue type
@@ -590,23 +537,17 @@ const ordersQueue = defineQueue("orders", {
     exchange: dlx,
     routingKey: "orders.failed",
   },
+  retry: { mode: "quorum-native" }, // Retry configured at queue level
 });
 
-// 2. Configure worker with quorum-native mode per consumer
+// 2. Worker automatically uses queue's retry configuration
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    processOrder: [
-      ({ payload }) =>
-        Future.fromPromise(processPayment(payload))
-          .mapOk(() => undefined)
-          .mapError((error) => new RetryableError("Payment failed", error)),
-      {
-        retry: {
-          mode: "quorum-native", // Use quorum queue's native delivery limit
-        },
-      },
-    ],
+    processOrder: ({ payload }) =>
+      Future.fromPromise(processPayment(payload))
+        .mapOk(() => undefined)
+        .mapError((error) => new RetryableError("Payment failed", error)),
   },
   urls: ["amqp://localhost"],
 }).resultToPromise();
@@ -627,55 +568,50 @@ const worker = await TypedAmqpWorker.create({
 
 **Limitation:** No exponential backoff — retries are immediate.
 
-#### Comparing Retry Modes
+#### TTL-Backoff Mode
 
-| Feature                   | TTL-Backoff                      | Quorum-Native             |
-| ------------------------- | -------------------------------- | ------------------------- |
-| Retry delays              | Configurable exponential backoff | Immediate                 |
-| Architecture              | Wait queues + DLX                | Native RabbitMQ           |
-| Head-of-queue blocking    | Possible with mixed TTLs         | None                      |
-| Delivery tracking         | Custom `x-retry-count` header    | Native `x-delivery-count` |
-| Queue type                | Any                              | Quorum only               |
-| Max retries configured in | Handler options                  | Queue's `deliveryLimit`   |
-
-### Customizing Retry Per Consumer
-
-Retry is enabled by default with sensible defaults. To customize the retry configuration for a specific consumer, use the handler tuple syntax:
+This mode provides exponential backoff using RabbitMQ's TTL and Dead Letter Exchange (DLX) pattern. **Wait queues and bindings are automatically generated** when you use `defineContract`:
 
 ```typescript
+import { defineQueue, defineExchange, defineContract } from "@amqp-contract/contract";
 import { TypedAmqpWorker, RetryableError } from "@amqp-contract/worker";
 import { Future } from "@swan-io/boxed";
 
+// 1. Define queue with TTL-backoff retry - infrastructure auto-generated
+const dlx = defineExchange("orders-dlx", "topic", { durable: true });
+const ordersQueue = defineQueue("orders", {
+  deadLetter: { exchange: dlx },
+  retry: {
+    mode: "ttl-backoff",
+    maxRetries: 3, // Maximum retry attempts (default: 3)
+    initialDelayMs: 1000, // Initial delay before first retry (default: 1000ms)
+    maxDelayMs: 30000, // Maximum delay between retries (default: 30000ms)
+    backoffMultiplier: 2, // Exponential backoff multiplier (default: 2)
+    jitter: true, // Add random jitter to prevent thundering herd (default: true)
+  },
+});
+
+// 2. defineContract automatically creates wait queue and bindings
+const contract = defineContract({
+  exchanges: { dlx },
+  queues: { orders: ordersQueue }, // Wait queue auto-added as "ordersWait"
+  // Bindings for retry routing are auto-added
+});
+
+// 3. Worker automatically uses queue's retry configuration
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    // Custom retry configuration for this consumer
-    processOrder: [
-      ({ payload }) =>
-        Future.fromPromise(processPayment(payload))
-          .mapOk(() => undefined)
-          .mapError((error) => new RetryableError("Payment processing failed", error)),
-      {
-        retry: {
-          maxRetries: 5, // Custom: 5 retries instead of default 3
-          initialDelayMs: 2000, // Custom: 2s initial delay
-          maxDelayMs: 60000, // Custom: 60s max delay
-          backoffMultiplier: 2,
-          jitter: true,
-        },
-      },
-    ],
-    // Uses default retry configuration
-    notifyOrder: ({ payload }) =>
-      Future.fromPromise(sendNotification(payload))
+    processOrder: ({ payload }) =>
+      Future.fromPromise(processPayment(payload))
         .mapOk(() => undefined)
-        .mapError((error) => new RetryableError("Notification failed", error)),
+        .mapError((error) => new RetryableError("Payment failed", error)),
   },
   urls: ["amqp://localhost"],
 }).resultToPromise();
 ```
 
-### How TTL-Backoff Retry Works
+**How TTL-Backoff works:**
 
 1. **Message is acknowledged** - The worker acks the original message
 2. **Published to wait queue** - Message is republished to a wait queue with a TTL
@@ -684,11 +620,40 @@ const worker = await TypedAmqpWorker.create({
 5. **Retry processing** - Worker processes the message again
 6. **Repeat or DLQ** - Process repeats until success or max retries reached, then sent to Dead Letter Queue (DLQ)
 
-This approach uses native RabbitMQ features and doesn't block the consumer during retry delays.
+**Best for:** When you need configurable delays between retries to give downstream services time to recover.
+
+**Limitation:** Potential head-of-queue blocking when messages have mixed TTLs.
+
+#### Accessing Queue Properties
+
+When TTL-backoff retry is configured, `defineQueue` returns a wrapper object containing the infrastructure. Use `extractQueue()` to access the underlying queue definition:
+
+```typescript
+import { extractQueue } from "@amqp-contract/contract";
+
+const ordersQueue = defineQueue("orders", {
+  deadLetter: { exchange: dlx },
+  retry: { mode: "ttl-backoff", maxRetries: 3 },
+});
+
+// Access queue name
+const queueName = extractQueue(ordersQueue).name; // "orders"
+```
+
+#### Comparing Retry Modes
+
+| Feature                | TTL-Backoff                      | Quorum-Native             |
+| ---------------------- | -------------------------------- | ------------------------- |
+| Retry delays           | Configurable exponential backoff | Immediate                 |
+| Architecture           | Wait queues + DLX (auto-created) | Native RabbitMQ           |
+| Head-of-queue blocking | Possible with mixed TTLs         | None                      |
+| Delivery tracking      | Custom `x-retry-count` header    | Native `x-delivery-count` |
+| Queue type             | Quorum (default)                 | Quorum only               |
+| Configuration location | Queue definition                 | Queue definition          |
 
 ### Exponential Backoff
 
-Retry delays increase exponentially to give downstream services time to recover:
+With TTL-backoff mode, retry delays increase exponentially to give downstream services time to recover:
 
 ```typescript
 // With default settings (initialDelayMs: 1000, backoffMultiplier: 2):
@@ -705,24 +670,29 @@ Retry delays increase exponentially to give downstream services time to recover:
 For retry to work, your queues must be configured with a Dead Letter Exchange (DLX):
 
 ```typescript
-import { defineQueue, defineExchange } from "@amqp-contract/contract";
+import {
+  defineQueue,
+  defineExchange,
+  defineContract,
+  defineQueueBinding,
+} from "@amqp-contract/contract";
 
 // Define the Dead Letter Exchange
 const dlxExchange = defineExchange("orders-dlx", "topic", { durable: true });
 
 // Define the Dead Letter Queue
-const dlq = defineQueue("orders-dlq", { durable: true });
+const dlq = defineQueue("orders-dlq");
 
-// Define your main queue with deadLetter configuration
+// Define your main queue with deadLetter and retry configuration
 const ordersQueue = defineQueue("orders", {
-  durable: true,
   deadLetter: {
     exchange: dlxExchange,
     routingKey: "orders.failed",
   },
+  retry: { mode: "quorum-native" }, // Or ttl-backoff
 });
 
-// Bind the DLQ to the DLX
+// Compose the contract
 const contract = defineContract({
   exchanges: {
     main: mainExchange,
@@ -743,7 +713,7 @@ const contract = defineContract({
 ```
 
 ::: warning Queue DLX Required
-If retry is enabled but a queue doesn't have `deadLetter` configured, the worker will log a warning and fall back to immediate requeue (legacy behavior). For proper retry functionality, always configure DLX on your queues.
+If a queue doesn't have `deadLetter` configured, retry will not work. Always configure DLX on your queues for proper retry functionality.
 :::
 
 ### Retry Error Classes
@@ -794,23 +764,15 @@ import { Future, Result } from "@swan-io/boxed";
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    processOrder: [
-      defineHandler(contract, "processOrder", ({ payload }) => {
-        // Validation errors should not be retried
-        if (payload.amount <= 0) {
-          return Future.value(Result.Error(new NonRetryableError("Invalid order amount")));
-        }
-        return Future.fromPromise(processPayment(payload))
-          .mapOk(() => undefined)
-          .mapError((error) => new RetryableError("Payment failed", error));
-      }),
-      {
-        retry: {
-          maxRetries: 5,
-          initialDelayMs: 2000,
-        },
-      },
-    ],
+    processOrder: defineHandler(contract, "processOrder", ({ payload }) => {
+      // Validation errors should not be retried
+      if (payload.amount <= 0) {
+        return Future.value(Result.Error(new NonRetryableError("Invalid order amount")));
+      }
+      return Future.fromPromise(processPayment(payload))
+        .mapOk(() => undefined)
+        .mapError((error) => new RetryableError("Payment failed", error));
+    }),
   },
   urls: ["amqp://localhost"],
 }).resultToPromise();
@@ -834,33 +796,23 @@ import { match } from "ts-pattern";
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    processOrder: defineHandler(
-      contract,
-      "processOrder",
-      ({ payload }) => {
-        // Validation - non-retryable
-        if (payload.amount <= 0) {
-          return Future.value(Result.Error(new NonRetryableError("Invalid amount")));
-        }
+    processOrder: defineHandler(contract, "processOrder", ({ payload }) => {
+      // Validation - non-retryable
+      if (payload.amount <= 0) {
+        return Future.value(Result.Error(new NonRetryableError("Invalid amount")));
+      }
 
-        return Future.fromPromise(processPayment(payload))
-          .mapOk(() => undefined)
-          .mapError((error) =>
-            match(error)
-              .when(
-                (e) => e instanceof PaymentDeclinedError,
-                () => new NonRetryableError("Payment declined", error),
-              )
-              .otherwise(() => new RetryableError("Payment failed", error)),
-          );
-      },
-      {
-        retry: {
-          maxRetries: 5,
-          initialDelayMs: 2000,
-        },
-      },
-    ),
+      return Future.fromPromise(processPayment(payload))
+        .mapOk(() => undefined)
+        .mapError((error) =>
+          match(error)
+            .when(
+              (e) => e instanceof PaymentDeclinedError,
+              () => new NonRetryableError("Payment declined", error),
+            )
+            .otherwise(() => new RetryableError("Payment failed", error)),
+        );
+    }),
   },
   urls: ["amqp://localhost"],
 }).resultToPromise();
@@ -874,7 +826,7 @@ const worker = await TypedAmqpWorker.create({
 | `NonRetryableError`               | Permanent failures (validation, business rules) | Immediate DLQ      |
 | Any other error (unsafe handlers) | Unexpected failures                             | Retry with backoff |
 
-**Note:** Retry is enabled by default for all consumers. **All errors except `NonRetryableError` are retried**.
+**Note:** Retry is configured at the queue level. **All errors except `NonRetryableError` are retried** according to the queue's retry configuration.
 
 ### Retry with Batch Processing
 
@@ -885,7 +837,7 @@ import { Future } from "@swan-io/boxed";
 import { RetryableError } from "@amqp-contract/worker";
 
 const worker = await TypedAmqpWorker.create({
-  contract,
+  contract, // Queue's retry configuration is used automatically
   handlers: {
     processOrders: [
       (messages) =>
@@ -895,10 +847,6 @@ const worker = await TypedAmqpWorker.create({
       {
         batchSize: 10,
         batchTimeout: 1000,
-        retry: {
-          maxRetries: 3,
-          initialDelayMs: 1000,
-        },
       },
     ],
   },
@@ -945,27 +893,49 @@ import {
   defineQueue,
   defineExchange,
   defineQueueBinding,
+  defineConsumer,
+  defineMessage,
 } from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
+import { z } from "zod";
 
-// Define contract with DLX
+// Define exchanges
+const mainExchange = defineExchange("orders", "topic", { durable: true });
 const dlxExchange = defineExchange("orders-dlx", "topic", { durable: true });
+
+// Define message schema
+const orderMessage = defineMessage(
+  z.object({
+    orderId: z.string(),
+    amount: z.number(),
+  }),
+);
+
+// Define queue with retry configuration at the queue level
 const ordersQueue = defineQueue("orders", {
-  durable: true,
   deadLetter: {
     exchange: dlxExchange,
     routingKey: "orders.failed",
   },
+  retry: {
+    mode: "ttl-backoff",
+    maxRetries: 3,
+    initialDelayMs: 1000,
+    maxDelayMs: 30000,
+    backoffMultiplier: 2,
+    jitter: true,
+  },
 });
-const dlq = defineQueue("orders-dlq", { durable: true });
+const dlq = defineQueue("orders-dlq");
 
+// defineContract automatically creates wait queue and retry bindings for TTL-backoff
 const contract = defineContract({
   exchanges: {
     main: mainExchange,
     dlx: dlxExchange,
   },
   queues: {
-    orders: ordersQueue,
+    orders: ordersQueue, // Wait queue auto-added as "ordersWait"
     ordersDlq: dlq,
   },
   bindings: {
@@ -975,45 +945,39 @@ const contract = defineContract({
     dlqBinding: defineQueueBinding(dlq, dlxExchange, {
       routingKey: "orders.failed",
     }),
+    // Retry bindings are auto-added
   },
   consumers: {
     processOrder: defineConsumer(ordersQueue, orderMessage),
   },
-  // ... rest of contract
+  publishers: {
+    orderCreated: definePublisher(mainExchange, orderMessage, {
+      routingKey: "order.created",
+    }),
+  },
 });
 
-// Create worker with per-consumer retry configuration
+// Worker automatically uses queue's retry configuration
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    processOrder: [
-      ({ payload }) => {
-        // Validate before processing (don't retry validation errors)
-        if (!payload.amount || payload.amount <= 0) {
-          return Future.value(Result.Error(new NonRetryableError("Invalid order amount")));
-        }
+    processOrder: ({ payload }) => {
+      // Validate before processing (don't retry validation errors)
+      if (!payload.amount || payload.amount <= 0) {
+        return Future.value(Result.Error(new NonRetryableError("Invalid order amount")));
+      }
 
-        // Process with external service (retry on failure)
-        return Future.fromPromise(
-          Promise.all([
-            paymentService.charge(payload),
-            inventoryService.reserve(payload),
-            notificationService.send(payload),
-          ]),
-        )
-          .mapOk(() => undefined)
-          .mapError((error) => new RetryableError("Order processing failed", error));
-      },
-      {
-        retry: {
-          maxRetries: 3,
-          initialDelayMs: 1000,
-          maxDelayMs: 30000,
-          backoffMultiplier: 2,
-          jitter: true,
-        },
-      },
-    ],
+      // Process with external service (retry on failure based on queue config)
+      return Future.fromPromise(
+        Promise.all([
+          paymentService.charge(payload),
+          inventoryService.reserve(payload),
+          notificationService.send(payload),
+        ]),
+      )
+        .mapOk(() => undefined)
+        .mapError((error) => new RetryableError("Order processing failed", error));
+    },
   },
   urls: ["amqp://localhost"],
 }).resultToPromise();
