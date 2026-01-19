@@ -1,5 +1,66 @@
 # @amqp-contract/asyncapi
 
+## 0.11.0
+
+### Minor Changes
+
+- feat: move retry configuration from worker to contract level
+
+  **Breaking Change:** Retry configuration has moved from handler-level to queue-level.
+
+  ### Before (0.10.x)
+
+  ```typescript
+  const worker = await TypedAmqpWorker.create({
+    contract,
+    handlers: {
+      processOrder: [handler, { retry: { maxRetries: 3, initialDelayMs: 1000 } }],
+    },
+    urls: ["amqp://localhost"],
+  });
+  ```
+
+  ### After (0.11.0)
+
+  ```typescript
+  // Configure retry at queue level in the contract
+  const orderQueue = defineQueue("order-processing", {
+    deadLetter: { exchange: dlx },
+    retry: {
+      mode: "ttl-backoff",
+      maxRetries: 3,
+      initialDelayMs: 1000,
+    },
+  });
+
+  // Worker no longer specifies retry options
+  const worker = await TypedAmqpWorker.create({
+    contract,
+    handlers: {
+      processOrder: handler,
+    },
+    urls: ["amqp://localhost"],
+  });
+  ```
+
+  ### Key Changes
+  - **Retry types moved to contract package**: `RetryOptions`, `TtlBackoffRetryOptions`, `QuorumNativeRetryOptions` are now exported from `@amqp-contract/contract`
+  - **Queue-level retry configuration**: Use `retry` option in `defineQueue()` instead of handler tuples
+  - **Automatic TTL-backoff infrastructure**: `defineContract()` automatically generates wait queues and bindings for TTL-backoff mode
+  - **`extractQueue()` helper**: Use this to access queue properties from `QueueWithTtlBackoffInfrastructure` wrapper
+  - **Removed `setupWaitQueues`**: Wait queues are now created by `setupAmqpTopology` like any other queue
+
+  ### Migration Guide
+  1. Move `retry` configuration from handler options to queue definition
+  2. Add `mode: "ttl-backoff"` or `mode: "quorum-native"` to your retry config
+  3. Remove handler tuple syntax `[handler, { retry: ... }]` - just use `handler` directly
+  4. Use `extractQueue()` when accessing queue properties if using TTL-backoff mode
+
+### Patch Changes
+
+- Updated dependencies
+  - @amqp-contract/contract@0.11.0
+
 ## 0.10.0
 
 ### Patch Changes
