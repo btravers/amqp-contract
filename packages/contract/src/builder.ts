@@ -20,6 +20,7 @@ import type {
   QuorumQueueDefinition,
   QuorumQueueOptions,
   TopicExchangeDefinition,
+  TtlBackoffRetryOptions,
 } from "./types.js";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 
@@ -230,9 +231,11 @@ export function defineQueue(
   // Build quorum queue
   if (type === "quorum") {
     const quorumOpts = opts as QuorumQueueOptions;
+    const retry = quorumOpts.retry ?? { mode: "ttl-backoff" as const };
     const queueDefinition: QuorumQueueDefinition = {
       ...baseProps,
       type: "quorum",
+      retry,
     };
 
     // Validate and add deliveryLimit
@@ -245,13 +248,8 @@ export function defineQueue(
       queueDefinition.deliveryLimit = quorumOpts.deliveryLimit;
     }
 
-    // Add retry configuration
-    if (quorumOpts.retry !== undefined) {
-      queueDefinition.retry = quorumOpts.retry;
-    }
-
     // If TTL-backoff retry with dead letter exchange, wrap with infrastructure
-    if (quorumOpts.retry?.mode === "ttl-backoff" && queueDefinition.deadLetter) {
+    if (retry.mode === "ttl-backoff" && queueDefinition.deadLetter) {
       return wrapWithTtlBackoffInfrastructure(queueDefinition);
     }
 
@@ -260,9 +258,11 @@ export function defineQueue(
 
   // Build classic queue
   const classicOpts = opts as ClassicQueueOptions;
+  const retry: TtlBackoffRetryOptions = classicOpts.retry ?? { mode: "ttl-backoff" };
   const queueDefinition: ClassicQueueDefinition = {
     ...baseProps,
     type: "classic",
+    retry,
   };
 
   // Add exclusive
@@ -283,13 +283,8 @@ export function defineQueue(
     };
   }
 
-  // Add retry configuration (only TtlBackoffRetryOptions for classic - enforced by type system)
-  if (classicOpts.retry !== undefined) {
-    queueDefinition.retry = classicOpts.retry;
-  }
-
   // If TTL-backoff retry with dead letter exchange, wrap with infrastructure
-  if (classicOpts.retry?.mode === "ttl-backoff" && queueDefinition.deadLetter) {
+  if (retry.mode === "ttl-backoff" && queueDefinition.deadLetter) {
     return wrapWithTtlBackoffInfrastructure(queueDefinition);
   }
 
@@ -314,6 +309,7 @@ function wrapWithTtlBackoffInfrastructure(
   const waitQueueName = `${queue.name}-wait`;
 
   // Create the wait queue - quorum for better durability
+  // Wait queue uses TTL-backoff mode (infrastructure queue, not directly consumed)
   const waitQueue: QuorumQueueDefinition = {
     name: waitQueueName,
     type: "quorum",
@@ -322,6 +318,7 @@ function wrapWithTtlBackoffInfrastructure(
       exchange: dlx,
       routingKey: queue.name, // Routes back to main queue after TTL
     },
+    retry: { mode: "ttl-backoff" },
   };
 
   // Create binding for wait queue to receive failed messages
@@ -1841,7 +1838,7 @@ export function defineTtlBackoffRetryInfrastructure(
   const waitQueueName = `${queue.name}-wait`;
 
   // Create the wait queue - quorum for better durability
-  // Note: Wait queue has no retry config, so defineQueue returns plain QueueDefinition
+  // Wait queue uses default TTL-backoff retry (infrastructure queue, not directly consumed)
   const waitQueue = defineQueue(waitQueueName, {
     type: "quorum",
     durable: options?.waitQueueDurable ?? queue.durable ?? true,

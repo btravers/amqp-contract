@@ -549,10 +549,10 @@ export type QuorumQueueDefinition = BaseQueueDefinition & {
    * Retry configuration for handling failed message processing.
    *
    * Quorum queues support both:
-   * - `ttl-backoff`: Uses wait queues with exponential backoff
+   * - `ttl-backoff`: Uses wait queues with exponential backoff (default)
    * - `quorum-native`: Uses RabbitMQ's native delivery limit feature
    */
-  retry?: TtlBackoffRetryOptions | QuorumNativeRetryOptions;
+  retry: TtlBackoffRetryOptions | QuorumNativeRetryOptions;
 };
 
 /**
@@ -583,9 +583,9 @@ export type ClassicQueueDefinition = BaseQueueDefinition & {
   /**
    * Retry configuration for handling failed message processing.
    *
-   * Classic queues only support TTL-backoff retry mode.
+   * Classic queues only support TTL-backoff retry mode (default).
    */
-  retry?: TtlBackoffRetryOptions;
+  retry: TtlBackoffRetryOptions;
 };
 
 /**

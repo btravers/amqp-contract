@@ -382,7 +382,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
     // For quorum-native mode, TTL-backoff options are not used
     // but we still provide defaults for internal consistency
-    if (retryOptions?.mode === "quorum-native") {
+    if (retryOptions.mode === "quorum-native") {
       return {
         mode: "quorum-native",
         maxRetries: 0, // Not used in quorum-native mode
@@ -393,26 +393,14 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       };
     }
 
-    // TTL-backoff mode (default): extract options with defaults
-    if (retryOptions?.mode === "ttl-backoff") {
-      return {
-        mode: "ttl-backoff",
-        maxRetries: retryOptions.maxRetries ?? 3,
-        initialDelayMs: retryOptions.initialDelayMs ?? 1000,
-        maxDelayMs: retryOptions.maxDelayMs ?? 30000,
-        backoffMultiplier: retryOptions.backoffMultiplier ?? 2,
-        jitter: retryOptions.jitter ?? true,
-      };
-    }
-
-    // No retry configured - use default TTL-backoff
+    // TTL-backoff mode: extract options with defaults
     return {
       mode: "ttl-backoff",
-      maxRetries: 3,
-      initialDelayMs: 1000,
-      maxDelayMs: 30000,
-      backoffMultiplier: 2,
-      jitter: true,
+      maxRetries: retryOptions.maxRetries ?? 3,
+      initialDelayMs: retryOptions.initialDelayMs ?? 1000,
+      maxDelayMs: retryOptions.maxDelayMs ?? 30000,
+      backoffMultiplier: retryOptions.backoffMultiplier ?? 2,
+      jitter: retryOptions.jitter ?? true,
     };
   }
 
