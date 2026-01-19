@@ -1,32 +1,28 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "ignoreExportsUsedInFile": true,
-  "vitest": {
-    "config": ["**/vitest.config.ts"]
-  },
   "workspaces": {
-    "*": {
-      "entry": ["src/index.ts"],
+    "packages/*": {
       "project": ["src/**/*.ts"]
     },
-    "tools/*": {
-      "entry": ["*.json"]
-    },
     "packages/core": {
-      "entry": ["src/index.ts"],
-      "project": ["src/**/*.ts"],
       "ignoreDependencies": ["@opentelemetry/api"]
     },
-    "tests": {
-      "entry": ["src/**/*.spec.ts"]
+    "examples/basic-order-processing-contract": {
+      "entry": ["src/index.ts", "scripts/*.ts"],
+      "project": ["src/**/*.ts", "scripts/**/*.ts"]
+    },
+    "examples/*": {
+      "project": ["src/**/*.ts"],
+      "ignoreDependencies": ["pino-pretty"]
     },
     "docs": {
-      "entry": ["scripts/*.ts"]
+      "entry": ["scripts/*.ts"],
+      "project": ["scripts/**/*.ts"]
     }
   },
   "ignore": ["coverage/**", "**/dist/**"],
   "ignoreDependencies": [
-    "pino-pretty",
     "typedoc-plugin-markdown",
     "@amqp-contract/typedoc",
     "@amqp-contract/tsconfig"
