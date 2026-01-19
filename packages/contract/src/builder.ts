@@ -863,8 +863,13 @@ export function defineConsumer<TMessage extends MessageDefinition>(
 export function defineContract<TContract extends ContractDefinition>(
   definition: TContract,
 ): TContract {
+  // If no queues defined, return as-is (no processing needed)
+  if (!definition.queues || Object.keys(definition.queues).length === 0) {
+    return definition;
+  }
+
   // Process queues to extract TTL-backoff infrastructure
-  const queues = definition.queues ?? {};
+  const queues = definition.queues;
   const expandedQueues: Record<string, QueueDefinition> = {};
   const autoBindings: Record<string, BindingDefinition> = {};
 
@@ -880,17 +885,25 @@ export function defineContract<TContract extends ContractDefinition>(
     }
   }
 
-  // Merge with existing bindings
-  const mergedBindings = {
-    ...definition.bindings,
-    ...autoBindings,
-  };
+  // Only add bindings if there are any auto-generated ones
+  if (Object.keys(autoBindings).length > 0) {
+    // Merge with existing bindings
+    const mergedBindings = {
+      ...definition.bindings,
+      ...autoBindings,
+    };
 
-  // Return the expanded contract
+    return {
+      ...definition,
+      queues: expandedQueues,
+      bindings: mergedBindings,
+    } as TContract;
+  }
+
+  // Return with expanded queues only (no auto bindings)
   return {
     ...definition,
     queues: expandedQueues,
-    bindings: Object.keys(mergedBindings).length > 0 ? mergedBindings : undefined,
   } as TContract;
 }
 
