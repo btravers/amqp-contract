@@ -1,13 +1,14 @@
+import { Future, Result } from "@swan-io/boxed";
 import { Injectable, Logger } from "@nestjs/common";
 import type { WorkerInferConsumedMessage } from "@amqp-contract/worker";
-import { defineUnsafeHandler } from "@amqp-contract/worker";
+import { defineHandler } from "@amqp-contract/worker";
 import { orderContract } from "@amqp-contract-examples/basic-order-processing-contract";
 
 @Injectable()
 export class ProcessAnalyticsHandler {
   private readonly logger = new Logger(ProcessAnalyticsHandler.name);
 
-  handleMessage = async ({
+  handleMessage = ({
     payload,
   }: WorkerInferConsumedMessage<typeof orderContract, "processAnalytics">) => {
     // Check if it's a new order or a status update
@@ -24,9 +25,10 @@ export class ProcessAnalyticsHandler {
       );
     }
     this.logger.debug("Analytics data processed");
+    return Future.value(Result.Ok(undefined));
   };
 
-  handler = defineUnsafeHandler(orderContract, "processAnalytics", async (message) =>
+  handler = defineHandler(orderContract, "processAnalytics", (message) =>
     this.handleMessage(message),
   );
 }

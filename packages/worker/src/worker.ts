@@ -123,8 +123,7 @@ export type CreateWorkerOptions<TContract extends ContractDefinition> = {
   /**
    * Handlers for each consumer defined in the contract.
    * Handlers must return `Future<Result<void, HandlerError>>` for explicit error handling.
-   * Use defineHandler() to create safe handlers, or defineUnsafeHandler() which wraps
-   * Promise-based handlers into safe handlers internally.
+   * Use defineHandler() to create handlers.
    *
    * Retry configuration is specified per consumer via handler options.
    */
@@ -185,8 +184,7 @@ export type CreateWorkerOptions<TContract extends ContractDefinition> = {
  */
 export class TypedAmqpWorker<TContract extends ContractDefinition> {
   /**
-   * Internal handler type - always safe handlers (`Future<Result>`).
-   * Unsafe handlers are wrapped into safe handlers by defineUnsafeHandler/defineUnsafeHandlers.
+   * Internal handler storage - handlers returning `Future<Result>`.
    */
   private readonly actualHandlers: Partial<
     Record<

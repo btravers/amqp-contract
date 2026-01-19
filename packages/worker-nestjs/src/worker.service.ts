@@ -11,29 +11,16 @@ import { MODULE_OPTIONS_TOKEN } from "./worker.module-definition.js";
  *
  * @example
  * ```typescript
- * import { defineHandlers, defineUnsafeHandlers } from '@amqp-contract/worker';
- * import { Future, Result } from '@swan-io/boxed';
- * import { RetryableError } from '@amqp-contract/worker';
+ * import { defineHandlers, RetryableError } from '@amqp-contract/worker';
+ * import { Future } from '@swan-io/boxed';
  *
- * // Using safe handlers (recommended)
  * const options: AmqpWorkerModuleOptions<typeof contract> = {
  *   contract: myContract,
  *   handlers: defineHandlers(myContract, {
- *     processOrder: (message) =>
- *       Future.fromPromise(processPayment(message))
+ *     processOrder: ({ payload }) =>
+ *       Future.fromPromise(processPayment(payload))
  *         .mapOk(() => undefined)
  *         .mapError((error) => new RetryableError('Payment failed', error))
- *   }),
- *   urls: ['amqp://localhost'],
- * };
- *
- * // Using unsafe handlers (legacy)
- * const options: AmqpWorkerModuleOptions<typeof contract> = {
- *   contract: myContract,
- *   handlers: defineUnsafeHandlers(myContract, {
- *     processOrder: async (message) => {
- *       console.log('Processing order:', message.orderId);
- *     }
  *   }),
  *   urls: ['amqp://localhost'],
  * };
@@ -42,7 +29,7 @@ import { MODULE_OPTIONS_TOKEN } from "./worker.module-definition.js";
 export type AmqpWorkerModuleOptions<TContract extends ContractDefinition> = {
   /** The AMQP contract definition specifying consumers and their message schemas */
   contract: TContract;
-  /** Message handlers for each consumer defined in the contract. Use defineHandlers or defineUnsafeHandlers to create type-safe handlers. */
+  /** Message handlers for each consumer defined in the contract. Use defineHandlers to create type-safe handlers. */
   handlers: WorkerInferSafeConsumerHandlers<TContract>;
   /** AMQP broker URL(s). Multiple URLs provide failover support */
   urls: ConnectionUrl[];

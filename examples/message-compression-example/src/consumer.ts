@@ -1,4 +1,5 @@
-import { TypedAmqpWorker, defineUnsafeHandlers } from "@amqp-contract/worker";
+import { Future, Result } from "@swan-io/boxed";
+import { TypedAmqpWorker, defineHandlers } from "@amqp-contract/worker";
 import { contract } from "./contract.js";
 import pino from "pino";
 import { z } from "zod";
@@ -27,8 +28,8 @@ async function main() {
   // Create type-safe worker
   const worker = await TypedAmqpWorker.create({
     contract,
-    handlers: defineUnsafeHandlers(contract, {
-      processData: async ({ payload }) => {
+    handlers: defineHandlers(contract, {
+      processData: ({ payload }) => {
         // Message is automatically decompressed by the worker
         // You receive the original, validated data structure
         const messageSize = JSON.stringify(payload).length;
@@ -41,6 +42,8 @@ async function main() {
         logger.info(`   → Message was automatically decompressed if needed`);
         logger.info(`   → No configuration required on consumer side`);
         logger.info("");
+
+        return Future.value(Result.Ok(undefined));
       },
     }),
     urls: [env.AMQP_URL],

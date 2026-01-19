@@ -7,26 +7,17 @@ export {
   RetryableError,
   TechnicalError,
 } from "./errors.js";
-export {
-  defineHandler,
-  defineHandlers,
-  defineUnsafeHandler,
-  defineUnsafeHandlers,
-} from "./handlers.js";
+export { defineHandler, defineHandlers } from "./handlers.js";
 export type {
   // Retry configuration types (discriminated union)
   QuorumNativeRetryOptions,
   RetryMode,
   RetryOptions,
   TtlBackoffRetryOptions,
-  // Safe handler types (recommended)
+  // Handler types
   WorkerInferSafeConsumerHandler,
   WorkerInferSafeConsumerHandlerEntry,
   WorkerInferSafeConsumerHandlers,
-  // Unsafe handler types
-  WorkerInferUnsafeConsumerHandler,
-  WorkerInferUnsafeConsumerHandlerEntry,
-  WorkerInferUnsafeConsumerHandlers,
   // Common types
   WorkerConsumedMessage,
   WorkerInferConsumedMessage,

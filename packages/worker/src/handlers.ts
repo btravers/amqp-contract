@@ -1,16 +1,10 @@
 import type { ContractDefinition, InferConsumerNames } from "@amqp-contract/contract";
-import { Future, Result } from "@swan-io/boxed";
-import { NonRetryableError, RetryableError } from "./errors.js";
 import type {
   RetryOptions,
-  WorkerConsumedMessage,
-  WorkerInferConsumedMessage,
   WorkerInferSafeConsumerHandler,
   WorkerInferSafeConsumerHandlerEntry,
   WorkerInferSafeConsumerHandlers,
 } from "./types.js";
-import type { ConsumeMessage } from "amqplib";
-import type { HandlerError } from "./errors.js";
 
 // =============================================================================
 // Helper Functions
@@ -53,31 +47,6 @@ function validateHandlers<TContract extends ContractDefinition>(
       );
     }
   }
-}
-
-/**
- * Wrap a Promise-based handler into a Future-based safe handler.
- * This is used internally by defineUnsafeHandler to convert Promise handlers to Future handlers.
- */
-function wrapUnsafeHandler<TInput extends WorkerConsumedMessage<unknown, unknown>>(
-  handler: (input: TInput, raw: ConsumeMessage) => Promise<void>,
-): (input: TInput, raw: ConsumeMessage) => Future<Result<void, HandlerError>> {
-  return (input: TInput, raw: ConsumeMessage): Future<Result<void, HandlerError>> => {
-    return Future.fromPromise(handler(input, raw))
-      .mapOkToResult(() => Result.Ok<void, HandlerError>(undefined))
-      .flatMapError((error) => {
-        // Check if error is already a HandlerError type
-        if (error instanceof NonRetryableError || error instanceof RetryableError) {
-          return Future.value(Result.Error<void, HandlerError>(error));
-        }
-        // Wrap other errors as RetryableError
-        const retryableError = new RetryableError(
-          error instanceof Error ? error.message : String(error),
-          error,
-        );
-        return Future.value(Result.Error<void, HandlerError>(retryableError));
-      });
-  };
 }
 
 // =============================================================================
@@ -201,170 +170,4 @@ export function defineHandlers<TContract extends ContractDefinition>(
 ): WorkerInferSafeConsumerHandlers<TContract> {
   validateHandlers(contract, handlers as unknown as Record<string, unknown>);
   return handlers;
-}
-
-// =============================================================================
-// Unsafe Handler Definitions
-// =============================================================================
-
-/**
- * Unsafe handler type for single messages (internal use).
- */
-type UnsafeHandler<
-  TContract extends ContractDefinition,
-  TName extends InferConsumerNames<TContract>,
-> = (
-  message: WorkerInferConsumedMessage<TContract, TName>,
-  rawMessage: ConsumeMessage,
-) => Promise<void>;
-
-/**
- * Define an unsafe handler for a specific consumer in a contract.
- *
- * Prefer using `defineHandler` for explicit error handling with `Future<Result>`.
- *
- * **Note:** Unsafe handlers use exception-based error handling:
- * - All thrown errors are treated as retryable by default
- * - Harder to reason about which errors should be retried
- * - May lead to unexpected retry behavior
- *
- * **Note:** Internally, this function wraps the Promise-based handler into a Future-based
- * safe handler for consistent processing in the worker.
- *
- * @template TContract - The contract definition type
- * @template TName - The consumer name from the contract
- * @param contract - The contract definition containing the consumer
- * @param consumerName - The name of the consumer from the contract
- * @param handler - The async handler function that processes messages
- * @param options - Optional consumer options (prefetch, retry)
- * @returns A type-safe handler that can be used with TypedAmqpWorker
- *
- * @example
- * ```typescript
- * import { defineUnsafeHandler } from '@amqp-contract/worker';
- *
- * // Consider using defineHandler for better error handling
- * const processOrderHandler = defineUnsafeHandler(
- *   orderContract,
- *   'processOrder',
- *   async ({ payload }) => {
- *     // Throws on error - will be retried
- *     await processPayment(payload);
- *   }
- * );
- * ```
- */
-export function defineUnsafeHandler<
-  TContract extends ContractDefinition,
-  TName extends InferConsumerNames<TContract>,
->(
-  contract: TContract,
-  consumerName: TName,
-  handler: UnsafeHandler<TContract, TName>,
-): WorkerInferSafeConsumerHandlerEntry<TContract, TName>;
-export function defineUnsafeHandler<
-  TContract extends ContractDefinition,
-  TName extends InferConsumerNames<TContract>,
->(
-  contract: TContract,
-  consumerName: TName,
-  handler: UnsafeHandler<TContract, TName>,
-  options: { prefetch?: number; retry?: RetryOptions },
-): WorkerInferSafeConsumerHandlerEntry<TContract, TName>;
-export function defineUnsafeHandler<
-  TContract extends ContractDefinition,
-  TName extends InferConsumerNames<TContract>,
->(
-  contract: TContract,
-  consumerName: TName,
-  handler: UnsafeHandler<TContract, TName>,
-  options?: { prefetch?: number; retry?: RetryOptions },
-): WorkerInferSafeConsumerHandlerEntry<TContract, TName> {
-  validateConsumerExists(contract, String(consumerName));
-
-  // Wrap the Promise-based handler into a Future-based handler
-  const wrappedHandler = wrapUnsafeHandler(handler);
-
-  if (options) {
-    return [wrappedHandler, options];
-  }
-  return wrappedHandler;
-}
-
-/**
- * Unsafe handler entry type for internal use.
- */
-type UnsafeHandlerEntry<
-  TContract extends ContractDefinition,
-  TName extends InferConsumerNames<TContract>,
-> =
-  | UnsafeHandler<TContract, TName>
-  | readonly [UnsafeHandler<TContract, TName>, { prefetch?: number; retry?: RetryOptions }];
-
-/**
- * Unsafe handlers object type for internal use.
- */
-type UnsafeHandlers<TContract extends ContractDefinition> = {
-  [K in InferConsumerNames<TContract>]: UnsafeHandlerEntry<TContract, K>;
-};
-
-/**
- * Define multiple unsafe handlers for consumers in a contract.
- *
- * Prefer using `defineHandlers` for explicit error handling with `Future<Result>`.
- *
- * **Note:** Unsafe handlers use exception-based error handling.
- * Consider migrating to safe handlers for better error control.
- *
- * **Note:** Internally, this function wraps all Promise-based handlers into Future-based
- * safe handlers for consistent processing in the worker.
- *
- * @template TContract - The contract definition type
- * @param contract - The contract definition containing the consumers
- * @param handlers - An object with async handler functions for each consumer
- * @returns A type-safe handlers object that can be used with TypedAmqpWorker
- *
- * @example
- * ```typescript
- * import { defineUnsafeHandlers } from '@amqp-contract/worker';
- *
- * // Consider using defineHandlers for better error handling
- * const handlers = defineUnsafeHandlers(orderContract, {
- *   processOrder: async ({ payload }) => {
- *     await processPayment(payload);
- *   },
- *   notifyOrder: async ({ payload }) => {
- *     await sendNotification(payload);
- *   },
- * });
- * ```
- */
-export function defineUnsafeHandlers<TContract extends ContractDefinition>(
-  contract: TContract,
-  handlers: UnsafeHandlers<TContract>,
-): WorkerInferSafeConsumerHandlers<TContract> {
-  validateHandlers(contract, handlers as unknown as Record<string, unknown>);
-
-  // Transform all handlers
-  const result: Record<string, unknown> = {};
-  for (const [name, entry] of Object.entries(handlers)) {
-    if (Array.isArray(entry)) {
-      // Tuple format: [handler, options]
-      const [handler, options] = entry as [
-        (input: WorkerConsumedMessage<unknown, unknown>, raw: ConsumeMessage) => Promise<void>,
-        { prefetch?: number; retry?: RetryOptions },
-      ];
-      result[name] = [wrapUnsafeHandler(handler), options];
-    } else {
-      // Direct function format
-      result[name] = wrapUnsafeHandler(
-        entry as (
-          input: WorkerConsumedMessage<unknown, unknown>,
-          raw: ConsumeMessage,
-        ) => Promise<void>,
-      );
-    }
-  }
-
-  return result as WorkerInferSafeConsumerHandlers<TContract>;
 }

@@ -123,17 +123,6 @@ const asyncHandler = ({ payload }) =>
 - **`RetryableError`**: Transient failures → message retried with backoff
 - **`NonRetryableError`**: Permanent failures → message sent to DLQ immediately
 
-### Unsafe Handlers (Deprecated)
-
-Only for legacy code migration. Use `async/await` pattern:
-
-```typescript
-// ❌ Deprecated - avoid in new code
-const unsafeHandler = defineUnsafeHandler(contract, "processOrder", async ({ payload }) => {
-  await processPayment(payload);
-});
-```
-
 ## @swan-io/boxed API Reference
 
 This project uses [@swan-io/boxed](https://boxed.cool) for functional error handling.
@@ -191,11 +180,8 @@ This project uses [@swan-io/boxed](https://boxed.cool) for functional error hand
 // Worker class
 export { TypedAmqpWorker } from "@amqp-contract/worker";
 
-// Handler definition (safe - recommended)
+// Handler definition
 export { defineHandler, defineHandlers } from "@amqp-contract/worker";
-
-// Handler definition (unsafe - deprecated)
-export { defineUnsafeHandler, defineUnsafeHandlers } from "@amqp-contract/worker";
 
 // Error classes
 export {
@@ -272,7 +258,7 @@ expect(mockHandler).toHaveBeenCalledWith(
 ## Common Anti-Patterns
 
 ```typescript
-// ❌ Using async handlers (deprecated)
+// ❌ Using async handlers
 processOrder: async ({ payload }) => {
   await process(payload);
 };
