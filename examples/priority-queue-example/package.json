@@ -3,6 +3,7 @@
   "private": true,
   "description": "Example demonstrating priority queue usage with amqp-contract",
   "type": "module",
+  "main": "src/index.ts",
   "scripts": {
     "start:client": "tsx src/client.ts",
     "start:worker": "tsx src/worker.ts",

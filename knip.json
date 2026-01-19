@@ -9,11 +9,10 @@
       "ignoreDependencies": ["@opentelemetry/api"]
     },
     "examples/basic-order-processing-contract": {
-      "entry": ["src/**/*.ts", "scripts/**/*.ts"],
+      "entry": ["src/index.ts", "scripts/*.ts"],
       "project": ["src/**/*.ts", "scripts/**/*.ts"]
     },
     "examples/*": {
-      "entry": ["src/**/*.ts"],
       "project": ["src/**/*.ts"],
       "ignoreDependencies": ["pino-pretty"]
     },
