@@ -1,52 +1,33 @@
 name: Dependabot Auto-Merge
 
+on:
+  pull_request:
+
 permissions:
   contents: write
   pull-requests: write
-
-on:
-  workflow_run:
-    workflows: ["CI"]
-    types:
-      - completed
 
 jobs:
   auto-merge:
     name: Auto-merge Dependabot PRs
     runs-on: ubuntu-latest
-    if: |
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'pull_request' &&
-      github.event.workflow_run.actor.login == 'dependabot[bot]' &&
-      toJSON(github.event.workflow_run.pull_requests) != '[]'
+    if: github.actor == 'dependabot[bot]'
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Get PR number
-        id: pr
-        run: |
-          # Get the PR number directly from the workflow run payload
-          PR_NUMBER="${{ github.event.workflow_run.pull_requests[0].number }}"
-          if [ -z "$PR_NUMBER" ]; then
-            echo "No PR found for workflow run on branch ${{ github.event.workflow_run.head_branch }}"
-            exit 0
-          fi
-          echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
-          echo "Found PR #$PR_NUMBER"
+      - name: Fetch Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Approve PR
-        if: steps.pr.outputs.number != ''
-        run: |
-          echo "Approving PR #${{ steps.pr.outputs.number }}"
-          gh pr review "${{ steps.pr.outputs.number }}" --approve --body "Auto-approving Dependabot PR after successful CI run"
+        run: gh pr review --approve "$PR_URL"
         env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Enable auto-merge
-        if: steps.pr.outputs.number != ''
-        run: |
-          echo "Enabling auto-merge for PR #${{ steps.pr.outputs.number }}"
-          gh pr merge "${{ steps.pr.outputs.number }}" --auto --squash --delete-branch
+      - name: Enable auto-merge for patch and minor updates
+        if: steps.metadata.outputs.update-type == 'version-update:semver-patch' || steps.metadata.outputs.update-type == 'version-update:semver-minor'
+        run: gh pr merge --auto --squash "$PR_URL"
         env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
