@@ -1,5 +1,6 @@
 import type { Channel } from "amqplib";
 import type { ContractDefinition } from "@amqp-contract/contract";
+import { extractQueue } from "@amqp-contract/contract";
 
 /**
  * Setup AMQP topology (exchanges, queues, and bindings) from a contract definition.
@@ -47,7 +48,8 @@ export async function setupAmqpTopology(
   }
 
   // Validate dead letter exchanges before setting up queues
-  for (const queue of Object.values(contract.queues ?? {})) {
+  for (const queueEntry of Object.values(contract.queues ?? {})) {
+    const queue = extractQueue(queueEntry);
     if (queue.deadLetter) {
       const dlxName = queue.deadLetter.exchange.name;
       const exchangeExists = Object.values(contract.exchanges ?? {}).some(
@@ -65,13 +67,13 @@ export async function setupAmqpTopology(
 
   // Setup queues
   const queueResults = await Promise.allSettled(
-    Object.values(contract.queues ?? {}).map((queue) => {
+    Object.values(contract.queues ?? {}).map((queueEntry) => {
+      const queue = extractQueue(queueEntry);
       // Build queue arguments, merging dead letter configuration and queue type
-      const queueArguments = { ...queue.arguments };
+      const queueArguments: Record<string, unknown> = { ...queue.arguments };
 
-      // Set queue type - use the defined type or default to 'quorum'
-      const queueType = queue.type ?? "quorum";
-      queueArguments["x-queue-type"] = queueType;
+      // Set queue type
+      queueArguments["x-queue-type"] = queue.type;
 
       if (queue.deadLetter) {
         queueArguments["x-dead-letter-exchange"] = queue.deadLetter.exchange.name;
@@ -80,16 +82,24 @@ export async function setupAmqpTopology(
         }
       }
 
-      // Set delivery limit for quorum queues (native retry support)
-      if (queueType === "quorum" && queue.deliveryLimit !== undefined) {
-        queueArguments["x-delivery-limit"] = queue.deliveryLimit;
+      // Handle type-specific properties using discriminated union
+      if (queue.type === "quorum") {
+        // Set delivery limit for quorum queues (native retry support)
+        if (queue.deliveryLimit !== undefined) {
+          queueArguments["x-delivery-limit"] = queue.deliveryLimit;
+        }
+
+        // Quorum queues are always durable
+        return channel.assertQueue(queue.name, {
+          durable: true,
+          autoDelete: queue.autoDelete,
+          arguments: queueArguments,
+        });
       }
 
-      // For quorum queues, force durable to true as they are always durable
-      const durable = queueType === "quorum" ? true : queue.durable;
-
+      // Classic queue
       return channel.assertQueue(queue.name, {
-        durable,
+        durable: queue.durable,
         exclusive: queue.exclusive,
         autoDelete: queue.autoDelete,
         arguments: queueArguments,

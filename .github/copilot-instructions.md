@@ -303,6 +303,8 @@ packages/[package-name]/
 
 ## Retry Strategies
 
+Retry configuration is defined at the **queue level** in the contract, not at the worker level.
+
 ### ✅ Required Practices
 
 1. **Quorum-Native Mode (Recommended)**
@@ -312,46 +314,60 @@ packages/[package-name]/
    - Requires quorum queues with `deliveryLimit` configured
 
    ```typescript
-   // Queue with native retry support
+   // Queue with quorum-native retry
    const orderQueue = defineQueue("orders", {
      type: "quorum",
      deliveryLimit: 3, // Dead-letter after 3 attempts
      deadLetter: { exchange: dlx },
+     retry: { mode: "quorum-native" },
    });
 
-   // Worker with quorum-native retry
+   // Worker uses queue's retry configuration automatically
    const worker = await TypedAmqpWorker.create({
      contract,
      handlers,
      urls: ["amqp://localhost"],
-     retry: {
-       mode: "quorum-native",
-     },
    });
    ```
 
-2. **TTL-Backoff Mode (Legacy)**
+2. **TTL-Backoff Mode**
    - Uses TTL + wait queue pattern for exponential backoff
-   - Messages published to wait queue with per-message TTL
+   - Wait queues and bindings are **automatically generated** by `defineContract`
    - Supports configurable delays with jitter
    - More complex but allows delayed retries
 
    ```typescript
-   const worker = await TypedAmqpWorker.create({
-     contract,
-     handlers,
-     urls: ["amqp://localhost"],
+   // Queue with TTL-backoff retry - infrastructure auto-generated
+   const orderQueue = defineQueue("orders", {
+     deadLetter: { exchange: dlx },
      retry: {
        mode: "ttl-backoff",
        maxRetries: 3,
-       initialDelay: 1000,
-       maxDelay: 30000,
+       initialDelayMs: 1000,
+       maxDelayMs: 30000,
        backoffMultiplier: 2,
+       jitter: true,
      },
+   });
+
+   // defineContract automatically creates wait queue and bindings
+   const contract = defineContract({
+     exchanges: { dlx },
+     queues: { orders: orderQueue }, // Wait queue auto-added as ordersWait
+     // ... bindings for retry routing auto-added
    });
    ```
 
-3. **When to Use Each Mode**
+3. **Accessing Queue Properties**
+   - When retry is configured with TTL-backoff mode, `defineQueue` returns a wrapper object
+   - Use `extractQueue()` to access the underlying queue definition
+
+   ```typescript
+   import { extractQueue } from "@amqp-contract/contract";
+   const queueName = extractQueue(orderQueue).name;
+   ```
+
+4. **When to Use Each Mode**
    - **Quorum-native**: Simple setup, immediate retries, recommended for most cases
    - **TTL-backoff**: When you need exponential backoff delays between retries
 

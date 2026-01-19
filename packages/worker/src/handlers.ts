@@ -1,6 +1,5 @@
 import type { ContractDefinition, InferConsumerNames } from "@amqp-contract/contract";
 import type {
-  RetryOptions,
   WorkerInferSafeConsumerHandler,
   WorkerInferSafeConsumerHandlerEntry,
   WorkerInferSafeConsumerHandlers,
@@ -61,14 +60,14 @@ function validateHandlers<TContract extends ContractDefinition>(
  *
  * Supports two patterns:
  * 1. Simple handler: just the function
- * 2. Handler with options: [handler, { prefetch: 10, retry: {...} }]
+ * 2. Handler with options: [handler, { prefetch: 10 }]
  *
  * @template TContract - The contract definition type
  * @template TName - The consumer name from the contract
  * @param contract - The contract definition containing the consumer
  * @param consumerName - The name of the consumer from the contract
  * @param handler - The handler function that returns `Future<Result<void, HandlerError>>`
- * @param options - Optional consumer options (prefetch, retry)
+ * @param options - Optional consumer options (prefetch)
  * @returns A type-safe handler that can be used with TypedAmqpWorker
  *
  * @example
@@ -116,7 +115,7 @@ export function defineHandler<
   contract: TContract,
   consumerName: TName,
   handler: WorkerInferSafeConsumerHandler<TContract, TName>,
-  options: { prefetch?: number; retry?: RetryOptions },
+  options: { prefetch?: number },
 ): WorkerInferSafeConsumerHandlerEntry<TContract, TName>;
 export function defineHandler<
   TContract extends ContractDefinition,
@@ -125,7 +124,7 @@ export function defineHandler<
   contract: TContract,
   consumerName: TName,
   handler: WorkerInferSafeConsumerHandler<TContract, TName>,
-  options?: { prefetch?: number; retry?: RetryOptions },
+  options?: { prefetch?: number },
 ): WorkerInferSafeConsumerHandlerEntry<TContract, TName> {
   validateConsumerExists(contract, String(consumerName));
 

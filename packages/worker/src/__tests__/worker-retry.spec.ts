@@ -6,6 +6,7 @@ import {
   defineMessage,
   defineQueue,
   defineQueueBinding,
+  defineTtlBackoffRetryInfrastructure,
 } from "@amqp-contract/contract";
 import { describe, expect, vi } from "vitest";
 import { RetryableError } from "../errors.js";
@@ -31,8 +32,19 @@ describe("Worker Retry Mechanism", () => {
           exchange: dlx,
           routingKey: "retry-flow-queue.dlq",
         },
+        retry: {
+          mode: "ttl-backoff",
+          maxRetries: 3,
+          initialDelayMs: 500,
+          maxDelayMs: 5000,
+          backoffMultiplier: 2,
+          jitter: false, // Disable jitter for predictable testing
+        },
       });
       const dlq = defineQueue("retry-flow-dlq", { type: "classic", durable: false });
+
+      // Use helper to generate TTL-backoff retry infrastructure
+      const retryInfra = defineTtlBackoffRetryInfrastructure(queue);
 
       const contract = defineContract({
         exchanges: {
@@ -41,12 +53,15 @@ describe("Worker Retry Mechanism", () => {
         },
         queues: {
           main: queue,
+          waitQueue: retryInfra.waitQueue,
           dlq,
         },
         bindings: {
           mainBinding: defineQueueBinding(queue, exchange, {
             routingKey: "test.#",
           }),
+          waitQueueBinding: retryInfra.waitQueueBinding,
+          mainQueueRetryBinding: retryInfra.mainQueueRetryBinding,
           dlqBinding: defineQueueBinding(dlq, dlx, {
             routingKey: "retry-flow-queue.dlq",
           }),
@@ -58,29 +73,18 @@ describe("Worker Retry Mechanism", () => {
 
       let attemptCount = 0;
       await workerFactory(contract, {
-        testConsumer: [
-          () => {
-            attemptCount++;
-            if (attemptCount === 1) {
-              return Future.value(Result.Error(new RetryableError("First attempt failed")));
-            }
-            return Future.value(Result.Ok(undefined));
-          },
-          {
-            retry: {
-              maxRetries: 3,
-              initialDelayMs: 500,
-              maxDelayMs: 5000,
-              backoffMultiplier: 2,
-              jitter: false, // Disable jitter for predictable testing
-            },
-          },
-        ],
+        testConsumer: () => {
+          attemptCount++;
+          if (attemptCount === 1) {
+            return Future.value(Result.Error(new RetryableError("First attempt failed")));
+          }
+          return Future.value(Result.Ok(undefined));
+        },
       });
 
       // Verify wait queue was created
-      const waitQueue = await amqpChannel.checkQueue("retry-flow-queue-wait");
-      expect(waitQueue.queue).toBe("retry-flow-queue-wait");
+      const waitQueueInfo = await amqpChannel.checkQueue("retry-flow-queue-wait");
+      expect(waitQueueInfo.queue).toBe("retry-flow-queue-wait");
 
       // WHEN publishing a message that fails on first attempt
       publishMessage(exchange.name, "test.message", { id: "retry-1" });
@@ -150,8 +154,19 @@ describe("Worker Retry Mechanism", () => {
           exchange: dlx,
           routingKey: "backoff-queue.dlq",
         },
+        retry: {
+          mode: "ttl-backoff",
+          maxRetries: 3,
+          initialDelayMs: 100,
+          maxDelayMs: 1000,
+          backoffMultiplier: 3,
+          jitter: false,
+        },
       });
       const dlq = defineQueue("backoff-dlq", { type: "classic", durable: false });
+
+      // Use helper to generate TTL-backoff retry infrastructure
+      const retryInfra = defineTtlBackoffRetryInfrastructure(queue);
 
       const contract = defineContract({
         exchanges: {
@@ -160,12 +175,15 @@ describe("Worker Retry Mechanism", () => {
         },
         queues: {
           main: queue,
+          waitQueue: retryInfra.waitQueue,
           dlq,
         },
         bindings: {
           mainBinding: defineQueueBinding(queue, exchange, {
             routingKey: "test.#",
           }),
+          waitQueueBinding: retryInfra.waitQueueBinding,
+          mainQueueRetryBinding: retryInfra.mainQueueRetryBinding,
           dlqBinding: defineQueueBinding(dlq, dlx, {
             routingKey: "backoff-queue.dlq",
           }),
@@ -176,18 +194,7 @@ describe("Worker Retry Mechanism", () => {
       });
 
       await workerFactory(contract, {
-        testConsumer: [
-          () => Future.value(Result.Error(new RetryableError("Always fails"))),
-          {
-            retry: {
-              maxRetries: 3,
-              initialDelayMs: 100,
-              maxDelayMs: 1000,
-              backoffMultiplier: 3,
-              jitter: false,
-            },
-          },
-        ],
+        testConsumer: () => Future.value(Result.Error(new RetryableError("Always fails"))),
       });
 
       // WHEN publishing a message that always fails
@@ -251,8 +258,19 @@ describe("Worker Retry Mechanism", () => {
           exchange: dlx,
           routingKey: "maxretry-queue.dlq",
         },
+        retry: {
+          mode: "ttl-backoff",
+          maxRetries: 2,
+          initialDelayMs: 100,
+          maxDelayMs: 500,
+          backoffMultiplier: 2,
+          jitter: false,
+        },
       });
       const dlq = defineQueue("maxretry-dlq", { type: "classic", durable: false });
+
+      // Use helper to generate TTL-backoff retry infrastructure
+      const retryInfra = defineTtlBackoffRetryInfrastructure(queue);
 
       const contract = defineContract({
         exchanges: {
@@ -261,12 +279,15 @@ describe("Worker Retry Mechanism", () => {
         },
         queues: {
           main: queue,
+          waitQueue: retryInfra.waitQueue,
           dlq,
         },
         bindings: {
           mainBinding: defineQueueBinding(queue, exchange, {
             routingKey: "test.#",
           }),
+          waitQueueBinding: retryInfra.waitQueueBinding,
+          mainQueueRetryBinding: retryInfra.mainQueueRetryBinding,
           dlqBinding: defineQueueBinding(dlq, dlx, {
             routingKey: "maxretry-queue.dlq",
           }),
@@ -278,21 +299,10 @@ describe("Worker Retry Mechanism", () => {
 
       let attemptCount = 0;
       await workerFactory(contract, {
-        testConsumer: [
-          () => {
-            attemptCount++;
-            return Future.value(Result.Error(new RetryableError("Always fails")));
-          },
-          {
-            retry: {
-              maxRetries: 2,
-              initialDelayMs: 100,
-              maxDelayMs: 500,
-              backoffMultiplier: 2,
-              jitter: false,
-            },
-          },
-        ],
+        testConsumer: () => {
+          attemptCount++;
+          return Future.value(Result.Error(new RetryableError("Always fails")));
+        },
       });
 
       // WHEN publishing a message that always fails
@@ -344,8 +354,17 @@ describe("Worker Retry Mechanism", () => {
           exchange: dlx,
           routingKey: "headers-queue.dlq",
         },
+        retry: {
+          mode: "ttl-backoff",
+          maxRetries: 1,
+          initialDelayMs: 100,
+          jitter: false,
+        },
       });
       const dlq = defineQueue("headers-dlq", { type: "classic", durable: false });
+
+      // Use helper to generate TTL-backoff retry infrastructure
+      const retryInfra = defineTtlBackoffRetryInfrastructure(queue);
 
       const contract = defineContract({
         exchanges: {
@@ -354,12 +373,15 @@ describe("Worker Retry Mechanism", () => {
         },
         queues: {
           main: queue,
+          waitQueue: retryInfra.waitQueue,
           dlq,
         },
         bindings: {
           mainBinding: defineQueueBinding(queue, exchange, {
             routingKey: "test.#",
           }),
+          waitQueueBinding: retryInfra.waitQueueBinding,
+          mainQueueRetryBinding: retryInfra.mainQueueRetryBinding,
           dlqBinding: defineQueueBinding(dlq, dlx, {
             routingKey: "headers-queue.dlq",
           }),
@@ -370,16 +392,7 @@ describe("Worker Retry Mechanism", () => {
       });
 
       await workerFactory(contract, {
-        testConsumer: [
-          () => Future.value(Result.Error(new RetryableError("Test error message"))),
-          {
-            retry: {
-              maxRetries: 1,
-              initialDelayMs: 100,
-              jitter: false,
-            },
-          },
-        ],
+        testConsumer: () => Future.value(Result.Error(new RetryableError("Test error message"))),
       });
 
       // WHEN publishing a message that fails
@@ -490,6 +503,10 @@ describe("Worker Retry Mechanism", () => {
           exchange: dlx,
           routingKey: "quorum-native-queue.dlq",
         },
+        // Retry config is now at the queue level
+        retry: {
+          mode: "quorum-native", // Use quorum queue's native delivery limit
+        },
       });
       const dlq = defineQueue("quorum-native-dlq", { type: "quorum" });
 
@@ -517,21 +534,14 @@ describe("Worker Retry Mechanism", () => {
 
       let attemptCount = 0;
       await workerFactory(contract, {
-        testConsumer: [
-          () => {
-            attemptCount++;
-            if (attemptCount < 2) {
-              // This triggers a nack with requeue=true in quorum-native mode
-              return Future.value(Result.Error(new RetryableError("Simulated failure")));
-            }
-            return Future.value(Result.Ok(undefined));
-          },
-          {
-            retry: {
-              mode: "quorum-native", // Use quorum queue's native delivery limit
-            },
-          },
-        ],
+        testConsumer: () => {
+          attemptCount++;
+          if (attemptCount < 2) {
+            // This triggers a nack with requeue=true in quorum-native mode
+            return Future.value(Result.Error(new RetryableError("Simulated failure")));
+          }
+          return Future.value(Result.Ok(undefined));
+        },
       });
 
       // WHEN publishing a message that fails on first attempt
@@ -568,6 +578,10 @@ describe("Worker Retry Mechanism", () => {
           exchange: dlx,
           routingKey: "quorum-dlq-queue.dlq",
         },
+        // Retry config is now at the queue level
+        retry: {
+          mode: "quorum-native",
+        },
       });
       const dlq = defineQueue("quorum-dlq-dlq", { type: "quorum" });
 
@@ -595,18 +609,11 @@ describe("Worker Retry Mechanism", () => {
 
       let attemptCount = 0;
       await workerFactory(contract, {
-        testConsumer: [
-          () => {
-            attemptCount++;
-            // Always fail - message should be dead-lettered after deliveryLimit
-            return Future.value(Result.Error(new RetryableError("Always fails")));
-          },
-          {
-            retry: {
-              mode: "quorum-native",
-            },
-          },
-        ],
+        testConsumer: () => {
+          attemptCount++;
+          // Always fail - message should be dead-lettered after deliveryLimit
+          return Future.value(Result.Error(new RetryableError("Always fails")));
+        },
       });
 
       // WHEN publishing a message that always fails

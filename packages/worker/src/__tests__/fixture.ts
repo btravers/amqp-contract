@@ -18,6 +18,8 @@ export const it = baseIt.extend<{
           contract: TContract,
           handlers: WorkerInferSafeConsumerHandlers<TContract>,
         ) => {
+          // Topology setup (exchanges, queues, bindings, wait queues) is done automatically
+          // by AmqpClient in the channel setup callback
           const worker = await TypedAmqpWorker.create({
             contract,
             handlers,

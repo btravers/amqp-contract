@@ -1,8 +1,11 @@
 import type {
   BaseExchangeDefinition,
+  BindingDefinition,
+  ClassicQueueDefinition,
   ClassicQueueOptions,
   ConsumerDefinition,
   ContractDefinition,
+  DeadLetterConfig,
   DefineQueueOptions,
   DirectExchangeDefinition,
   ExchangeBindingDefinition,
@@ -12,6 +15,9 @@ import type {
   PublisherDefinition,
   QueueBindingDefinition,
   QueueDefinition,
+  QueueEntry,
+  QueueWithTtlBackoffInfrastructure,
+  QuorumQueueDefinition,
   QuorumQueueOptions,
   TopicExchangeDefinition,
 } from "./types.js";
@@ -179,74 +185,162 @@ export function defineExchange(
  *   durable: true,
  *   maxPriority: 10,
  * });
+ *
+ * // Queue with TTL-backoff retry (returns infrastructure automatically)
+ * const dlx = defineExchange('orders-dlx', 'direct', { durable: true });
+ * const orderQueue = defineQueue('order-processing', {
+ *   deadLetter: { exchange: dlx },
+ *   retry: { mode: 'ttl-backoff', maxRetries: 5 },
+ * });
+ * // orderQueue is QueueWithTtlBackoffInfrastructure, pass directly to defineContract
  * ```
  */
-export function defineQueue(name: string, options?: DefineQueueOptions): QueueDefinition {
+export function defineQueue(
+  name: string,
+  options?: DefineQueueOptions,
+): QueueDefinition | QueueWithTtlBackoffInfrastructure {
   const opts = options ?? {};
   const type = opts.type ?? "quorum";
 
-  // Extract maxPriority only if it's a classic queue (type safety enforced at compile time)
-  const maxPriority = type === "classic" ? (opts as ClassicQueueOptions).maxPriority : undefined;
-  const exclusive = type === "classic" ? (opts as ClassicQueueOptions).exclusive : undefined;
-
-  // Extract deliveryLimit only if it's a quorum queue
-  const deliveryLimit = type === "quorum" ? (opts as QuorumQueueOptions).deliveryLimit : undefined;
-
-  // Validate maxPriority range (only applicable for classic queues)
-  if (maxPriority !== undefined) {
-    if (maxPriority < 1 || maxPriority > 255) {
-      throw new Error(
-        `Invalid maxPriority: ${maxPriority}. Must be between 1 and 255. Recommended range: 1-10.`,
-      );
-    }
-  }
-
-  // Validate deliveryLimit (only applicable for quorum queues)
-  if (deliveryLimit !== undefined) {
-    if (deliveryLimit < 1 || !Number.isInteger(deliveryLimit)) {
-      throw new Error(`Invalid deliveryLimit: ${deliveryLimit}. Must be a positive integer.`);
-    }
-  }
-
-  // Build the queue definition - only include defined properties
-  const queueDefinition: QueueDefinition = {
-    name,
-    type,
-  };
+  // Build base properties shared by both queue types
+  const baseProps: {
+    name: string;
+    durable?: boolean;
+    autoDelete?: boolean;
+    deadLetter?: DeadLetterConfig;
+    arguments?: Record<string, unknown>;
+  } = { name };
 
   if (opts.durable !== undefined) {
-    queueDefinition.durable = opts.durable;
+    baseProps.durable = opts.durable;
   }
 
   if (opts.autoDelete !== undefined) {
-    queueDefinition.autoDelete = opts.autoDelete;
+    baseProps.autoDelete = opts.autoDelete;
   }
 
   if (opts.deadLetter !== undefined) {
-    queueDefinition.deadLetter = opts.deadLetter;
+    baseProps.deadLetter = opts.deadLetter;
   }
 
   if (opts.arguments !== undefined) {
-    queueDefinition.arguments = opts.arguments;
+    baseProps.arguments = opts.arguments;
   }
 
-  if (exclusive !== undefined) {
-    queueDefinition.exclusive = exclusive;
+  // Build quorum queue
+  if (type === "quorum") {
+    const quorumOpts = opts as QuorumQueueOptions;
+    const queueDefinition: QuorumQueueDefinition = {
+      ...baseProps,
+      type: "quorum",
+    };
+
+    // Validate and add deliveryLimit
+    if (quorumOpts.deliveryLimit !== undefined) {
+      if (quorumOpts.deliveryLimit < 1 || !Number.isInteger(quorumOpts.deliveryLimit)) {
+        throw new Error(
+          `Invalid deliveryLimit: ${quorumOpts.deliveryLimit}. Must be a positive integer.`,
+        );
+      }
+      queueDefinition.deliveryLimit = quorumOpts.deliveryLimit;
+    }
+
+    // Add retry configuration
+    if (quorumOpts.retry !== undefined) {
+      queueDefinition.retry = quorumOpts.retry;
+    }
+
+    // If TTL-backoff retry with dead letter exchange, wrap with infrastructure
+    if (quorumOpts.retry?.mode === "ttl-backoff" && queueDefinition.deadLetter) {
+      return wrapWithTtlBackoffInfrastructure(queueDefinition);
+    }
+
+    return queueDefinition;
   }
 
-  if (deliveryLimit !== undefined) {
-    queueDefinition.deliveryLimit = deliveryLimit;
+  // Build classic queue
+  const classicOpts = opts as ClassicQueueOptions;
+  const queueDefinition: ClassicQueueDefinition = {
+    ...baseProps,
+    type: "classic",
+  };
+
+  // Add exclusive
+  if (classicOpts.exclusive !== undefined) {
+    queueDefinition.exclusive = classicOpts.exclusive;
   }
 
-  // Add maxPriority argument if specified
-  if (maxPriority !== undefined) {
+  // Validate and add maxPriority argument
+  if (classicOpts.maxPriority !== undefined) {
+    if (classicOpts.maxPriority < 1 || classicOpts.maxPriority > 255) {
+      throw new Error(
+        `Invalid maxPriority: ${classicOpts.maxPriority}. Must be between 1 and 255. Recommended range: 1-10.`,
+      );
+    }
     queueDefinition.arguments = {
       ...queueDefinition.arguments,
-      "x-max-priority": maxPriority,
+      "x-max-priority": classicOpts.maxPriority,
     };
   }
 
+  // Add retry configuration (only TtlBackoffRetryOptions for classic - enforced by type system)
+  if (classicOpts.retry !== undefined) {
+    queueDefinition.retry = classicOpts.retry;
+  }
+
+  // If TTL-backoff retry with dead letter exchange, wrap with infrastructure
+  if (classicOpts.retry?.mode === "ttl-backoff" && queueDefinition.deadLetter) {
+    return wrapWithTtlBackoffInfrastructure(queueDefinition);
+  }
+
   return queueDefinition;
+}
+
+/**
+ * Wrap a queue definition with TTL-backoff retry infrastructure.
+ * @internal
+ */
+function wrapWithTtlBackoffInfrastructure(
+  queue: QueueDefinition,
+): QueueWithTtlBackoffInfrastructure {
+  if (!queue.deadLetter) {
+    throw new Error(
+      `Queue "${queue.name}" does not have a dead letter exchange configured. ` +
+        `TTL-backoff retry requires deadLetter to be set on the queue.`,
+    );
+  }
+
+  const dlx = queue.deadLetter.exchange;
+  const waitQueueName = `${queue.name}-wait`;
+
+  // Create the wait queue - quorum for better durability
+  const waitQueue: QuorumQueueDefinition = {
+    name: waitQueueName,
+    type: "quorum",
+    durable: queue.durable ?? true,
+    deadLetter: {
+      exchange: dlx,
+      routingKey: queue.name, // Routes back to main queue after TTL
+    },
+  };
+
+  // Create binding for wait queue to receive failed messages
+  const waitQueueBinding = callDefineQueueBinding(waitQueue, dlx, {
+    routingKey: waitQueueName,
+  });
+
+  // Create binding for main queue to receive retried messages
+  const mainQueueRetryBinding = callDefineQueueBinding(queue, dlx, {
+    routingKey: queue.name,
+  });
+
+  return {
+    __brand: "QueueWithTtlBackoffInfrastructure",
+    queue,
+    waitQueue,
+    waitQueueBinding,
+    mainQueueRetryBinding,
+  };
 }
 
 /**
@@ -307,7 +401,7 @@ export function defineMessage<
  * Binds a queue to a fanout exchange to receive all messages published to the exchange.
  * Fanout exchanges ignore routing keys, so this overload doesn't require one.
  *
- * @param queue - The queue definition to bind
+ * @param queue - The queue definition or queue with infrastructure to bind
  * @param exchange - The fanout exchange definition
  * @param options - Optional binding configuration
  * @param options.arguments - Additional AMQP arguments for the binding
@@ -322,7 +416,7 @@ export function defineMessage<
  * ```
  */
 export function defineQueueBinding(
-  queue: QueueDefinition,
+  queue: QueueEntry,
   exchange: FanoutExchangeDefinition,
   options?: Omit<
     Extract<QueueBindingDefinition, { exchange: FanoutExchangeDefinition }>,
@@ -341,7 +435,7 @@ export function defineQueueBinding(
  * - `*` matches exactly one word
  * - `#` matches zero or more words
  *
- * @param queue - The queue definition to bind
+ * @param queue - The queue definition or queue with infrastructure to bind
  * @param exchange - The direct or topic exchange definition
  * @param options - Binding configuration (routingKey is required)
  * @param options.routingKey - The routing key pattern for message routing
@@ -365,7 +459,7 @@ export function defineQueueBinding(
  * ```
  */
 export function defineQueueBinding(
-  queue: QueueDefinition,
+  queue: QueueEntry,
   exchange: DirectExchangeDefinition | TopicExchangeDefinition,
   options: Omit<
     Extract<
@@ -384,24 +478,27 @@ export function defineQueueBinding(
  *
  * This is the implementation function - use the type-specific overloads for better type safety.
  *
- * @param queue - The queue definition to bind
+ * @param queue - The queue definition or queue with infrastructure to bind
  * @param exchange - The exchange definition
  * @param options - Optional binding configuration
  * @returns A queue binding definition
  * @internal
  */
 export function defineQueueBinding(
-  queue: QueueDefinition,
+  queue: QueueEntry,
   exchange: ExchangeDefinition,
   options?: {
     routingKey?: string;
     arguments?: Record<string, unknown>;
   },
 ): QueueBindingDefinition {
+  // Extract the plain queue definition from QueueEntry
+  const queueDef = extractQueue(queue);
+
   if (exchange.type === "fanout") {
     return {
       type: "queue",
-      queue,
+      queue: queueDef,
       exchange,
       ...(options?.arguments && { arguments: options.arguments }),
     } as QueueBindingDefinition;
@@ -409,7 +506,7 @@ export function defineQueueBinding(
 
   return {
     type: "queue",
-    queue,
+    queue: queueDef,
     exchange,
     routingKey: options?.routingKey,
     ...(options?.arguments && { arguments: options.arguments }),
@@ -683,12 +780,12 @@ export function definePublisher<TMessage extends MessageDefinition>(
  * ```
  */
 export function defineConsumer<TMessage extends MessageDefinition>(
-  queue: QueueDefinition,
+  queue: QueueEntry,
   message: TMessage,
   options?: Omit<ConsumerDefinition<TMessage>, "queue" | "message">,
 ): ConsumerDefinition<TMessage> {
   return {
-    queue,
+    queue: extractQueue(queue),
     message,
     ...options,
   };
@@ -766,7 +863,84 @@ export function defineConsumer<TMessage extends MessageDefinition>(
 export function defineContract<TContract extends ContractDefinition>(
   definition: TContract,
 ): TContract {
-  return definition;
+  // If no queues defined, return as-is (no processing needed)
+  if (!definition.queues || Object.keys(definition.queues).length === 0) {
+    return definition;
+  }
+
+  // Process queues to extract TTL-backoff infrastructure
+  const queues = definition.queues;
+  const expandedQueues: Record<string, QueueDefinition> = {};
+  const autoBindings: Record<string, BindingDefinition> = {};
+
+  for (const [name, entry] of Object.entries(queues)) {
+    if (isQueueWithTtlBackoffInfrastructure(entry)) {
+      // Extract the infrastructure
+      expandedQueues[name] = entry.queue;
+      expandedQueues[`${name}Wait`] = entry.waitQueue;
+      autoBindings[`${name}WaitBinding`] = entry.waitQueueBinding;
+      autoBindings[`${name}RetryBinding`] = entry.mainQueueRetryBinding;
+    } else {
+      expandedQueues[name] = entry;
+    }
+  }
+
+  // Only add bindings if there are any auto-generated ones
+  if (Object.keys(autoBindings).length > 0) {
+    // Merge with existing bindings
+    const mergedBindings = {
+      ...definition.bindings,
+      ...autoBindings,
+    };
+
+    return {
+      ...definition,
+      queues: expandedQueues,
+      bindings: mergedBindings,
+    } as TContract;
+  }
+
+  // Return with expanded queues only (no auto bindings)
+  return {
+    ...definition,
+    queues: expandedQueues,
+  } as TContract;
+}
+
+/**
+ * Type guard to check if a queue entry is a QueueWithTtlBackoffInfrastructure.
+ * @internal
+ */
+function isQueueWithTtlBackoffInfrastructure(
+  entry: QueueEntry,
+): entry is QueueWithTtlBackoffInfrastructure {
+  return (
+    typeof entry === "object" &&
+    entry !== null &&
+    "__brand" in entry &&
+    entry.__brand === "QueueWithTtlBackoffInfrastructure"
+  );
+}
+
+/**
+ * Extract the plain QueueDefinition from a QueueEntry.
+ * If the entry is a QueueWithTtlBackoffInfrastructure, returns the inner queue.
+ * Otherwise, returns the entry as-is.
+ *
+ * @param entry - The queue entry (either plain QueueDefinition or QueueWithTtlBackoffInfrastructure)
+ * @returns The plain QueueDefinition
+ *
+ * @example
+ * ```typescript
+ * const queue = defineQueue('orders', { retry: { mode: 'ttl-backoff' }, deadLetter: { exchange: dlx } });
+ * const plainQueue = extractQueue(queue); // Returns the inner QueueDefinition
+ * ```
+ */
+export function extractQueue(entry: QueueEntry): QueueDefinition {
+  if (isQueueWithTtlBackoffInfrastructure(entry)) {
+    return entry.queue;
+  }
+  return entry;
 }
 
 /**
@@ -795,7 +969,7 @@ function callDefinePublisher<TMessage extends MessageDefinition>(
  * @internal
  */
 function callDefineQueueBinding(
-  queue: QueueDefinition,
+  queue: QueueEntry,
   exchange: ExchangeDefinition,
   options?: {
     routingKey?: string;
@@ -832,10 +1006,10 @@ export type PublisherFirstResult<
    * The consumer will automatically use the same message schema and
    * a binding will be created with the same routing key.
    *
-   * @param queue - The queue that will consume the messages
+   * @param queue - The queue (or queue with infrastructure) that will consume the messages
    * @returns An object with the consumer definition and binding
    */
-  createConsumer: (queue: QueueDefinition) => {
+  createConsumer: (queue: QueueEntry) => {
     consumer: ConsumerDefinition<TMessage>;
     binding: QueueBindingDefinition;
   };
@@ -984,12 +1158,12 @@ export type PublisherFirstResultWithRoutingKey<
    * Create a consumer that receives messages from this publisher.
    * For topic exchanges, the routing key pattern can be specified for the binding.
    *
-   * @param queue - The queue that will consume the messages
+   * @param queue - The queue (or queue with infrastructure) that will consume the messages
    * @param routingKey - Optional routing key pattern for the binding (defaults to publisher's routing key)
    * @returns An object with the consumer definition and binding
    */
   createConsumer: <TConsumerRoutingKey extends string = TRoutingKey>(
-    queue: QueueDefinition,
+    queue: QueueEntry,
     routingKey?: BindingPattern<TConsumerRoutingKey>,
   ) => {
     consumer: ConsumerDefinition<TMessage>;
@@ -1227,7 +1401,7 @@ export function definePublisherFirst<TMessage extends MessageDefinition>(
 
   // For topic exchanges, allow specifying routing key pattern when creating consumer
   if (exchange.type === "topic") {
-    const createConsumer = (queue: QueueDefinition, routingKey?: string) => {
+    const createConsumer = (queue: QueueEntry, routingKey?: string) => {
       const bindingOptions = routingKey ? { ...options, routingKey } : options;
       const binding = callDefineQueueBinding(queue, exchange, bindingOptions);
       const consumer = defineConsumer(queue, message);
@@ -1244,7 +1418,7 @@ export function definePublisherFirst<TMessage extends MessageDefinition>(
   }
 
   // For fanout and direct exchanges, use the same routing key from publisher
-  const createConsumer = (queue: QueueDefinition) => {
+  const createConsumer = (queue: QueueEntry) => {
     const binding = callDefineQueueBinding(queue, exchange, options);
     const consumer = defineConsumer(queue, message);
     return {
@@ -1374,7 +1548,7 @@ export type ConsumerFirstResultWithRoutingKey<
  * ```
  */
 export function defineConsumerFirst<TMessage extends MessageDefinition>(
-  queue: QueueDefinition,
+  queue: QueueEntry,
   exchange: FanoutExchangeDefinition,
   message: TMessage,
   options?: Omit<
@@ -1437,7 +1611,7 @@ export function defineConsumerFirst<TMessage extends MessageDefinition>(
  * ```
  */
 export function defineConsumerFirst<TMessage extends MessageDefinition, TRoutingKey extends string>(
-  queue: QueueDefinition,
+  queue: QueueEntry,
   exchange: DirectExchangeDefinition,
   message: TMessage,
   options: {
@@ -1503,7 +1677,7 @@ export function defineConsumerFirst<TMessage extends MessageDefinition, TRouting
  * ```
  */
 export function defineConsumerFirst<TMessage extends MessageDefinition, TRoutingKey extends string>(
-  queue: QueueDefinition,
+  queue: QueueEntry,
   exchange: TopicExchangeDefinition,
   message: TMessage,
   options: {
@@ -1521,7 +1695,7 @@ export function defineConsumerFirst<TMessage extends MessageDefinition, TRouting
  * @internal
  */
 export function defineConsumerFirst<TMessage extends MessageDefinition>(
-  queue: QueueDefinition,
+  queue: QueueEntry,
   exchange: ExchangeDefinition,
   message: TMessage,
   options?: {
@@ -1576,4 +1750,120 @@ export function defineConsumerFirst<TMessage extends MessageDefinition>(
     binding,
     createPublisher,
   } as ConsumerFirstResult<TMessage, ConsumerDefinition<TMessage>, QueueBindingDefinition>;
+}
+
+/**
+ * Result type for TTL-backoff retry infrastructure builder.
+ *
+ * Contains the wait queue and bindings needed for TTL-backoff retry.
+ */
+export type TtlBackoffRetryInfrastructure = {
+  /**
+   * The wait queue for holding messages during backoff delay.
+   * This is a classic queue with a dead letter exchange pointing back to the main queue.
+   */
+  waitQueue: QueueDefinition;
+  /**
+   * Binding that routes failed messages to the wait queue.
+   */
+  waitQueueBinding: QueueBindingDefinition;
+  /**
+   * Binding that routes retried messages back to the main queue.
+   */
+  mainQueueRetryBinding: QueueBindingDefinition;
+};
+
+/**
+ * Create TTL-backoff retry infrastructure for a queue.
+ *
+ * This builder helper generates the wait queue and bindings needed for TTL-backoff retry.
+ * The generated infrastructure can be spread into a contract definition.
+ *
+ * TTL-backoff retry works by:
+ * 1. Failed messages are sent to the DLX with routing key `{queueName}-wait`
+ * 2. The wait queue receives these messages and holds them for a TTL period
+ * 3. After TTL expires, messages are dead-lettered back to the DLX with routing key `{queueName}`
+ * 4. The main queue receives the retried message via its binding to the DLX
+ *
+ * @param queue - The main queue definition (must have deadLetter configured)
+ * @param options - Optional configuration for the wait queue
+ * @param options.waitQueueDurable - Whether the wait queue should be durable (default: same as main queue)
+ * @returns TTL-backoff retry infrastructure containing wait queue and bindings
+ * @throws {Error} If the queue does not have a dead letter exchange configured
+ *
+ * @example
+ * ```typescript
+ * const dlx = defineExchange('orders-dlx', 'direct', { durable: true });
+ * const orderQueue = defineQueue('order-processing', {
+ *   type: 'quorum',
+ *   deadLetter: { exchange: dlx },
+ *   retry: {
+ *     mode: 'ttl-backoff',
+ *     maxRetries: 5,
+ *     initialDelayMs: 1000,
+ *   },
+ * });
+ *
+ * // Generate TTL-backoff infrastructure
+ * const retryInfra = defineTtlBackoffRetryInfrastructure(orderQueue);
+ *
+ * // Spread into contract
+ * const contract = defineContract({
+ *   exchanges: { dlx },
+ *   queues: {
+ *     orderProcessing: orderQueue,
+ *     orderProcessingWait: retryInfra.waitQueue,
+ *   },
+ *   bindings: {
+ *     ...// your other bindings
+ *     orderWaitBinding: retryInfra.waitQueueBinding,
+ *     orderRetryBinding: retryInfra.mainQueueRetryBinding,
+ *   },
+ *   // ... publishers and consumers
+ * });
+ * ```
+ */
+export function defineTtlBackoffRetryInfrastructure(
+  queueEntry: QueueEntry,
+  options?: {
+    waitQueueDurable?: boolean;
+  },
+): TtlBackoffRetryInfrastructure {
+  const queue = extractQueue(queueEntry);
+  if (!queue.deadLetter) {
+    throw new Error(
+      `Queue "${queue.name}" does not have a dead letter exchange configured. ` +
+        `TTL-backoff retry requires deadLetter to be set on the queue.`,
+    );
+  }
+
+  const dlx = queue.deadLetter.exchange;
+  const waitQueueName = `${queue.name}-wait`;
+
+  // Create the wait queue - quorum for better durability
+  // Note: Wait queue has no retry config, so defineQueue returns plain QueueDefinition
+  const waitQueue = defineQueue(waitQueueName, {
+    type: "quorum",
+    durable: options?.waitQueueDurable ?? queue.durable ?? true,
+    deadLetter: {
+      exchange: dlx,
+      routingKey: queue.name, // Routes back to main queue after TTL
+    },
+  }) as QueueDefinition;
+
+  // Create binding for wait queue to receive failed messages
+  const waitQueueBinding = callDefineQueueBinding(waitQueue, dlx, {
+    routingKey: waitQueueName,
+  });
+
+  // Create binding for main queue to receive retried messages
+  const mainQueueRetryBinding = callDefineQueueBinding(queue, dlx, {
+    routingKey: queue.name,
+  });
+
+  return {
+    waitQueue,
+    waitQueueBinding,
+    mainQueueRetryBinding,
+  };
 }

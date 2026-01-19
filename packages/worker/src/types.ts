@@ -10,100 +10,6 @@ import type { HandlerError } from "./errors.js";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 
 /**
- * TTL-Backoff retry options for exponential backoff with configurable delays.
- *
- * Uses TTL + wait queue pattern. Messages are published to a wait queue with
- * per-message TTL, then dead-lettered back to the main queue after the TTL expires.
- *
- * **Benefits:** Configurable delays with exponential backoff and jitter.
- * **Limitation:** More complex, potential head-of-queue blocking with mixed TTLs.
- */
-export type TtlBackoffRetryOptions = {
-  /**
-   * TTL-Backoff mode uses wait queues with per-message TTL for exponential backoff.
-   * This is the default mode.
-   */
-  mode?: "ttl-backoff";
-  /**
-   * Maximum retry attempts before sending to DLQ.
-   * @default 3
-   */
-  maxRetries?: number;
-  /**
-   * Initial delay in ms before first retry.
-   * @default 1000
-   */
-  initialDelayMs?: number;
-  /**
-   * Maximum delay in ms between retries.
-   * @default 30000
-   */
-  maxDelayMs?: number;
-  /**
-   * Exponential backoff multiplier.
-   * @default 2
-   */
-  backoffMultiplier?: number;
-  /**
-   * Add jitter to prevent thundering herd.
-   * @default true
-   */
-  jitter?: boolean;
-};
-
-/**
- * Quorum-Native retry options using RabbitMQ's native delivery limit feature.
- *
- * Uses quorum queue's `x-delivery-limit` feature. Messages are requeued immediately
- * with `nack(requeue=true)`, and RabbitMQ tracks delivery count via `x-delivery-count`
- * header. When the count exceeds the queue's `deliveryLimit`, the message is
- * automatically dead-lettered.
- *
- * **Benefits:** Simpler architecture, no wait queues needed, no head-of-queue blocking.
- * **Limitation:** Immediate retries only (no exponential backoff).
- *
- * @see https://www.rabbitmq.com/docs/quorum-queues#poison-message-handling
- */
-export type QuorumNativeRetryOptions = {
-  /**
-   * Quorum-Native mode uses RabbitMQ's native delivery limit feature.
-   * Requires the queue to be a quorum queue with `deliveryLimit` configured.
-   */
-  mode: "quorum-native";
-};
-
-/**
- * Retry configuration options for handling failed message processing.
- *
- * This is a discriminated union type based on the `mode` field:
- * - `"ttl-backoff"` (default): Supports all backoff options (maxRetries, delays, jitter)
- * - `"quorum-native"`: No additional options (uses queue's deliveryLimit)
- *
- * @example
- * // TTL-Backoff mode with custom options
- * const ttlRetry: RetryOptions = {
- *   mode: "ttl-backoff",
- *   maxRetries: 5,
- *   initialDelayMs: 2000,
- * };
- *
- * @example
- * // Quorum-Native mode (uses queue's deliveryLimit)
- * const quorumRetry: RetryOptions = {
- *   mode: "quorum-native",
- * };
- */
-export type RetryOptions = TtlBackoffRetryOptions | QuorumNativeRetryOptions;
-
-/**
- * Retry mode determines how failed messages are retried.
- *
- * - `"quorum-native"`: Uses quorum queue's native `x-delivery-limit` feature.
- * - `"ttl-backoff"`: Uses TTL + wait queue pattern for exponential backoff.
- */
-export type RetryMode = "quorum-native" | "ttl-backoff";
-
-/**
  * Infer the TypeScript type from a schema
  */
 type InferSchemaInput<TSchema extends StandardSchemaV1> =
@@ -237,17 +143,17 @@ export type WorkerInferSafeConsumerHandler<
  *
  * Two patterns are supported:
  * 1. Simple handler: `({ payload }, rawMessage) => Future.value(Result.Ok(undefined))`
- * 2. Handler with prefetch and/or retry: `[({ payload }, rawMessage) => ..., { prefetch: 10, retry: { maxRetries: 3 } }]`
+ * 2. Handler with prefetch: `[({ payload }, rawMessage) => ..., { prefetch: 10 }]`
+ *
+ * Note: Retry configuration is now defined at the queue level in the contract,
+ * not at the handler level. See `QueueDefinition.retry` for configuration options.
  */
 export type WorkerInferSafeConsumerHandlerEntry<
   TContract extends ContractDefinition,
   TName extends InferConsumerNames<TContract>,
 > =
   | WorkerInferSafeConsumerHandler<TContract, TName>
-  | readonly [
-      WorkerInferSafeConsumerHandler<TContract, TName>,
-      { prefetch?: number; retry?: RetryOptions },
-    ];
+  | readonly [WorkerInferSafeConsumerHandler<TContract, TName>, { prefetch?: number }];
 
 /**
  * Safe consumer handlers for a contract.

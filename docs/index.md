@@ -56,7 +56,11 @@ import {
 import { z } from "zod";
 
 const ordersExchange = defineExchange("orders", "topic", { durable: true });
-const orderProcessingQueue = defineQueue("order-processing", { durable: true });
+const ordersDlx = defineExchange("orders-dlx", "topic", { durable: true });
+const orderProcessingQueue = defineQueue("order-processing", {
+  deadLetter: { exchange: ordersDlx },
+  retry: { mode: "ttl-backoff" }, // Automatic retry with exponential backoff
+});
 
 const orderMessage = defineMessage(
   z.object({
@@ -72,7 +76,7 @@ const { consumer: processOrderConsumer, binding: orderBinding } =
   createOrderCreatedConsumer(orderProcessingQueue);
 
 export const contract = defineContract({
-  exchanges: { orders: ordersExchange },
+  exchanges: { orders: ordersExchange, ordersDlx },
   queues: { orderProcessing: orderProcessingQueue },
   bindings: { orderBinding },
   publishers: { orderCreated: orderCreatedPublisher },
@@ -103,13 +107,10 @@ import { contract } from "./contract";
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    processOrder: [
-      ({ payload }) => {
-        console.log(payload.orderId); // ✅ Fully typed!
-        return Future.value(Result.Ok(undefined));
-      },
-      { retry: { maxRetries: 3, initialDelayMs: 1000 } },
-    ],
+    processOrder: ({ payload }) => {
+      console.log(payload.orderId); // ✅ Fully typed!
+      return Future.value(Result.Ok(undefined));
+    },
   },
   urls: ["amqp://localhost"],
 }).resultToPromise();

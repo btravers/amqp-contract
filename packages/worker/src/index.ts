@@ -9,11 +9,6 @@ export {
 } from "./errors.js";
 export { defineHandler, defineHandlers } from "./handlers.js";
 export type {
-  // Retry configuration types (discriminated union)
-  QuorumNativeRetryOptions,
-  RetryMode,
-  RetryOptions,
-  TtlBackoffRetryOptions,
   // Handler types
   WorkerInferSafeConsumerHandler,
   WorkerInferSafeConsumerHandlerEntry,
