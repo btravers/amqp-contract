@@ -1,23 +1,25 @@
 export {
-  defineQueueBinding,
-  defineExchangeBinding,
+  defineConsumerFirst,
   defineConsumer,
   defineContract,
+  defineExchangeBinding,
   defineExchange,
   defineMessage,
-  definePublisher,
-  defineQueue,
   definePublisherFirst,
-  defineConsumerFirst,
+  definePublisher,
+  defineQueueBinding,
+  defineQueue,
+  defineTtlBackoffRetryInfrastructure,
 } from "./builder.js";
 export type {
-  PublisherFirstResult,
-  PublisherFirstResultWithRoutingKey,
+  BindingPattern,
   ConsumerFirstResult,
   ConsumerFirstResultWithRoutingKey,
-  RoutingKey,
-  BindingPattern,
   MatchingRoutingKey,
+  PublisherFirstResult,
+  PublisherFirstResultWithRoutingKey,
+  RoutingKey,
+  TtlBackoffRetryInfrastructure,
 } from "./builder.js";
 export type {
   AnySchema,
@@ -43,8 +45,6 @@ export type {
   InferPublisherNames,
   InferConsumerNames,
   // Retry configuration types
-  RetryOptions,
-  RetryMode,
   TtlBackoffRetryOptions,
   QuorumNativeRetryOptions,
 } from "./types.js";

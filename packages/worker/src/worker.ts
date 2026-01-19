@@ -14,7 +14,6 @@ import type {
   ConsumerDefinition,
   ContractDefinition,
   InferConsumerNames,
-  RetryMode,
   TtlBackoffRetryOptions,
 } from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
@@ -44,7 +43,7 @@ type ConsumerOptions = {
  * Internal retry configuration with all values resolved.
  */
 type ResolvedRetryConfig = {
-  mode: RetryMode;
+  mode: "ttl-backoff" | "quorum-native";
   maxRetries: number;
   initialDelayMs: number;
   maxDelayMs: number;

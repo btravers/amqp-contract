@@ -1,9 +1,5 @@
-import type {
-  ContractDefinition,
-  QueueDefinition,
-  TtlBackoffRetryOptions,
-} from "@amqp-contract/contract";
 import type { Channel } from "amqplib";
+import type { ContractDefinition } from "@amqp-contract/contract";
 
 /**
  * Setup AMQP topology (exchanges, queues, and bindings) from a contract definition.
@@ -139,34 +135,4 @@ export async function setupAmqpTopology(
       "Failed to setup bindings",
     );
   }
-}
-
-/**
- * Get the resolved TTL-backoff retry options with defaults.
- *
- * @param queue - The queue definition
- * @returns The resolved retry options, or undefined if the queue doesn't use TTL-backoff retry
- */
-export function getResolvedTtlBackoffRetryOptions(
-  queue: QueueDefinition,
-): (Required<Omit<TtlBackoffRetryOptions, "mode">> & { mode: "ttl-backoff" }) | undefined {
-  if (!queue.deadLetter) {
-    return undefined;
-  }
-
-  const retryMode = queue.retry?.mode ?? "ttl-backoff";
-  if (retryMode !== "ttl-backoff") {
-    return undefined;
-  }
-
-  const retry = queue.retry as TtlBackoffRetryOptions | undefined;
-
-  return {
-    mode: "ttl-backoff",
-    maxRetries: retry?.maxRetries ?? 3,
-    initialDelayMs: retry?.initialDelayMs ?? 1000,
-    maxDelayMs: retry?.maxDelayMs ?? 30000,
-    backoffMultiplier: retry?.backoffMultiplier ?? 2,
-    jitter: retry?.jitter ?? true,
-  };
 }
