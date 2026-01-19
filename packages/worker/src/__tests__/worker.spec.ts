@@ -8,6 +8,7 @@ import {
   definePublisher,
   defineQueue,
   defineQueueBinding,
+  extractQueue,
 } from "@amqp-contract/contract";
 import { defineHandler, defineHandlers } from "../handlers.js";
 import { describe, expect, vi } from "vitest";
@@ -522,15 +523,15 @@ describe("AmqpWorker Integration", () => {
     // Setup exchange and queue manually using an admin channel
     const adminChannel = await amqpConnection.createChannel();
     await adminChannel.assertExchange(exchange.name, exchange.type, { durable: false });
-    await adminChannel.assertQueue(queue.name, { durable: false });
-    await adminChannel.bindQueue(queue.name, exchange.name, "cancel.#");
+    await adminChannel.assertQueue(extractQueue(queue).name, { durable: false });
+    await adminChannel.bindQueue(extractQueue(queue).name, exchange.name, "cancel.#");
 
     // Create a mock handler to track messages received
     const messageHandler = vi.fn();
 
     // Create a consumer directly using amqplib to test null message handling
     const consumerChannel = await amqpConnection.createChannel();
-    await consumerChannel.consume(queue.name, messageHandler, {
+    await consumerChannel.consume(extractQueue(queue).name, messageHandler, {
       noAck: true,
     });
 
@@ -540,7 +541,7 @@ describe("AmqpWorker Integration", () => {
 
     // WHEN - Delete the queue, which causes RabbitMQ
     // to cancel the consumer and send a null message to the consumer callback
-    await adminChannel.deleteQueue(queue.name);
+    await adminChannel.deleteQueue(extractQueue(queue).name);
 
     // THEN - Wait for the null message to be received
     await vi.waitFor(
@@ -630,7 +631,7 @@ describe("AmqpWorker Integration", () => {
       "Message consumed successfully",
       expect.objectContaining({
         consumerName: "testConsumer",
-        queueName: queue.name,
+        queueName: extractQueue(queue).name,
       }),
     );
 

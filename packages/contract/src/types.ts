@@ -600,6 +600,64 @@ export type ClassicQueueDefinition = BaseQueueDefinition & {
 export type QueueDefinition = QuorumQueueDefinition | ClassicQueueDefinition;
 
 /**
+ * A queue with automatically generated TTL-backoff retry infrastructure.
+ *
+ * This type is returned by `defineQueue` when TTL-backoff retry is configured
+ * with a dead letter exchange. When passed to `defineContract`, the wait queue
+ * and bindings are automatically added to the contract.
+ *
+ * @example
+ * ```typescript
+ * const dlx = defineExchange('orders-dlx', 'direct', { durable: true });
+ * const queue = defineQueue('order-processing', {
+ *   deadLetter: { exchange: dlx },
+ *   retry: { mode: 'ttl-backoff', maxRetries: 5 },
+ * });
+ * // queue is QueueWithTtlBackoffInfrastructure
+ *
+ * const contract = defineContract({
+ *   exchanges: { dlx },
+ *   queues: { orderProcessing: queue }, // Automatically adds wait queue
+ *   // ... bindings are automatically generated
+ * });
+ * ```
+ */
+export type QueueWithTtlBackoffInfrastructure = {
+  /**
+   * Discriminator to identify this as a queue with TTL-backoff infrastructure.
+   * @internal
+   */
+  __brand: "QueueWithTtlBackoffInfrastructure";
+
+  /**
+   * The main queue definition.
+   */
+  queue: QueueDefinition;
+
+  /**
+   * The wait queue for holding messages during backoff delay.
+   */
+  waitQueue: QueueDefinition;
+
+  /**
+   * Binding that routes failed messages to the wait queue.
+   */
+  waitQueueBinding: QueueBindingDefinition;
+
+  /**
+   * Binding that routes retried messages back to the main queue.
+   */
+  mainQueueRetryBinding: QueueBindingDefinition;
+};
+
+/**
+ * A queue entry that can be passed to `defineContract`.
+ *
+ * Can be either a plain queue definition or a queue with TTL-backoff infrastructure.
+ */
+export type QueueEntry = QueueDefinition | QueueWithTtlBackoffInfrastructure;
+
+/**
  * Definition of a message with typed payload and optional headers.
  *
  * @template TPayload - The Standard Schema v1 compatible schema for the message payload
@@ -837,8 +895,11 @@ export type ContractDefinition = {
   /**
    * Named queue definitions.
    * Each key becomes available as a named resource in the contract.
+   *
+   * When a queue has TTL-backoff retry configured, pass the `QueueWithTtlBackoffInfrastructure`
+   * object returned by `defineQueue`. The wait queue and bindings will be automatically added.
    */
-  queues?: Record<string, QueueDefinition>;
+  queues?: Record<string, QueueEntry>;
 
   /**
    * Named binding definitions.

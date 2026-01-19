@@ -1,5 +1,6 @@
 import type { Channel } from "amqplib";
 import type { ContractDefinition } from "@amqp-contract/contract";
+import { extractQueue } from "@amqp-contract/contract";
 
 /**
  * Setup AMQP topology (exchanges, queues, and bindings) from a contract definition.
@@ -47,7 +48,8 @@ export async function setupAmqpTopology(
   }
 
   // Validate dead letter exchanges before setting up queues
-  for (const queue of Object.values(contract.queues ?? {})) {
+  for (const queueEntry of Object.values(contract.queues ?? {})) {
+    const queue = extractQueue(queueEntry);
     if (queue.deadLetter) {
       const dlxName = queue.deadLetter.exchange.name;
       const exchangeExists = Object.values(contract.exchanges ?? {}).some(
@@ -65,7 +67,8 @@ export async function setupAmqpTopology(
 
   // Setup queues
   const queueResults = await Promise.allSettled(
-    Object.values(contract.queues ?? {}).map((queue) => {
+    Object.values(contract.queues ?? {}).map((queueEntry) => {
+      const queue = extractQueue(queueEntry);
       // Build queue arguments, merging dead letter configuration and queue type
       const queueArguments: Record<string, unknown> = { ...queue.arguments };
 

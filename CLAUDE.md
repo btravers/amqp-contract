@@ -73,31 +73,30 @@ const queue = defineQueue("processing", {
 });
 const message = defineMessage(z.object({ orderId: z.string() }));
 
-// For TTL-backoff retry, generate wait queue infrastructure
-const retryInfra = defineTtlBackoffRetryInfrastructure(queue);
-
+// TTL-backoff infrastructure (wait queue, bindings) is automatically generated
+// when defineQueue is called with TTL-backoff retry and a dead letter exchange
 const contract = defineContract({
   exchanges: { orders: exchange, dlx },
-  queues: { processing: queue, processingWait: retryInfra.waitQueue },
+  queues: { processing: queue },
   publishers: { orderCreated: definePublisher(exchange, message, { routingKey: "order.created" }) },
   consumers: { processOrder: defineConsumer(queue, message) },
-  bindings: {
-    binding1: defineQueueBinding(queue, exchange, { routingKey: "order.#" }),
-    waitQueueBinding: retryInfra.waitQueueBinding,
-    retryBinding: retryInfra.mainQueueRetryBinding,
-  },
+  bindings: { binding1: defineQueueBinding(queue, exchange, { routingKey: "order.#" }) },
 });
+// defineContract automatically expands the queue into:
+// - processing: main queue
+// - processingWait: wait queue with TTL
+// And adds bindings for retry routing
 ```
 
 ### Retry Configuration
 
 Retry strategy is configured at the queue level in the contract, not at the handler level:
 
-- **TTL-Backoff Mode**: Uses wait queues with exponential backoff. Requires `defineTtlBackoffRetryInfrastructure()` to generate wait queue and bindings.
+- **TTL-Backoff Mode**: Uses wait queues with exponential backoff. Infrastructure is **automatically generated** when `defineQueue` is called with TTL-backoff retry and a dead letter exchange.
 - **Quorum-Native Mode**: Uses RabbitMQ's native `x-delivery-limit` feature. Simpler, no wait queues needed.
 
 ```typescript
-// TTL-backoff (configurable delays)
+// TTL-backoff (configurable delays) - infrastructure auto-generated
 const queue = defineQueue("orders", {
   deadLetter: { exchange: dlx },
   retry: {
@@ -114,6 +113,11 @@ const queue = defineQueue("orders", {
   deadLetter: { exchange: dlx },
   retry: { mode: "quorum-native" },
 });
+
+// When you need to access the underlying queue definition (e.g., for queue name),
+// use extractQueue() since TTL-backoff queues return a wrapper object:
+import { extractQueue } from "@amqp-contract/contract";
+const queueName = extractQueue(queue).name;
 ```
 
 ### Type Inference Helpers
@@ -237,8 +241,9 @@ export type {
   WorkerInferConsumedMessage,
 } from "@amqp-contract/worker";
 
-// Retry types (from contract package)
+// Retry types and helpers (from contract package)
 export type { TtlBackoffRetryOptions, QuorumNativeRetryOptions } from "@amqp-contract/contract";
+export { extractQueue } from "@amqp-contract/contract";
 ```
 
 ## Code Style Requirements
@@ -326,4 +331,15 @@ defineQueue("orders", {
   retry: { mode: "quorum-native" },
   deliveryLimit: 3,
 });
+
+// ❌ Accessing .name directly on TTL-backoff queue
+const queue = defineQueue("orders", {
+  deadLetter: { exchange: dlx },
+  retry: { mode: "ttl-backoff" },
+});
+console.log(queue.name); // Error: queue may be a wrapper object
+
+// ✅ Use extractQueue() to access queue properties
+import { extractQueue } from "@amqp-contract/contract";
+console.log(extractQueue(queue).name);
 ```

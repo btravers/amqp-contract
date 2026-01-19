@@ -10,6 +10,7 @@ export {
   defineQueueBinding,
   defineQueue,
   defineTtlBackoffRetryInfrastructure,
+  extractQueue,
 } from "./builder.js";
 export type {
   BindingPattern,
@@ -42,7 +43,9 @@ export type {
   PublisherDefinition,
   QueueBindingDefinition,
   QueueDefinition,
+  QueueEntry,
   QueueType,
+  QueueWithTtlBackoffInfrastructure,
   QuorumNativeRetryOptions,
   QuorumQueueDefinition,
   QuorumQueueOptions,

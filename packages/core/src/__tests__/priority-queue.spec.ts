@@ -7,6 +7,7 @@ import {
   definePublisher,
   defineQueue,
   defineQueueBinding,
+  extractQueue,
 } from "@amqp-contract/contract";
 import { AmqpClient } from "../amqp-client.js";
 import type { ConsumeMessage } from "amqplib";
@@ -132,7 +133,7 @@ describe("Priority Queue", () => {
       let consumedCount = 0;
 
       amqpChannel.consume(
-        priorityQueue.name,
+        extractQueue(priorityQueue).name,
         (msg: ConsumeMessage | null) => {
           if (msg) {
             const content = JSON.parse(msg.content.toString());
@@ -160,7 +161,7 @@ describe("Priority Queue", () => {
 
     // CLEANUP
     await client.close();
-    await amqpChannel.deleteQueue(priorityQueue.name);
+    await amqpChannel.deleteQueue(extractQueue(priorityQueue).name);
     await amqpChannel.deleteExchange(exchange.name);
   });
 
@@ -230,7 +231,7 @@ describe("Priority Queue", () => {
       let consumedCount = 0;
 
       amqpChannel.consume(
-        priorityQueue.name,
+        extractQueue(priorityQueue).name,
         (msg: ConsumeMessage | null) => {
           if (msg) {
             const content = JSON.parse(msg.content.toString());
@@ -254,7 +255,7 @@ describe("Priority Queue", () => {
 
     // CLEANUP
     await client.close();
-    await amqpChannel.deleteQueue(priorityQueue.name);
+    await amqpChannel.deleteQueue(extractQueue(priorityQueue).name);
     await amqpChannel.deleteExchange(exchange.name);
   });
 });

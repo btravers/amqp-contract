@@ -15,6 +15,7 @@ import type {
   QueueDefinition,
 } from "@amqp-contract/contract";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
+import { extractQueue } from "@amqp-contract/contract";
 
 /**
  * Options for configuring the AsyncAPI generator.
@@ -161,7 +162,8 @@ export class AsyncAPIGenerator {
 
     // Generate channels from queues with their messages
     if (contract.queues) {
-      for (const [queueName, queue] of Object.entries(contract.queues)) {
+      for (const [queueName, queueEntry] of Object.entries(contract.queues)) {
+        const queue = extractQueue(queueEntry);
         const channelMessages: MessagesObject = {};
 
         // Add messages from consumers that reference this queue
@@ -400,7 +402,8 @@ export class AsyncAPIGenerator {
    */
   private getQueueName(queue: QueueDefinition, contract: ContractDefinition): string {
     if (contract.queues) {
-      for (const [name, q] of Object.entries(contract.queues)) {
+      for (const [name, qEntry] of Object.entries(contract.queues)) {
+        const q = extractQueue(qEntry);
         if (q === queue || q.name === queue.name) {
           return name;
         }
