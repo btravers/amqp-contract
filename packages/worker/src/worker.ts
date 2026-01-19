@@ -14,7 +14,6 @@ import type {
   ConsumerDefinition,
   ContractDefinition,
   InferConsumerNames,
-  TtlBackoffRetryOptions,
 } from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
 import { MessageValidationError, NonRetryableError, TechnicalError } from "./errors.js";
@@ -379,11 +378,11 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    */
   private getRetryConfigForConsumer(consumer: ConsumerDefinition): ResolvedRetryConfig {
     const queue = consumer.queue;
-    const retryOptions = queue.retry ?? {};
+    const retryOptions = queue.retry;
 
     // For quorum-native mode, TTL-backoff options are not used
     // but we still provide defaults for internal consistency
-    if (retryOptions.mode === "quorum-native") {
+    if (retryOptions?.mode === "quorum-native") {
       return {
         mode: "quorum-native",
         maxRetries: 0, // Not used in quorum-native mode
@@ -395,14 +394,25 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     }
 
     // TTL-backoff mode (default): extract options with defaults
-    const ttlOptions = retryOptions as TtlBackoffRetryOptions;
+    if (retryOptions?.mode === "ttl-backoff") {
+      return {
+        mode: "ttl-backoff",
+        maxRetries: retryOptions.maxRetries ?? 3,
+        initialDelayMs: retryOptions.initialDelayMs ?? 1000,
+        maxDelayMs: retryOptions.maxDelayMs ?? 30000,
+        backoffMultiplier: retryOptions.backoffMultiplier ?? 2,
+        jitter: retryOptions.jitter ?? true,
+      };
+    }
+
+    // No retry configured - use default TTL-backoff
     return {
       mode: "ttl-backoff",
-      maxRetries: ttlOptions.maxRetries ?? 3,
-      initialDelayMs: ttlOptions.initialDelayMs ?? 1000,
-      maxDelayMs: ttlOptions.maxDelayMs ?? 30000,
-      backoffMultiplier: ttlOptions.backoffMultiplier ?? 2,
-      jitter: ttlOptions.jitter ?? true,
+      maxRetries: 3,
+      initialDelayMs: 1000,
+      maxDelayMs: 30000,
+      backoffMultiplier: 2,
+      jitter: true,
     };
   }
 
@@ -421,17 +431,16 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     consumer: ConsumerDefinition,
   ): TechnicalError | null {
     const queue = consumer.queue;
-    const queueType = queue.type ?? "quorum";
 
     // Check if queue is a quorum queue
-    if (queueType !== "quorum") {
+    if (queue.type !== "quorum") {
       return new TechnicalError(
-        `Consumer "${consumerName}" uses queue "${queue.name}" with type "${queueType}". ` +
+        `Consumer "${consumerName}" uses queue "${queue.name}" with type "${queue.type}". ` +
           `Quorum-native retry mode requires quorum queues.`,
       );
     }
 
-    // Check if deliveryLimit is configured
+    // Check if deliveryLimit is configured (now queue is narrowed to QuorumQueueDefinition)
     if (queue.deliveryLimit === undefined) {
       return new TechnicalError(
         `Consumer "${consumerName}" uses queue "${queue.name}" without deliveryLimit configured. ` +
@@ -838,11 +847,13 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     consumerName: string,
     consumer: ConsumerDefinition,
   ): Future<Result<void, TechnicalError>> {
-    const queueName = consumer.queue.name;
+    const queue = consumer.queue;
+    const queueName = queue.name;
     // x-delivery-count is incremented on each delivery attempt
     // When x-delivery-count equals x-delivery-limit, message is dead-lettered on next attempt
     const deliveryCount = (msg.properties.headers?.["x-delivery-count"] as number) ?? 0;
-    const deliveryLimit = consumer.queue.deliveryLimit;
+    // This function is only called for quorum-native mode, which requires quorum queues
+    const deliveryLimit = queue.type === "quorum" ? queue.deliveryLimit : undefined;
 
     // After this requeue, RabbitMQ will increment deliveryCount
     // Message is dead-lettered when deliveryCount reaches deliveryLimit

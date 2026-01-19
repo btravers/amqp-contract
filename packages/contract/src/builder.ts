@@ -1,8 +1,10 @@
 import type {
   BaseExchangeDefinition,
+  ClassicQueueDefinition,
   ClassicQueueOptions,
   ConsumerDefinition,
   ContractDefinition,
+  DeadLetterConfig,
   DefineQueueOptions,
   DirectExchangeDefinition,
   ExchangeBindingDefinition,
@@ -12,6 +14,7 @@ import type {
   PublisherDefinition,
   QueueBindingDefinition,
   QueueDefinition,
+  QuorumQueueDefinition,
   QuorumQueueOptions,
   TopicExchangeDefinition,
 } from "./types.js";
@@ -185,77 +188,85 @@ export function defineQueue(name: string, options?: DefineQueueOptions): QueueDe
   const opts = options ?? {};
   const type = opts.type ?? "quorum";
 
-  // Extract maxPriority only if it's a classic queue (type safety enforced at compile time)
-  const maxPriority = type === "classic" ? (opts as ClassicQueueOptions).maxPriority : undefined;
-  const exclusive = type === "classic" ? (opts as ClassicQueueOptions).exclusive : undefined;
-
-  // Extract deliveryLimit only if it's a quorum queue
-  const deliveryLimit = type === "quorum" ? (opts as QuorumQueueOptions).deliveryLimit : undefined;
-
-  // Validate maxPriority range (only applicable for classic queues)
-  if (maxPriority !== undefined) {
-    if (maxPriority < 1 || maxPriority > 255) {
-      throw new Error(
-        `Invalid maxPriority: ${maxPriority}. Must be between 1 and 255. Recommended range: 1-10.`,
-      );
-    }
-  }
-
-  // Validate deliveryLimit (only applicable for quorum queues)
-  if (deliveryLimit !== undefined) {
-    if (deliveryLimit < 1 || !Number.isInteger(deliveryLimit)) {
-      throw new Error(`Invalid deliveryLimit: ${deliveryLimit}. Must be a positive integer.`);
-    }
-  }
-
-  // Build the queue definition - only include defined properties
-  const queueDefinition: QueueDefinition = {
-    name,
-    type,
-  };
+  // Build base properties shared by both queue types
+  const baseProps: {
+    name: string;
+    durable?: boolean;
+    autoDelete?: boolean;
+    deadLetter?: DeadLetterConfig;
+    arguments?: Record<string, unknown>;
+  } = { name };
 
   if (opts.durable !== undefined) {
-    queueDefinition.durable = opts.durable;
+    baseProps.durable = opts.durable;
   }
 
   if (opts.autoDelete !== undefined) {
-    queueDefinition.autoDelete = opts.autoDelete;
+    baseProps.autoDelete = opts.autoDelete;
   }
 
   if (opts.deadLetter !== undefined) {
-    queueDefinition.deadLetter = opts.deadLetter;
+    baseProps.deadLetter = opts.deadLetter;
   }
 
   if (opts.arguments !== undefined) {
-    queueDefinition.arguments = opts.arguments;
+    baseProps.arguments = opts.arguments;
   }
 
-  if (exclusive !== undefined) {
-    queueDefinition.exclusive = exclusive;
+  // Build quorum queue
+  if (type === "quorum") {
+    const quorumOpts = opts as QuorumQueueOptions;
+    const queueDefinition: QuorumQueueDefinition = {
+      ...baseProps,
+      type: "quorum",
+    };
+
+    // Validate and add deliveryLimit
+    if (quorumOpts.deliveryLimit !== undefined) {
+      if (quorumOpts.deliveryLimit < 1 || !Number.isInteger(quorumOpts.deliveryLimit)) {
+        throw new Error(
+          `Invalid deliveryLimit: ${quorumOpts.deliveryLimit}. Must be a positive integer.`,
+        );
+      }
+      queueDefinition.deliveryLimit = quorumOpts.deliveryLimit;
+    }
+
+    // Add retry configuration
+    if (quorumOpts.retry !== undefined) {
+      queueDefinition.retry = quorumOpts.retry;
+    }
+
+    return queueDefinition;
   }
 
-  if (deliveryLimit !== undefined) {
-    queueDefinition.deliveryLimit = deliveryLimit;
+  // Build classic queue
+  const classicOpts = opts as ClassicQueueOptions;
+  const queueDefinition: ClassicQueueDefinition = {
+    ...baseProps,
+    type: "classic",
+  };
+
+  // Add exclusive
+  if (classicOpts.exclusive !== undefined) {
+    queueDefinition.exclusive = classicOpts.exclusive;
   }
 
-  // Add maxPriority argument if specified
-  if (maxPriority !== undefined) {
+  // Validate and add maxPriority argument
+  if (classicOpts.maxPriority !== undefined) {
+    if (classicOpts.maxPriority < 1 || classicOpts.maxPriority > 255) {
+      throw new Error(
+        `Invalid maxPriority: ${classicOpts.maxPriority}. Must be between 1 and 255. Recommended range: 1-10.`,
+      );
+    }
     queueDefinition.arguments = {
       ...queueDefinition.arguments,
-      "x-max-priority": maxPriority,
+      "x-max-priority": classicOpts.maxPriority,
     };
   }
 
-  // Validate and add retry configuration
-  if (opts.retry !== undefined) {
-    // Validate quorum-native is not used with classic queues
-    if (type === "classic" && opts.retry.mode === "quorum-native") {
-      throw new Error(
-        `Invalid retry configuration: quorum-native retry mode cannot be used with classic queues. ` +
-          `Use ttl-backoff mode or switch to a quorum queue.`,
-      );
-    }
-    queueDefinition.retry = opts.retry;
+  // Add retry configuration (only TtlBackoffRetryOptions for classic - enforced by type system)
+  if (classicOpts.retry !== undefined) {
+    queueDefinition.retry = classicOpts.retry;
   }
 
   return queueDefinition;

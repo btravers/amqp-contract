@@ -343,7 +343,7 @@ export class AsyncAPIGenerator {
           queue: {
             name: queue.name,
             durable: queue.durable ?? false,
-            exclusive: queue.exclusive ?? false,
+            exclusive: queue.type === "classic" ? (queue.exclusive ?? false) : false,
             autoDelete: queue.autoDelete ?? false,
             vhost: "/",
           },
