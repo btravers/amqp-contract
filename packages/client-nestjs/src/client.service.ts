@@ -3,13 +3,13 @@ import {
   type ClientInferPublisherInput,
   MessageValidationError,
   type PublishOptions,
-  TechnicalError,
   TypedAmqpClient,
 } from "@amqp-contract/client";
 import type { ContractDefinition, InferPublisherNames } from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
 import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
 import { MODULE_OPTIONS_TOKEN } from "./client.module-definition.js";
+import { TechnicalError } from "@amqp-contract/core";
 
 /**
  * Configuration options for the AMQP client NestJS module.

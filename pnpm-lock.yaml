@@ -571,6 +571,9 @@ importers:
       '@amqp-contract/contract':
         specifier: workspace:*
         version: link:../contract
+      '@amqp-contract/core':
+        specifier: workspace:*
+        version: link:../core
     devDependencies:
       '@amqp-contract/testing':
         specifier: workspace:*
@@ -672,6 +675,9 @@ importers:
       '@amqp-contract/contract':
         specifier: workspace:*
         version: link:../contract
+      '@swan-io/boxed':
+        specifier: 'catalog:'
+        version: 3.2.1(typescript@5.9.3)
       amqp-connection-manager:
         specifier: 'catalog:'
         version: 5.0.0(amqplib@0.10.9)

@@ -5,9 +5,11 @@ import type {
   ConnectionUrl,
   CreateChannelOpts,
 } from "amqp-connection-manager";
-import type { Channel } from "amqplib";
+import type { Channel, ConsumeMessage, Options } from "amqplib";
+import { Future, Result } from "@swan-io/boxed";
 import { ConnectionManagerSingleton } from "./connection-manager.js";
 import type { ContractDefinition } from "@amqp-contract/contract";
+import { TechnicalError } from "./errors.js";
 import { setupAmqpTopology } from "./setup.js";
 
 /**
@@ -24,6 +26,11 @@ export type AmqpClientOptions = {
 };
 
 /**
+ * Callback type for consuming messages.
+ */
+export type ConsumeCallback = (msg: ConsumeMessage | null) => void | Promise<void>;
+
+/**
  * AMQP client that manages connections and channels with automatic topology setup.
  *
  * This class handles:
@@ -32,6 +39,8 @@ export type AmqpClientOptions = {
  * - Automatic AMQP topology setup (exchanges, queues, bindings) from contract
  * - Channel creation with JSON serialization enabled by default
  *
+ * All operations return `Future<Result<T, TechnicalError>>` for consistent error handling.
+ *
  * @example
  * ```typescript
  * const client = new AmqpClient(contract, {
@@ -39,16 +48,19 @@ export type AmqpClientOptions = {
  *   connectionOptions: { heartbeatIntervalInSeconds: 30 }
  * });
  *
- * // Use the channel to publish messages
- * await client.channel.publish('exchange', 'routingKey', { data: 'value' });
+ * // Wait for connection
+ * await client.waitForConnect().resultToPromise();
+ *
+ * // Publish a message
+ * const result = await client.publish('exchange', 'routingKey', { data: 'value' }).resultToPromise();
  *
  * // Close when done
- * await client.close();
+ * await client.close().resultToPromise();
  * ```
  */
 export class AmqpClient {
   private readonly connection: AmqpConnectionManager;
-  public readonly channel: ChannelWrapper;
+  private readonly channelWrapper: ChannelWrapper;
   private readonly urls: ConnectionUrl[];
   private readonly connectionOptions?: AmqpConnectionManagerOptions;
 
@@ -114,7 +126,7 @@ export class AmqpClient {
       };
     }
 
-    this.channel = this.connection.createChannel(channelOpts);
+    this.channelWrapper = this.connection.createChannel(channelOpts);
   }
 
   /**
@@ -131,6 +143,114 @@ export class AmqpClient {
   }
 
   /**
+   * Wait for the channel to be connected and ready.
+   *
+   * @returns A Future that resolves when the channel is connected
+   */
+  waitForConnect(): Future<Result<void, TechnicalError>> {
+    return Future.fromPromise(this.channelWrapper.waitForConnect()).mapError(
+      (error: unknown) => new TechnicalError("Failed to connect to AMQP broker", error),
+    );
+  }
+
+  /**
+   * Publish a message to an exchange.
+   *
+   * @param exchange - The exchange name
+   * @param routingKey - The routing key
+   * @param content - The message content (will be JSON serialized if json: true)
+   * @param options - Optional publish options
+   * @returns A Future with `Result<boolean>` - true if message was sent, false if channel buffer is full
+   */
+  publish(
+    exchange: string,
+    routingKey: string,
+    content: Buffer | unknown,
+    options?: Options.Publish,
+  ): Future<Result<boolean, TechnicalError>> {
+    return Future.fromPromise(
+      this.channelWrapper.publish(exchange, routingKey, content, options),
+    ).mapError((error: unknown) => new TechnicalError("Failed to publish message", error));
+  }
+
+  /**
+   * Start consuming messages from a queue.
+   *
+   * @param queue - The queue name
+   * @param callback - The callback to invoke for each message
+   * @param options - Optional consume options
+   * @returns A Future with `Result<string>` - the consumer tag
+   */
+  consume(
+    queue: string,
+    callback: ConsumeCallback,
+    options?: Options.Consume,
+  ): Future<Result<string, TechnicalError>> {
+    return Future.fromPromise(this.channelWrapper.consume(queue, callback, options))
+      .mapError((error: unknown) => new TechnicalError("Failed to start consuming messages", error))
+      .mapOk((reply: { consumerTag: string }) => reply.consumerTag);
+  }
+
+  /**
+   * Cancel a consumer by its consumer tag.
+   *
+   * @param consumerTag - The consumer tag to cancel
+   * @returns A Future that resolves when the consumer is cancelled
+   */
+  cancel(consumerTag: string): Future<Result<void, TechnicalError>> {
+    return Future.fromPromise(this.channelWrapper.cancel(consumerTag))
+      .mapError((error: unknown) => new TechnicalError("Failed to cancel consumer", error))
+      .mapOk(() => undefined);
+  }
+
+  /**
+   * Acknowledge a message.
+   *
+   * @param msg - The message to acknowledge
+   * @param allUpTo - If true, acknowledge all messages up to and including this one
+   */
+  ack(msg: ConsumeMessage, allUpTo = false): void {
+    this.channelWrapper.ack(msg, allUpTo);
+  }
+
+  /**
+   * Negative acknowledge a message.
+   *
+   * @param msg - The message to nack
+   * @param allUpTo - If true, nack all messages up to and including this one
+   * @param requeue - If true, requeue the message(s)
+   */
+  nack(msg: ConsumeMessage, allUpTo = false, requeue = true): void {
+    this.channelWrapper.nack(msg, allUpTo, requeue);
+  }
+
+  /**
+   * Add a setup function to be called when the channel is created or reconnected.
+   *
+   * This is useful for setting up channel-level configuration like prefetch.
+   *
+   * @param setup - The setup function to add
+   */
+  addSetup(setup: (channel: Channel) => void | Promise<void>): void {
+    this.channelWrapper.addSetup(setup);
+  }
+
+  /**
+   * Register an event listener on the channel wrapper.
+   *
+   * Available events:
+   * - 'connect': Emitted when the channel is (re)connected
+   * - 'close': Emitted when the channel is closed
+   * - 'error': Emitted when an error occurs
+   *
+   * @param event - The event name
+   * @param listener - The event listener
+   */
+  on(event: string, listener: (...args: unknown[]) => void): void {
+    this.channelWrapper.on(event, listener);
+  }
+
+  /**
    * Close the channel and release the connection reference.
    *
    * This will:
@@ -138,13 +258,20 @@ export class AmqpClient {
    * - Decrease the reference count on the shared connection
    * - Close the connection if this was the last client using it
    *
-   * @returns A promise that resolves when the channel and connection are closed
+   * @returns A Future that resolves when the channel and connection are closed
    */
-  async close(): Promise<void> {
-    await this.channel.close();
-    // Release connection reference - will close connection if this was the last reference
-    const singleton = ConnectionManagerSingleton.getInstance();
-    await singleton.releaseConnection(this.urls, this.connectionOptions);
+  close(): Future<Result<void, TechnicalError>> {
+    return Future.fromPromise(this.channelWrapper.close())
+      .mapError((error: unknown) => new TechnicalError("Failed to close channel", error))
+      .flatMapOk(() =>
+        Future.fromPromise(
+          ConnectionManagerSingleton.getInstance().releaseConnection(
+            this.urls,
+            this.connectionOptions,
+          ),
+        ).mapError((error: unknown) => new TechnicalError("Failed to release connection", error)),
+      )
+      .mapOk(() => undefined);
   }
 
   /**

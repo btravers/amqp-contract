@@ -1,10 +1,13 @@
 /**
- * Base error class for worker errors
+ * Error thrown when message validation fails
  */
-abstract class WorkerError extends Error {
-  protected constructor(message: string) {
-    super(message);
-    this.name = "WorkerError";
+export class MessageValidationError extends Error {
+  constructor(
+    public readonly consumerName: string,
+    public readonly issues: unknown,
+  ) {
+    super(`Message validation failed for consumer "${consumerName}"`);
+    this.name = "MessageValidationError";
     // Node.js specific stack trace capture
     const ErrorConstructor = Error as unknown as {
       captureStackTrace?: (target: object, constructor: Function) => void;
@@ -16,46 +19,26 @@ abstract class WorkerError extends Error {
 }
 
 /**
- * Error for technical/runtime failures in worker operations
- * This includes validation failures, parsing failures, and processing failures
- */
-export class TechnicalError extends WorkerError {
-  constructor(
-    message: string,
-    public override readonly cause?: unknown,
-  ) {
-    super(message);
-    this.name = "TechnicalError";
-  }
-}
-
-/**
- * Error thrown when message validation fails
- */
-export class MessageValidationError extends WorkerError {
-  constructor(
-    public readonly consumerName: string,
-    public readonly issues: unknown,
-  ) {
-    super(`Message validation failed for consumer "${consumerName}"`);
-    this.name = "MessageValidationError";
-  }
-}
-
-/**
  * Retryable errors - transient failures that may succeed on retry
  * Examples: network timeouts, rate limiting, temporary service unavailability
  *
  * Use this error type when the operation might succeed if retried.
  * The worker will apply exponential backoff and retry the message.
  */
-export class RetryableError extends WorkerError {
+export class RetryableError extends Error {
   constructor(
     message: string,
     public override readonly cause?: unknown,
   ) {
     super(message);
     this.name = "RetryableError";
+    // Node.js specific stack trace capture
+    const ErrorConstructor = Error as unknown as {
+      captureStackTrace?: (target: object, constructor: Function) => void;
+    };
+    if (typeof ErrorConstructor.captureStackTrace === "function") {
+      ErrorConstructor.captureStackTrace(this, this.constructor);
+    }
   }
 }
 
@@ -66,13 +49,20 @@ export class RetryableError extends WorkerError {
  * Use this error type when retrying would not help - the message will be
  * immediately sent to the dead letter queue (DLQ) if configured.
  */
-export class NonRetryableError extends WorkerError {
+export class NonRetryableError extends Error {
   constructor(
     message: string,
     public override readonly cause?: unknown,
   ) {
     super(message);
     this.name = "NonRetryableError";
+    // Node.js specific stack trace capture
+    const ErrorConstructor = Error as unknown as {
+      captureStackTrace?: (target: object, constructor: Function) => void;
+    };
+    if (typeof ErrorConstructor.captureStackTrace === "function") {
+      ErrorConstructor.captureStackTrace(this, this.constructor);
+    }
   }
 }
 
