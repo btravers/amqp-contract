@@ -49,6 +49,8 @@ export type {
   QuorumNativeRetryOptions,
   QuorumQueueDefinition,
   QuorumQueueOptions,
+  ResolvedRetryOptions,
+  ResolvedTtlBackoffRetryOptions,
   TopicExchangeDefinition,
   TtlBackoffRetryOptions,
 } from "./types.js";

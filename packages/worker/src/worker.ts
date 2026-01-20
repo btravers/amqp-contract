@@ -14,6 +14,8 @@ import type {
   ConsumerDefinition,
   ContractDefinition,
   InferConsumerNames,
+  ResolvedRetryOptions,
+  ResolvedTtlBackoffRetryOptions,
 } from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
 import { MessageValidationError, NonRetryableError, TechnicalError } from "./errors.js";
@@ -39,30 +41,17 @@ type ConsumerOptions = {
 };
 
 /**
- * Internal retry configuration with all values resolved.
+ * Retry configuration from the contract with all values resolved.
+ * This is a discriminated union on `mode` - TTL-backoff has the config fields,
+ * quorum-native does not.
  */
-type ResolvedRetryConfig = {
-  mode: "ttl-backoff" | "quorum-native";
-  maxRetries: number;
-  initialDelayMs: number;
-  maxDelayMs: number;
-  backoffMultiplier: number;
-  jitter: boolean;
-};
+type ResolvedRetryConfig = ResolvedRetryOptions;
 
 /**
  * Type guard to check if a handler entry is a tuple format [handler, options].
  */
 function isHandlerTuple(entry: unknown): entry is [unknown, ConsumerOptions] {
   return Array.isArray(entry) && entry.length === 2;
-}
-
-/**
- * Type guard to check if a value is a Standard Schema v1 compliant schema.
- */
-function isStandardSchema(value: unknown): value is StandardSchemaV1 {
-  const standard = (value as StandardSchemaV1 | null)?.["~standard"];
-  return typeof standard?.validate === "function";
 }
 
 /**
@@ -262,9 +251,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     // Note: Wait queues are now created by the core package in setupAmqpTopology
     // when the queue's retry mode is "ttl-backoff"
     return worker
-      .validateSchemas()
-      .flatMapOk(() => worker.waitForConnectionReady())
-      .flatMapOk(() => worker.validateRetryConfiguration())
+      .waitForConnectionReady()
       .flatMapOk(() => worker.consumeAll())
       .mapOk(() => worker);
   }
@@ -307,216 +294,32 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   }
 
   /**
-   * Validate message schemas for all consumers at boot time.
-   *
-   * Ensures that payload and headers schemas are Standard Schema v1 compliant.
-   * This validation happens once at startup rather than on every message.
-   */
-  private validateSchemas(): Future<Result<void, TechnicalError>> {
-    if (!this.contract.consumers) {
-      return Future.value(Result.Ok(undefined));
-    }
-
-    for (const consumerName of Object.keys(
-      this.contract.consumers,
-    ) as InferConsumerNames<TContract>[]) {
-      const consumer = this.contract.consumers[consumerName as string];
-      if (!consumer) continue;
-
-      // Validate payload schema
-      if (!isStandardSchema(consumer.message.payload)) {
-        return Future.value(
-          Result.Error(
-            new TechnicalError(
-              `Invalid payload schema for consumer "${String(consumerName)}": not a Standard Schema v1 compliant schema`,
-            ),
-          ),
-        );
-      }
-
-      // Validate headers schema (if defined)
-      const headersSchema = consumer.message.headers;
-      if (headersSchema !== undefined && !isStandardSchema(headersSchema)) {
-        return Future.value(
-          Result.Error(
-            new TechnicalError(
-              `Invalid headers schema for consumer "${String(consumerName)}": not a Standard Schema v1 compliant schema`,
-            ),
-          ),
-        );
-      }
-    }
-
-    return Future.value(Result.Ok(undefined));
-  }
-
-  /**
-   * Validate retry configuration for all consumers.
-   *
-   * For quorum-native mode, validates that the queue is properly configured.
-   * For TTL-backoff mode, wait queues are created by setupAmqpTopology in the core package.
-   */
-  private validateRetryConfiguration(): Future<Result<void, TechnicalError>> {
-    if (!this.contract.consumers) {
-      return Future.value(Result.Ok(undefined));
-    }
-
-    for (const consumerName of Object.keys(
-      this.contract.consumers,
-    ) as InferConsumerNames<TContract>[]) {
-      const consumer = this.contract.consumers[consumerName as string];
-      if (!consumer) continue;
-
-      const queue = consumer.queue;
-      const retryMode = queue.retry.mode;
-
-      // For quorum-native mode, validate queue configuration
-      if (retryMode === "quorum-native") {
-        const validationError = this.validateQuorumNativeConfigForConsumer(
-          String(consumerName),
-          consumer,
-        );
-        if (validationError) {
-          return Future.value(Result.Error(validationError));
-        }
-        this.logger?.info("Using quorum-native retry mode", {
-          consumerName: String(consumerName),
-          queueName: queue.name,
-        });
-      } else {
-        // TTL-backoff mode
-        if (queue.deadLetter) {
-          this.logger?.info("Using TTL-backoff retry mode", {
-            consumerName: String(consumerName),
-            queueName: queue.name,
-          });
-        } else {
-          this.logger?.warn(
-            "Queue has no deadLetter configured - retries will use nack with requeue",
-            {
-              consumerName: String(consumerName),
-              queueName: queue.name,
-            },
-          );
-        }
-      }
-    }
-
-    return Future.value(Result.Ok(undefined));
-  }
-
-  /**
-   * Get the resolved retry configuration for a consumer's queue.
-   * Reads retry config from the queue definition in the contract.
+   * Get the retry configuration for a consumer's queue.
+   * Defaults are applied in the contract's defineQueue, so we just return the config.
    */
   private getRetryConfigForConsumer(consumer: ConsumerDefinition): ResolvedRetryConfig {
-    const queue = consumer.queue;
-    const retryOptions = queue.retry;
-
-    // For quorum-native mode, TTL-backoff options are not used
-    // but we still provide defaults for internal consistency
-    if (retryOptions.mode === "quorum-native") {
-      return {
-        mode: "quorum-native",
-        maxRetries: 0, // Not used in quorum-native mode
-        initialDelayMs: 0, // Not used in quorum-native mode
-        maxDelayMs: 0, // Not used in quorum-native mode
-        backoffMultiplier: 0, // Not used in quorum-native mode
-        jitter: false, // Not used in quorum-native mode
-      };
-    }
-
-    // TTL-backoff mode: extract options with defaults
-    return {
-      mode: "ttl-backoff",
-      maxRetries: retryOptions.maxRetries ?? 3,
-      initialDelayMs: retryOptions.initialDelayMs ?? 1000,
-      maxDelayMs: retryOptions.maxDelayMs ?? 30000,
-      backoffMultiplier: retryOptions.backoffMultiplier ?? 2,
-      jitter: retryOptions.jitter ?? true,
-    };
+    return consumer.queue.retry;
   }
 
   /**
-   * Validate that quorum-native retry mode is properly configured for a specific consumer.
-   *
-   * Requirements for quorum-native mode:
-   * - Consumer queue must be a quorum queue
-   * - Consumer queue must have deliveryLimit configured
-   * - Consumer queue should have DLX configured (warning if not)
-   *
-   * @returns TechnicalError if validation fails, null if valid
-   */
-  private validateQuorumNativeConfigForConsumer(
-    consumerName: string,
-    consumer: ConsumerDefinition,
-  ): TechnicalError | null {
-    const queue = consumer.queue;
-
-    // Check if queue is a quorum queue
-    if (queue.type !== "quorum") {
-      return new TechnicalError(
-        `Consumer "${consumerName}" uses queue "${queue.name}" with type "${queue.type}". ` +
-          `Quorum-native retry mode requires quorum queues.`,
-      );
-    }
-
-    // Check if deliveryLimit is configured (now queue is narrowed to QuorumQueueDefinition)
-    if (queue.deliveryLimit === undefined) {
-      return new TechnicalError(
-        `Consumer "${consumerName}" uses queue "${queue.name}" without deliveryLimit configured. ` +
-          `Quorum-native retry mode requires deliveryLimit to be set on the queue definition.`,
-      );
-    }
-
-    // Check if DLX is configured (warning only)
-    if (!queue.deadLetter) {
-      this.logger?.warn(
-        `Consumer "${consumerName}" uses queue "${queue.name}" without deadLetter configured. ` +
-          `Messages exceeding deliveryLimit will be dropped instead of dead-lettered.`,
-      );
-    }
-
-    return null;
-  }
-
-  /**
-   * Start consuming messages for all consumers
+   * Start consuming messages for all consumers.
+   * TypeScript guarantees consumers exist (handlers require matching consumers).
    */
   private consumeAll(): Future<Result<void, TechnicalError>> {
-    if (!this.contract.consumers) {
-      return Future.value(Result.Error(new TechnicalError("No consumers defined in contract")));
-    }
+    const consumers = this.contract.consumers!;
+    const consumerNames = Object.keys(consumers) as InferConsumerNames<TContract>[];
 
-    // Calculate the maximum prefetch value among all consumers
-    // Since prefetch is per-channel in AMQP 0.9.1, we use the maximum value
-    const consumerNames = Object.keys(this.contract.consumers) as InferConsumerNames<TContract>[];
-    let maxPrefetch = 0;
+    // Calculate max prefetch (AMQP 0.9.1 prefetch is per-channel)
+    const maxPrefetch = consumerNames.reduce((max, name) => {
+      const prefetch = this.consumerOptions[name]?.prefetch;
+      return prefetch ? Math.max(max, prefetch) : max;
+    }, 0);
 
-    for (const consumerName of consumerNames) {
-      const options = this.consumerOptions[consumerName];
-      if (options?.prefetch !== undefined) {
-        if (options.prefetch <= 0 || !Number.isInteger(options.prefetch)) {
-          return Future.value(
-            Result.Error(
-              new TechnicalError(
-                `Invalid prefetch value for "${String(consumerName)}": must be a positive integer`,
-              ),
-            ),
-          );
-        }
-        maxPrefetch = Math.max(maxPrefetch, options.prefetch);
-      }
-    }
-
-    // Apply the maximum prefetch if any consumer specified it
     if (maxPrefetch > 0) {
-      this.amqpClient.channel.addSetup(async (channel: Channel) => {
-        await channel.prefetch(maxPrefetch);
-      });
+      this.amqpClient.channel.addSetup((channel: Channel) => channel.prefetch(maxPrefetch));
     }
 
-    return Future.all(consumerNames.map((consumerName) => this.consume(consumerName)))
+    return Future.all(consumerNames.map((name) => this.consume(name)))
       .map(Result.all)
       .mapOk(() => undefined);
   }
@@ -528,44 +331,20 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   }
 
   /**
-   * Start consuming messages for a specific consumer
+   * Start consuming messages for a specific consumer.
+   * TypeScript guarantees consumer and handler exist for valid consumer names.
    */
   private consume<TName extends InferConsumerNames<TContract>>(
     consumerName: TName,
   ): Future<Result<void, TechnicalError>> {
-    const consumers = this.contract.consumers;
-    if (!consumers) {
-      return Future.value(Result.Error(new TechnicalError("No consumers defined in contract")));
-    }
-
-    const consumer = consumers[consumerName as string];
-    if (!consumer) {
-      const availableConsumers = Object.keys(consumers);
-      const available = availableConsumers.length > 0 ? availableConsumers.join(", ") : "none";
-      return Future.value(
-        Result.Error(
-          new TechnicalError(
-            `Consumer not found: "${String(consumerName)}". Available consumers: ${available}`,
-          ),
-        ),
-      );
-    }
-
-    const handler = this.actualHandlers[consumerName];
-    if (!handler) {
-      return Future.value(
-        Result.Error(new TechnicalError(`Handler for "${String(consumerName)}" not provided`)),
-      );
-    }
+    // Non-null assertions safe: TypeScript guarantees these exist for valid TName
+    const consumer = this.contract.consumers![consumerName as string]!;
+    const handler = this.actualHandlers[consumerName]!;
 
     return this.consumeSingle(
       consumerName,
       consumer,
-      // All handlers are now safe handlers (Future<Result>)
-      handler as (
-        message: WorkerInferConsumedMessage<TContract, TName>,
-        rawMessage: ConsumeMessage,
-      ) => Future<Result<void, HandlerError>>,
+      handler as Parameters<typeof this.consumeSingle<TName>>[2],
     );
   }
 
@@ -870,7 +649,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     msg: Message,
     consumerName: string,
     consumer: ConsumerDefinition,
-    config: ResolvedRetryConfig,
+    config: ResolvedTtlBackoffRetryOptions,
   ): Future<Result<void, TechnicalError>> {
     // Get retry count from headers
     const retryCount = (msg.properties.headers?.["x-retry-count"] as number) ?? 0;
@@ -902,7 +681,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   /**
    * Calculate retry delay with exponential backoff and optional jitter.
    */
-  private calculateRetryDelay(retryCount: number, config: ResolvedRetryConfig): number {
+  private calculateRetryDelay(retryCount: number, config: ResolvedTtlBackoffRetryOptions): number {
     const { initialDelayMs, maxDelayMs, backoffMultiplier, jitter } = config;
 
     let delay = Math.min(initialDelayMs * Math.pow(backoffMultiplier, retryCount), maxDelayMs);

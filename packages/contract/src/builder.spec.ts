@@ -51,7 +51,14 @@ describe("builder", () => {
         name: "test-queue",
         type: "quorum",
         durable: true,
-        retry: { mode: "ttl-backoff" },
+        retry: {
+          mode: "ttl-backoff",
+          maxRetries: 3,
+          initialDelayMs: 1000,
+          maxDelayMs: 30000,
+          backoffMultiplier: 2,
+          jitter: true,
+        },
       });
     });
 
@@ -63,7 +70,14 @@ describe("builder", () => {
       expect(queue).toEqual({
         name: "test-queue",
         type: "quorum",
-        retry: { mode: "ttl-backoff" },
+        retry: {
+          mode: "ttl-backoff",
+          maxRetries: 3,
+          initialDelayMs: 1000,
+          maxDelayMs: 30000,
+          backoffMultiplier: 2,
+          jitter: true,
+        },
       });
     });
 
@@ -76,7 +90,14 @@ describe("builder", () => {
         name: "test-queue",
         type: "classic",
         durable: true,
-        retry: { mode: "ttl-backoff" },
+        retry: {
+          mode: "ttl-backoff",
+          maxRetries: 3,
+          initialDelayMs: 1000,
+          maxDelayMs: 30000,
+          backoffMultiplier: 2,
+          jitter: true,
+        },
       });
     });
 
@@ -104,7 +125,14 @@ describe("builder", () => {
             exchange: dlx,
             routingKey: "failed",
           },
-          retry: { mode: "ttl-backoff" },
+          retry: {
+            mode: "ttl-backoff",
+            maxRetries: 3,
+            initialDelayMs: 1000,
+            maxDelayMs: 30000,
+            backoffMultiplier: 2,
+            jitter: true,
+          },
         },
       });
     });
@@ -131,7 +159,14 @@ describe("builder", () => {
           deadLetter: {
             exchange: dlx,
           },
-          retry: { mode: "ttl-backoff" },
+          retry: {
+            mode: "ttl-backoff",
+            maxRetries: 3,
+            initialDelayMs: 1000,
+            maxDelayMs: 30000,
+            backoffMultiplier: 2,
+            jitter: true,
+          },
         },
       });
     });
@@ -145,7 +180,14 @@ describe("builder", () => {
         name: "test-queue",
         type: "classic",
         exclusive: true,
-        retry: { mode: "ttl-backoff" },
+        retry: {
+          mode: "ttl-backoff",
+          maxRetries: 3,
+          initialDelayMs: 1000,
+          maxDelayMs: 30000,
+          backoffMultiplier: 2,
+          jitter: true,
+        },
       });
     });
   });
@@ -164,7 +206,14 @@ describe("builder", () => {
         name: "priority-queue",
         type: "classic",
         durable: true,
-        retry: { mode: "ttl-backoff" },
+        retry: {
+          mode: "ttl-backoff",
+          maxRetries: 3,
+          initialDelayMs: 1000,
+          maxDelayMs: 30000,
+          backoffMultiplier: 2,
+          jitter: true,
+        },
         arguments: {
           "x-max-priority": 10,
         },
@@ -179,7 +228,14 @@ describe("builder", () => {
       expect(queue).toEqual({
         name: "priority-queue",
         type: "classic",
-        retry: { mode: "ttl-backoff" },
+        retry: {
+          mode: "ttl-backoff",
+          maxRetries: 3,
+          initialDelayMs: 1000,
+          maxDelayMs: 30000,
+          backoffMultiplier: 2,
+          jitter: true,
+        },
         arguments: {
           "x-max-priority": 5,
         },
@@ -202,7 +258,14 @@ describe("builder", () => {
         name: "priority-queue",
         type: "classic",
         durable: true,
-        retry: { mode: "ttl-backoff" },
+        retry: {
+          mode: "ttl-backoff",
+          maxRetries: 3,
+          initialDelayMs: 1000,
+          maxDelayMs: 30000,
+          backoffMultiplier: 2,
+          jitter: true,
+        },
         arguments: {
           "x-message-ttl": 60000,
           "x-max-priority": 10,
@@ -236,7 +299,14 @@ describe("builder", () => {
             exchange: dlx,
             routingKey: "failed",
           },
-          retry: { mode: "ttl-backoff" },
+          retry: {
+            mode: "ttl-backoff",
+            maxRetries: 3,
+            initialDelayMs: 1000,
+            maxDelayMs: 30000,
+            backoffMultiplier: 2,
+            jitter: true,
+          },
           arguments: {
             "x-max-priority": 10,
           },
@@ -266,7 +336,14 @@ describe("builder", () => {
       expect(queue).toEqual({
         name: "priority-queue",
         type: "classic",
-        retry: { mode: "ttl-backoff" },
+        retry: {
+          mode: "ttl-backoff",
+          maxRetries: 3,
+          initialDelayMs: 1000,
+          maxDelayMs: 30000,
+          backoffMultiplier: 2,
+          jitter: true,
+        },
         arguments: {
           "x-max-priority": 1,
         },
@@ -281,7 +358,14 @@ describe("builder", () => {
       expect(queue).toEqual({
         name: "priority-queue",
         type: "classic",
-        retry: { mode: "ttl-backoff" },
+        retry: {
+          mode: "ttl-backoff",
+          maxRetries: 3,
+          initialDelayMs: 1000,
+          maxDelayMs: 30000,
+          backoffMultiplier: 2,
+          jitter: true,
+        },
         arguments: {
           "x-max-priority": 255,
         },
@@ -302,7 +386,14 @@ describe("builder", () => {
         name: "retry-queue",
         type: "quorum",
         deliveryLimit: 3,
-        retry: { mode: "ttl-backoff" },
+        retry: {
+          mode: "ttl-backoff",
+          maxRetries: 3,
+          initialDelayMs: 1000,
+          maxDelayMs: 30000,
+          backoffMultiplier: 2,
+          jitter: true,
+        },
       });
     });
 
@@ -317,7 +408,14 @@ describe("builder", () => {
         name: "retry-queue",
         type: "quorum",
         deliveryLimit: 5,
-        retry: { mode: "ttl-backoff" },
+        retry: {
+          mode: "ttl-backoff",
+          maxRetries: 3,
+          initialDelayMs: 1000,
+          maxDelayMs: 30000,
+          backoffMultiplier: 2,
+          jitter: true,
+        },
       });
     });
 
@@ -346,7 +444,14 @@ describe("builder", () => {
             exchange: dlx,
             routingKey: "failed",
           },
-          retry: { mode: "ttl-backoff" },
+          retry: {
+            mode: "ttl-backoff",
+            maxRetries: 3,
+            initialDelayMs: 1000,
+            maxDelayMs: 30000,
+            backoffMultiplier: 2,
+            jitter: true,
+          },
         },
       });
     });
@@ -374,7 +479,14 @@ describe("builder", () => {
         name: "retry-queue",
         type: "quorum",
         deliveryLimit: 1,
-        retry: { mode: "ttl-backoff" },
+        retry: {
+          mode: "ttl-backoff",
+          maxRetries: 3,
+          initialDelayMs: 1000,
+          maxDelayMs: 30000,
+          backoffMultiplier: 2,
+          jitter: true,
+        },
       });
     });
   });

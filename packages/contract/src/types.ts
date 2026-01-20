@@ -78,6 +78,32 @@ export type QuorumNativeRetryOptions = {
 };
 
 /**
+ * Resolved TTL-Backoff retry options with all defaults applied.
+ *
+ * This type is used internally in queue definitions after `defineQueue` has applied
+ * default values. All fields are required.
+ *
+ * @internal
+ */
+export type ResolvedTtlBackoffRetryOptions = {
+  mode: "ttl-backoff";
+  maxRetries: number;
+  initialDelayMs: number;
+  maxDelayMs: number;
+  backoffMultiplier: number;
+  jitter: boolean;
+};
+
+/**
+ * Resolved retry configuration stored in queue definitions.
+ *
+ * This is a discriminated union based on the `mode` field:
+ * - `ttl-backoff`: Has all TTL-backoff options with defaults applied
+ * - `quorum-native`: No additional options (uses RabbitMQ native retry)
+ */
+export type ResolvedRetryOptions = ResolvedTtlBackoffRetryOptions | QuorumNativeRetryOptions;
+
+/**
  * Supported compression algorithms for message payloads.
  *
  * - `gzip`: GZIP compression (standard, widely supported, good compression ratio)
@@ -551,8 +577,10 @@ export type QuorumQueueDefinition = BaseQueueDefinition & {
    * Quorum queues support both:
    * - `ttl-backoff`: Uses wait queues with exponential backoff (default)
    * - `quorum-native`: Uses RabbitMQ's native delivery limit feature
+   *
+   * When the queue is created, defaults are applied for TTL-backoff options.
    */
-  retry: TtlBackoffRetryOptions | QuorumNativeRetryOptions;
+  retry: ResolvedRetryOptions;
 };
 
 /**
@@ -584,8 +612,9 @@ export type ClassicQueueDefinition = BaseQueueDefinition & {
    * Retry configuration for handling failed message processing.
    *
    * Classic queues only support TTL-backoff retry mode (default).
+   * When the queue is created, defaults are applied.
    */
-  retry: TtlBackoffRetryOptions;
+  retry: ResolvedTtlBackoffRetryOptions;
 };
 
 /**

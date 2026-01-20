@@ -19,6 +19,7 @@ import type {
   QueueWithTtlBackoffInfrastructure,
   QuorumQueueDefinition,
   QuorumQueueOptions,
+  ResolvedTtlBackoffRetryOptions,
   TopicExchangeDefinition,
   TtlBackoffRetryOptions,
 } from "./types.js";
@@ -135,6 +136,23 @@ export function defineExchange(
 }
 
 /**
+ * Resolve TTL-backoff retry options with defaults applied.
+ * @internal
+ */
+function resolveTtlBackoffOptions(
+  options: TtlBackoffRetryOptions | undefined,
+): ResolvedTtlBackoffRetryOptions {
+  return {
+    mode: "ttl-backoff",
+    maxRetries: options?.maxRetries ?? 3,
+    initialDelayMs: options?.initialDelayMs ?? 1000,
+    maxDelayMs: options?.maxDelayMs ?? 30000,
+    backoffMultiplier: options?.backoffMultiplier ?? 2,
+    jitter: options?.jitter ?? true,
+  };
+}
+
+/**
  * Define an AMQP queue.
  *
  * A queue stores messages until they are consumed by workers. Queues can be bound to exchanges
@@ -231,7 +249,22 @@ export function defineQueue(
   // Build quorum queue
   if (type === "quorum") {
     const quorumOpts = opts as QuorumQueueOptions;
-    const retry = quorumOpts.retry ?? { mode: "ttl-backoff" as const };
+    const inputRetry = quorumOpts.retry ?? { mode: "ttl-backoff" as const };
+
+    // Validate quorum-native retry requirements
+    if (inputRetry.mode === "quorum-native") {
+      if (quorumOpts.deliveryLimit === undefined) {
+        throw new Error(
+          `Queue "${name}" uses quorum-native retry mode but deliveryLimit is not configured. ` +
+            `Quorum-native retry requires deliveryLimit to be set.`,
+        );
+      }
+    }
+
+    // Resolve retry options: apply defaults for TTL-backoff, keep quorum-native as-is
+    const retry =
+      inputRetry.mode === "quorum-native" ? inputRetry : resolveTtlBackoffOptions(inputRetry);
+
     const queueDefinition: QuorumQueueDefinition = {
       ...baseProps,
       type: "quorum",
@@ -258,7 +291,18 @@ export function defineQueue(
 
   // Build classic queue
   const classicOpts = opts as ClassicQueueOptions;
-  const retry: TtlBackoffRetryOptions = classicOpts.retry ?? { mode: "ttl-backoff" };
+
+  // Classic queues cannot use quorum-native retry mode
+  if ((classicOpts.retry as { mode?: string } | undefined)?.mode === "quorum-native") {
+    throw new Error(
+      `Queue "${name}" uses quorum-native retry mode but is a classic queue. ` +
+        `Quorum-native retry requires quorum queues (type: "quorum").`,
+    );
+  }
+
+  // Resolve TTL-backoff options with defaults
+  const retry = resolveTtlBackoffOptions(classicOpts.retry);
+
   const queueDefinition: ClassicQueueDefinition = {
     ...baseProps,
     type: "classic",
@@ -318,7 +362,7 @@ function wrapWithTtlBackoffInfrastructure(
       exchange: dlx,
       routingKey: queue.name, // Routes back to main queue after TTL
     },
-    retry: { mode: "ttl-backoff" },
+    retry: resolveTtlBackoffOptions(undefined),
   };
 
   // Create binding for wait queue to receive failed messages
