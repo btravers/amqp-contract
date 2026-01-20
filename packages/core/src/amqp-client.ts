@@ -1,5 +1,3 @@
-/* eslint-disable eslint/sort-imports */
-import type { ContractDefinition } from "@amqp-contract/contract";
 import type {
   AmqpConnectionManager,
   AmqpConnectionManagerOptions,
@@ -9,8 +7,9 @@ import type {
 } from "amqp-connection-manager";
 import type { Channel, ConsumeMessage, Options } from "amqplib";
 import { Future, Result } from "@swan-io/boxed";
-import { TechnicalError } from "./errors.js";
 import { ConnectionManagerSingleton } from "./connection-manager.js";
+import type { ContractDefinition } from "@amqp-contract/contract";
+import { TechnicalError } from "./errors.js";
 import { setupAmqpTopology } from "./setup.js";
 
 /**

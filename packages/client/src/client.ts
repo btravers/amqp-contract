@@ -1,10 +1,3 @@
-/* eslint-disable eslint/sort-imports */
-import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
-import type {
-  CompressionAlgorithm,
-  ContractDefinition,
-  InferPublisherNames,
-} from "@amqp-contract/contract";
 import {
   AmqpClient,
   type Logger,
@@ -16,11 +9,17 @@ import {
   recordPublishMetric,
   startPublishSpan,
 } from "@amqp-contract/core";
+import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
+import type {
+  CompressionAlgorithm,
+  ContractDefinition,
+  InferPublisherNames,
+} from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
+import type { ClientInferPublisherInput } from "./types.js";
+import { MessageValidationError } from "./errors.js";
 import type { Options } from "amqplib";
 import { compressBuffer } from "./compression.js";
-import { MessageValidationError } from "./errors.js";
-import type { ClientInferPublisherInput } from "./types.js";
 
 /**
  * Publish options that extend amqplib's Options.Publish with optional compression support.

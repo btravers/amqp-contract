@@ -1,10 +1,9 @@
-/* eslint-disable eslint/sort-imports */
+import { Future, Result } from "@swan-io/boxed";
 import { deflate, gzip } from "node:zlib";
-import { promisify } from "node:util";
 import type { CompressionAlgorithm } from "@amqp-contract/contract";
 import { TechnicalError } from "@amqp-contract/core";
-import { Future, Result } from "@swan-io/boxed";
 import { match } from "ts-pattern";
+import { promisify } from "node:util";
 
 const gzipAsync = promisify(gzip);
 const deflateAsync = promisify(deflate);

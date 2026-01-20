@@ -1,8 +1,7 @@
-/* eslint-disable eslint/sort-imports */
-import { gunzip, inflate } from "node:zlib";
-import { promisify } from "node:util";
 import { Future, Result } from "@swan-io/boxed";
+import { gunzip, inflate } from "node:zlib";
 import { TechnicalError } from "@amqp-contract/core";
+import { promisify } from "node:util";
 
 const gunzipAsync = promisify(gunzip);
 const inflateAsync = promisify(inflate);

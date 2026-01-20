@@ -1,4 +1,3 @@
-/* eslint-disable eslint/sort-imports */
 import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
 import {
   type ClientInferPublisherInput,
@@ -7,10 +6,10 @@ import {
   TypedAmqpClient,
 } from "@amqp-contract/client";
 import type { ContractDefinition, InferPublisherNames } from "@amqp-contract/contract";
-import { TechnicalError } from "@amqp-contract/core";
 import { Future, Result } from "@swan-io/boxed";
 import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
 import { MODULE_OPTIONS_TOKEN } from "./client.module-definition.js";
+import { TechnicalError } from "@amqp-contract/core";
 
 /**
  * Configuration options for the AMQP client NestJS module.
