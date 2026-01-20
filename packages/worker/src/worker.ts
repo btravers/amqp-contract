@@ -1,6 +1,7 @@
 import {
   AmqpClient,
   type Logger,
+  TechnicalError,
   type TelemetryProvider,
   defaultTelemetryProvider,
   endSpanError,
@@ -9,7 +10,7 @@ import {
   startConsumeSpan,
 } from "@amqp-contract/core";
 import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
-import type { Channel, ConsumeMessage, Message } from "amqplib";
+import type { Channel, ConsumeMessage } from "amqplib";
 import type {
   ConsumerDefinition,
   ContractDefinition,
@@ -18,7 +19,7 @@ import type {
   ResolvedTtlBackoffRetryOptions,
 } from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
-import { MessageValidationError, NonRetryableError, TechnicalError } from "./errors.js";
+import { MessageValidationError, NonRetryableError } from "./errors.js";
 import type {
   WorkerInferConsumedMessage,
   WorkerInferSafeConsumerHandler,
@@ -275,12 +276,10 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   close(): Future<Result<void, TechnicalError>> {
     return Future.all(
       Array.from(this.consumerTags).map((consumerTag) =>
-        Future.fromPromise(this.amqpClient.channel.cancel(consumerTag)).mapErrorToResult(
-          (error) => {
-            this.logger?.warn("Failed to cancel consumer during close", { consumerTag, error });
-            return Result.Ok(undefined);
-          },
-        ),
+        this.amqpClient.cancel(consumerTag).mapErrorToResult((error) => {
+          this.logger?.warn("Failed to cancel consumer during close", { consumerTag, error });
+          return Result.Ok(undefined);
+        }),
       ),
     )
       .map(Result.all)
@@ -288,8 +287,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         // Clear consumer tags after successful cancellation
         this.consumerTags.clear();
       })
-      .flatMapOk(() => Future.fromPromise(this.amqpClient.close()))
-      .mapError((error) => new TechnicalError("Failed to close AMQP connection", error))
+      .flatMapOk(() => this.amqpClient.close())
       .mapOk(() => undefined);
   }
 
@@ -316,7 +314,9 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     }, 0);
 
     if (maxPrefetch > 0) {
-      this.amqpClient.channel.addSetup((channel: Channel) => channel.prefetch(maxPrefetch));
+      this.amqpClient.addSetup(async (channel: Channel) => {
+        await channel.prefetch(maxPrefetch);
+      });
     }
 
     return Future.all(consumerNames.map((name) => this.consume(name)))
@@ -325,9 +325,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   }
 
   private waitForConnectionReady(): Future<Result<void, TechnicalError>> {
-    return Future.fromPromise(this.amqpClient.channel.waitForConnect()).mapError(
-      (error) => new TechnicalError("Failed to wait for connection ready", error),
-    );
+    return this.amqpClient.waitForConnect();
   }
 
   /**
@@ -355,7 +353,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     schema: StandardSchemaV1,
     data: unknown,
     context: { consumerName: string; queueName: string; field: string },
-    msg: Message,
+    msg: ConsumeMessage,
   ): Future<Result<unknown, TechnicalError>> {
     const rawValidation = schema["~standard"].validate(data);
     const validationPromise =
@@ -380,7 +378,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           queueName: context.queueName,
           error,
         });
-        this.amqpClient.channel.nack(msg, false, false);
+        this.amqpClient.nack(msg, false, false);
       });
   }
 
@@ -389,7 +387,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * @returns Ok with validated message (payload + headers), or Error (message already nacked)
    */
   private parseAndValidateMessage<TName extends InferConsumerNames<TContract>>(
-    msg: Message,
+    msg: ConsumeMessage,
     consumer: ConsumerDefinition,
     consumerName: TName,
   ): Future<Result<WorkerInferConsumedMessage<TContract, TName>, TechnicalError>> {
@@ -400,15 +398,16 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
     const nackAndError = (message: string, error?: unknown): TechnicalError => {
       this.logger?.error(message, { ...context, error });
-      this.amqpClient.channel.nack(msg, false, false);
+      this.amqpClient.nack(msg, false, false);
       return new TechnicalError(message, error);
     };
 
     // Decompress → Parse JSON → Validate payload
-    const parsePayload = Future.fromPromise(
-      decompressBuffer(msg.content, msg.properties.contentEncoding),
-    )
-      .mapError((error) => nackAndError("Failed to decompress message", error))
+    const parsePayload = decompressBuffer(msg.content, msg.properties.contentEncoding)
+      .tapError((error) => {
+        this.logger?.error("Failed to decompress message", { ...context, error });
+        this.amqpClient.nack(msg, false, false);
+      })
       .mapOkToResult((buffer) =>
         Result.fromExecution(() => JSON.parse(buffer.toString()) as unknown).mapError((error) =>
           nackAndError("Failed to parse JSON", error),
@@ -452,8 +451,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     const queueName = consumer.queue.name;
 
     // Start consuming
-    return Future.fromPromise(
-      this.amqpClient.channel.consume(queueName, async (msg) => {
+    return this.amqpClient
+      .consume(queueName, async (msg) => {
         // Handle null messages (consumer cancellation)
         if (msg === null) {
           this.logger?.warn("Consumer cancelled by server", {
@@ -478,7 +477,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
                   queueName,
                 });
                 // Acknowledge message on success
-                this.amqpClient.channel.ack(msg);
+                this.amqpClient.ack(msg);
 
                 // Record telemetry success
                 const durationMs = Date.now() - startTime;
@@ -526,11 +525,10 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
             recordConsumeMetric(this.telemetry, queueName, String(consumerName), false, durationMs);
           })
           .toPromise();
-      }),
-    )
-      .tapOk((reply) => {
+      })
+      .tapOk((consumerTag) => {
         // Store consumer tag for later cancellation
-        this.consumerTags.add(reply.consumerTag);
+        this.consumerTags.add(consumerTag);
       })
       .mapError(
         (error) =>
@@ -558,7 +556,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    */
   private handleError(
     error: Error,
-    msg: Message,
+    msg: ConsumeMessage,
     consumerName: string,
     consumer: ConsumerDefinition,
   ): Future<Result<void, TechnicalError>> {
@@ -596,7 +594,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    */
   private handleErrorQuorumNative(
     error: Error,
-    msg: Message,
+    msg: ConsumeMessage,
     consumerName: string,
     consumer: ConsumerDefinition,
   ): Future<Result<void, TechnicalError>> {
@@ -637,7 +635,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     }
 
     // Requeue the message - RabbitMQ tracks delivery count and handles dead-lettering
-    this.amqpClient.channel.nack(msg, false, true);
+    this.amqpClient.nack(msg, false, true);
     return Future.value(Result.Ok(undefined));
   }
 
@@ -646,7 +644,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    */
   private handleErrorTtlBackoff(
     error: Error,
-    msg: Message,
+    msg: ConsumeMessage,
     consumerName: string,
     consumer: ConsumerDefinition,
     config: ResolvedTtlBackoffRetryOptions,
@@ -698,7 +696,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * Parse message content for republishing.
    * Prevents double JSON serialization by converting Buffer to object when possible.
    */
-  private parseMessageContentForRetry(msg: Message, queueName: string): Buffer | unknown {
+  private parseMessageContentForRetry(msg: ConsumeMessage, queueName: string): Buffer | unknown {
     let content: Buffer | unknown = msg.content;
 
     // If message is not compressed (no contentEncoding), parse it to get the original object
@@ -742,7 +740,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * └─────────────────────────────────────────────────────────────────┘
    */
   private publishForRetry(
-    msg: Message,
+    msg: ConsumeMessage,
     consumer: ConsumerDefinition,
     newRetryCount: number,
     delayMs: number,
@@ -758,7 +756,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           queueName,
         },
       );
-      this.amqpClient.channel.nack(msg, false, true);
+      this.amqpClient.nack(msg, false, true);
       return Future.value(Result.Ok(undefined));
     }
 
@@ -766,13 +764,13 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     const waitRoutingKey = `${queueName}-wait`;
 
     // Acknowledge original message
-    this.amqpClient.channel.ack(msg);
+    this.amqpClient.ack(msg);
 
     const content = this.parseMessageContentForRetry(msg, queueName);
 
     // Publish to DLX with wait routing key
-    return Future.fromPromise(
-      this.amqpClient.channel.publish(dlxName, waitRoutingKey, content, {
+    return this.amqpClient
+      .publish(dlxName, waitRoutingKey, content, {
         ...msg.properties,
         expiration: delayMs.toString(), // Per-message TTL
         headers: {
@@ -782,9 +780,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           "x-first-failure-timestamp":
             msg.properties.headers?.["x-first-failure-timestamp"] ?? Date.now(),
         },
-      }),
-    )
-      .mapError((error) => new TechnicalError("Failed to publish message for retry", error))
+      })
       .mapOkToResult((published) => {
         if (!published) {
           this.logger?.error("Failed to publish message for retry (write buffer full)", {
@@ -811,7 +807,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * Send message to dead letter queue.
    * Nacks the message without requeue, relying on DLX configuration.
    */
-  private sendToDLQ(msg: Message, consumer: ConsumerDefinition): void {
+  private sendToDLQ(msg: ConsumeMessage, consumer: ConsumerDefinition): void {
     const queueName = consumer.queue.name;
     const hasDeadLetter = consumer.queue.deadLetter !== undefined;
 
@@ -827,6 +823,6 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     });
 
     // Nack without requeue - relies on DLX configuration
-    this.amqpClient.channel.nack(msg, false, false);
+    this.amqpClient.nack(msg, false, false);
   }
 }

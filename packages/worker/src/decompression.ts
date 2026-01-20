@@ -1,5 +1,8 @@
+/* eslint-disable eslint/sort-imports */
 import { gunzip, inflate } from "node:zlib";
 import { promisify } from "node:util";
+import { Future, Result } from "@swan-io/boxed";
+import { TechnicalError } from "@amqp-contract/core";
 
 const gunzipAsync = promisify(gunzip);
 const inflateAsync = promisify(inflate);
@@ -9,25 +12,30 @@ const inflateAsync = promisify(inflate);
  *
  * @param buffer - The buffer to decompress
  * @param contentEncoding - The content-encoding header value (e.g., 'gzip', 'deflate')
- * @returns A promise that resolves to the decompressed buffer
- * @throws Error if decompression fails or if the encoding is unsupported
+ * @returns A Future with the decompressed buffer or a TechnicalError
  *
  * @internal
  */
-export async function decompressBuffer(
+export function decompressBuffer(
   buffer: Buffer,
   contentEncoding: string | undefined,
-): Promise<Buffer> {
+): Future<Result<Buffer, TechnicalError>> {
   if (!contentEncoding) {
-    return buffer; // No compression
+    return Future.value(Result.Ok(buffer));
   }
 
   switch (contentEncoding.toLowerCase()) {
     case "gzip":
-      return gunzipAsync(buffer);
+      return Future.fromPromise(gunzipAsync(buffer)).mapError(
+        (error) => new TechnicalError("Failed to decompress gzip", error),
+      );
     case "deflate":
-      return inflateAsync(buffer);
+      return Future.fromPromise(inflateAsync(buffer)).mapError(
+        (error) => new TechnicalError("Failed to decompress deflate", error),
+      );
     default:
-      throw new Error(`Unsupported content-encoding: ${contentEncoding}`);
+      return Future.value(
+        Result.Error(new TechnicalError(`Unsupported content-encoding: ${contentEncoding}`)),
+      );
   }
 }

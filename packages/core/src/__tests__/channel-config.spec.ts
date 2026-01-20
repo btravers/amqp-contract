@@ -26,14 +26,14 @@ describe("AmqpClient Channel Configuration", () => {
       },
     });
 
-    await client.channel.waitForConnect();
+    await client.waitForConnect().resultToPromise();
 
     // THEN - Channel should be created with json: false
     // We can't directly test the internal json setting, but we can verify the client was created
-    expect(client.channel).toBeDefined();
+    expect(client.getConnection()).toBeDefined();
 
     // CLEANUP
-    await client.close();
+    await client.close().resultToPromise();
   });
 
   it("should keep json as true by default", async ({ amqpConnectionUrl }) => {
@@ -49,13 +49,13 @@ describe("AmqpClient Channel Configuration", () => {
       urls: [amqpConnectionUrl],
     });
 
-    await client.channel.waitForConnect();
+    await client.waitForConnect().resultToPromise();
 
     // THEN - Default json: true should be used
-    expect(client.channel).toBeDefined();
+    expect(client.getConnection()).toBeDefined();
 
     // CLEANUP
-    await client.close();
+    await client.close().resultToPromise();
   });
 
   it("should call custom setup function after topology setup", async ({
@@ -82,7 +82,7 @@ describe("AmqpClient Channel Configuration", () => {
       },
     });
 
-    await client.channel.waitForConnect();
+    await client.waitForConnect().resultToPromise();
 
     // THEN - Custom setup should have been called
     expect(customSetupMock).toHaveBeenCalledTimes(1);
@@ -93,7 +93,7 @@ describe("AmqpClient Channel Configuration", () => {
     await expect(amqpChannel.checkQueue("custom-queue")).resolves.toBeDefined();
 
     // CLEANUP
-    await client.close();
+    await client.close().resultToPromise();
   });
 
   it("should support callback-based custom setup function", async ({
@@ -123,7 +123,7 @@ describe("AmqpClient Channel Configuration", () => {
       },
     });
 
-    await client.channel.waitForConnect();
+    await client.waitForConnect().resultToPromise();
 
     // THEN - Callback setup should have been called
     expect(callbackSetupMock).toHaveBeenCalledTimes(1);
@@ -133,7 +133,7 @@ describe("AmqpClient Channel Configuration", () => {
     await expect(amqpChannel.checkQueue("callback-queue")).resolves.toBeDefined();
 
     // CLEANUP
-    await client.close();
+    await client.close().resultToPromise();
   });
 
   it("should override default channel name", async ({ amqpConnectionUrl }) => {
@@ -154,13 +154,13 @@ describe("AmqpClient Channel Configuration", () => {
       },
     });
 
-    await client.channel.waitForConnect();
+    await client.waitForConnect().resultToPromise();
 
     // THEN - Channel should be created
-    expect(client.channel).toBeDefined();
+    expect(client.getConnection()).toBeDefined();
 
     // CLEANUP
-    await client.close();
+    await client.close().resultToPromise();
   });
 
   it("should allow setting confirmChannel option", async ({ amqpConnectionUrl }) => {
@@ -179,13 +179,13 @@ describe("AmqpClient Channel Configuration", () => {
       },
     });
 
-    await client.channel.waitForConnect();
+    await client.waitForConnect().resultToPromise();
 
     // THEN - Confirm channel should be created
-    expect(client.channel).toBeDefined();
+    expect(client.getConnection()).toBeDefined();
 
     // CLEANUP
-    await client.close();
+    await client.close().resultToPromise();
   });
 
   it("should combine user channel options with defaults", async ({ amqpConnectionUrl }) => {
@@ -205,12 +205,12 @@ describe("AmqpClient Channel Configuration", () => {
       },
     });
 
-    await client.channel.waitForConnect();
+    await client.waitForConnect().resultToPromise();
 
     // THEN - All options should be applied
-    expect(client.channel).toBeDefined();
+    expect(client.getConnection()).toBeDefined();
 
     // CLEANUP
-    await client.close();
+    await client.close().resultToPromise();
   });
 });

@@ -1,6 +1,14 @@
+/* eslint-disable eslint/sort-imports */
+import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
+import type {
+  CompressionAlgorithm,
+  ContractDefinition,
+  InferPublisherNames,
+} from "@amqp-contract/contract";
 import {
   AmqpClient,
   type Logger,
+  TechnicalError,
   type TelemetryProvider,
   defaultTelemetryProvider,
   endSpanError,
@@ -8,17 +16,11 @@ import {
   recordPublishMetric,
   startPublishSpan,
 } from "@amqp-contract/core";
-import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
-import type {
-  CompressionAlgorithm,
-  ContractDefinition,
-  InferPublisherNames,
-} from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
-import { MessageValidationError, TechnicalError } from "./errors.js";
-import type { ClientInferPublisherInput } from "./types.js";
 import type { Options } from "amqplib";
 import { compressBuffer } from "./compression.js";
+import { MessageValidationError } from "./errors.js";
+import type { ClientInferPublisherInput } from "./types.js";
 
 /**
  * Publish options that extend amqplib's Options.Publish with optional compression support.
@@ -148,9 +150,7 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
           const messageBuffer = Buffer.from(JSON.stringify(validatedMessage));
           publishOptions.contentEncoding = compression;
 
-          return Future.fromPromise(compressBuffer(messageBuffer, compression))
-            .mapError((error) => new TechnicalError(`Failed to compress message`, error))
-            .map((compressedBuffer) => Result.Ok(compressedBuffer));
+          return compressBuffer(messageBuffer, compression);
         }
 
         // No compression: use the channel's built-in JSON serialization
@@ -159,15 +159,8 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
 
       // Publish the prepared payload
       return preparePayload().flatMapOk((payload) =>
-        Future.fromPromise(
-          this.amqpClient.channel.publish(
-            publisher.exchange.name,
-            publisher.routingKey ?? "",
-            payload,
-            publishOptions,
-          ),
-        )
-          .mapError((error) => new TechnicalError(`Failed to publish message`, error))
+        this.amqpClient
+          .publish(publisher.exchange.name, publisher.routingKey ?? "", payload, publishOptions)
           .mapOkToResult((published) => {
             if (!published) {
               return Result.Error(
@@ -208,14 +201,10 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
    * Close the channel and connection
    */
   close(): Future<Result<void, TechnicalError>> {
-    return Future.fromPromise(this.amqpClient.close())
-      .mapError((error) => new TechnicalError("Failed to close AMQP connection", error))
-      .mapOk(() => undefined);
+    return this.amqpClient.close().mapOk(() => undefined);
   }
 
   private waitForConnectionReady(): Future<Result<void, TechnicalError>> {
-    return Future.fromPromise(this.amqpClient.channel.waitForConnect()).mapError(
-      (error) => new TechnicalError("Failed to wait for connection ready", error),
-    );
+    return this.amqpClient.waitForConnect();
   }
 }
