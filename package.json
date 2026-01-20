@@ -31,5 +31,10 @@
     "sort-package-json": "catalog:",
     "turbo": "catalog:"
   },
-  "packageManager": "pnpm@10.27.0"
+  "packageManager": "pnpm@10.27.0",
+  "pnpm": {
+    "overrides": {
+      "preact": ">=10.28.2"
+    }
+  }
 }

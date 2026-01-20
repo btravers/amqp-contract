@@ -113,6 +113,7 @@ export default withMermaid(
             items: [
               { text: "Connection Sharing", link: "/guide/connection-sharing" },
               { text: "Channel Configuration", link: "/guide/channel-configuration" },
+              { text: "OpenTelemetry Observability", link: "/guide/opentelemetry-observability" },
             ],
           },
           {

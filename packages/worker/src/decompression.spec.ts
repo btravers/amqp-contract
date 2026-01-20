@@ -42,16 +42,19 @@ describe("Decompression utilities", () => {
       expect(decompressed).toEqual(testData);
     });
 
-    it("should return error for unknown content-encoding", async () => {
+    it("should return error for unknown content-encoding with helpful message", async () => {
       const testData = Buffer.from(JSON.stringify({ message: "Hello, World!" }));
 
-      const result = await decompressBuffer(testData, "unknown-encoding").toPromise();
+      const result = await decompressBuffer(testData, "brotli").toPromise();
 
       expect(result.isError()).toBe(true);
       result.match({
         Ok: () => expect.fail("Expected error"),
-        Error: (error) =>
-          expect(error.message).toBe("Unsupported content-encoding: unknown-encoding"),
+        Error: (error) => {
+          expect(error.message).toContain('Unsupported content-encoding: "brotli"');
+          expect(error.message).toContain("Supported encodings are: gzip, deflate");
+          expect(error.message).toContain("Please check your publisher configuration");
+        },
       });
     });
 
