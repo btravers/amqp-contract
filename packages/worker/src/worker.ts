@@ -61,20 +61,8 @@ function isHandlerTuple(entry: unknown): entry is [unknown, ConsumerOptions] {
  * Type guard to check if a value is a Standard Schema v1 compliant schema.
  */
 function isStandardSchema(value: unknown): value is StandardSchemaV1 {
-  if (typeof value !== "object" || value === null) {
-    return false;
-  }
-  if (!("~standard" in value)) {
-    return false;
-  }
-  const standard = (value as { "~standard": unknown })["~standard"];
-  if (typeof standard !== "object" || standard === null) {
-    return false;
-  }
-  if (!("validate" in standard)) {
-    return false;
-  }
-  return typeof (standard as { validate: unknown }).validate === "function";
+  const standard = (value as StandardSchemaV1 | null)?.["~standard"];
+  return typeof standard?.validate === "function";
 }
 
 /**
@@ -274,7 +262,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     // Note: Wait queues are now created by the core package in setupAmqpTopology
     // when the queue's retry mode is "ttl-backoff"
     return worker
-      .waitForConnectionReady()
+      .validateSchemas()
+      .flatMapOk(() => worker.waitForConnectionReady())
       .flatMapOk(() => worker.validateRetryConfiguration())
       .flatMapOk(() => worker.consumeAll())
       .mapOk(() => worker);
@@ -318,6 +307,50 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   }
 
   /**
+   * Validate message schemas for all consumers at boot time.
+   *
+   * Ensures that payload and headers schemas are Standard Schema v1 compliant.
+   * This validation happens once at startup rather than on every message.
+   */
+  private validateSchemas(): Future<Result<void, TechnicalError>> {
+    if (!this.contract.consumers) {
+      return Future.value(Result.Ok(undefined));
+    }
+
+    for (const consumerName of Object.keys(
+      this.contract.consumers,
+    ) as InferConsumerNames<TContract>[]) {
+      const consumer = this.contract.consumers[consumerName as string];
+      if (!consumer) continue;
+
+      // Validate payload schema
+      if (!isStandardSchema(consumer.message.payload)) {
+        return Future.value(
+          Result.Error(
+            new TechnicalError(
+              `Invalid payload schema for consumer "${String(consumerName)}": not a Standard Schema v1 compliant schema`,
+            ),
+          ),
+        );
+      }
+
+      // Validate headers schema (if defined)
+      const headersSchema = consumer.message.headers;
+      if (headersSchema !== undefined && !isStandardSchema(headersSchema)) {
+        return Future.value(
+          Result.Error(
+            new TechnicalError(
+              `Invalid headers schema for consumer "${String(consumerName)}": not a Standard Schema v1 compliant schema`,
+            ),
+          ),
+        );
+      }
+    }
+
+    return Future.value(Result.Ok(undefined));
+  }
+
+  /**
    * Validate retry configuration for all consumers.
    *
    * For quorum-native mode, validates that the queue is properly configured.
@@ -335,7 +368,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       if (!consumer) continue;
 
       const queue = consumer.queue;
-      const retryMode = queue.retry?.mode ?? "ttl-backoff";
+      const retryMode = queue.retry.mode;
 
       // For quorum-native mode, validate queue configuration
       if (retryMode === "quorum-native") {
@@ -382,7 +415,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
     // For quorum-native mode, TTL-backoff options are not used
     // but we still provide defaults for internal consistency
-    if (retryOptions?.mode === "quorum-native") {
+    if (retryOptions.mode === "quorum-native") {
       return {
         mode: "quorum-native",
         maxRetries: 0, // Not used in quorum-native mode
@@ -393,26 +426,14 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       };
     }
 
-    // TTL-backoff mode (default): extract options with defaults
-    if (retryOptions?.mode === "ttl-backoff") {
-      return {
-        mode: "ttl-backoff",
-        maxRetries: retryOptions.maxRetries ?? 3,
-        initialDelayMs: retryOptions.initialDelayMs ?? 1000,
-        maxDelayMs: retryOptions.maxDelayMs ?? 30000,
-        backoffMultiplier: retryOptions.backoffMultiplier ?? 2,
-        jitter: retryOptions.jitter ?? true,
-      };
-    }
-
-    // No retry configured - use default TTL-backoff
+    // TTL-backoff mode: extract options with defaults
     return {
       mode: "ttl-backoff",
-      maxRetries: 3,
-      initialDelayMs: 1000,
-      maxDelayMs: 30000,
-      backoffMultiplier: 2,
-      jitter: true,
+      maxRetries: retryOptions.maxRetries ?? 3,
+      initialDelayMs: retryOptions.initialDelayMs ?? 1000,
+      maxDelayMs: retryOptions.maxDelayMs ?? 30000,
+      backoffMultiplier: retryOptions.backoffMultiplier ?? 2,
+      jitter: retryOptions.jitter ?? true,
     };
   }
 
@@ -549,140 +570,93 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   }
 
   /**
-   * Parse and validate a message from AMQP
-   * @returns `Future<Result<consumed message, void>>` - Ok with validated consumed message (payload + headers), or Error (already handled with nack)
+   * Validate data against a Standard Schema and handle errors.
+   */
+  private validateSchema(
+    schema: StandardSchemaV1,
+    data: unknown,
+    context: { consumerName: string; queueName: string; field: string },
+    msg: Message,
+  ): Future<Result<unknown, TechnicalError>> {
+    const rawValidation = schema["~standard"].validate(data);
+    const validationPromise =
+      rawValidation instanceof Promise ? rawValidation : Promise.resolve(rawValidation);
+
+    return Future.fromPromise(validationPromise)
+      .mapError((error) => new TechnicalError(`Error validating ${context.field}`, error))
+      .mapOkToResult((result) => {
+        if (result.issues) {
+          return Result.Error(
+            new TechnicalError(
+              `${context.field} validation failed`,
+              new MessageValidationError(context.consumerName, result.issues),
+            ),
+          );
+        }
+        return Result.Ok(result.value);
+      })
+      .tapError((error) => {
+        this.logger?.error(`${context.field} validation failed`, {
+          consumerName: context.consumerName,
+          queueName: context.queueName,
+          error,
+        });
+        this.amqpClient.channel.nack(msg, false, false);
+      });
+  }
+
+  /**
+   * Parse and validate a message from AMQP.
+   * @returns Ok with validated message (payload + headers), or Error (message already nacked)
    */
   private parseAndValidateMessage<TName extends InferConsumerNames<TContract>>(
     msg: Message,
     consumer: ConsumerDefinition,
     consumerName: TName,
-  ): Future<Result<WorkerInferConsumedMessage<TContract, TName>, void>> {
-    // Decompress message if needed
-    const decompressMessage: Future<Result<Buffer, void>> = Future.fromPromise(
+  ): Future<Result<WorkerInferConsumedMessage<TContract, TName>, TechnicalError>> {
+    const context = {
+      consumerName: String(consumerName),
+      queueName: consumer.queue.name,
+    };
+
+    const nackAndError = (message: string, error?: unknown): TechnicalError => {
+      this.logger?.error(message, { ...context, error });
+      this.amqpClient.channel.nack(msg, false, false);
+      return new TechnicalError(message, error);
+    };
+
+    // Decompress → Parse JSON → Validate payload
+    const parsePayload = Future.fromPromise(
       decompressBuffer(msg.content, msg.properties.contentEncoding),
     )
-      .tapError((error) => {
-        this.logger?.error("Error decompressing message", {
-          consumerName: String(consumerName),
-          queueName: consumer.queue.name,
-          contentEncoding: msg.properties.contentEncoding,
-          error,
-        });
-
-        // Reject message with no requeue (decompression failed)
-        this.amqpClient.channel.nack(msg, false, false);
-      })
-      .mapError((): void => undefined);
-
-    // Parse message
-    const parseMessage = (buffer: Buffer): Future<Result<unknown, void>> => {
-      const parseResult = Result.fromExecution(() => JSON.parse(buffer.toString()));
-      if (parseResult.isError()) {
-        this.logger?.error("Error parsing message", {
-          consumerName: String(consumerName),
-          queueName: consumer.queue.name,
-          error: parseResult.error,
-        });
-
-        // Reject message with no requeue (malformed JSON)
-        this.amqpClient.channel.nack(msg, false, false);
-        return Future.value(Result.Error<unknown, void>(undefined));
-      }
-      return Future.value(Result.Ok<unknown, void>(parseResult.value));
-    };
-
-    // Validate payload
-    const validatePayload = (parsedMessage: unknown): Future<Result<unknown, void>> => {
-      const rawValidation = consumer.message.payload["~standard"].validate(parsedMessage);
-      return Future.fromPromise(
-        rawValidation instanceof Promise ? rawValidation : Promise.resolve(rawValidation),
+      .mapError((error) => nackAndError("Failed to decompress message", error))
+      .mapOkToResult((buffer) =>
+        Result.fromExecution(() => JSON.parse(buffer.toString()) as unknown).mapError((error) =>
+          nackAndError("Failed to parse JSON", error),
+        ),
       )
-        .mapError((): void => undefined)
-        .mapOkToResult((validationResult) => {
-          if (validationResult.issues) {
-            const error = new MessageValidationError(String(consumerName), validationResult.issues);
-            this.logger?.error("Message payload validation failed", {
-              consumerName: String(consumerName),
-              queueName: consumer.queue.name,
-              error,
-            });
+      .flatMapOk((parsed) =>
+        this.validateSchema(
+          consumer.message.payload as StandardSchemaV1,
+          parsed,
+          { ...context, field: "payload" },
+          msg,
+        ),
+      );
 
-            // Reject message with no requeue (validation failed)
-            this.amqpClient.channel.nack(msg, false, false);
-            return Result.Error<unknown, void>(undefined);
-          }
+    // Validate headers (if schema defined)
+    const parseHeaders = consumer.message.headers
+      ? this.validateSchema(
+          consumer.message.headers as StandardSchemaV1,
+          msg.properties.headers ?? {},
+          { ...context, field: "headers" },
+          msg,
+        )
+      : Future.value(Result.Ok<unknown, TechnicalError>(undefined));
 
-          return Result.Ok<unknown, void>(validationResult.value);
-        });
-    };
-
-    // Validate headers (if schema is defined)
-    const validateHeaders = (): Future<Result<unknown, void>> => {
-      const headersSchema = consumer.message.headers;
-      if (!headersSchema) {
-        // No headers schema defined - return undefined for headers
-        return Future.value(Result.Ok<unknown, void>(undefined));
-      }
-
-      // Validate that the schema is a Standard Schema v1 compliant schema
-      if (!isStandardSchema(headersSchema)) {
-        const error = new MessageValidationError(
-          String(consumerName),
-          "Invalid headers schema: not a Standard Schema v1 compliant schema",
-        );
-        this.logger?.error("Message headers validation failed", {
-          consumerName: String(consumerName),
-          queueName: consumer.queue.name,
-          error,
-        });
-        // Reject message with no requeue (invalid schema configuration)
-        this.amqpClient.channel.nack(msg, false, false);
-        return Future.value(Result.Error<unknown, void>(undefined));
-      }
-
-      // After type guard, we know headersSchema is a valid StandardSchemaV1
-      const validSchema: StandardSchemaV1 = headersSchema;
-      const rawHeaders = msg.properties.headers ?? {};
-      const rawValidation = validSchema["~standard"].validate(rawHeaders);
-      return Future.fromPromise(
-        rawValidation instanceof Promise ? rawValidation : Promise.resolve(rawValidation),
-      )
-        .mapError((): void => undefined)
-        .mapOkToResult((validationResult: StandardSchemaV1.Result<unknown>) => {
-          if (validationResult.issues) {
-            const error = new MessageValidationError(String(consumerName), validationResult.issues);
-            this.logger?.error("Message headers validation failed", {
-              consumerName: String(consumerName),
-              queueName: consumer.queue.name,
-              error,
-            });
-
-            // Reject message with no requeue (validation failed)
-            this.amqpClient.channel.nack(msg, false, false);
-            return Result.Error<unknown, void>(undefined);
-          }
-
-          return Result.Ok<unknown, void>(validationResult.value);
-        });
-    };
-
-    // Build the consumed message
-    const buildConsumedMessage = (
-      validatedPayload: unknown,
-    ): Future<Result<WorkerInferConsumedMessage<TContract, TName>, void>> => {
-      return validateHeaders().mapOk((validatedHeaders) => {
-        // Always return both payload and headers (headers may be undefined)
-        return {
-          payload: validatedPayload,
-          headers: validatedHeaders,
-        } as WorkerInferConsumedMessage<TContract, TName>;
-      });
-    };
-
-    return decompressMessage
-      .flatMapOk(parseMessage)
-      .flatMapOk(validatePayload)
-      .flatMapOk(buildConsumedMessage);
+    return Future.allFromDict({ payload: parsePayload, headers: parseHeaders }).map(
+      Result.allFromDict,
+    ) as Future<Result<WorkerInferConsumedMessage<TContract, TName>, TechnicalError>>;
   }
 
   /**
