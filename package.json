@@ -5,6 +5,11 @@
   "license": "MIT",
   "author": "Benoit TRAVERS <benoit.travers.fr@gmail.com>",
   "type": "module",
+  "pnpm": {
+    "overrides": {
+      "preact": ">=10.28.2"
+    }
+  },
   "scripts": {
     "build": "turbo run build",
     "changeset": "changeset",
