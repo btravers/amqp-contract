@@ -100,31 +100,22 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
    *
    * @returns Result.Ok(void) on success, or Result.Error with specific error on failure
    */
+  /**
+   * Publish a message using a defined publisher.
+   * TypeScript guarantees publisher exists for valid publisher names.
+   */
   publish<TName extends InferPublisherNames<TContract>>(
     publisherName: TName,
     message: ClientInferPublisherInput<TContract, TName>,
     options?: PublishOptions,
   ): Future<Result<void, TechnicalError | MessageValidationError>> {
     const startTime = Date.now();
-    const publishers = this.contract.publishers;
-    if (!publishers) {
-      return Future.value(Result.Error(new TechnicalError("No publishers defined in contract")));
-    }
-
-    const publisher = publishers[publisherName as string];
-    if (!publisher) {
-      return Future.value(
-        Result.Error(
-          new TechnicalError(`Publisher "${String(publisherName)}" not found in contract`),
-        ),
-      );
-    }
-
-    const exchangeName = publisher.exchange.name;
-    const routingKey = publisher.routingKey;
+    // Non-null assertions safe: TypeScript guarantees these exist for valid TName
+    const publisher = this.contract.publishers![publisherName as string]!;
+    const { exchange, routingKey } = publisher;
 
     // Start telemetry span
-    const span = startPublishSpan(this.telemetry, exchangeName, routingKey, {
+    const span = startPublishSpan(this.telemetry, exchange.name, routingKey, {
       "amqp.publisher.name": String(publisherName),
     });
 
@@ -204,12 +195,12 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
       .tapOk(() => {
         const durationMs = Date.now() - startTime;
         endSpanSuccess(span);
-        recordPublishMetric(this.telemetry, exchangeName, routingKey, true, durationMs);
+        recordPublishMetric(this.telemetry, exchange.name, routingKey, true, durationMs);
       })
       .tapError((error) => {
         const durationMs = Date.now() - startTime;
         endSpanError(span, error);
-        recordPublishMetric(this.telemetry, exchangeName, routingKey, false, durationMs);
+        recordPublishMetric(this.telemetry, exchange.name, routingKey, false, durationMs);
       });
   }
 
