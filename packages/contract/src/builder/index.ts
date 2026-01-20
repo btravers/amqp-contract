@@ -11,7 +11,14 @@ export { defineExchange } from "./exchange.js";
 export { defineMessage } from "./message.js";
 
 // Queue
-export { defineQueue, extractQueue, isQueueWithTtlBackoffInfrastructure } from "./queue.js";
+export {
+  defineQueue,
+  defineQuorumQueue,
+  defineTtlBackoffQueue,
+  extractQueue,
+  isQueueWithTtlBackoffInfrastructure,
+} from "./queue.js";
+export type { DefineQuorumQueueOptions, DefineTtlBackoffQueueOptions } from "./queue.js";
 
 // Bindings
 export { defineQueueBinding, defineExchangeBinding } from "./binding.js";

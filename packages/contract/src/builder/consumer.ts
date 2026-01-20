@@ -10,6 +10,19 @@ import { extractQueue } from "./queue.js";
  * Consumers are associated with a specific queue and message type. When you create a worker
  * with this consumer, it will process messages from the queue according to the schema.
  *
+ * **Which pattern to use:**
+ *
+ * | Pattern | Best for | Description |
+ * |---------|----------|-------------|
+ * | `definePublisher` + `defineConsumer` | Independent definition | Define publishers and consumers separately with manual schema consistency |
+ * | `definePublisherFirst` | Event broadcasting | Define publisher first, create linked consumers that share the same message schema |
+ * | `defineConsumerFirst` | Request handling | Define consumer first, create linked publishers that share the same message schema |
+ *
+ * Use `defineConsumerFirst` when:
+ * - One consumer receives from multiple publishers
+ * - You want automatic schema consistency between consumer and publishers
+ * - You're building request-handling patterns
+ *
  * @param queue - The queue definition to consume from
  * @param message - The message definition with payload schema
  * @param options - Optional consumer configuration
@@ -42,6 +55,9 @@ import { extractQueue } from "./queue.js";
  * //   connection
  * // });
  * ```
+ *
+ * @see defineConsumerFirst - For request-handling patterns with automatic schema consistency
+ * @see definePublisherFirst - For event-driven patterns with automatic schema consistency
  */
 export function defineConsumer<TMessage extends MessageDefinition>(
   queue: QueueEntry,

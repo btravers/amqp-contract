@@ -243,11 +243,11 @@ packages/[package-name]/
 
 ### ✅ Required Practices
 
-1. **Safe Handlers (Recommended)**
+1. **Future/Result Handlers (Recommended)**
    - Use `defineHandler` for all new code
    - Returns `Future<Result<void, HandlerError>>` for explicit error handling
-   - Use `RetryableError` for transient failures that should be retried
-   - Use `NonRetryableError` for permanent failures that go to DLQ
+   - Use `RetryableError` (or `retryable()` factory) for transient failures that should be retried
+   - Use `NonRetryableError` (or `nonRetryable()` factory) for permanent failures that go to DLQ
 
    ```typescript
    import { defineHandler, RetryableError, NonRetryableError } from "@amqp-contract/worker";
@@ -286,17 +286,17 @@ packages/[package-name]/
    ```
 
 3. **Type Inference for Handlers**
-   - Use `WorkerInferSafeConsumerHandler<Contract, Name>` for handler types
-   - Use `WorkerInferSafeConsumerHandlers<Contract>` for all handlers
+   - Use `WorkerInferConsumerHandler<Contract, Name>` for handler types
+   - Use `WorkerInferConsumerHandlers<Contract>` for all handlers
 
    ```typescript
    import type {
-     WorkerInferSafeConsumerHandler,
-     WorkerInferSafeConsumerHandlers,
+     WorkerInferConsumerHandler,
+     WorkerInferConsumerHandlers,
    } from "@amqp-contract/worker";
 
-   type OrderHandler = WorkerInferSafeConsumerHandler<typeof contract, "processOrder">;
-   type AllHandlers = WorkerInferSafeConsumerHandlers<typeof contract>;
+   type OrderHandler = WorkerInferConsumerHandler<typeof contract, "processOrder">;
+   type AllHandlers = WorkerInferConsumerHandlers<typeof contract>;
    ```
 
 ---
@@ -528,11 +528,11 @@ Retry configuration is defined at the **queue level** in the contract, not at th
    throw new NonRetryableError("Invalid message format - cannot process");
    ```
 
-2. **Error Handling in Safe Handlers**
+2. **Error Handling in Handlers**
    - Return `Future<Result<void, HandlerError>>` from handlers
    - Use `Result.Ok(undefined)` for success
-   - Use `Result.Error(new RetryableError(...))` for retryable failures
-   - Use `Result.Error(new NonRetryableError(...))` for permanent failures
+   - Use `Result.Error(retryable(...))` or `Result.Error(new RetryableError(...))` for retryable failures
+   - Use `Result.Error(nonRetryable(...))` or `Result.Error(new NonRetryableError(...))` for permanent failures
 
    ```typescript
    import { defineHandler, RetryableError, NonRetryableError } from "@amqp-contract/worker";

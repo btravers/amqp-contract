@@ -9,13 +9,18 @@ export {
   definePublisher,
   defineQueueBinding,
   defineQueue,
+  defineQuorumQueue,
+  defineTtlBackoffQueue,
   defineTtlBackoffRetryInfrastructure,
   extractQueue,
+  isQueueWithTtlBackoffInfrastructure,
 } from "./builder.js";
 export type {
   BindingPattern,
   ConsumerFirstResult,
   ConsumerFirstResultWithRoutingKey,
+  DefineQuorumQueueOptions,
+  DefineTtlBackoffQueueOptions,
   MatchingRoutingKey,
   PublisherFirstResult,
   PublisherFirstResultWithRoutingKey,

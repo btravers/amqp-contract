@@ -15,7 +15,10 @@ export {
   defineMessage,
   // Queue
   defineQueue,
+  defineQuorumQueue,
+  defineTtlBackoffQueue,
   extractQueue,
+  isQueueWithTtlBackoffInfrastructure,
   // Bindings
   defineQueueBinding,
   defineExchangeBinding,
@@ -47,4 +50,7 @@ export type {
   ConsumerFirstResultWithRoutingKey,
   // TTL-backoff types
   TtlBackoffRetryInfrastructure,
+  // Queue helper types
+  DefineQuorumQueueOptions,
+  DefineTtlBackoffQueueOptions,
 } from "./builder/index.js";

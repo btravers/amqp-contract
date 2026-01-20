@@ -122,14 +122,16 @@ const queueName = extractQueue(queue).name;
 
 ### Type Inference Helpers
 
+The `Infer*` naming pattern indicates type inference helpers that extract types from a contract at compile time.
+
 - `ClientInferPublisherInput<Contract, "publisherName">` - Publisher input type
 - `WorkerInferConsumerInput<Contract, "consumerName">` - Consumer input type
-- `WorkerInferSafeConsumerHandler<Contract, "consumerName">` - Handler type
+- `WorkerInferConsumerHandler<Contract, "consumerName">` - Handler type
 - `WorkerInferConsumedMessage<Contract, "consumerName">` - Full message type (payload + headers)
 
 ## Handler Patterns (Critical)
 
-### Safe Handler Signature (Required for new code)
+### Handler Signature (Required for new code)
 
 Handlers receive `({ payload, headers }, rawMessage)` and return `Future<Result<void, HandlerError>>`:
 
@@ -225,25 +227,32 @@ export { TypedAmqpWorker } from "@amqp-contract/worker";
 // Handler definition
 export { defineHandler, defineHandlers } from "@amqp-contract/worker";
 
-// Error classes
+// Error classes and factory functions
 export {
   RetryableError,
   NonRetryableError,
   TechnicalError,
   MessageValidationError,
+  // Factory functions (shorthand)
+  retryable,
+  nonRetryable,
+  // Type guards
+  isRetryableError,
+  isNonRetryableError,
+  isHandlerError,
 } from "@amqp-contract/worker";
 
 // Types
 export type {
   HandlerError,
-  WorkerInferSafeConsumerHandler,
-  WorkerInferSafeConsumerHandlers,
+  WorkerInferConsumerHandler,
+  WorkerInferConsumerHandlers,
   WorkerInferConsumedMessage,
 } from "@amqp-contract/worker";
 
 // Retry types and helpers (from contract package)
 export type { TtlBackoffRetryOptions, QuorumNativeRetryOptions } from "@amqp-contract/contract";
-export { extractQueue } from "@amqp-contract/contract";
+export { extractQueue, defineQuorumQueue, defineTtlBackoffQueue } from "@amqp-contract/contract";
 ```
 
 ## Code Style Requirements
@@ -253,7 +262,7 @@ export { extractQueue } from "@amqp-contract/contract";
 - **`.js` extensions required** - all imports must include `.js` extension (ESM requirement)
 - **Standard Schema v1** - for runtime validation (zod, valibot, arktype supported)
 - **Catalog dependencies** - use `pnpm-workspace.yaml` catalog, not hardcoded versions
-- **Safe handlers** - always use `Future<Result<void, HandlerError>>`, not `async`
+- **Future/Result handlers** - always use `Future<Result<void, HandlerError>>`, not `async`
 
 ## Testing Strategy
 

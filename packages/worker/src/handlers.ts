@@ -1,8 +1,8 @@
 import type { ContractDefinition, InferConsumerNames } from "@amqp-contract/contract";
 import type {
-  WorkerInferSafeConsumerHandler,
-  WorkerInferSafeConsumerHandlerEntry,
-  WorkerInferSafeConsumerHandlers,
+  WorkerInferConsumerHandler,
+  WorkerInferConsumerHandlerEntry,
+  WorkerInferConsumerHandlers,
 } from "./types.js";
 
 // =============================================================================
@@ -49,7 +49,7 @@ function validateHandlers<TContract extends ContractDefinition>(
 }
 
 // =============================================================================
-// Safe Handler Definitions (Recommended)
+// Handler Definitions
 // =============================================================================
 
 /**
@@ -106,26 +106,26 @@ export function defineHandler<
 >(
   contract: TContract,
   consumerName: TName,
-  handler: WorkerInferSafeConsumerHandler<TContract, TName>,
-): WorkerInferSafeConsumerHandlerEntry<TContract, TName>;
+  handler: WorkerInferConsumerHandler<TContract, TName>,
+): WorkerInferConsumerHandlerEntry<TContract, TName>;
 export function defineHandler<
   TContract extends ContractDefinition,
   TName extends InferConsumerNames<TContract>,
 >(
   contract: TContract,
   consumerName: TName,
-  handler: WorkerInferSafeConsumerHandler<TContract, TName>,
+  handler: WorkerInferConsumerHandler<TContract, TName>,
   options: { prefetch?: number },
-): WorkerInferSafeConsumerHandlerEntry<TContract, TName>;
+): WorkerInferConsumerHandlerEntry<TContract, TName>;
 export function defineHandler<
   TContract extends ContractDefinition,
   TName extends InferConsumerNames<TContract>,
 >(
   contract: TContract,
   consumerName: TName,
-  handler: WorkerInferSafeConsumerHandler<TContract, TName>,
+  handler: WorkerInferConsumerHandler<TContract, TName>,
   options?: { prefetch?: number },
-): WorkerInferSafeConsumerHandlerEntry<TContract, TName> {
+): WorkerInferConsumerHandlerEntry<TContract, TName> {
   validateConsumerExists(contract, String(consumerName));
 
   if (options) {
@@ -165,8 +165,8 @@ export function defineHandler<
  */
 export function defineHandlers<TContract extends ContractDefinition>(
   contract: TContract,
-  handlers: WorkerInferSafeConsumerHandlers<TContract>,
-): WorkerInferSafeConsumerHandlers<TContract> {
+  handlers: WorkerInferConsumerHandlers<TContract>,
+): WorkerInferConsumerHandlers<TContract> {
   validateHandlers(contract, handlers as unknown as Record<string, unknown>);
   return handlers;
 }

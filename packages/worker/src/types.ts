@@ -103,26 +103,29 @@ export type WorkerInferConsumedMessage<
 >;
 
 // =============================================================================
-// Safe Handler Types (Recommended)
+// Handler Types
 // =============================================================================
 // These handlers return `Future<Result<void, HandlerError>>` for explicit error handling.
 // This approach forces the handler to explicitly handle success/failure cases,
 // making the code more robust and easier to reason about.
 
 /**
- * Safe consumer handler type for a specific consumer.
+ * Consumer handler type for a specific consumer.
  * Returns a `Future<Result<void, HandlerError>>` for explicit error handling.
  *
- * **Recommended over unsafe handlers** for better error control:
+ * Error handling:
  * - RetryableError: Message will be retried with exponential backoff
  * - NonRetryableError: Message will be immediately sent to DLQ
+ *
+ * The `WorkerInfer*` naming pattern indicates type inference helpers that extract
+ * types from a contract definition at compile time.
  *
  * @param message - The parsed message containing validated payload and headers
  * @param rawMessage - The raw AMQP message with all metadata (fields, properties, content)
  *
  * @example
  * ```typescript
- * const handler: WorkerInferSafeConsumerHandler<typeof contract, 'processOrder'> =
+ * const handler: WorkerInferConsumerHandler<typeof contract, 'processOrder'> =
  *   ({ payload }, rawMessage) => {
  *     console.log(payload.orderId);  // Typed payload
  *     console.log(rawMessage.fields.deliveryTag); // Raw AMQP message
@@ -130,7 +133,7 @@ export type WorkerInferConsumedMessage<
  *   };
  * ```
  */
-export type WorkerInferSafeConsumerHandler<
+export type WorkerInferConsumerHandler<
   TContract extends ContractDefinition,
   TName extends InferConsumerNames<TContract>,
 > = (
@@ -139,7 +142,7 @@ export type WorkerInferSafeConsumerHandler<
 ) => Future<Result<void, HandlerError>>;
 
 /**
- * Safe handler entry for a consumer - either a function or a tuple of [handler, options].
+ * Handler entry for a consumer - either a function or a tuple of [handler, options].
  *
  * Two patterns are supported:
  * 1. Simple handler: `({ payload }, rawMessage) => Future.value(Result.Ok(undefined))`
@@ -148,17 +151,54 @@ export type WorkerInferSafeConsumerHandler<
  * Note: Retry configuration is now defined at the queue level in the contract,
  * not at the handler level. See `QueueDefinition.retry` for configuration options.
  */
-export type WorkerInferSafeConsumerHandlerEntry<
+export type WorkerInferConsumerHandlerEntry<
   TContract extends ContractDefinition,
   TName extends InferConsumerNames<TContract>,
 > =
-  | WorkerInferSafeConsumerHandler<TContract, TName>
-  | readonly [WorkerInferSafeConsumerHandler<TContract, TName>, { prefetch?: number }];
+  | WorkerInferConsumerHandler<TContract, TName>
+  | readonly [WorkerInferConsumerHandler<TContract, TName>, { prefetch?: number }];
 
 /**
- * Safe consumer handlers for a contract.
+ * Consumer handlers for a contract.
  * All handlers return `Future<Result<void, HandlerError>>` for explicit error control.
+ *
+ * @example
+ * ```typescript
+ * const handlers: WorkerInferConsumerHandlers<typeof contract> = {
+ *   processOrder: ({ payload }) =>
+ *     Future.fromPromise(processPayment(payload))
+ *       .mapOk(() => undefined)
+ *       .mapError((error) => new RetryableError('Payment failed', error)),
+ * };
+ * ```
  */
-export type WorkerInferSafeConsumerHandlers<TContract extends ContractDefinition> = {
-  [K in InferConsumerNames<TContract>]: WorkerInferSafeConsumerHandlerEntry<TContract, K>;
+export type WorkerInferConsumerHandlers<TContract extends ContractDefinition> = {
+  [K in InferConsumerNames<TContract>]: WorkerInferConsumerHandlerEntry<TContract, K>;
 };
+
+// =============================================================================
+// Deprecated Type Aliases (for backwards compatibility)
+// =============================================================================
+// These aliases preserve backwards compatibility. They will be removed in a future major version.
+
+/**
+ * @deprecated Use `WorkerInferConsumerHandler` instead. Will be removed in next major version.
+ */
+export type WorkerInferSafeConsumerHandler<
+  TContract extends ContractDefinition,
+  TName extends InferConsumerNames<TContract>,
+> = WorkerInferConsumerHandler<TContract, TName>;
+
+/**
+ * @deprecated Use `WorkerInferConsumerHandlerEntry` instead. Will be removed in next major version.
+ */
+export type WorkerInferSafeConsumerHandlerEntry<
+  TContract extends ContractDefinition,
+  TName extends InferConsumerNames<TContract>,
+> = WorkerInferConsumerHandlerEntry<TContract, TName>;
+
+/**
+ * @deprecated Use `WorkerInferConsumerHandlers` instead. Will be removed in next major version.
+ */
+export type WorkerInferSafeConsumerHandlers<TContract extends ContractDefinition> =
+  WorkerInferConsumerHandlers<TContract>;
