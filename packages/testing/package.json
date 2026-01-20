@@ -16,6 +16,10 @@
   "license": "MIT",
   "type": "module",
   "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    },
     "./global-setup": {
       "types": "./dist/global-setup.d.mts",
       "import": "./dist/global-setup.mjs"
@@ -29,7 +33,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsdown src/global-setup.ts src/extension.ts --format esm --dts --clean",
+    "build": "tsdown src/index.ts src/global-setup.ts src/extension.ts --format esm --dts --clean",
     "build:docs": "typedoc",
     "typecheck": "tsc --noEmit"
   },
