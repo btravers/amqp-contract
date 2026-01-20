@@ -11,6 +11,8 @@
   "readme": "none",
   "githubPages": false,
   "useCodeBlocks": true,
+  "useHTMLEncodedBrackets": true,
+  "sanitizeComments": true,
   "parametersFormat": "table",
   "propertiesFormat": "table",
   "enumMembersFormat": "table",

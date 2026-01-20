@@ -160,7 +160,7 @@ export class AmqpClient {
    * @param routingKey - The routing key
    * @param content - The message content (will be JSON serialized if json: true)
    * @param options - Optional publish options
-   * @returns A Future with Result<boolean> - true if message was sent, false if channel buffer is full
+   * @returns A Future with `Result<boolean>` - true if message was sent, false if channel buffer is full
    */
   publish(
     exchange: string,
@@ -179,7 +179,7 @@ export class AmqpClient {
    * @param queue - The queue name
    * @param callback - The callback to invoke for each message
    * @param options - Optional consume options
-   * @returns A Future with Result<string> - the consumer tag
+   * @returns A Future with `Result<string>` - the consumer tag
    */
   consume(
     queue: string,
