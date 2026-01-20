@@ -1,5 +1,53 @@
 # @amqp-contract/client
 
+## 0.12.0
+
+### Minor Changes
+
+- ## New Features
+
+  ### Testing Package Exports
+  - Added main export entry point for `@amqp-contract/testing` - users can now `import { it, globalSetup } from '@amqp-contract/testing'`
+
+  ### OpenTelemetry Documentation
+  - Added comprehensive OpenTelemetry observability guide covering traces, metrics, and configuration
+
+  ### CI Improvements
+  - Added security audit job to CI pipeline
+  - Added bundle size monitoring with GitHub Step Summary reporting
+
+  ## Improvements
+
+  ### Contract Package Refactoring
+  - Split `builder.ts` (1,911 lines) into modular files for better maintainability:
+    - `builder/exchange.ts` - defineExchange
+    - `builder/queue.ts` - defineQueue, extractQueue
+    - `builder/message.ts` - defineMessage
+    - `builder/binding.ts` - defineQueueBinding, defineExchangeBinding
+    - `builder/publisher.ts` - definePublisher
+    - `builder/consumer.ts` - defineConsumer
+    - `builder/contract.ts` - defineContract
+    - `builder/publisher-first.ts` - definePublisherFirst
+    - `builder/consumer-first.ts` - defineConsumerFirst
+    - `builder/ttl-backoff.ts` - defineTtlBackoffRetryInfrastructure
+    - `builder/routing-types.ts` - RoutingKey, BindingPattern types
+  - All existing imports continue to work (backward compatible)
+
+  ### Worker Package
+  - Improved compression validation error messages with helpful context:
+    - Shows received encoding
+    - Lists supported encodings (gzip, deflate)
+    - Suggests checking publisher configuration
+
+  ## Security
+  - Fixed high severity vulnerability in `preact` dependency (CVE in vitepress transitive dependency)
+
+### Patch Changes
+
+- Updated dependencies
+  - @amqp-contract/contract@0.12.0
+  - @amqp-contract/core@0.12.0
+
 ## 0.11.0
 
 ### Minor Changes
