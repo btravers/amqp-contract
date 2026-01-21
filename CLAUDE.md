@@ -102,10 +102,9 @@ Use these patterns for type-safe publisher/consumer relationships:
 const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
   routingKey: "order.created",
 });
-const { consumer, binding } = defineEventConsumer(orderCreatedEvent, processingQueue);
 
 // Consumer can override routing key for topic exchanges
-const { consumer: allConsumer } = defineEventConsumer(orderCreatedEvent, allOrdersQueue, {
+const allOrdersConsumer = defineEventConsumer(orderCreatedEvent, allOrdersQueue, {
   routingKey: "order.*", // Pattern to receive multiple events
 });
 
@@ -113,11 +112,25 @@ const { consumer: allConsumer } = defineEventConsumer(orderCreatedEvent, allOrde
 const processOrderCommand = defineCommandConsumer(orderQueue, ordersExchange, orderMessage, {
   routingKey: "order.process",
 });
-const sendOrderPublisher = defineCommandPublisher(processOrderCommand);
 
 // For topic exchanges, publisher can specify concrete routing key
 const createOrderPublisher = defineCommandPublisher(processOrderCommand, {
   routingKey: "order.create",
+});
+
+// Compose contract - configs go directly, bindings auto-generated
+const contract = defineContract({
+  exchanges: { orders: ordersExchange },
+  queues: { processing: processingQueue, allOrders: allOrdersQueue, orderQueue },
+  publishers: {
+    orderCreated: orderCreatedEvent, // EventPublisherConfig → auto-extracted
+    createOrder: createOrderPublisher,
+  },
+  consumers: {
+    processOrder: defineEventConsumer(orderCreatedEvent, processingQueue), // Binding auto-generated
+    allOrders: allOrdersConsumer, // Binding auto-generated
+    handleOrder: processOrderCommand, // CommandConsumerConfig → auto-extracted
+  },
 });
 ```
 

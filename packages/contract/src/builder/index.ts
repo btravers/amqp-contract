@@ -27,7 +27,7 @@ export { defineQueueBinding, defineExchangeBinding } from "./binding.js";
 export { definePublisher } from "./publisher.js";
 
 // Consumer
-export { defineConsumer } from "./consumer.js";
+export { defineConsumer, extractConsumer } from "./consumer.js";
 
 // Contract
 export { defineContract } from "./contract.js";

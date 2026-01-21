@@ -1,6 +1,7 @@
 import type {
   ConsumerDefinition,
-  ContractDefinition,
+  ConsumerEntry,
+  ContractDefinitionInput,
   InferConsumerNames,
   MessageDefinition,
 } from "@amqp-contract/contract";
@@ -16,33 +17,52 @@ type InferSchemaInput<TSchema extends StandardSchemaV1> =
   TSchema extends StandardSchemaV1<infer TInput> ? TInput : never;
 
 /**
- * Infer consumer message payload input type
+ * Extract the ConsumerDefinition from any consumer entry type.
+ * Handles ConsumerDefinition, EventConsumerResult, and CommandConsumerConfig.
  */
-type ConsumerInferPayloadInput<TConsumer extends ConsumerDefinition> = InferSchemaInput<
-  TConsumer["message"]["payload"]
->;
+type ExtractConsumerDefinition<T extends ConsumerEntry> = T extends ConsumerDefinition
+  ? T
+  : T extends { consumer: ConsumerDefinition }
+    ? T["consumer"]
+    : never;
+
+/**
+ * Infer consumer message payload input type.
+ * Works with any consumer entry type by first extracting the ConsumerDefinition.
+ */
+type ConsumerInferPayloadInput<TConsumer extends ConsumerEntry> =
+  ExtractConsumerDefinition<TConsumer> extends ConsumerDefinition
+    ? InferSchemaInput<ExtractConsumerDefinition<TConsumer>["message"]["payload"]>
+    : never;
 
 /**
  * Infer consumer message headers input type
  * Returns undefined if no headers schema is defined
  */
-type ConsumerInferHeadersInput<TConsumer extends ConsumerDefinition> =
-  TConsumer["message"] extends MessageDefinition<infer _TPayload, infer THeaders>
-    ? THeaders extends StandardSchemaV1<Record<string, unknown>>
-      ? InferSchemaInput<THeaders>
+type ConsumerInferHeadersInput<TConsumer extends ConsumerEntry> =
+  ExtractConsumerDefinition<TConsumer> extends ConsumerDefinition
+    ? ExtractConsumerDefinition<TConsumer>["message"] extends MessageDefinition<
+        infer _TPayload,
+        infer THeaders
+      >
+      ? THeaders extends StandardSchemaV1<Record<string, unknown>>
+        ? InferSchemaInput<THeaders>
+        : undefined
       : undefined
     : undefined;
 
 /**
  * Infer all consumers from contract
  */
-type InferConsumers<TContract extends ContractDefinition> = NonNullable<TContract["consumers"]>;
+type InferConsumers<TContract extends ContractDefinitionInput> = NonNullable<
+  TContract["consumers"]
+>;
 
 /**
- * Get specific consumer definition from contract
+ * Get specific consumer entry from contract
  */
 type InferConsumer<
-  TContract extends ContractDefinition,
+  TContract extends ContractDefinitionInput,
   TName extends InferConsumerNames<TContract>,
 > = InferConsumers<TContract>[TName];
 
@@ -50,7 +70,7 @@ type InferConsumer<
  * Infer the payload type for a specific consumer
  */
 type WorkerInferConsumerPayload<
-  TContract extends ContractDefinition,
+  TContract extends ContractDefinitionInput,
   TName extends InferConsumerNames<TContract>,
 > = ConsumerInferPayloadInput<InferConsumer<TContract, TName>>;
 
@@ -59,7 +79,7 @@ type WorkerInferConsumerPayload<
  * Returns undefined if no headers schema is defined
  */
 export type WorkerInferConsumerHeaders<
-  TContract extends ContractDefinition,
+  TContract extends ContractDefinitionInput,
   TName extends InferConsumerNames<TContract>,
 > = ConsumerInferHeadersInput<InferConsumer<TContract, TName>>;
 
@@ -95,7 +115,7 @@ export type WorkerConsumedMessage<TPayload, THeaders = undefined> = {
  * Includes both payload and headers (if defined).
  */
 export type WorkerInferConsumedMessage<
-  TContract extends ContractDefinition,
+  TContract extends ContractDefinitionInput,
   TName extends InferConsumerNames<TContract>,
 > = WorkerConsumedMessage<
   WorkerInferConsumerPayload<TContract, TName>,
@@ -134,7 +154,7 @@ export type WorkerInferConsumedMessage<
  * ```
  */
 export type WorkerInferConsumerHandler<
-  TContract extends ContractDefinition,
+  TContract extends ContractDefinitionInput,
   TName extends InferConsumerNames<TContract>,
 > = (
   message: WorkerInferConsumedMessage<TContract, TName>,
@@ -152,7 +172,7 @@ export type WorkerInferConsumerHandler<
  * not at the handler level. See `QueueDefinition.retry` for configuration options.
  */
 export type WorkerInferConsumerHandlerEntry<
-  TContract extends ContractDefinition,
+  TContract extends ContractDefinitionInput,
   TName extends InferConsumerNames<TContract>,
 > =
   | WorkerInferConsumerHandler<TContract, TName>
@@ -172,7 +192,7 @@ export type WorkerInferConsumerHandlerEntry<
  * };
  * ```
  */
-export type WorkerInferConsumerHandlers<TContract extends ContractDefinition> = {
+export type WorkerInferConsumerHandlers<TContract extends ContractDefinitionInput> = {
   [K in InferConsumerNames<TContract>]: WorkerInferConsumerHandlerEntry<TContract, K>;
 };
 
@@ -185,7 +205,7 @@ export type WorkerInferConsumerHandlers<TContract extends ContractDefinition> = 
  * @deprecated Use `WorkerInferConsumerHandler` instead. Will be removed in next major version.
  */
 export type WorkerInferSafeConsumerHandler<
-  TContract extends ContractDefinition,
+  TContract extends ContractDefinitionInput,
   TName extends InferConsumerNames<TContract>,
 > = WorkerInferConsumerHandler<TContract, TName>;
 
@@ -193,12 +213,12 @@ export type WorkerInferSafeConsumerHandler<
  * @deprecated Use `WorkerInferConsumerHandlerEntry` instead. Will be removed in next major version.
  */
 export type WorkerInferSafeConsumerHandlerEntry<
-  TContract extends ContractDefinition,
+  TContract extends ContractDefinitionInput,
   TName extends InferConsumerNames<TContract>,
 > = WorkerInferConsumerHandlerEntry<TContract, TName>;
 
 /**
  * @deprecated Use `WorkerInferConsumerHandlers` instead. Will be removed in next major version.
  */
-export type WorkerInferSafeConsumerHandlers<TContract extends ContractDefinition> =
+export type WorkerInferSafeConsumerHandlers<TContract extends ContractDefinitionInput> =
   WorkerInferConsumerHandlers<TContract>;

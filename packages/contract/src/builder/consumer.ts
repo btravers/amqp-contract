@@ -1,5 +1,64 @@
-import type { ConsumerDefinition, MessageDefinition, QueueEntry } from "../types.js";
+import type {
+  CommandConsumerConfigBase,
+  ConsumerDefinition,
+  ConsumerEntry,
+  EventConsumerResultBase,
+  MessageDefinition,
+  QueueEntry,
+} from "../types.js";
 import { extractQueue } from "./queue.js";
+
+/**
+ * Type guard to check if an entry is an EventConsumerResult.
+ */
+function isEventConsumerResultEntry(entry: ConsumerEntry): entry is EventConsumerResultBase {
+  return "__brand" in entry && entry.__brand === "EventConsumerResult";
+}
+
+/**
+ * Type guard to check if an entry is a CommandConsumerConfig.
+ */
+function isCommandConsumerConfigEntry(entry: ConsumerEntry): entry is CommandConsumerConfigBase {
+  return "__brand" in entry && entry.__brand === "CommandConsumerConfig";
+}
+
+/**
+ * Extract the ConsumerDefinition from any ConsumerEntry type.
+ *
+ * Handles the following entry types:
+ * - ConsumerDefinition: returned as-is
+ * - EventConsumerResult: returns the nested `.consumer` property
+ * - CommandConsumerConfig: returns the nested `.consumer` property
+ *
+ * Use this function when you need to access the underlying ConsumerDefinition
+ * from a consumer entry that may have been created with defineEventConsumer
+ * or defineCommandConsumer.
+ *
+ * @param entry - The consumer entry to extract from
+ * @returns The underlying ConsumerDefinition
+ *
+ * @example
+ * ```typescript
+ * // Works with plain ConsumerDefinition
+ * const consumer1 = defineConsumer(queue, message);
+ * extractConsumer(consumer1).queue.name; // "my-queue"
+ *
+ * // Works with EventConsumerResult
+ * const consumer2 = defineEventConsumer(eventPublisher, queue);
+ * extractConsumer(consumer2).queue.name; // "my-queue"
+ *
+ * // Works with CommandConsumerConfig
+ * const consumer3 = defineCommandConsumer(queue, exchange, message, { routingKey: "cmd" });
+ * extractConsumer(consumer3).queue.name; // "my-queue"
+ * ```
+ */
+export function extractConsumer(entry: ConsumerEntry): ConsumerDefinition {
+  if (isEventConsumerResultEntry(entry) || isCommandConsumerConfigEntry(entry)) {
+    return entry.consumer;
+  }
+  // Otherwise it's a plain ConsumerDefinition
+  return entry;
+}
 
 /**
  * Define a message consumer.

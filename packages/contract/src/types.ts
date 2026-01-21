@@ -1087,7 +1087,7 @@ export type ContractDefinitionInput = Omit<ContractDefinition, "publishers" | "c
  * // Result: 'orderCreated' | 'orderUpdated' | 'orderCancelled'
  * ```
  */
-export type InferPublisherNames<TContract extends ContractDefinition> =
+export type InferPublisherNames<TContract extends ContractDefinitionInput> =
   TContract["publishers"] extends Record<string, unknown> ? keyof TContract["publishers"] : never;
 
 /**
@@ -1105,5 +1105,5 @@ export type InferPublisherNames<TContract extends ContractDefinition> =
  * // Result: 'processOrder' | 'sendNotification' | 'updateInventory'
  * ```
  */
-export type InferConsumerNames<TContract extends ContractDefinition> =
+export type InferConsumerNames<TContract extends ContractDefinitionInput> =
   TContract["consumers"] extends Record<string, unknown> ? keyof TContract["consumers"] : never;

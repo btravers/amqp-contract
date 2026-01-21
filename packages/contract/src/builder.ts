@@ -26,6 +26,7 @@ export {
   definePublisher,
   // Consumer
   defineConsumer,
+  extractConsumer,
   // Contract
   defineContract,
   // Event pattern

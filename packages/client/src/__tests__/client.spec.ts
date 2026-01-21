@@ -1,5 +1,5 @@
 import {
-  ContractDefinition,
+  ContractDefinitionInput,
   defineContract,
   defineExchange,
   defineExchangeBinding,
@@ -16,15 +16,15 @@ import { it as baseIt } from "@amqp-contract/testing/extension";
 import { z } from "zod";
 
 const it = baseIt.extend<{
-  clientFactory: <TContract extends ContractDefinition>(
+  clientFactory: <TContract extends ContractDefinitionInput>(
     contract: TContract,
   ) => Promise<TypedAmqpClient<TContract>>;
 }>({
   clientFactory: async ({ amqpConnectionUrl }, use) => {
-    const clients: Array<TypedAmqpClient<ContractDefinition>> = [];
+    const clients: Array<TypedAmqpClient<ContractDefinitionInput>> = [];
 
     try {
-      await use(async <TContract extends ContractDefinition>(contract: TContract) => {
+      await use(async <TContract extends ContractDefinitionInput>(contract: TContract) => {
         const client = await TypedAmqpClient.create({
           contract,
           urls: [amqpConnectionUrl],
