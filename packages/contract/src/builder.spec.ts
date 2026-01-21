@@ -1065,6 +1065,9 @@ describe("builder", () => {
           },
         },
       });
+
+      // THEN - events are stripped from output (input-only field)
+      expect(contract).not.toHaveProperty("events");
     });
   });
 
@@ -1214,6 +1217,9 @@ describe("builder", () => {
           },
         },
       });
+
+      // THEN - commands are stripped from output (input-only field)
+      expect(contract).not.toHaveProperty("commands");
     });
 
     it("should allow multiple publishers for topic exchange command", () => {

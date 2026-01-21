@@ -919,7 +919,7 @@ export type CommandConsumerConfigBase = {
 };
 
 /**
- * Complete AMQP contract definition.
+ * Complete AMQP contract definition (output type).
  *
  * A contract brings together all AMQP resources into a single, type-safe definition.
  * It defines the complete messaging topology including exchanges, queues, bindings,
@@ -986,7 +986,20 @@ export type ContractDefinition = {
    * The handler will be fully typed based on the message schema.
    */
   consumers?: Record<string, ConsumerDefinition>;
+};
 
+/**
+ * Contract definition input type with event and command helpers.
+ *
+ * This extends ContractDefinition with additional `events` and `commands` sections
+ * that provide better developer experience for common messaging patterns.
+ *
+ * The `events` and `commands` sections are processed by `defineContract` and merged
+ * into the `publishers`, `consumers`, and `bindings` sections in the output.
+ *
+ * @see defineContract - Processes this input and returns a ContractDefinition
+ */
+export type ContractDefinitionInput = ContractDefinition & {
   /**
    * Named event publisher configurations.
    *

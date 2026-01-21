@@ -40,6 +40,7 @@ export type {
   CompressionAlgorithm,
   ConsumerDefinition,
   ContractDefinition,
+  ContractDefinitionInput,
   DeadLetterConfig,
   DefineQueueOptions,
   DirectExchangeDefinition,
