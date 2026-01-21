@@ -1,5 +1,57 @@
 # @amqp-contract/contract
 
+## 0.13.0
+
+### Minor Changes
+
+- ## Breaking Change: Simplified Contract API
+
+  Removed separate `events` and `commands` sections from `defineContract`. Event and command configs now go directly in `publishers` and `consumers` sections.
+
+  ### Before (removed)
+
+  ```typescript
+  const contract = defineContract({
+    events: { orderCreated: eventConfig },
+    commands: { processOrder: commandConfig },
+    publishers: { ... },
+    consumers: { ... },
+  });
+  ```
+
+  ### After (new simplified API)
+
+  ```typescript
+  const contract = defineContract({
+    publishers: {
+      // EventPublisherConfig → auto-extracted to publisher
+      orderCreated: defineEventPublisher(exchange, message, {
+        routingKey: "order.created",
+      }),
+    },
+    consumers: {
+      // EventConsumerResult → auto-extracted to consumer + binding
+      processOrder: defineEventConsumer(orderCreatedEvent, queue),
+      // CommandConsumerConfig → auto-extracted to consumer + binding
+      handleCommand: defineCommandConsumer(queue, exchange, message, {
+        routingKey: "cmd",
+      }),
+    },
+  });
+  ```
+
+  ### Migration
+  1. Move `EventPublisherConfig` from `events` section to `publishers` section
+  2. Move `CommandConsumerConfig` from `commands` section to `consumers` section
+  3. Pass `defineEventConsumer()` results directly to `consumers` (no more destructuring needed)
+  4. Remove manual `bindings` entries for event consumers and commands - they are now auto-generated
+
+  ### New Features
+  - `PublisherEntry` type: accepts `PublisherDefinition | EventPublisherConfig`
+  - `ConsumerEntry` type: accepts `ConsumerDefinition | EventConsumerResult | CommandConsumerConfig`
+  - Auto-generated bindings with `{consumerName}Binding` naming convention
+  - Added `isEventConsumerResult` type guard
+
 ## 0.12.0
 
 ### Minor Changes
