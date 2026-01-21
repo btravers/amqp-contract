@@ -118,27 +118,27 @@ describe("MatchingRoutingKey pattern matching", () => {
 });
 
 describe("Publisher and Consumer factory types", () => {
-  test("definePublisherFirst with direct exchange should accept valid routing keys", () => {
+  test("defineEventPublisher with direct exchange should accept valid routing keys", () => {
     // Test that the publisher factory method accepts RoutingKey validated routing keys
     // The actual runtime validation will be tested in integration tests
     expectTypeOf<RoutingKey<"order.created">>().toEqualTypeOf<"order.created">();
     expectTypeOf<RoutingKey<"user-profile.updated">>().toEqualTypeOf<"user-profile.updated">();
   });
 
-  test("definePublisherFirst with topic exchange should accept valid routing keys", () => {
+  test("defineEventPublisher with topic exchange should accept valid routing keys", () => {
     // Topic exchange routing keys must be valid RoutingKey types
     expectTypeOf<RoutingKey<"order.created">>().toEqualTypeOf<"order.created">();
     expectTypeOf<RoutingKey<"order.*.urgent">>().not.toEqualTypeOf<"order.*.urgent">(); // Wildcards not allowed in routing keys
   });
 
-  test("defineConsumerFirst with topic exchange should accept valid binding patterns", () => {
+  test("defineCommandConsumer with topic exchange should accept valid binding patterns", () => {
     // Topic exchange binding patterns can include wildcards
     expectTypeOf<BindingPattern<"order.*">>().toEqualTypeOf<"order.*">();
     expectTypeOf<BindingPattern<"order.#">>().toEqualTypeOf<"order.#">();
     expectTypeOf<BindingPattern<"order.created">>().toEqualTypeOf<"order.created">();
   });
 
-  test("createPublisher should accept routing keys matching the consumer pattern", () => {
+  test("defineCommandPublisher should accept routing keys matching the consumer pattern", () => {
     // When consumer binding is "order.*", publisher can use any key matching that pattern
     // This is tested via MatchingRoutingKey type
     expectTypeOf<MatchingRoutingKey<"order.*", "order.created">>().toEqualTypeOf<"order.created">();
@@ -146,7 +146,7 @@ describe("Publisher and Consumer factory types", () => {
     expectTypeOf<MatchingRoutingKey<"order.*", "order.deleted">>().toEqualTypeOf<"order.deleted">();
   });
 
-  test("createConsumer should accept binding patterns for topic exchanges", () => {
+  test("defineEventConsumer should accept binding patterns for topic exchanges", () => {
     // When publisher uses "order.created", consumer can bind with patterns
     expectTypeOf<BindingPattern<"order.*">>().toEqualTypeOf<"order.*">();
     expectTypeOf<BindingPattern<"order.#">>().toEqualTypeOf<"order.#">();

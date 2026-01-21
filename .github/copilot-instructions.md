@@ -206,35 +206,52 @@ packages/[package-name]/
    );
    ```
 
-8. **Publisher-First Pattern**
-   - Use `definePublisherFirst` when one publisher feeds multiple consumers
-   - Ensures schema consistency between publisher and all consumers
-   - Returns `{ publisher, createConsumer }` for creating linked consumers
+8. **Event and Command Patterns**
+   - Use `defineEventPublisher` + `defineEventConsumer` for broadcast patterns (one publisher, many consumers)
+   - Use `defineCommandConsumer` + `defineCommandPublisher` for task queue patterns (many publishers, one consumer)
+   - These patterns ensure schema consistency and routing key synchronization
+   - **Simplified DX**: Configs go directly in `publishers` and `consumers` - bindings are auto-extracted
 
    ```typescript
-   import { definePublisherFirst } from "@amqp-contract/contract";
+   import {
+     defineContract,
+     defineEventPublisher,
+     defineEventConsumer,
+     defineCommandConsumer,
+     defineCommandPublisher,
+   } from "@amqp-contract/contract";
 
-   // Define publisher-first relationship
-   const { publisher: publishLog, createConsumer: createLogConsumer } = definePublisherFirst(
-     logsExchange,
-     logMessage,
-   );
-
-   // Create multiple consumers with consistent schema
-   const logsQueue1 = defineQueue("logs-queue-1");
-   const logsQueue2 = defineQueue("logs-queue-2");
-
-   const { consumer: consumer1, binding: binding1 } = createLogConsumer(logsQueue1);
-   const { consumer: consumer2, binding: binding2 } = createLogConsumer(logsQueue2);
-
-   // Use in contract
-   const contract = defineContract({
-     exchanges: { logs: logsExchange },
-     queues: { logsQueue1, logsQueue2 },
-     bindings: { logBinding1: binding1, logBinding2: binding2 },
-     publishers: { publishLog },
-     consumers: { consumeLog1: consumer1, consumeLog2: consumer2 },
+   // Event Pattern: Publisher broadcasts, multiple consumers subscribe
+   const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
+     routingKey: "order.created",
    });
+
+   // Command Pattern: Consumer owns the queue, publishers send commands
+   const processOrderCommand = defineCommandConsumer(orderQueue, ordersExchange, orderMessage, {
+     routingKey: "order.process",
+   });
+
+   // Compose contract - everything goes in publishers/consumers, bindings auto-generated
+   const contract = defineContract({
+     exchanges: { orders: ordersExchange },
+     queues: { processing: processingQueue, notification: notificationQueue, orders: orderQueue },
+     publishers: {
+       // EventPublisherConfig → auto-extracted to publisher
+       orderCreated: orderCreatedEvent,
+       // CommandPublisher (from defineCommandPublisher)
+       sendOrder: defineCommandPublisher(processOrderCommand),
+     },
+     consumers: {
+       // EventConsumerResult → auto-extracted to consumer + binding
+       processOrder: defineEventConsumer(orderCreatedEvent, processingQueue),
+       notify: defineEventConsumer(orderCreatedEvent, notificationQueue, {
+         routingKey: "order.*", // Optional: override with pattern for topic exchanges
+       }),
+       // CommandConsumerConfig → auto-extracted to consumer + binding
+       handleOrder: processOrderCommand,
+     },
+   });
+   // Output: publishers, consumers, bindings all auto-populated
    ```
 
 ---
@@ -243,11 +260,11 @@ packages/[package-name]/
 
 ### ✅ Required Practices
 
-1. **Safe Handlers (Recommended)**
+1. **Future/Result Handlers (Recommended)**
    - Use `defineHandler` for all new code
    - Returns `Future<Result<void, HandlerError>>` for explicit error handling
-   - Use `RetryableError` for transient failures that should be retried
-   - Use `NonRetryableError` for permanent failures that go to DLQ
+   - Use `RetryableError` (or `retryable()` factory) for transient failures that should be retried
+   - Use `NonRetryableError` (or `nonRetryable()` factory) for permanent failures that go to DLQ
 
    ```typescript
    import { defineHandler, RetryableError, NonRetryableError } from "@amqp-contract/worker";
@@ -286,17 +303,17 @@ packages/[package-name]/
    ```
 
 3. **Type Inference for Handlers**
-   - Use `WorkerInferSafeConsumerHandler<Contract, Name>` for handler types
-   - Use `WorkerInferSafeConsumerHandlers<Contract>` for all handlers
+   - Use `WorkerInferConsumerHandler<Contract, Name>` for handler types
+   - Use `WorkerInferConsumerHandlers<Contract>` for all handlers
 
    ```typescript
    import type {
-     WorkerInferSafeConsumerHandler,
-     WorkerInferSafeConsumerHandlers,
+     WorkerInferConsumerHandler,
+     WorkerInferConsumerHandlers,
    } from "@amqp-contract/worker";
 
-   type OrderHandler = WorkerInferSafeConsumerHandler<typeof contract, "processOrder">;
-   type AllHandlers = WorkerInferSafeConsumerHandlers<typeof contract>;
+   type OrderHandler = WorkerInferConsumerHandler<typeof contract, "processOrder">;
+   type AllHandlers = WorkerInferConsumerHandlers<typeof contract>;
    ```
 
 ---
@@ -528,11 +545,11 @@ Retry configuration is defined at the **queue level** in the contract, not at th
    throw new NonRetryableError("Invalid message format - cannot process");
    ```
 
-2. **Error Handling in Safe Handlers**
+2. **Error Handling in Handlers**
    - Return `Future<Result<void, HandlerError>>` from handlers
    - Use `Result.Ok(undefined)` for success
-   - Use `Result.Error(new RetryableError(...))` for retryable failures
-   - Use `Result.Error(new NonRetryableError(...))` for permanent failures
+   - Use `Result.Error(retryable(...))` or `Result.Error(new RetryableError(...))` for retryable failures
+   - Use `Result.Error(nonRetryable(...))` or `Result.Error(new NonRetryableError(...))` for permanent failures
 
    ```typescript
    import { defineHandler, RetryableError, NonRetryableError } from "@amqp-contract/worker";

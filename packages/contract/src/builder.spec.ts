@@ -1,14 +1,19 @@
 import {
+  defineCommandConsumer,
+  defineCommandPublisher,
   defineConsumer,
-  defineConsumerFirst,
   defineContract,
+  defineEventConsumer,
+  defineEventPublisher,
   defineExchange,
   defineExchangeBinding,
   defineMessage,
   definePublisher,
-  definePublisherFirst,
   defineQueue,
   defineQueueBinding,
+  defineQuorumQueue,
+  defineTtlBackoffQueue,
+  extractQueue,
 } from "./builder.js";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -873,21 +878,23 @@ describe("builder", () => {
     });
   });
 
-  describe("definePublisherFirst", () => {
-    it("should create a publisher-first relationship with fanout exchange", () => {
+  describe("defineEventPublisher and defineEventConsumer", () => {
+    it("should create an event publisher with fanout exchange", () => {
       // GIVEN
       const message = defineMessage(z.object({ id: z.string() }));
       const exchange = defineExchange("test-exchange", "fanout");
       const queue = defineQueue("test-queue");
 
       // WHEN
-      const result = definePublisherFirst(exchange, message);
-      const { consumer, binding } = result.createConsumer(queue);
+      const eventPublisher = defineEventPublisher(exchange, message);
+      const { consumer, binding } = defineEventConsumer(eventPublisher, queue);
 
       // THEN
-      expect(result.publisher).toEqual({
+      expect(eventPublisher).toMatchObject({
+        __brand: "EventPublisherConfig",
         exchange,
         message,
+        routingKey: undefined,
       });
       expect(binding).toEqual({
         type: "queue",
@@ -900,7 +907,7 @@ describe("builder", () => {
       });
     });
 
-    it("should create a publisher-first relationship with topic exchange", () => {
+    it("should create an event publisher with topic exchange", () => {
       // GIVEN
       const message = defineMessage(
         z.object({
@@ -912,13 +919,14 @@ describe("builder", () => {
       const queue = defineQueue("order-processing", { durable: true });
 
       // WHEN
-      const result = definePublisherFirst(exchange, message, {
+      const eventPublisher = defineEventPublisher(exchange, message, {
         routingKey: "order.created",
       });
-      const { consumer, binding } = result.createConsumer(queue);
+      const { consumer, binding } = defineEventConsumer(eventPublisher, queue);
 
       // THEN
-      expect(result.publisher).toEqual({
+      expect(eventPublisher).toMatchObject({
+        __brand: "EventPublisherConfig",
         exchange,
         message,
         routingKey: "order.created",
@@ -935,22 +943,21 @@ describe("builder", () => {
       });
     });
 
-    it("should create a publisher-first relationship with direct exchange", () => {
+    it("should create an event publisher with direct exchange", () => {
       // GIVEN
       const message = defineMessage(z.object({ taskId: z.string() }));
       const exchange = defineExchange("tasks", "direct");
       const queue = defineQueue("task-queue");
 
       // WHEN
-      const result = definePublisherFirst(exchange, message, {
+      const eventPublisher = defineEventPublisher(exchange, message, {
         routingKey: "task.execute",
       });
-      const { consumer, binding } = result.createConsumer(queue);
+      const { consumer, binding } = defineEventConsumer(eventPublisher, queue);
 
       // THEN
-      expect(result.publisher).toEqual({
-        exchange,
-        message,
+      expect(eventPublisher).toMatchObject({
+        __brand: "EventPublisherConfig",
         routingKey: "task.execute",
       });
       expect(binding).toEqual({
@@ -965,48 +972,32 @@ describe("builder", () => {
       });
     });
 
-    it("should ensure routing key consistency between publisher and binding", () => {
+    it("should allow consumer to override routing key for topic exchange", () => {
       // GIVEN
-      const message = defineMessage(z.object({ data: z.string() }));
-      const exchange = defineExchange("events", "topic");
-      const queue = defineQueue("event-queue");
+      const message = defineMessage(z.object({ orderId: z.string() }));
+      const exchange = defineExchange("orders", "topic", { durable: true });
+      const queue1 = defineQueue("order-processing", { durable: true });
+      const queue2 = defineQueue("all-orders", { durable: true });
 
       // WHEN
-      const result = definePublisherFirst(exchange, message, {
-        routingKey: "event.created",
+      const eventPublisher = defineEventPublisher(exchange, message, {
+        routingKey: "order.created",
       });
-      const { binding } = result.createConsumer(queue);
+      const { binding: binding1 } = defineEventConsumer(eventPublisher, queue1);
+      const { binding: binding2 } = defineEventConsumer(eventPublisher, queue2, {
+        routingKey: "order.*",
+      });
 
-      // THEN - Routing key should be the same in both publisher and binding
-      expect(result.publisher).toMatchObject({
-        exchange,
-        message,
-        routingKey: "event.created",
+      // THEN
+      expect(binding1).toMatchObject({
+        routingKey: "order.created", // Uses publisher's key
       });
-      expect(binding).toMatchObject({
-        type: "queue",
-        queue,
-        exchange,
-        routingKey: "event.created",
+      expect(binding2).toMatchObject({
+        routingKey: "order.*", // Overridden with pattern
       });
     });
 
-    it("should ensure message consistency between publisher and consumer", () => {
-      // GIVEN
-      const message = defineMessage(z.object({ userId: z.string() }));
-      const exchange = defineExchange("users", "fanout");
-      const queue = defineQueue("user-queue");
-
-      // WHEN
-      const result = definePublisherFirst(exchange, message);
-      const { consumer } = result.createConsumer(queue);
-
-      // THEN - Message should be the same object reference
-      expect(result.publisher.message).toBe(message);
-      expect(consumer.message).toBe(message);
-    });
-
-    it("should work in a complete contract with publisher-first pattern", () => {
+    it("should extract EventPublisherConfig from publishers section", () => {
       // GIVEN
       const message = defineMessage(
         z.object({
@@ -1017,12 +1008,10 @@ describe("builder", () => {
       const ordersExchange = defineExchange("orders", "topic", { durable: true });
       const orderQueue = defineQueue("order-processing", { durable: true });
 
-      // WHEN
-      const orderPublisherFirst = definePublisherFirst(ordersExchange, message, {
+      // WHEN - EventPublisherConfig goes directly in publishers
+      const orderCreated = defineEventPublisher(ordersExchange, message, {
         routingKey: "order.created",
       });
-      const { consumer: processOrderConsumer, binding: orderBinding } =
-        orderPublisherFirst.createConsumer(orderQueue);
 
       const contract = defineContract({
         exchanges: {
@@ -1031,18 +1020,17 @@ describe("builder", () => {
         queues: {
           orderProcessing: orderQueue,
         },
-        bindings: {
-          orderBinding,
-        },
         publishers: {
-          orderCreated: orderPublisherFirst.publisher,
+          // EventPublisherConfig auto-extracted to publisher
+          orderCreated,
         },
         consumers: {
-          processOrder: processOrderConsumer,
+          // EventConsumerResult auto-extracted to consumer + binding
+          processOrder: defineEventConsumer(orderCreated, orderQueue),
         },
       });
 
-      // THEN
+      // THEN - EventPublisherConfig is converted to publisher
       expect(contract).toMatchObject({
         exchanges: {
           orders: { name: "orders", type: "topic", durable: true },
@@ -1051,7 +1039,7 @@ describe("builder", () => {
           orderProcessing: { name: "order-processing", durable: true },
         },
         bindings: {
-          orderBinding: {
+          processOrderBinding: {
             type: "queue",
             queue: orderQueue,
             exchange: ordersExchange,
@@ -1073,35 +1061,140 @@ describe("builder", () => {
         },
       });
     });
+
+    it("should auto-extract binding when passing EventConsumerResult directly to consumers", () => {
+      // GIVEN
+      const message = defineMessage(
+        z.object({
+          orderId: z.string(),
+          amount: z.number(),
+        }),
+      );
+      const ordersExchange = defineExchange("orders", "topic", { durable: true });
+      const orderQueue = defineQueue("order-processing", { durable: true });
+      const notificationQueue = defineQueue("notifications", { durable: true });
+
+      // WHEN - No manual destructuring needed!
+      const orderCreated = defineEventPublisher(ordersExchange, message, {
+        routingKey: "order.created",
+      });
+
+      const contract = defineContract({
+        exchanges: {
+          orders: ordersExchange,
+        },
+        queues: {
+          orderProcessing: orderQueue,
+          notifications: notificationQueue,
+        },
+        events: {
+          orderCreated,
+        },
+        // Pass EventConsumerResult directly - bindings are auto-extracted
+        consumers: {
+          processOrder: defineEventConsumer(orderCreated, orderQueue),
+          sendNotification: defineEventConsumer(orderCreated, notificationQueue),
+        },
+      });
+
+      // THEN - bindings are auto-generated from EventConsumerResult
+      expect(contract).toMatchObject({
+        bindings: {
+          // Auto-generated bindings with naming convention: {consumerName}Binding
+          processOrderBinding: {
+            type: "queue",
+            queue: orderQueue,
+            exchange: ordersExchange,
+            routingKey: "order.created",
+          },
+          sendNotificationBinding: {
+            type: "queue",
+            queue: notificationQueue,
+            exchange: ordersExchange,
+            routingKey: "order.created",
+          },
+        },
+        consumers: {
+          processOrder: {
+            queue: orderQueue,
+            message,
+          },
+          sendNotification: {
+            queue: notificationQueue,
+            message,
+          },
+        },
+      });
+    });
+
+    it("should support mixing plain ConsumerDefinition and EventConsumerResult in consumers", () => {
+      // GIVEN
+      const message = defineMessage(z.object({ id: z.string() }));
+      const exchange = defineExchange("events", "fanout");
+      const queue1 = defineQueue("queue-1");
+      const queue2 = defineQueue("queue-2");
+
+      const eventPublisher = defineEventPublisher(exchange, message);
+
+      // WHEN - Mix of plain consumer and EventConsumerResult
+      const contract = defineContract({
+        exchanges: { events: exchange },
+        queues: { queue1, queue2 },
+        bindings: {}, // Include bindings section for proper type inference
+        consumers: {
+          // Plain ConsumerDefinition
+          plainConsumer: defineConsumer(queue1, message),
+          // EventConsumerResult - binding auto-extracted
+          eventConsumer: defineEventConsumer(eventPublisher, queue2),
+        },
+      });
+
+      // THEN
+      expect(contract.consumers).toMatchObject({
+        plainConsumer: { queue: queue1, message },
+        eventConsumer: { queue: queue2, message },
+      });
+
+      // Only the EventConsumerResult generates a binding
+      expect(contract.bindings).toMatchObject({
+        eventConsumerBinding: {
+          type: "queue",
+          queue: queue2,
+          exchange,
+        },
+      });
+      // Plain consumers don't auto-generate bindings
+      expect(Object.keys(contract.bindings ?? {})).not.toContain("plainConsumerBinding");
+    });
   });
 
-  describe("defineConsumerFirst", () => {
-    it("should create a consumer-first relationship with fanout exchange", () => {
+  describe("defineCommandConsumer and defineCommandPublisher", () => {
+    it("should create a command consumer with fanout exchange", () => {
       // GIVEN
       const message = defineMessage(z.object({ id: z.string() }));
       const queue = defineQueue("test-queue");
       const exchange = defineExchange("test-exchange", "fanout");
 
       // WHEN
-      const result = defineConsumerFirst(queue, exchange, message);
+      const command = defineCommandConsumer(queue, exchange, message);
+      const publisher = defineCommandPublisher(command);
 
       // THEN
-      expect(result.consumer).toEqual({
-        queue,
-        message,
-      });
-      expect(result.binding).toEqual({
-        type: "queue",
-        queue,
+      expect(command).toMatchObject({
+        __brand: "CommandConsumerConfig",
+        consumer: { queue, message },
+        binding: { type: "queue", queue, exchange },
         exchange,
+        message,
+        routingKey: undefined,
       });
-      expect(result.createPublisher()).toEqual({
+      expect(publisher).toEqual({
         exchange,
         message,
       });
     });
 
-    it("should create a consumer-first relationship with direct exchange", () => {
+    it("should create a command consumer with direct exchange", () => {
       // GIVEN
       const message = defineMessage(
         z.object({
@@ -1113,99 +1206,53 @@ describe("builder", () => {
       const exchange = defineExchange("tasks", "direct", { durable: true });
 
       // WHEN
-      const result = defineConsumerFirst(queue, exchange, message, {
+      const command = defineCommandConsumer(queue, exchange, message, {
         routingKey: "task.execute",
       });
+      const publisher = defineCommandPublisher(command);
 
       // THEN
-      expect(result.consumer).toEqual({
+      expect(command.consumer).toEqual({
         queue,
         message,
       });
-      expect(result.binding).toEqual({
+      expect(command.binding).toEqual({
         type: "queue",
         queue,
         exchange,
         routingKey: "task.execute",
       });
-      expect(result.createPublisher()).toEqual({
+      expect(publisher).toEqual({
         exchange,
         message,
         routingKey: "task.execute",
       });
     });
 
-    it("should create a consumer-first relationship with direct exchange and notifications routing key", () => {
-      // GIVEN
-      const message = defineMessage(z.object({ notificationId: z.string() }));
-      const queue = defineQueue("notifications");
-      const exchange = defineExchange("notifications", "direct");
-
-      // WHEN
-      const result = defineConsumerFirst(queue, exchange, message, {
-        routingKey: "notification.send",
-      });
-
-      // THEN
-      expect(result.consumer).toEqual({
-        queue,
-        message,
-      });
-      expect(result.binding).toEqual({
-        type: "queue",
-        queue,
-        exchange,
-        routingKey: "notification.send",
-      });
-      expect(result.createPublisher()).toEqual({
-        exchange,
-        message,
-        routingKey: "notification.send",
-      });
-    });
-
-    it("should ensure routing key consistency between consumer and publisher for topic exchange", () => {
+    it("should create a command consumer with topic exchange", () => {
       // GIVEN
       const message = defineMessage(z.object({ eventId: z.string() }));
       const queue = defineQueue("event-queue");
       const exchange = defineExchange("events", "topic");
 
       // WHEN
-      const result = defineConsumerFirst(queue, exchange, message, {
+      const command = defineCommandConsumer(queue, exchange, message, {
+        routingKey: "event.*",
+      });
+      const publisher = defineCommandPublisher(command, {
         routingKey: "event.processed",
       });
-      const publisher = result.createPublisher("event.processed");
 
-      // THEN - Routing key should be specified in publisher call
-      expect(result.binding).toMatchObject({
-        type: "queue",
-        queue,
-        exchange,
-        routingKey: "event.processed",
+      // THEN
+      expect(command.binding).toMatchObject({
+        routingKey: "event.*",
       });
       expect(publisher).toMatchObject({
-        exchange,
-        message,
         routingKey: "event.processed",
       });
     });
 
-    it("should ensure message consistency between consumer and publisher", () => {
-      // GIVEN
-      const message = defineMessage(z.object({ data: z.string() }));
-      const queue = defineQueue("data-queue");
-      const exchange = defineExchange("data", "fanout");
-
-      // WHEN
-      const result = defineConsumerFirst(queue, exchange, message);
-      const publisher = result.createPublisher();
-
-      // THEN - Message should be the same object reference
-      expect(result.consumer.message).toBe(message);
-      expect(publisher.message).toBe(message);
-    });
-
-    it("should work in a complete contract with consumer-first pattern for topic exchange", () => {
+    it("should extract CommandConsumerConfig from consumers section", () => {
       // GIVEN
       const message = defineMessage(
         z.object({
@@ -1216,10 +1263,11 @@ describe("builder", () => {
       const auditQueue = defineQueue("audit-log", { durable: true });
       const auditExchange = defineExchange("audit", "topic", { durable: true });
 
-      // WHEN
-      const auditConsumerFirst = defineConsumerFirst(auditQueue, auditExchange, message, {
+      // WHEN - CommandConsumerConfig goes directly in consumers
+      const processAudit = defineCommandConsumer(auditQueue, auditExchange, message, {
         routingKey: "audit.log",
       });
+      const logAuditPublisher = defineCommandPublisher(processAudit);
 
       const contract = defineContract({
         exchanges: {
@@ -1228,18 +1276,16 @@ describe("builder", () => {
         queues: {
           auditLog: auditQueue,
         },
-        bindings: {
-          auditBinding: auditConsumerFirst.binding,
-        },
         publishers: {
-          logAudit: auditConsumerFirst.createPublisher("audit.log"),
+          logAudit: logAuditPublisher,
         },
         consumers: {
-          processAudit: auditConsumerFirst.consumer,
+          // CommandConsumerConfig auto-extracted to consumer + binding
+          processAudit,
         },
       });
 
-      // THEN
+      // THEN - CommandConsumerConfig is converted to consumer and binding
       expect(contract).toMatchObject({
         exchanges: {
           audit: { name: "audit", type: "topic", durable: true },
@@ -1248,7 +1294,7 @@ describe("builder", () => {
           auditLog: { name: "audit-log", durable: true },
         },
         bindings: {
-          auditBinding: {
+          processAuditBinding: {
             type: "queue",
             queue: auditQueue,
             exchange: auditExchange,
@@ -1270,10 +1316,8 @@ describe("builder", () => {
         },
       });
     });
-  });
 
-  describe("defineConsumerFirst with topic exchange routing keys", () => {
-    it("should allow specifying routing key when creating publisher for topic exchange", () => {
+    it("should allow multiple publishers for topic exchange command", () => {
       // GIVEN
       const message = defineMessage(
         z.object({
@@ -1284,15 +1328,19 @@ describe("builder", () => {
       const queue = defineQueue("order-processing", { durable: true });
       const exchange = defineExchange("orders", "topic", { durable: true });
 
-      // WHEN - Consumer bound with pattern, publisher uses concrete key
-      const result = defineConsumerFirst(queue, exchange, message, {
-        routingKey: "order.*", // Pattern in binding
+      // WHEN - Consumer bound with pattern, publishers use concrete keys
+      const processOrder = defineCommandConsumer(queue, exchange, message, {
+        routingKey: "order.*",
       });
-      const publisherCreated = result.createPublisher("order.created"); // Concrete key
-      const publisherUpdated = result.createPublisher("order.updated"); // Concrete key
+      const publisherCreated = defineCommandPublisher(processOrder, {
+        routingKey: "order.created",
+      });
+      const publisherUpdated = defineCommandPublisher(processOrder, {
+        routingKey: "order.updated",
+      });
 
       // THEN
-      expect(result.binding).toMatchObject({
+      expect(processOrder.binding).toMatchObject({
         routingKey: "order.*",
       });
       expect(publisherCreated).toEqual({
@@ -1306,234 +1354,23 @@ describe("builder", () => {
         routingKey: "order.updated",
       });
     });
-
-    it("should work with wildcard patterns in consumer binding", () => {
-      // GIVEN
-      const message = defineMessage(z.object({ eventId: z.string() }));
-      const queue = defineQueue("event-queue");
-      const exchange = defineExchange("events", "topic");
-
-      // WHEN - Use # wildcard in binding
-      const result = defineConsumerFirst(queue, exchange, message, {
-        routingKey: "event.#",
-      });
-      const publisher1 = result.createPublisher("event.created");
-      const publisher2 = result.createPublisher("event.order.created");
-      const publisher3 = result.createPublisher("event.user.registered");
-
-      // THEN - All concrete keys should work
-      expect(result.binding).toMatchObject({
-        routingKey: "event.#",
-      });
-      expect(publisher1).toMatchObject({
-        routingKey: "event.created",
-      });
-      expect(publisher2).toMatchObject({
-        routingKey: "event.order.created",
-      });
-      expect(publisher3).toMatchObject({
-        routingKey: "event.user.registered",
-      });
-    });
-
-    it("should work in a complete contract with multiple publishers", () => {
-      // GIVEN
-      const message = defineMessage(
-        z.object({
-          orderId: z.string(),
-          status: z.string(),
-        }),
-      );
-      const orderQueue = defineQueue("order-processing", { durable: true });
-      const ordersExchange = defineExchange("orders", "topic", { durable: true });
-
-      // WHEN - Consumer binds with pattern, multiple publishers with concrete keys
-      const orderConsumerFirst = defineConsumerFirst(orderQueue, ordersExchange, message, {
-        routingKey: "order.*",
-      });
-
-      const contract = defineContract({
-        exchanges: {
-          orders: ordersExchange,
-        },
-        queues: {
-          orderProcessing: orderQueue,
-        },
-        bindings: {
-          orderBinding: orderConsumerFirst.binding,
-        },
-        publishers: {
-          orderCreated: orderConsumerFirst.createPublisher("order.created"),
-          orderUpdated: orderConsumerFirst.createPublisher("order.updated"),
-          orderCancelled: orderConsumerFirst.createPublisher("order.cancelled"),
-        },
-        consumers: {
-          processOrder: orderConsumerFirst.consumer,
-        },
-      });
-
-      // THEN
-      expect(contract).toMatchObject({
-        bindings: {
-          orderBinding: {
-            routingKey: "order.*",
-          },
-        },
-        publishers: {
-          orderCreated: {
-            routingKey: "order.created",
-          },
-          orderUpdated: {
-            routingKey: "order.updated",
-          },
-          orderCancelled: {
-            routingKey: "order.cancelled",
-          },
-        },
-      });
-    });
   });
 
-  describe("definePublisherFirst with topic exchange routing keys", () => {
-    it("should allow specifying routing key pattern when creating consumer for topic exchange", () => {
-      // GIVEN
-      const message = defineMessage(
-        z.object({
-          orderId: z.string(),
-          amount: z.number(),
-        }),
-      );
-      const exchange = defineExchange("orders", "topic", { durable: true });
-      const queue1 = defineQueue("order-processing", { durable: true });
-      const queue2 = defineQueue("all-orders", { durable: true });
-
-      // WHEN - Publisher with concrete key, consumers with patterns
-      const result = definePublisherFirst(exchange, message, {
-        routingKey: "order.created", // Concrete key
-      });
-      const { consumer: consumer1, binding: binding1 } = result.createConsumer(queue1); // Default
-      const { consumer: consumer2, binding: binding2 } = result.createConsumer(queue2, "order.*"); // Pattern
-
-      // THEN
-      expect(result.publisher).toMatchObject({
-        routingKey: "order.created",
-      });
-      expect(binding1).toMatchObject({
-        routingKey: "order.created", // Uses publisher's key
-      });
-      expect(binding2).toMatchObject({
-        routingKey: "order.*", // Uses specified pattern
-      });
-      expect(consumer1.queue).toBe(queue1);
-      expect(consumer2.queue).toBe(queue2);
-    });
-
-    it("should use publisher routing key as default for consumer binding", () => {
-      // GIVEN
-      const message = defineMessage(z.object({ eventId: z.string() }));
-      const exchange = defineExchange("events", "topic");
-      const queue = defineQueue("event-queue");
-
-      // WHEN - No routing key specified for consumer
-      const result = definePublisherFirst(exchange, message, {
-        routingKey: "event.created",
-      });
-      const { binding } = result.createConsumer(queue);
-
-      // THEN - Should use publisher's routing key
-      expect(binding.routingKey).toBe("event.created");
-    });
-
-    it("should work in a complete contract with multiple consumers", () => {
-      // GIVEN
-      const message = defineMessage(
-        z.object({
-          orderId: z.string(),
-          amount: z.number(),
-        }),
-      );
-      const ordersExchange = defineExchange("orders", "topic", { durable: true });
-      const orderQueue = defineQueue("order-processing", { durable: true });
-      const allOrdersQueue = defineQueue("all-orders", { durable: true });
-      const urgentOrdersQueue = defineQueue("urgent-orders", { durable: true });
-
-      // WHEN - Publisher with concrete key, multiple consumers with different patterns
-      const orderCreatedEvent = definePublisherFirst(ordersExchange, message, {
-        routingKey: "order.created",
-      });
-
-      const { consumer: consumer1, binding: binding1 } =
-        orderCreatedEvent.createConsumer(orderQueue);
-      const { consumer: consumer2, binding: binding2 } = orderCreatedEvent.createConsumer(
-        allOrdersQueue,
-        "order.*",
-      );
-      const { consumer: consumer3, binding: binding3 } = orderCreatedEvent.createConsumer(
-        urgentOrdersQueue,
-        "order.#",
-      );
-
-      const contract = defineContract({
-        exchanges: {
-          orders: ordersExchange,
-        },
-        queues: {
-          orderProcessing: orderQueue,
-          allOrders: allOrdersQueue,
-          urgentOrders: urgentOrdersQueue,
-        },
-        bindings: {
-          orderBinding1: binding1,
-          orderBinding2: binding2,
-          orderBinding3: binding3,
-        },
-        publishers: {
-          orderCreated: orderCreatedEvent.publisher,
-        },
-        consumers: {
-          processOrder: consumer1,
-          trackAllOrders: consumer2,
-          trackUrgentOrders: consumer3,
-        },
-      });
-
-      // THEN
-      expect(contract).toMatchObject({
-        publishers: {
-          orderCreated: {
-            routingKey: "order.created",
-          },
-        },
-        bindings: {
-          orderBinding1: {
-            routingKey: "order.created", // Default
-          },
-          orderBinding2: {
-            routingKey: "order.*", // Custom pattern
-          },
-          orderBinding3: {
-            routingKey: "order.#", // Custom pattern
-          },
-        },
-      });
-    });
-  });
-
-  describe("contract consistency with external resources", () => {
-    it("should support using external exchange with publisher-first", () => {
+  describe("event and command patterns with external resources", () => {
+    it("should support using external exchange with event pattern", () => {
       // GIVEN - External exchange from another contract
       const externalExchange = defineExchange("external-events", "topic", { durable: true });
       const localQueue = defineQueue("local-queue", { durable: true });
       const message = defineMessage(z.object({ eventId: z.string() }));
 
       // WHEN - Use external exchange with local queue
-      const result = definePublisherFirst(externalExchange, message, {
+      const eventPublisher = defineEventPublisher(externalExchange, message, {
         routingKey: "external.event",
       });
-      const { consumer, binding } = result.createConsumer(localQueue);
+      const { consumer, binding } = defineEventConsumer(eventPublisher, localQueue);
 
       // THEN
-      expect(result.publisher).toMatchObject({
+      expect(eventPublisher).toMatchObject({
         exchange: externalExchange,
         message,
       });
@@ -1543,59 +1380,409 @@ describe("builder", () => {
       expect(consumer.queue).toBe(localQueue);
     });
 
-    it("should support using external queue with consumer-first", () => {
+    it("should support using external queue with command pattern", () => {
       // GIVEN - External queue from another contract
       const externalQueue = defineQueue("external-queue", { durable: true });
       const localExchange = defineExchange("local-exchange", "direct", { durable: true });
       const message = defineMessage(z.object({ data: z.string() }));
 
       // WHEN - Use external queue with local exchange
-      const result = defineConsumerFirst(externalQueue, localExchange, message, {
+      const command = defineCommandConsumer(externalQueue, localExchange, message, {
         routingKey: "local.route",
+      });
+      const publisher = defineCommandPublisher(command);
+
+      // THEN
+      expect(command.consumer.queue).toBe(externalQueue);
+      expect(command.binding.queue).toBe(externalQueue);
+      expect(publisher).toMatchObject({ exchange: localExchange });
+    });
+
+    it("should support mixed EventPublisherConfig and CommandConsumerConfig in a contract", () => {
+      // GIVEN
+      const ordersExchange = defineExchange("orders", "topic", { durable: true });
+      const notificationsExchange = defineExchange("notifications", "fanout", { durable: true });
+      const orderQueue = defineQueue("order-queue", { durable: true });
+      const notificationQueue = defineQueue("notification-queue", { durable: true });
+
+      const orderMessage = defineMessage(z.object({ orderId: z.string() }));
+      const notificationMessage = defineMessage(z.object({ message: z.string() }));
+
+      // WHEN - All configs go directly in publishers and consumers
+      const orderCreated = defineEventPublisher(ordersExchange, orderMessage, {
+        routingKey: "order.created",
+      });
+
+      const sendNotification = defineCommandConsumer(
+        notificationQueue,
+        notificationsExchange,
+        notificationMessage,
+      );
+
+      const contract = defineContract({
+        exchanges: {
+          orders: ordersExchange,
+          notifications: notificationsExchange,
+        },
+        queues: {
+          orderQueue,
+          notificationQueue,
+        },
+        publishers: {
+          // EventPublisherConfig auto-extracted to publisher
+          orderCreated,
+        },
+        consumers: {
+          // EventConsumerResult auto-extracted to consumer + binding
+          processOrder: defineEventConsumer(orderCreated, orderQueue),
+          // CommandConsumerConfig auto-extracted to consumer + binding
+          sendNotification,
+        },
+      });
+
+      // THEN - All configs are expanded and bindings auto-generated
+      expect(contract).toMatchObject({
+        publishers: {
+          orderCreated: expect.objectContaining({
+            exchange: ordersExchange,
+            routingKey: "order.created",
+          }),
+        },
+        consumers: {
+          processOrder: expect.objectContaining({
+            queue: orderQueue,
+          }),
+          sendNotification: expect.objectContaining({
+            queue: notificationQueue,
+          }),
+        },
+        bindings: {
+          processOrderBinding: expect.objectContaining({
+            type: "queue",
+          }),
+          sendNotificationBinding: expect.objectContaining({
+            type: "queue",
+          }),
+        },
+      });
+    });
+  });
+
+  describe("defineQuorumQueue", () => {
+    it("should create a quorum queue with quorum-native retry", () => {
+      // GIVEN
+      const dlx = defineExchange("orders-dlx", "direct", { durable: true });
+
+      // WHEN
+      const queue = defineQuorumQueue("order-processing", {
+        deadLetterExchange: dlx,
+        deliveryLimit: 3,
       });
 
       // THEN
-      expect(result).toMatchObject({
-        consumer: { queue: externalQueue },
-        binding: { queue: externalQueue },
+      expect(queue).toEqual({
+        name: "order-processing",
+        type: "quorum",
+        deadLetter: { exchange: dlx },
+        deliveryLimit: 3,
+        retry: { mode: "quorum-native" },
       });
-      expect(result.createPublisher().exchange).toBe(localExchange);
     });
 
-    it("should support mixed external and local resources in a contract", () => {
-      // GIVEN - Mix of external and local resources
-      const externalExchange = defineExchange("external-exchange", "topic", { durable: true });
-      const localQueue = defineQueue("local-queue", { durable: true });
-      const sharedMessage = defineMessage(z.object({ id: z.string() }));
+    it("should create a quorum queue with dead letter routing key", () => {
+      // GIVEN
+      const dlx = defineExchange("orders-dlx", "topic", { durable: true });
 
-      // WHEN - Create a contract with external resources
-      const result = definePublisherFirst(externalExchange, sharedMessage, {
-        routingKey: "shared.event",
-      });
-      const { consumer, binding } = result.createConsumer(localQueue);
-
-      const contract = defineContract({
-        // Only include local resources in exchanges
-        exchanges: {},
-        queues: {
-          localQueue,
-        },
-        bindings: {
-          externalBinding: binding,
-        },
-        publishers: {
-          publishToExternal: result.publisher,
-        },
-        consumers: {
-          consumeFromLocal: consumer,
-        },
+      // WHEN
+      const queue = defineQuorumQueue("order-processing", {
+        deadLetterExchange: dlx,
+        deadLetterRoutingKey: "failed.orders",
+        deliveryLimit: 5,
       });
 
-      // THEN - Contract should work with external resources
-      expect(contract).toMatchObject({
-        publishers: { publishToExternal: { exchange: externalExchange } },
-        bindings: { externalBinding: { exchange: externalExchange } },
-        consumers: { consumeFromLocal: { queue: localQueue } },
+      // THEN
+      expect(queue).toEqual({
+        name: "order-processing",
+        type: "quorum",
+        deadLetter: { exchange: dlx, routingKey: "failed.orders" },
+        deliveryLimit: 5,
+        retry: { mode: "quorum-native" },
+      });
+    });
+
+    it("should create a quorum queue with autoDelete option", () => {
+      // GIVEN
+      const dlx = defineExchange("orders-dlx", "direct", { durable: true });
+
+      // WHEN
+      const queue = defineQuorumQueue("order-processing", {
+        deadLetterExchange: dlx,
+        deliveryLimit: 3,
+        autoDelete: true,
+      });
+
+      // THEN
+      expect(queue).toEqual({
+        name: "order-processing",
+        type: "quorum",
+        deadLetter: { exchange: dlx },
+        deliveryLimit: 3,
+        autoDelete: true,
+        retry: { mode: "quorum-native" },
+      });
+    });
+
+    it("should create a quorum queue with additional arguments", () => {
+      // GIVEN
+      const dlx = defineExchange("orders-dlx", "direct", { durable: true });
+
+      // WHEN
+      const queue = defineQuorumQueue("order-processing", {
+        deadLetterExchange: dlx,
+        deliveryLimit: 3,
+        arguments: { "x-message-ttl": 86400000 },
+      });
+
+      // THEN
+      expect(queue).toEqual({
+        name: "order-processing",
+        type: "quorum",
+        deadLetter: { exchange: dlx },
+        deliveryLimit: 3,
+        retry: { mode: "quorum-native" },
+        arguments: { "x-message-ttl": 86400000 },
+      });
+    });
+
+    it("should create a quorum queue with all options combined", () => {
+      // GIVEN
+      const dlx = defineExchange("orders-dlx", "topic", { durable: true });
+
+      // WHEN
+      const queue = defineQuorumQueue("order-processing", {
+        deadLetterExchange: dlx,
+        deadLetterRoutingKey: "failed",
+        deliveryLimit: 10,
+        autoDelete: false,
+        arguments: { "x-message-ttl": 3600000 },
+      });
+
+      // THEN
+      expect(queue).toEqual({
+        name: "order-processing",
+        type: "quorum",
+        deadLetter: { exchange: dlx, routingKey: "failed" },
+        deliveryLimit: 10,
+        autoDelete: false,
+        retry: { mode: "quorum-native" },
+        arguments: { "x-message-ttl": 3600000 },
+      });
+    });
+  });
+
+  describe("defineTtlBackoffQueue", () => {
+    it("should create a TTL-backoff queue with default retry options", () => {
+      // GIVEN
+      const dlx = defineExchange("orders-dlx", "direct", { durable: true });
+
+      // WHEN
+      const queue = defineTtlBackoffQueue("order-processing", {
+        deadLetterExchange: dlx,
+      });
+
+      // THEN - returns QueueWithTtlBackoffInfrastructure
+      expect(queue).toMatchObject({
+        __brand: "QueueWithTtlBackoffInfrastructure",
+        queue: {
+          name: "order-processing",
+          type: "quorum",
+          deadLetter: { exchange: dlx },
+          retry: {
+            mode: "ttl-backoff",
+            maxRetries: 3,
+            initialDelayMs: 1000,
+            maxDelayMs: 30000,
+            backoffMultiplier: 2,
+            jitter: true,
+          },
+        },
+        waitQueue: {
+          name: "order-processing-wait",
+          type: "quorum",
+        },
+      });
+    });
+
+    it("should create a TTL-backoff queue with custom retry options", () => {
+      // GIVEN
+      const dlx = defineExchange("orders-dlx", "direct", { durable: true });
+
+      // WHEN
+      const queue = defineTtlBackoffQueue("order-processing", {
+        deadLetterExchange: dlx,
+        maxRetries: 5,
+        initialDelayMs: 2000,
+        maxDelayMs: 60000,
+        backoffMultiplier: 3,
+        jitter: false,
+      });
+
+      // THEN
+      expect(queue).toMatchObject({
+        __brand: "QueueWithTtlBackoffInfrastructure",
+        queue: {
+          name: "order-processing",
+          type: "quorum",
+          deadLetter: { exchange: dlx },
+          retry: {
+            mode: "ttl-backoff",
+            maxRetries: 5,
+            initialDelayMs: 2000,
+            maxDelayMs: 60000,
+            backoffMultiplier: 3,
+            jitter: false,
+          },
+        },
+      });
+    });
+
+    it("should create a TTL-backoff queue with dead letter routing key", () => {
+      // GIVEN
+      const dlx = defineExchange("orders-dlx", "topic", { durable: true });
+
+      // WHEN
+      const queue = defineTtlBackoffQueue("order-processing", {
+        deadLetterExchange: dlx,
+        deadLetterRoutingKey: "failed.orders",
+      });
+
+      // THEN
+      expect(queue).toMatchObject({
+        __brand: "QueueWithTtlBackoffInfrastructure",
+        queue: {
+          deadLetter: { exchange: dlx, routingKey: "failed.orders" },
+        },
+      });
+    });
+
+    it("should create a TTL-backoff queue with autoDelete option", () => {
+      // GIVEN
+      const dlx = defineExchange("orders-dlx", "direct", { durable: true });
+
+      // WHEN
+      const queue = defineTtlBackoffQueue("order-processing", {
+        deadLetterExchange: dlx,
+        autoDelete: true,
+      });
+
+      // THEN
+      expect(queue).toMatchObject({
+        __brand: "QueueWithTtlBackoffInfrastructure",
+        queue: {
+          autoDelete: true,
+        },
+      });
+    });
+
+    it("should create a TTL-backoff queue with additional arguments", () => {
+      // GIVEN
+      const dlx = defineExchange("orders-dlx", "direct", { durable: true });
+
+      // WHEN
+      const queue = defineTtlBackoffQueue("order-processing", {
+        deadLetterExchange: dlx,
+        arguments: { "x-message-ttl": 86400000 },
+      });
+
+      // THEN
+      expect(queue).toMatchObject({
+        __brand: "QueueWithTtlBackoffInfrastructure",
+        queue: {
+          arguments: { "x-message-ttl": 86400000 },
+        },
+      });
+    });
+
+    it("should allow extractQueue to access underlying queue definition", () => {
+      // GIVEN
+      const dlx = defineExchange("orders-dlx", "direct", { durable: true });
+      const queue = defineTtlBackoffQueue("order-processing", {
+        deadLetterExchange: dlx,
+        maxRetries: 5,
+      });
+
+      // WHEN
+      const queueDef = extractQueue(queue);
+
+      // THEN
+      expect(queueDef.name).toBe("order-processing");
+      expect(queueDef.type).toBe("quorum");
+      expect(queueDef.deadLetter).toEqual({ exchange: dlx });
+    });
+
+    it("should include wait queue bindings in infrastructure", () => {
+      // GIVEN
+      const dlx = defineExchange("orders-dlx", "direct", { durable: true });
+
+      // WHEN
+      const queue = defineTtlBackoffQueue("order-processing", {
+        deadLetterExchange: dlx,
+      });
+
+      // THEN - verify bindings are created
+      expect(queue.waitQueueBinding).toMatchObject({
+        type: "queue",
+        queue: queue.waitQueue,
+        exchange: dlx,
+        routingKey: "order-processing-wait",
+      });
+      expect(queue.mainQueueRetryBinding).toMatchObject({
+        type: "queue",
+        queue: queue.queue,
+        exchange: dlx,
+        routingKey: "order-processing",
+      });
+    });
+
+    it("should create a TTL-backoff queue with all options combined", () => {
+      // GIVEN
+      const dlx = defineExchange("orders-dlx", "topic", { durable: true });
+
+      // WHEN
+      const queue = defineTtlBackoffQueue("order-processing", {
+        deadLetterExchange: dlx,
+        deadLetterRoutingKey: "failed",
+        maxRetries: 10,
+        initialDelayMs: 500,
+        maxDelayMs: 120000,
+        backoffMultiplier: 1.5,
+        jitter: true,
+        autoDelete: false,
+        arguments: { "x-message-ttl": 3600000 },
+      });
+
+      // THEN
+      expect(queue).toMatchObject({
+        __brand: "QueueWithTtlBackoffInfrastructure",
+        queue: {
+          name: "order-processing",
+          type: "quorum",
+          deadLetter: { exchange: dlx, routingKey: "failed" },
+          autoDelete: false,
+          retry: {
+            mode: "ttl-backoff",
+            maxRetries: 10,
+            initialDelayMs: 500,
+            maxDelayMs: 120000,
+            backoffMultiplier: 1.5,
+            jitter: true,
+          },
+          arguments: { "x-message-ttl": 3600000 },
+        },
+        waitQueue: {
+          name: "order-processing-wait",
+          type: "quorum",
+        },
       });
     });
   });

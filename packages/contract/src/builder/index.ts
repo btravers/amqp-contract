@@ -11,7 +11,14 @@ export { defineExchange } from "./exchange.js";
 export { defineMessage } from "./message.js";
 
 // Queue
-export { defineQueue, extractQueue, isQueueWithTtlBackoffInfrastructure } from "./queue.js";
+export {
+  defineQueue,
+  defineQuorumQueue,
+  defineTtlBackoffQueue,
+  extractQueue,
+  isQueueWithTtlBackoffInfrastructure,
+} from "./queue.js";
+export type { DefineQuorumQueueOptions, DefineTtlBackoffQueueOptions } from "./queue.js";
 
 // Bindings
 export { defineQueueBinding, defineExchangeBinding } from "./binding.js";
@@ -28,16 +35,22 @@ export { defineContract } from "./contract.js";
 // Routing types
 export type { RoutingKey, BindingPattern, MatchingRoutingKey } from "./routing-types.js";
 
-// Publisher-first pattern
-export { definePublisherFirst } from "./publisher-first.js";
-export type {
-  PublisherFirstResult,
-  PublisherFirstResultWithRoutingKey,
-} from "./publisher-first.js";
+// Event pattern
+export {
+  defineEventPublisher,
+  defineEventConsumer,
+  isEventPublisherConfig,
+  isEventConsumerResult,
+} from "./event.js";
+export type { EventPublisherConfig, EventConsumerResult } from "./event.js";
 
-// Consumer-first pattern
-export { defineConsumerFirst } from "./consumer-first.js";
-export type { ConsumerFirstResult, ConsumerFirstResultWithRoutingKey } from "./consumer-first.js";
+// Command pattern
+export {
+  defineCommandConsumer,
+  defineCommandPublisher,
+  isCommandConsumerConfig,
+} from "./command.js";
+export type { CommandConsumerConfig } from "./command.js";
 
 // TTL-backoff infrastructure
 export { defineTtlBackoffRetryInfrastructure } from "./ttl-backoff.js";

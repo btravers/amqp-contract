@@ -29,7 +29,8 @@ import {
   defineContract,
   defineExchange,
   defineQueue,
-  definePublisherFirst,
+  defineEventPublisher,
+  defineEventConsumer,
   defineMessage,
 } from "@amqp-contract/contract";
 import { TypedAmqpClient } from "@amqp-contract/client";
@@ -53,21 +54,23 @@ const orderMessage = defineMessage(
   }),
 );
 
-// 3. Publisher-first pattern ensures consistency
-const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } =
-  definePublisherFirst(ordersExchange, orderMessage, { routingKey: "order.created" });
+// 3. Event pattern: publisher broadcasts, consumers subscribe
+const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
+  routingKey: "order.created",
+});
 
-// 4. Create consumer from event
-const { consumer: processOrderConsumer, binding: orderBinding } =
-  createOrderCreatedConsumer(orderProcessingQueue);
-
-// 5. Define contract
+// 4. Define contract - configs go directly in publishers/consumers, bindings auto-generated
 const contract = defineContract({
   exchanges: { orders: ordersExchange, ordersDlx },
   queues: { orderProcessing: orderProcessingQueue },
-  bindings: { orderBinding },
-  publishers: { orderCreated: orderCreatedPublisher },
-  consumers: { processOrder: processOrderConsumer },
+  publishers: {
+    // EventPublisherConfig → auto-extracted to publisher
+    orderCreated: orderCreatedEvent,
+  },
+  consumers: {
+    // EventConsumerResult → auto-extracted to consumer + binding
+    processOrder: defineEventConsumer(orderCreatedEvent, orderProcessingQueue),
+  },
 });
 
 // 6. Type-safe publishing with validation

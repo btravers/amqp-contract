@@ -15,6 +15,19 @@ import type {
  *
  * The message schema is validated when publishing to ensure type safety.
  *
+ * **Which pattern to use:**
+ *
+ * | Pattern | Best for | Description |
+ * |---------|----------|-------------|
+ * | `definePublisher` + `defineConsumer` | Independent definition | Define publishers and consumers separately with manual schema consistency |
+ * | `defineEventPublisher` + `defineEventConsumer` | Event broadcasting | Define event publisher first, create consumers that subscribe to it |
+ * | `defineCommandConsumer` + `defineCommandPublisher` | Task queues | Define command consumer first, create publishers that send commands to it |
+ *
+ * Use `defineEventPublisher` when:
+ * - One publisher feeds multiple consumers
+ * - You want automatic schema consistency between publisher and consumers
+ * - You're building event-driven architectures
+ *
  * @param exchange - The fanout exchange definition to publish to
  * @param message - The message definition with payload schema
  * @param options - Optional publisher configuration
@@ -35,6 +48,9 @@ import type {
  *
  * const logPublisher = definePublisher(logsExchange, logMessage);
  * ```
+ *
+ * @see defineEventPublisher - For event-driven patterns with automatic schema consistency
+ * @see defineCommandConsumer - For task queue patterns with automatic schema consistency
  */
 export function definePublisher<TMessage extends MessageDefinition>(
   exchange: FanoutExchangeDefinition,
@@ -52,6 +68,19 @@ export function definePublisher<TMessage extends MessageDefinition>(
  * The routing key determines which queues receive the message.
  *
  * The message schema is validated when publishing to ensure type safety.
+ *
+ * **Which pattern to use:**
+ *
+ * | Pattern | Best for | Description |
+ * |---------|----------|-------------|
+ * | `definePublisher` + `defineConsumer` | Independent definition | Define publishers and consumers separately with manual schema consistency |
+ * | `defineEventPublisher` + `defineEventConsumer` | Event broadcasting | Define event publisher first, create consumers that subscribe to it |
+ * | `defineCommandConsumer` + `defineCommandPublisher` | Task queues | Define command consumer first, create publishers that send commands to it |
+ *
+ * Use `defineEventPublisher` when:
+ * - One publisher feeds multiple consumers
+ * - You want automatic schema consistency between publisher and consumers
+ * - You're building event-driven architectures
  *
  * @param exchange - The direct or topic exchange definition to publish to
  * @param message - The message definition with payload schema
@@ -79,6 +108,9 @@ export function definePublisher<TMessage extends MessageDefinition>(
  *   routingKey: 'order.created'
  * });
  * ```
+ *
+ * @see defineEventPublisher - For event-driven patterns with automatic schema consistency
+ * @see defineCommandConsumer - For task queue patterns with automatic schema consistency
  */
 export function definePublisher<TMessage extends MessageDefinition>(
   exchange: DirectExchangeDefinition | TopicExchangeDefinition,

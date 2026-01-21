@@ -1,12 +1,14 @@
 import {
+  defineCommandConsumer,
+  defineCommandPublisher,
   defineConsumer,
-  defineConsumerFirst,
   defineContract,
+  defineEventConsumer,
+  defineEventPublisher,
   defineExchange,
   defineExchangeBinding,
   defineMessage,
   definePublisher,
-  definePublisherFirst,
   defineQueue,
   defineQueueBinding,
 } from "@amqp-contract/contract";
@@ -80,43 +82,49 @@ const orderStatusMessage = defineMessage(orderStatusSchema, {
 const orderUnionMessage = defineMessage(z.union([orderSchema, orderStatusSchema]));
 
 /**
- * RECOMMENDED APPROACH: Publisher-First Pattern (Event-Oriented)
+ * RECOMMENDED APPROACH: Event Pattern (Publisher → Consumer)
  *
- * Use this for events where publishers don't need to know about queues.
+ * Use this for events where publishers broadcast without knowing who consumes.
  * Multiple consumers can subscribe to the same event.
  */
-const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } =
-  definePublisherFirst(ordersExchange, orderMessage, {
-    routingKey: "order.created",
-  });
+const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
+  routingKey: "order.created",
+});
 
-// Create consumer for processing queue using publisher-first pattern
-const { consumer: processOrderConsumer, binding: processOrderBinding } =
-  createOrderCreatedConsumer(orderProcessingQueue);
+// Create consumer for processing queue using event pattern
+const { consumer: processOrderConsumer, binding: processOrderBinding } = defineEventConsumer(
+  orderCreatedEvent,
+  orderProcessingQueue,
+);
 
 /**
- * RECOMMENDED APPROACH: Consumer-First Pattern (Command-Oriented)
+ * RECOMMENDED APPROACH: Command Pattern (Consumer → Publisher)
  *
- * Use this for commands where the consumer defines what it expects.
+ * Use this for commands where the consumer "owns" the queue and
+ * publishers send commands to it.
  */
-const {
-  consumer: shipOrderConsumer,
-  binding: shipOrderBinding,
-  createPublisher: createShipOrderPublisher,
-} = defineConsumerFirst(orderShippingQueue, ordersExchange, orderStatusMessage, {
-  routingKey: "order.shipped",
-});
+const shipOrderCommand = defineCommandConsumer(
+  orderShippingQueue,
+  ordersExchange,
+  orderStatusMessage,
+  {
+    routingKey: "order.shipped",
+  },
+);
+
+// Create publisher that sends ship orders
+const shipOrderPublisher = defineCommandPublisher(shipOrderCommand);
 
 /**
  * Order processing contract demonstrating recommended patterns
  *
  * This contract demonstrates:
- * 1. Publisher-First Pattern: createOrderCreatedConsumer can be used by multiple queues
- * 2. Consumer-First Pattern: shipOrderConsumer ensures publisher matches consumer
+ * 1. Event Pattern: orderCreatedEvent broadcasts to multiple consumers
+ * 2. Command Pattern: shipOrderCommand ensures publisher matches consumer
  * 3. Traditional Approach: For advanced scenarios like exchange-to-exchange bindings
  * 4. Dead Letter Exchange: Failed messages from orderProcessingQueue are routed to DLX
  *
- * Benefits of Publisher-First / Consumer-First:
+ * Benefits of Event / Command patterns:
  * - Guaranteed message schema consistency
  * - Automatic routing key synchronization
  * - Type-safe contract definitions
@@ -157,8 +165,11 @@ export const orderContract = defineContract({
     ordersDlxQueue,
   },
   bindings: {
-    // Binding from Publisher-First pattern (guaranteed consistent routing key)
+    // Binding from Event pattern (guaranteed consistent routing key)
     orderProcessingBinding: processOrderBinding,
+
+    // Binding from Command pattern (guaranteed consistent routing key)
+    orderShippingBinding: shipOrderCommand.binding,
 
     // Traditional approach for notifications queue to receive ALL order events
     // (Use wildcard pattern for notifications that need all events)
@@ -166,16 +177,13 @@ export const orderContract = defineContract({
       routingKey: "order.#",
     }),
 
-    // Binding from Consumer-First pattern (guaranteed consistent routing key)
-    orderShippingBinding: shipOrderBinding,
-
     // Exchange-to-Exchange binding: Route all order events to analytics exchange
     // (Use traditional approach for complex routing patterns)
     orderToAnalytics: defineExchangeBinding(orderAnalyticsExchange, ordersExchange, {
       routingKey: "order.#",
     }),
 
-    // Traditional approach for urgent queue (when not using Publisher/Consumer-First)
+    // Traditional approach for urgent queue (when not using Event/Command patterns)
     orderUrgentBinding: defineQueueBinding(orderUrgentQueue, ordersExchange, {
       routingKey: "order.*.urgent",
     }),
@@ -191,11 +199,13 @@ export const orderContract = defineContract({
     }),
   },
   publishers: {
-    // Publisher from Publisher-First pattern (event-oriented)
-    orderCreated: orderCreatedPublisher,
+    // Publisher from Event pattern (event-oriented broadcast)
+    orderCreated: definePublisher(ordersExchange, orderMessage, {
+      routingKey: "order.created",
+    }),
 
-    // Publisher from Consumer-First pattern (command-oriented)
-    orderShipped: createShipOrderPublisher("order.shipped"),
+    // Publisher from Command pattern (command-oriented)
+    orderShipped: shipOrderPublisher,
 
     // Traditional publishers (for other events)
     orderUpdated: definePublisher(ordersExchange, orderStatusMessage, {
@@ -207,14 +217,14 @@ export const orderContract = defineContract({
     }),
   },
   consumers: {
-    // Consumer from Publisher-First pattern (same message schema guaranteed)
+    // Consumer from Event pattern (same message schema guaranteed)
     processOrder: processOrderConsumer,
+
+    // Consumer from Command pattern (same message schema guaranteed)
+    shipOrder: shipOrderCommand.consumer,
 
     // Traditional consumer for notifications (receives all order events via wildcard)
     notifyOrder: defineConsumer(orderNotificationsQueue, orderUnionMessage),
-
-    // Consumer from Consumer-First pattern
-    shipOrder: shipOrderConsumer,
 
     // Traditional consumers (for other scenarios)
     handleUrgentOrder: defineConsumer(orderUrgentQueue, orderStatusMessage),

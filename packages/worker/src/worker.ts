@@ -22,8 +22,8 @@ import { Future, Result } from "@swan-io/boxed";
 import { MessageValidationError, NonRetryableError } from "./errors.js";
 import type {
   WorkerInferConsumedMessage,
-  WorkerInferSafeConsumerHandler,
-  WorkerInferSafeConsumerHandlers,
+  WorkerInferConsumerHandler,
+  WorkerInferConsumerHandlers,
 } from "./types.js";
 import type { HandlerError } from "./errors.js";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
@@ -98,7 +98,7 @@ export type CreateWorkerOptions<TContract extends ContractDefinition> = {
    * Handlers must return `Future<Result<void, HandlerError>>` for explicit error handling.
    * Use defineHandler() to create handlers.
    */
-  handlers: WorkerInferSafeConsumerHandlers<TContract>;
+  handlers: WorkerInferConsumerHandlers<TContract>;
   /** AMQP broker URL(s). Multiple URLs provide failover support */
   urls: ConnectionUrl[];
   /** Optional connection configuration (heartbeat, reconnect settings, etc.) */
@@ -160,7 +160,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   private readonly actualHandlers: Partial<
     Record<
       InferConsumerNames<TContract>,
-      WorkerInferSafeConsumerHandler<TContract, InferConsumerNames<TContract>>
+      WorkerInferConsumerHandler<TContract, InferConsumerNames<TContract>>
     >
   >;
   private readonly consumerOptions: Partial<Record<InferConsumerNames<TContract>, ConsumerOptions>>;
@@ -170,7 +170,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   private constructor(
     private readonly contract: TContract,
     private readonly amqpClient: AmqpClient,
-    handlers: WorkerInferSafeConsumerHandlers<TContract>,
+    handlers: WorkerInferConsumerHandlers<TContract>,
     private readonly logger?: Logger,
     telemetry?: TelemetryProvider,
   ) {
@@ -190,14 +190,14 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       if (isHandlerTuple(handlerEntry)) {
         // Tuple format: [handler, options]
         const [handler, options] = handlerEntry;
-        this.actualHandlers[typedConsumerName] = handler as WorkerInferSafeConsumerHandler<
+        this.actualHandlers[typedConsumerName] = handler as WorkerInferConsumerHandler<
           TContract,
           InferConsumerNames<TContract>
         >;
         this.consumerOptions[typedConsumerName] = options;
       } else {
         // Direct function format
-        this.actualHandlers[typedConsumerName] = handlerEntry as WorkerInferSafeConsumerHandler<
+        this.actualHandlers[typedConsumerName] = handlerEntry as WorkerInferConsumerHandler<
           TContract,
           InferConsumerNames<TContract>
         >;

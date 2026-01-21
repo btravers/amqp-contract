@@ -881,8 +881,59 @@ export type ConsumerDefinition<TMessage extends MessageDefinition = MessageDefin
   message: TMessage;
 };
 
+// =============================================================================
+// Event and Command Configuration Types
+// =============================================================================
+
 /**
- * Complete AMQP contract definition.
+ * Base type for event publisher configuration.
+ *
+ * This is a simplified type used in ContractDefinition. The full generic type
+ * is defined in the builder module.
+ *
+ * @see defineEventPublisher for creating event publishers
+ */
+export type EventPublisherConfigBase = {
+  __brand: "EventPublisherConfig";
+  exchange: ExchangeDefinition;
+  message: MessageDefinition;
+  routingKey: string | undefined;
+  arguments?: Record<string, unknown>;
+};
+
+/**
+ * Base type for command consumer configuration.
+ *
+ * This is a simplified type used in ContractDefinition. The full generic type
+ * is defined in the builder module.
+ *
+ * @see defineCommandConsumer for creating command consumers
+ */
+export type CommandConsumerConfigBase = {
+  __brand: "CommandConsumerConfig";
+  consumer: ConsumerDefinition;
+  binding: QueueBindingDefinition;
+  exchange: ExchangeDefinition;
+  message: MessageDefinition;
+  routingKey: string | undefined;
+};
+
+/**
+ * Base type for event consumer result.
+ *
+ * This is a simplified type used in ContractDefinitionInput. The full generic type
+ * is defined in the builder module.
+ *
+ * @see defineEventConsumer for creating event consumers
+ */
+export type EventConsumerResultBase = {
+  __brand: "EventConsumerResult";
+  consumer: ConsumerDefinition;
+  binding: QueueBindingDefinition;
+};
+
+/**
+ * Complete AMQP contract definition (output type).
  *
  * A contract brings together all AMQP resources into a single, type-safe definition.
  * It defines the complete messaging topology including exchanges, queues, bindings,
@@ -949,6 +1000,76 @@ export type ContractDefinition = {
    * The handler will be fully typed based on the message schema.
    */
   consumers?: Record<string, ConsumerDefinition>;
+};
+
+/**
+ * Publisher entry that can be passed to defineContract's publishers section.
+ *
+ * Can be either:
+ * - A plain PublisherDefinition from definePublisher
+ * - An EventPublisherConfig from defineEventPublisher (auto-extracted to publisher)
+ */
+export type PublisherEntry = PublisherDefinition | EventPublisherConfigBase;
+
+/**
+ * Consumer entry that can be passed to defineContract's consumers section.
+ *
+ * Can be either:
+ * - A plain ConsumerDefinition from defineConsumer
+ * - An EventConsumerResult from defineEventConsumer (binding auto-extracted)
+ * - A CommandConsumerConfig from defineCommandConsumer (binding auto-extracted)
+ */
+export type ConsumerEntry =
+  | ConsumerDefinition
+  | EventConsumerResultBase
+  | CommandConsumerConfigBase;
+
+/**
+ * Contract definition input type with automatic extraction of event/command patterns.
+ *
+ * This type allows passing event and command configs directly to the publishers
+ * and consumers sections. `defineContract` will automatically extract the appropriate
+ * definitions and generate bindings.
+ *
+ * @example
+ * ```typescript
+ * const contract = defineContract({
+ *   exchanges: { orders: ordersExchange },
+ *   queues: { processing: processingQueue },
+ *   publishers: {
+ *     // EventPublisherConfig → auto-extracted to publisher
+ *     orderCreated: defineEventPublisher(ordersExchange, orderMessage, { routingKey: "order.created" }),
+ *   },
+ *   consumers: {
+ *     // CommandConsumerConfig → auto-extracted to consumer + binding
+ *     processOrder: defineCommandConsumer(orderQueue, ordersExchange, orderMessage, { routingKey: "order.process" }),
+ *     // EventConsumerResult → auto-extracted to consumer + binding
+ *     notify: defineEventConsumer(orderCreatedEvent, notificationQueue),
+ *   },
+ * });
+ * ```
+ *
+ * @see defineContract - Processes this input and returns a ContractDefinition
+ */
+export type ContractDefinitionInput = Omit<ContractDefinition, "publishers" | "consumers"> & {
+  /**
+   * Named publisher definitions.
+   *
+   * Can accept:
+   * - PublisherDefinition from definePublisher
+   * - EventPublisherConfig from defineEventPublisher (auto-extracted to publisher)
+   */
+  publishers?: Record<string, PublisherEntry>;
+
+  /**
+   * Named consumer definitions.
+   *
+   * Can accept:
+   * - ConsumerDefinition from defineConsumer
+   * - EventConsumerResult from defineEventConsumer (binding auto-extracted)
+   * - CommandConsumerConfig from defineCommandConsumer (binding auto-extracted)
+   */
+  consumers?: Record<string, ConsumerEntry>;
 };
 
 /**
