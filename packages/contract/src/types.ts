@@ -1003,84 +1003,73 @@ export type ContractDefinition = {
 };
 
 /**
+ * Publisher entry that can be passed to defineContract's publishers section.
+ *
+ * Can be either:
+ * - A plain PublisherDefinition from definePublisher
+ * - An EventPublisherConfig from defineEventPublisher (auto-extracted to publisher)
+ */
+export type PublisherEntry = PublisherDefinition | EventPublisherConfigBase;
+
+/**
  * Consumer entry that can be passed to defineContract's consumers section.
  *
  * Can be either:
- * - A plain ConsumerDefinition
+ * - A plain ConsumerDefinition from defineConsumer
  * - An EventConsumerResult from defineEventConsumer (binding auto-extracted)
+ * - A CommandConsumerConfig from defineCommandConsumer (binding auto-extracted)
  */
-export type ConsumerEntry = ConsumerDefinition | EventConsumerResultBase;
+export type ConsumerEntry =
+  | ConsumerDefinition
+  | EventConsumerResultBase
+  | CommandConsumerConfigBase;
 
 /**
- * Contract definition input type with event and command helpers.
+ * Contract definition input type with automatic extraction of event/command patterns.
  *
- * This extends ContractDefinition with additional `events` and `commands` sections
- * that provide better developer experience for common messaging patterns.
+ * This type allows passing event and command configs directly to the publishers
+ * and consumers sections. `defineContract` will automatically extract the appropriate
+ * definitions and generate bindings.
  *
- * The `events` and `commands` sections are processed by `defineContract` and merged
- * into the `publishers`, `consumers`, and `bindings` sections in the output.
- *
- * Additionally, the `consumers` section can accept `EventConsumerResult` objects
- * directly from `defineEventConsumer`. The binding will be automatically extracted
- * and added to the `bindings` section.
+ * @example
+ * ```typescript
+ * const contract = defineContract({
+ *   exchanges: { orders: ordersExchange },
+ *   queues: { processing: processingQueue },
+ *   publishers: {
+ *     // EventPublisherConfig → auto-extracted to publisher
+ *     orderCreated: defineEventPublisher(ordersExchange, orderMessage, { routingKey: "order.created" }),
+ *   },
+ *   consumers: {
+ *     // CommandConsumerConfig → auto-extracted to consumer + binding
+ *     processOrder: defineCommandConsumer(orderQueue, ordersExchange, orderMessage, { routingKey: "order.process" }),
+ *     // EventConsumerResult → auto-extracted to consumer + binding
+ *     notify: defineEventConsumer(orderCreatedEvent, notificationQueue),
+ *   },
+ * });
+ * ```
  *
  * @see defineContract - Processes this input and returns a ContractDefinition
  */
-export type ContractDefinitionInput = Omit<ContractDefinition, "consumers"> & {
+export type ContractDefinitionInput = Omit<ContractDefinition, "publishers" | "consumers"> & {
+  /**
+   * Named publisher definitions.
+   *
+   * Can accept:
+   * - PublisherDefinition from definePublisher
+   * - EventPublisherConfig from defineEventPublisher (auto-extracted to publisher)
+   */
+  publishers?: Record<string, PublisherEntry>;
+
   /**
    * Named consumer definitions.
    *
    * Can accept:
    * - ConsumerDefinition from defineConsumer
    * - EventConsumerResult from defineEventConsumer (binding auto-extracted)
+   * - CommandConsumerConfig from defineCommandConsumer (binding auto-extracted)
    */
   consumers?: Record<string, ConsumerEntry>;
-  /**
-   * Named event publisher configurations.
-   *
-   * Events follow the pub/sub pattern where publishers broadcast messages
-   * without knowing who consumes them. Use `defineEventPublisher` to create
-   * events and `defineEventConsumer` to subscribe to them.
-   *
-   * Event publishers are merged into the output `publishers` section.
-   *
-   * @example
-   * ```typescript
-   * const orderCreated = defineEventPublisher(ordersExchange, orderMessage, {
-   *   routingKey: 'order.created',
-   * });
-   *
-   * const contract = defineContract({
-   *   events: { orderCreated },
-   *   // ...
-   * });
-   * ```
-   */
-  events?: Record<string, EventPublisherConfigBase>;
-
-  /**
-   * Named command consumer configurations.
-   *
-   * Commands follow the task queue pattern where publishers send commands
-   * to a specific consumer. Use `defineCommandConsumer` to create commands
-   * and `defineCommandPublisher` to send them.
-   *
-   * Command consumers and bindings are merged into the output `consumers`
-   * and `bindings` sections.
-   *
-   * @example
-   * ```typescript
-   * const processOrder = defineCommandConsumer(orderQueue, ordersExchange, orderMessage, {
-   *   routingKey: 'order.process',
-   * });
-   *
-   * const contract = defineContract({
-   *   commands: { processOrder },
-   *   // ...
-   * });
-   * ```
-   */
-  commands?: Record<string, CommandConsumerConfigBase>;
 };
 
 /**

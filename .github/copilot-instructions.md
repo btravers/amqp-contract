@@ -210,7 +210,7 @@ packages/[package-name]/
    - Use `defineEventPublisher` + `defineEventConsumer` for broadcast patterns (one publisher, many consumers)
    - Use `defineCommandConsumer` + `defineCommandPublisher` for task queue patterns (many publishers, one consumer)
    - These patterns ensure schema consistency and routing key synchronization
-   - **Simplified DX**: Pass `defineEventConsumer` results directly to consumers - bindings are auto-extracted
+   - **Simplified DX**: Configs go directly in `publishers` and `consumers` - bindings are auto-extracted
 
    ```typescript
    import {
@@ -231,25 +231,24 @@ packages/[package-name]/
      routingKey: "order.process",
    });
 
-   // Compose contract - bindings auto-generated from EventConsumerResult and CommandConsumerConfig
+   // Compose contract - everything goes in publishers/consumers, bindings auto-generated
    const contract = defineContract({
      exchanges: { orders: ordersExchange },
      queues: { processing: processingQueue, notification: notificationQueue, orders: orderQueue },
-     events: {
-       orderCreated: orderCreatedEvent, // → auto-extracted to publishers
-     },
-     commands: {
-       processOrder: processOrderCommand, // → auto-extracted to consumers + bindings
-     },
      publishers: {
+       // EventPublisherConfig → auto-extracted to publisher
+       orderCreated: orderCreatedEvent,
+       // CommandPublisher (from defineCommandPublisher)
        sendOrder: defineCommandPublisher(processOrderCommand),
      },
      consumers: {
-       // Pass EventConsumerResult directly - bindings auto-extracted
+       // EventConsumerResult → auto-extracted to consumer + binding
        processOrder: defineEventConsumer(orderCreatedEvent, processingQueue),
        notify: defineEventConsumer(orderCreatedEvent, notificationQueue, {
          routingKey: "order.*", // Optional: override with pattern for topic exchanges
        }),
+       // CommandConsumerConfig → auto-extracted to consumer + binding
+       handleOrder: processOrderCommand,
      },
    });
    // Output: publishers, consumers, bindings all auto-populated

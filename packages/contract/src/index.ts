@@ -42,6 +42,7 @@ export type {
   ConsumerDefinition,
   ConsumerEntry,
   ContractDefinition,
+  PublisherEntry,
   ContractDefinitionInput,
   DeadLetterConfig,
   DefineQueueOptions,

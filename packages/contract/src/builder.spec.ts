@@ -997,7 +997,7 @@ describe("builder", () => {
       });
     });
 
-    it("should work with events section in contract", () => {
+    it("should extract EventPublisherConfig from publishers section", () => {
       // GIVEN
       const message = defineMessage(
         z.object({
@@ -1008,14 +1008,10 @@ describe("builder", () => {
       const ordersExchange = defineExchange("orders", "topic", { durable: true });
       const orderQueue = defineQueue("order-processing", { durable: true });
 
-      // WHEN
+      // WHEN - EventPublisherConfig goes directly in publishers
       const orderCreated = defineEventPublisher(ordersExchange, message, {
         routingKey: "order.created",
       });
-      const { consumer: processOrderConsumer, binding: orderBinding } = defineEventConsumer(
-        orderCreated,
-        orderQueue,
-      );
 
       const contract = defineContract({
         exchanges: {
@@ -1024,18 +1020,17 @@ describe("builder", () => {
         queues: {
           orderProcessing: orderQueue,
         },
-        bindings: {
-          orderBinding,
-        },
-        events: {
+        publishers: {
+          // EventPublisherConfig auto-extracted to publisher
           orderCreated,
         },
         consumers: {
-          processOrder: processOrderConsumer,
+          // EventConsumerResult auto-extracted to consumer + binding
+          processOrder: defineEventConsumer(orderCreated, orderQueue),
         },
       });
 
-      // THEN - events are expanded into publishers
+      // THEN - EventPublisherConfig is converted to publisher
       expect(contract).toMatchObject({
         exchanges: {
           orders: { name: "orders", type: "topic", durable: true },
@@ -1044,7 +1039,7 @@ describe("builder", () => {
           orderProcessing: { name: "order-processing", durable: true },
         },
         bindings: {
-          orderBinding: {
+          processOrderBinding: {
             type: "queue",
             queue: orderQueue,
             exchange: ordersExchange,
@@ -1065,9 +1060,6 @@ describe("builder", () => {
           },
         },
       });
-
-      // THEN - events are stripped from output (input-only field)
-      expect(contract).not.toHaveProperty("events");
     });
 
     it("should auto-extract binding when passing EventConsumerResult directly to consumers", () => {
@@ -1260,7 +1252,7 @@ describe("builder", () => {
       });
     });
 
-    it("should work with commands section in contract", () => {
+    it("should extract CommandConsumerConfig from consumers section", () => {
       // GIVEN
       const message = defineMessage(
         z.object({
@@ -1271,7 +1263,7 @@ describe("builder", () => {
       const auditQueue = defineQueue("audit-log", { durable: true });
       const auditExchange = defineExchange("audit", "topic", { durable: true });
 
-      // WHEN
+      // WHEN - CommandConsumerConfig goes directly in consumers
       const processAudit = defineCommandConsumer(auditQueue, auditExchange, message, {
         routingKey: "audit.log",
       });
@@ -1284,15 +1276,16 @@ describe("builder", () => {
         queues: {
           auditLog: auditQueue,
         },
-        commands: {
-          processAudit,
-        },
         publishers: {
           logAudit: logAuditPublisher,
         },
+        consumers: {
+          // CommandConsumerConfig auto-extracted to consumer + binding
+          processAudit,
+        },
       });
 
-      // THEN - commands are expanded into consumers and bindings
+      // THEN - CommandConsumerConfig is converted to consumer and binding
       expect(contract).toMatchObject({
         exchanges: {
           audit: { name: "audit", type: "topic", durable: true },
@@ -1322,9 +1315,6 @@ describe("builder", () => {
           },
         },
       });
-
-      // THEN - commands are stripped from output (input-only field)
-      expect(contract).not.toHaveProperty("commands");
     });
 
     it("should allow multiple publishers for topic exchange command", () => {
@@ -1408,7 +1398,7 @@ describe("builder", () => {
       expect(publisher).toMatchObject({ exchange: localExchange });
     });
 
-    it("should support mixed events and commands in a contract", () => {
+    it("should support mixed EventPublisherConfig and CommandConsumerConfig in a contract", () => {
       // GIVEN
       const ordersExchange = defineExchange("orders", "topic", { durable: true });
       const notificationsExchange = defineExchange("notifications", "fanout", { durable: true });
@@ -1418,14 +1408,10 @@ describe("builder", () => {
       const orderMessage = defineMessage(z.object({ orderId: z.string() }));
       const notificationMessage = defineMessage(z.object({ message: z.string() }));
 
-      // WHEN
+      // WHEN - All configs go directly in publishers and consumers
       const orderCreated = defineEventPublisher(ordersExchange, orderMessage, {
         routingKey: "order.created",
       });
-      const { consumer: orderConsumer, binding: orderBinding } = defineEventConsumer(
-        orderCreated,
-        orderQueue,
-      );
 
       const sendNotification = defineCommandConsumer(
         notificationQueue,
@@ -1442,21 +1428,19 @@ describe("builder", () => {
           orderQueue,
           notificationQueue,
         },
-        bindings: {
-          orderBinding,
-        },
-        events: {
+        publishers: {
+          // EventPublisherConfig auto-extracted to publisher
           orderCreated,
         },
-        commands: {
-          sendNotification,
-        },
         consumers: {
-          processOrder: orderConsumer,
+          // EventConsumerResult auto-extracted to consumer + binding
+          processOrder: defineEventConsumer(orderCreated, orderQueue),
+          // CommandConsumerConfig auto-extracted to consumer + binding
+          sendNotification,
         },
       });
 
-      // THEN - events are expanded into publishers, commands into consumers and bindings
+      // THEN - All configs are expanded and bindings auto-generated
       expect(contract).toMatchObject({
         publishers: {
           orderCreated: expect.objectContaining({
@@ -1473,7 +1457,7 @@ describe("builder", () => {
           }),
         },
         bindings: {
-          orderBinding: expect.objectContaining({
+          processOrderBinding: expect.objectContaining({
             type: "queue",
           }),
           sendNotificationBinding: expect.objectContaining({

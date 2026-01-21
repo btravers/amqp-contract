@@ -12,13 +12,11 @@ import { isCommandConsumerConfig } from "./command.js";
 import { isQueueWithTtlBackoffInfrastructure } from "./queue.js";
 
 /**
- * Type utility to strip `events` and `commands` from contract input,
- * producing the output contract type.
+ * Type utility to produce the output contract type from the input.
+ * The output has the same structure but with all entries normalized to
+ * their base definition types (PublisherDefinition, ConsumerDefinition).
  */
-type ContractOutput<TContract extends ContractDefinitionInput> = Omit<
-  TContract,
-  "events" | "commands"
->;
+type ContractOutput<TContract extends ContractDefinitionInput> = TContract;
 
 /**
  * Define an AMQP contract.
@@ -92,8 +90,8 @@ type ContractOutput<TContract extends ContractDefinitionInput> = Omit<
 export function defineContract<TContract extends ContractDefinitionInput>(
   definition: TContract,
 ): ContractOutput<TContract> {
-  // Exclude consumers from spread since it may contain EventConsumerResult entries
-  const { consumers: inputConsumers, ...rest } = definition;
+  // Exclude publishers and consumers from spread since they may contain config entries
+  const { publishers: inputPublishers, consumers: inputConsumers, ...rest } = definition;
   const result: ContractDefinition = rest as ContractDefinition;
 
   // Process queues to extract TTL-backoff infrastructure
@@ -119,7 +117,32 @@ export function defineContract<TContract extends ContractDefinitionInput>(
     }
   }
 
-  // Process consumers section - extract EventConsumerResult bindings
+  // Process publishers section - extract EventPublisherConfig entries
+  if (inputPublishers && Object.keys(inputPublishers).length > 0) {
+    const processedPublishers: Record<string, PublisherDefinition> = {};
+
+    for (const [name, entry] of Object.entries(inputPublishers)) {
+      if (isEventPublisherConfig(entry)) {
+        // EventPublisherConfig: extract to publisher definition
+        const publisherOptions: { routingKey?: string } = {};
+        if (entry.routingKey !== undefined) {
+          publisherOptions.routingKey = entry.routingKey;
+        }
+        processedPublishers[name] = definePublisherInternal(
+          entry.exchange,
+          entry.message,
+          publisherOptions,
+        );
+      } else {
+        // Plain PublisherDefinition
+        processedPublishers[name] = entry as PublisherDefinition;
+      }
+    }
+
+    result.publishers = processedPublishers;
+  }
+
+  // Process consumers section - extract EventConsumerResult and CommandConsumerConfig entries
   if (inputConsumers && Object.keys(inputConsumers).length > 0) {
     const processedConsumers: Record<string, ConsumerDefinition> = {};
     const consumerBindings: Record<string, BindingDefinition> = {};
@@ -127,6 +150,10 @@ export function defineContract<TContract extends ContractDefinitionInput>(
     for (const [name, entry] of Object.entries(inputConsumers)) {
       if (isEventConsumerResult(entry)) {
         // EventConsumerResult: extract consumer and binding
+        processedConsumers[name] = entry.consumer;
+        consumerBindings[`${name}Binding`] = entry.binding;
+      } else if (isCommandConsumerConfig(entry)) {
+        // CommandConsumerConfig: extract consumer and binding
         processedConsumers[name] = entry.consumer;
         consumerBindings[`${name}Binding`] = entry.binding;
       } else {
@@ -141,48 +168,6 @@ export function defineContract<TContract extends ContractDefinitionInput>(
       result.bindings = { ...result.bindings, ...consumerBindings };
     }
   }
-
-  // Process events section - extract publishers
-  if (definition.events && Object.keys(definition.events).length > 0) {
-    const eventPublishers: Record<string, PublisherDefinition> = {};
-
-    for (const [name, config] of Object.entries(definition.events)) {
-      if (isEventPublisherConfig(config)) {
-        // Create a publisher from the event config
-        const publisherOptions: { routingKey?: string } = {};
-        if (config.routingKey !== undefined) {
-          publisherOptions.routingKey = config.routingKey;
-        }
-        eventPublishers[name] = definePublisherInternal(
-          config.exchange,
-          config.message,
-          publisherOptions,
-        );
-      }
-    }
-
-    result.publishers = { ...result.publishers, ...eventPublishers };
-  }
-
-  // Process commands section - extract consumers and bindings
-  if (definition.commands && Object.keys(definition.commands).length > 0) {
-    const commandConsumers: Record<string, ConsumerDefinition> = {};
-    const commandBindings: Record<string, BindingDefinition> = {};
-
-    for (const [name, config] of Object.entries(definition.commands)) {
-      if (isCommandConsumerConfig(config)) {
-        commandConsumers[name] = config.consumer;
-        commandBindings[`${name}Binding`] = config.binding;
-      }
-    }
-
-    result.consumers = { ...result.consumers, ...commandConsumers };
-    result.bindings = { ...result.bindings, ...commandBindings };
-  }
-
-  // Remove input-only fields from output
-  delete (result as ContractDefinitionInput).events;
-  delete (result as ContractDefinitionInput).commands;
 
   return result as ContractOutput<TContract>;
 }
