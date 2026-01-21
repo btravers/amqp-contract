@@ -1069,6 +1069,111 @@ describe("builder", () => {
       // THEN - events are stripped from output (input-only field)
       expect(contract).not.toHaveProperty("events");
     });
+
+    it("should auto-extract binding when passing EventConsumerResult directly to consumers", () => {
+      // GIVEN
+      const message = defineMessage(
+        z.object({
+          orderId: z.string(),
+          amount: z.number(),
+        }),
+      );
+      const ordersExchange = defineExchange("orders", "topic", { durable: true });
+      const orderQueue = defineQueue("order-processing", { durable: true });
+      const notificationQueue = defineQueue("notifications", { durable: true });
+
+      // WHEN - No manual destructuring needed!
+      const orderCreated = defineEventPublisher(ordersExchange, message, {
+        routingKey: "order.created",
+      });
+
+      const contract = defineContract({
+        exchanges: {
+          orders: ordersExchange,
+        },
+        queues: {
+          orderProcessing: orderQueue,
+          notifications: notificationQueue,
+        },
+        events: {
+          orderCreated,
+        },
+        // Pass EventConsumerResult directly - bindings are auto-extracted
+        consumers: {
+          processOrder: defineEventConsumer(orderCreated, orderQueue),
+          sendNotification: defineEventConsumer(orderCreated, notificationQueue),
+        },
+      });
+
+      // THEN - bindings are auto-generated from EventConsumerResult
+      expect(contract).toMatchObject({
+        bindings: {
+          // Auto-generated bindings with naming convention: {consumerName}Binding
+          processOrderBinding: {
+            type: "queue",
+            queue: orderQueue,
+            exchange: ordersExchange,
+            routingKey: "order.created",
+          },
+          sendNotificationBinding: {
+            type: "queue",
+            queue: notificationQueue,
+            exchange: ordersExchange,
+            routingKey: "order.created",
+          },
+        },
+        consumers: {
+          processOrder: {
+            queue: orderQueue,
+            message,
+          },
+          sendNotification: {
+            queue: notificationQueue,
+            message,
+          },
+        },
+      });
+    });
+
+    it("should support mixing plain ConsumerDefinition and EventConsumerResult in consumers", () => {
+      // GIVEN
+      const message = defineMessage(z.object({ id: z.string() }));
+      const exchange = defineExchange("events", "fanout");
+      const queue1 = defineQueue("queue-1");
+      const queue2 = defineQueue("queue-2");
+
+      const eventPublisher = defineEventPublisher(exchange, message);
+
+      // WHEN - Mix of plain consumer and EventConsumerResult
+      const contract = defineContract({
+        exchanges: { events: exchange },
+        queues: { queue1, queue2 },
+        bindings: {}, // Include bindings section for proper type inference
+        consumers: {
+          // Plain ConsumerDefinition
+          plainConsumer: defineConsumer(queue1, message),
+          // EventConsumerResult - binding auto-extracted
+          eventConsumer: defineEventConsumer(eventPublisher, queue2),
+        },
+      });
+
+      // THEN
+      expect(contract.consumers).toMatchObject({
+        plainConsumer: { queue: queue1, message },
+        eventConsumer: { queue: queue2, message },
+      });
+
+      // Only the EventConsumerResult generates a binding
+      expect(contract.bindings).toMatchObject({
+        eventConsumerBinding: {
+          type: "queue",
+          queue: queue2,
+          exchange,
+        },
+      });
+      // Plain consumers don't auto-generate bindings
+      expect(Object.keys(contract.bindings ?? {})).not.toContain("plainConsumerBinding");
+    });
   });
 
   describe("defineCommandConsumer and defineCommandPublisher", () => {

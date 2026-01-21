@@ -6,9 +6,9 @@ import type {
   PublisherDefinition,
   QueueDefinition,
 } from "../types.js";
+import { isEventConsumerResult, isEventPublisherConfig } from "./event.js";
 import { definePublisherInternal } from "./publisher.js";
 import { isCommandConsumerConfig } from "./command.js";
-import { isEventPublisherConfig } from "./event.js";
 import { isQueueWithTtlBackoffInfrastructure } from "./queue.js";
 
 /**
@@ -92,7 +92,9 @@ type ContractOutput<TContract extends ContractDefinitionInput> = Omit<
 export function defineContract<TContract extends ContractDefinitionInput>(
   definition: TContract,
 ): ContractOutput<TContract> {
-  const result: ContractDefinition = { ...definition };
+  // Exclude consumers from spread since it may contain EventConsumerResult entries
+  const { consumers: inputConsumers, ...rest } = definition;
+  const result: ContractDefinition = rest as ContractDefinition;
 
   // Process queues to extract TTL-backoff infrastructure
   if (definition.queues && Object.keys(definition.queues).length > 0) {
@@ -114,6 +116,29 @@ export function defineContract<TContract extends ContractDefinitionInput>(
 
     if (Object.keys(queueBindings).length > 0) {
       result.bindings = { ...result.bindings, ...queueBindings };
+    }
+  }
+
+  // Process consumers section - extract EventConsumerResult bindings
+  if (inputConsumers && Object.keys(inputConsumers).length > 0) {
+    const processedConsumers: Record<string, ConsumerDefinition> = {};
+    const consumerBindings: Record<string, BindingDefinition> = {};
+
+    for (const [name, entry] of Object.entries(inputConsumers)) {
+      if (isEventConsumerResult(entry)) {
+        // EventConsumerResult: extract consumer and binding
+        processedConsumers[name] = entry.consumer;
+        consumerBindings[`${name}Binding`] = entry.binding;
+      } else {
+        // Plain ConsumerDefinition
+        processedConsumers[name] = entry as ConsumerDefinition;
+      }
+    }
+
+    result.consumers = processedConsumers;
+
+    if (Object.keys(consumerBindings).length > 0) {
+      result.bindings = { ...result.bindings, ...consumerBindings };
     }
   }
 

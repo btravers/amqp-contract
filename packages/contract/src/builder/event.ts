@@ -44,10 +44,14 @@ export type EventPublisherConfig<
  * Result from defineEventConsumer.
  *
  * Contains the consumer definition and binding needed to subscribe to an event.
+ * Can be used directly in defineContract's consumers section - the binding
+ * will be automatically extracted.
  *
  * @template TMessage - The message definition
  */
 export type EventConsumerResult<TMessage extends MessageDefinition> = {
+  /** Discriminator to identify this as an event consumer result */
+  __brand: "EventConsumerResult";
   /** The consumer definition for processing messages */
   consumer: ConsumerDefinition<TMessage>;
   /** The binding connecting the queue to the exchange */
@@ -302,6 +306,7 @@ export function defineEventConsumer<TMessage extends MessageDefinition>(
   const consumer = defineConsumer(queue, message);
 
   return {
+    __brand: "EventConsumerResult",
     consumer,
     binding,
   };
@@ -321,5 +326,22 @@ export function isEventPublisherConfig(
     value !== null &&
     "__brand" in value &&
     value.__brand === "EventPublisherConfig"
+  );
+}
+
+/**
+ * Type guard to check if a value is an EventConsumerResult.
+ *
+ * @param value - The value to check
+ * @returns True if the value is an EventConsumerResult
+ */
+export function isEventConsumerResult(
+  value: unknown,
+): value is EventConsumerResult<MessageDefinition> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "__brand" in value &&
+    value.__brand === "EventConsumerResult"
   );
 }

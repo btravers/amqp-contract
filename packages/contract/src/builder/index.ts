@@ -36,7 +36,12 @@ export { defineContract } from "./contract.js";
 export type { RoutingKey, BindingPattern, MatchingRoutingKey } from "./routing-types.js";
 
 // Event pattern
-export { defineEventPublisher, defineEventConsumer, isEventPublisherConfig } from "./event.js";
+export {
+  defineEventPublisher,
+  defineEventConsumer,
+  isEventPublisherConfig,
+  isEventConsumerResult,
+} from "./event.js";
 export type { EventPublisherConfig, EventConsumerResult } from "./event.js";
 
 // Command pattern

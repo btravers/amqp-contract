@@ -210,9 +210,11 @@ packages/[package-name]/
    - Use `defineEventPublisher` + `defineEventConsumer` for broadcast patterns (one publisher, many consumers)
    - Use `defineCommandConsumer` + `defineCommandPublisher` for task queue patterns (many publishers, one consumer)
    - These patterns ensure schema consistency and routing key synchronization
+   - **Simplified DX**: Pass `defineEventConsumer` results directly to consumers - bindings are auto-extracted
 
    ```typescript
    import {
+     defineContract,
      defineEventPublisher,
      defineEventConsumer,
      defineCommandConsumer,
@@ -223,37 +225,34 @@ packages/[package-name]/
    const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
      routingKey: "order.created",
    });
-   const { consumer: consumer1, binding: binding1 } = defineEventConsumer(
-     orderCreatedEvent,
-     processingQueue,
-   );
-   const { consumer: consumer2, binding: binding2 } = defineEventConsumer(
-     orderCreatedEvent,
-     notificationQueue,
-     { routingKey: "order.*" }, // Optional: override with pattern for topic exchanges
-   );
 
    // Command Pattern: Consumer owns the queue, publishers send commands
    const processOrderCommand = defineCommandConsumer(orderQueue, ordersExchange, orderMessage, {
      routingKey: "order.process",
    });
-   const sendOrderPublisher = defineCommandPublisher(processOrderCommand);
 
-   // Use in contract
+   // Compose contract - bindings auto-generated from EventConsumerResult and CommandConsumerConfig
    const contract = defineContract({
      exchanges: { orders: ordersExchange },
      queues: { processing: processingQueue, notification: notificationQueue, orders: orderQueue },
-     bindings: { binding1, binding2, orderBinding: processOrderCommand.binding },
+     events: {
+       orderCreated: orderCreatedEvent, // → auto-extracted to publishers
+     },
+     commands: {
+       processOrder: processOrderCommand, // → auto-extracted to consumers + bindings
+     },
      publishers: {
-       orderCreated: definePublisher(ordersExchange, orderMessage, { routingKey: "order.created" }),
-       sendOrder: sendOrderPublisher,
+       sendOrder: defineCommandPublisher(processOrderCommand),
      },
      consumers: {
-       processOrder: consumer1,
-       notify: consumer2,
-       handleOrder: processOrderCommand.consumer,
+       // Pass EventConsumerResult directly - bindings auto-extracted
+       processOrder: defineEventConsumer(orderCreatedEvent, processingQueue),
+       notify: defineEventConsumer(orderCreatedEvent, notificationQueue, {
+         routingKey: "order.*", // Optional: override with pattern for topic exchanges
+       }),
      },
    });
+   // Output: publishers, consumers, bindings all auto-populated
    ```
 
 ---

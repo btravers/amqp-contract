@@ -32,6 +32,7 @@ export {
   defineEventPublisher,
   defineEventConsumer,
   isEventPublisherConfig,
+  isEventConsumerResult,
   // Command pattern
   defineCommandConsumer,
   defineCommandPublisher,

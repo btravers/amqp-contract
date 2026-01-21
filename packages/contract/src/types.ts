@@ -919,6 +919,20 @@ export type CommandConsumerConfigBase = {
 };
 
 /**
+ * Base type for event consumer result.
+ *
+ * This is a simplified type used in ContractDefinitionInput. The full generic type
+ * is defined in the builder module.
+ *
+ * @see defineEventConsumer for creating event consumers
+ */
+export type EventConsumerResultBase = {
+  __brand: "EventConsumerResult";
+  consumer: ConsumerDefinition;
+  binding: QueueBindingDefinition;
+};
+
+/**
  * Complete AMQP contract definition (output type).
  *
  * A contract brings together all AMQP resources into a single, type-safe definition.
@@ -989,6 +1003,15 @@ export type ContractDefinition = {
 };
 
 /**
+ * Consumer entry that can be passed to defineContract's consumers section.
+ *
+ * Can be either:
+ * - A plain ConsumerDefinition
+ * - An EventConsumerResult from defineEventConsumer (binding auto-extracted)
+ */
+export type ConsumerEntry = ConsumerDefinition | EventConsumerResultBase;
+
+/**
  * Contract definition input type with event and command helpers.
  *
  * This extends ContractDefinition with additional `events` and `commands` sections
@@ -997,9 +1020,21 @@ export type ContractDefinition = {
  * The `events` and `commands` sections are processed by `defineContract` and merged
  * into the `publishers`, `consumers`, and `bindings` sections in the output.
  *
+ * Additionally, the `consumers` section can accept `EventConsumerResult` objects
+ * directly from `defineEventConsumer`. The binding will be automatically extracted
+ * and added to the `bindings` section.
+ *
  * @see defineContract - Processes this input and returns a ContractDefinition
  */
-export type ContractDefinitionInput = ContractDefinition & {
+export type ContractDefinitionInput = Omit<ContractDefinition, "consumers"> & {
+  /**
+   * Named consumer definitions.
+   *
+   * Can accept:
+   * - ConsumerDefinition from defineConsumer
+   * - EventConsumerResult from defineEventConsumer (binding auto-extracted)
+   */
+  consumers?: Record<string, ConsumerEntry>;
   /**
    * Named event publisher configurations.
    *
