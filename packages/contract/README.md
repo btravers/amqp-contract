@@ -18,21 +18,30 @@ pnpm add @amqp-contract/contract
 
 ## Quick Start
 
-### Recommended: Publisher-First / Consumer-First Patterns
+### Recommended: Event / Command Patterns
 
-For robust contract definitions with guaranteed consistency, use `definePublisherFirst` (for events) or `defineConsumerFirst` (for commands):
+For robust contract definitions with guaranteed consistency, use Event or Command patterns:
+
+| Pattern     | Use Case                                   | Flow                                               |
+| ----------- | ------------------------------------------ | -------------------------------------------------- |
+| **Event**   | One publisher, many consumers (broadcast)  | `defineEventPublisher` → `defineEventConsumer`     |
+| **Command** | Many publishers, one consumer (task queue) | `defineCommandConsumer` → `defineCommandPublisher` |
 
 ```typescript
 import {
-  definePublisherFirst,
+  defineEventPublisher,
+  defineEventConsumer,
+  defineCommandConsumer,
+  defineCommandPublisher,
   defineContract,
   defineExchange,
   defineQueue,
+  definePublisher,
   defineMessage,
 } from "@amqp-contract/contract";
 import { z } from "zod";
 
-// Event-oriented pattern: publisher doesn't need to know about queues
+// Event pattern: publisher broadcasts, consumers subscribe
 const ordersExchange = defineExchange("orders", "topic", { durable: true });
 const orderMessage = defineMessage(
   z.object({
@@ -41,25 +50,30 @@ const orderMessage = defineMessage(
   }),
 );
 
-const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } =
-  definePublisherFirst(ordersExchange, orderMessage, { routingKey: "order.created" });
+// Define event publisher
+const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
+  routingKey: "order.created",
+});
 
 // Multiple queues can consume the same event
 const orderQueue = defineQueue("order-processing", { durable: true });
-const { consumer, binding } = createOrderCreatedConsumer(orderQueue);
+const { consumer, binding } = defineEventConsumer(orderCreatedEvent, orderQueue);
 
 // For topic exchanges, consumers can override with their own pattern
 const analyticsQueue = defineQueue("analytics", { durable: true });
-const { consumer: analyticsConsumer, binding: analyticsBinding } = createOrderCreatedConsumer(
+const { consumer: analyticsConsumer, binding: analyticsBinding } = defineEventConsumer(
+  orderCreatedEvent,
   analyticsQueue,
-  "order.*",
-); // Subscribe to all order events
+  { routingKey: "order.*" }, // Subscribe to all order events
+);
 
 const contract = defineContract({
   exchanges: { orders: ordersExchange },
   queues: { orderQueue, analyticsQueue },
   bindings: { orderBinding: binding, analyticsBinding },
-  publishers: { orderCreated: orderCreatedPublisher },
+  publishers: {
+    orderCreated: definePublisher(ordersExchange, orderMessage, { routingKey: "order.created" }),
+  },
   consumers: {
     processOrder: consumer,
     trackOrders: analyticsConsumer,
@@ -72,7 +86,7 @@ const contract = defineContract({
 - ✅ Guaranteed message schema consistency between publishers and consumers
 - ✅ Routing key validation and type safety
 - ✅ Full type safety with TypeScript inference
-- ✅ Event-oriented (publisher-first) and command-oriented (consumer-first) patterns
+- ✅ Event-oriented and command-oriented patterns
 - ✅ Flexible routing key patterns for topic exchanges
 
 ## Documentation
@@ -80,8 +94,8 @@ const contract = defineContract({
 📖 **[Read the full documentation →](https://btravers.github.io/amqp-contract)**
 
 - [Getting Started Guide](https://btravers.github.io/amqp-contract/guide/defining-contracts)
-- [Publisher-First Pattern](https://btravers.github.io/amqp-contract/guide/defining-contracts#publisher-first-pattern)
-- [Consumer-First Pattern](https://btravers.github.io/amqp-contract/guide/defining-contracts#consumer-first-pattern)
+- [Event Pattern](https://btravers.github.io/amqp-contract/guide/defining-contracts#event-pattern)
+- [Command Pattern](https://btravers.github.io/amqp-contract/guide/defining-contracts#command-pattern)
 - [Complete API Reference](https://btravers.github.io/amqp-contract/api/contract)
 
 ## License

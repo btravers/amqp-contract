@@ -1,28 +1,35 @@
 ---
 title: Defining Contracts - Type-safe AMQP Message Schema Definitions
-description: Master contract definition patterns for AMQP messaging. Learn publisher-first and consumer-first approaches for building type-safe RabbitMQ applications with schema validation.
+description: Master contract definition patterns for AMQP messaging. Learn event and command approaches for building type-safe RabbitMQ applications with schema validation.
 ---
 
 # Defining Contracts
 
 Learn how to define AMQP contracts with full type safety.
 
-## Recommended Approach: Publisher-First and Consumer-First Patterns
+## Recommended Approach: Event and Command Patterns
 
 ::: tip RECOMMENDED
-For robust contract definitions with guaranteed consistency, use **`definePublisherFirst`** (for events) or **`defineConsumerFirst`** (for commands). These patterns ensure message schema and routing key consistency between publishers and consumers.
+For robust contract definitions with guaranteed consistency, use **Event** or **Command** patterns. These patterns ensure message schema and routing key consistency between publishers and consumers.
 :::
 
-### Publisher-First Pattern (Event-Oriented)
+| Pattern     | Use Case                                   | Flow                                               |
+| ----------- | ------------------------------------------ | -------------------------------------------------- |
+| **Event**   | One publisher, many consumers (broadcast)  | `defineEventPublisher` → `defineEventConsumer`     |
+| **Command** | Many publishers, one consumer (task queue) | `defineCommandConsumer` → `defineCommandPublisher` |
 
-Use this pattern for **events** where publishers don't need to know about queues. Multiple consumers can be created for different queues, all using the same message schema:
+### Event Pattern (Broadcast)
+
+Use this pattern for **events** where publishers broadcast messages without knowing who consumes them. Multiple consumers can subscribe to the same event:
 
 ```typescript
 import {
-  definePublisherFirst,
+  defineEventPublisher,
+  defineEventConsumer,
   defineContract,
   defineExchange,
   defineQueue,
+  definePublisher,
   defineMessage,
 } from "@amqp-contract/contract";
 import { z } from "zod";
@@ -36,30 +43,35 @@ const orderMessage = defineMessage(
   }),
 );
 
-// Publisher-first: creates publisher without knowing about queues
-const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } =
-  definePublisherFirst(ordersExchange, orderMessage, { routingKey: "order.created" });
+// Event pattern: define publisher that broadcasts events
+const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
+  routingKey: "order.created",
+});
 
 // Multiple queues can consume the same event
 const orderQueue = defineQueue("order-processing", { durable: true });
 const analyticsQueue = defineQueue("analytics", { durable: true });
 
-// Create consumers for each queue
-const { consumer: processConsumer, binding: processBinding } =
-  createOrderCreatedConsumer(orderQueue);
-const { consumer: analyticsConsumer, binding: analyticsBinding } =
-  createOrderCreatedConsumer(analyticsQueue);
+// Create consumers that subscribe to the event
+const { consumer: processConsumer, binding: processBinding } = defineEventConsumer(
+  orderCreatedEvent,
+  orderQueue,
+);
+const { consumer: analyticsConsumer, binding: analyticsBinding } = defineEventConsumer(
+  orderCreatedEvent,
+  analyticsQueue,
+);
 
 // Compose contract
 export const contract = defineContract({
   exchanges: { orders: ordersExchange },
   queues: { orderQueue, analyticsQueue },
   bindings: {
-    orderBinding: processBinding, // Same routing key
-    analyticsBinding: analyticsBinding, // Same routing key
+    orderBinding: processBinding,
+    analyticsBinding: analyticsBinding,
   },
   publishers: {
-    orderCreated: orderCreatedPublisher,
+    orderCreated: definePublisher(ordersExchange, orderMessage, { routingKey: "order.created" }),
   },
   consumers: {
     processOrder: processConsumer, // Same message schema
@@ -75,32 +87,34 @@ export const contract = defineContract({
 - ✅ Guaranteed message schema consistency
 - ✅ Automatic routing key synchronization
 
-#### Topic Exchange with Publisher-First
+#### Topic Exchange with Event Pattern
 
 For topic exchanges, consumers can optionally override the routing key with their own binding patterns:
 
 ```typescript
 // Publisher uses a concrete routing key
-const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } =
-  definePublisherFirst(
-    ordersExchange, // topic exchange
-    orderMessage,
-    { routingKey: "order.created" },
-  );
+const orderCreatedEvent = defineEventPublisher(
+  ordersExchange, // topic exchange
+  orderMessage,
+  { routingKey: "order.created" },
+);
 
 // Consumers can use different patterns or the default key
-const { consumer: exactConsumer, binding: exactBinding } =
-  createOrderCreatedConsumer(exactMatchQueue); // Uses 'order.created'
+const { consumer: exactConsumer, binding: exactBinding } = defineEventConsumer(
+  orderCreatedEvent,
+  exactMatchQueue,
+); // Uses 'order.created'
 
-const { consumer: patternConsumer, binding: patternBinding } = createOrderCreatedConsumer(
+const { consumer: patternConsumer, binding: patternBinding } = defineEventConsumer(
+  orderCreatedEvent,
   allOrdersQueue,
-  "order.*",
-); // Uses pattern 'order.*'
+  { routingKey: "order.*" }, // Override with pattern
+);
 
 export const contract = defineContract({
   // ...
   publishers: {
-    orderCreated: orderCreatedPublisher,
+    orderCreated: definePublisher(ordersExchange, orderMessage, { routingKey: "order.created" }),
   },
   consumers: {
     processExactOrder: exactConsumer, // Receives only 'order.created'
@@ -114,13 +128,14 @@ export const contract = defineContract({
 - `*` matches exactly one word (e.g., `order.*` matches `order.created` but not `order.item.shipped`)
 - `#` matches zero or more words (e.g., `order.#` matches `order.created`, `order.item.shipped`, etc.)
 
-### Consumer-First Pattern (Command-Oriented)
+### Command Pattern (Task Queue)
 
-Use this pattern for **commands** where consumers define what they expect:
+Use this pattern for **commands** where the consumer "owns" the queue and publishers send commands to it:
 
 ```typescript
 import {
-  defineConsumerFirst,
+  defineCommandConsumer,
+  defineCommandPublisher,
   defineContract,
   defineQueue,
   defineExchange,
@@ -138,25 +153,26 @@ const taskMessage = defineMessage(
   }),
 );
 
-// Consumer-first: defines consumer expectations
-const {
-  consumer: taskConsumer,
-  binding: taskBinding,
-  createPublisher: createTaskPublisher,
-} = defineConsumerFirst(taskQueue, tasksExchange, taskMessage, { routingKey: "task.execute" });
+// Command pattern: consumer owns the queue and defines what it accepts
+const executeTaskCommand = defineCommandConsumer(taskQueue, tasksExchange, taskMessage, {
+  routingKey: "task.execute",
+});
+
+// Publishers send commands to the consumer
+const executeTaskPublisher = defineCommandPublisher(executeTaskCommand);
 
 // Compose contract
 export const contract = defineContract({
   exchanges: { tasks: tasksExchange },
   queues: { taskQueue },
   bindings: {
-    taskBinding: taskBinding, // Consistent routing key
+    taskBinding: executeTaskCommand.binding,
   },
   publishers: {
-    executeTask: createTaskPublisher("task.execute"), // Matching schema & routing key
+    executeTask: executeTaskPublisher,
   },
   consumers: {
-    processTask: taskConsumer,
+    processTask: executeTaskCommand.consumer,
   },
 });
 ```
@@ -168,17 +184,13 @@ export const contract = defineContract({
 - ✅ Guaranteed message schema consistency
 - ✅ Routing key type validation at compile time
 
-#### Topic Exchange with Consumer-First
+#### Topic Exchange with Command Pattern
 
 For topic exchanges, the consumer binding can use patterns with wildcards, and publishers can specify concrete routing keys that match the pattern:
 
 ```typescript
 // Consumer binds with a pattern
-const {
-  consumer: orderEventsConsumer,
-  binding: orderEventsBinding,
-  createPublisher: createOrderEventsPublisher,
-} = defineConsumerFirst(
+const processOrdersCommand = defineCommandConsumer(
   orderQueue,
   ordersExchange, // topic exchange
   orderMessage,
@@ -186,15 +198,25 @@ const {
 );
 
 // Publishers can use concrete keys that match the pattern
+const createOrderPublisher = defineCommandPublisher(processOrdersCommand, {
+  routingKey: "order.created",
+});
+const updateOrderPublisher = defineCommandPublisher(processOrdersCommand, {
+  routingKey: "order.updated",
+});
+const shipOrderPublisher = defineCommandPublisher(processOrdersCommand, {
+  routingKey: "order.shipped",
+});
+
 export const contract = defineContract({
   // ...
   publishers: {
-    orderCreated: createOrderEventsPublisher("order.created"), // Matches order.*
-    orderUpdated: createOrderEventsPublisher("order.updated"), // Matches order.*
-    orderShipped: createOrderEventsPublisher("order.shipped"), // Matches order.*
+    orderCreated: createOrderPublisher, // Matches order.*
+    orderUpdated: updateOrderPublisher, // Matches order.*
+    orderShipped: shipOrderPublisher, // Matches order.*
   },
   consumers: {
-    processOrders: orderEventsConsumer,
+    processOrders: processOrdersCommand.consumer,
   },
 });
 ```
@@ -630,12 +652,12 @@ const contract = defineContract({
 
 ## When to Use Each Approach
 
-### Use Publisher-First / Consumer-First (Recommended)
+### Use Event / Command Patterns (Recommended)
 
 ✅ **Use for most cases** - Provides consistency guarantees and prevents runtime errors
 
-- Event-driven architectures (use `definePublisherFirst`)
-- Command patterns (use `defineConsumerFirst`)
+- Event-driven architectures (use `defineEventPublisher` → `defineEventConsumer`)
+- Command patterns (use `defineCommandConsumer` → `defineCommandPublisher`)
 - When you want guaranteed message schema consistency
 - When you want automatic routing key synchronization
 
@@ -685,7 +707,7 @@ type InvalidMatch = MatchingRoutingKey<"order.*", "user.created">; // ❌ never 
   - `#` matches zero or more words
   - Only valid in binding patterns, not routing keys
 
-These types are used internally by `definePublisherFirst` and `defineConsumerFirst` for compile-time validation. You can also use them directly when building advanced routing logic or helper functions.
+These types are used internally by `defineEventPublisher`, `defineEventConsumer`, `defineCommandConsumer`, and `defineCommandPublisher` for compile-time validation. You can also use them directly when building advanced routing logic or helper functions.
 
 ::: info Note on Validation
 TypeScript's type system has recursion depth limits (~50 levels). For very long routing keys or deeply nested patterns, validation may fall back to `string`. This doesn't affect runtime behavior—it only means some edge cases won't be caught at compile time.

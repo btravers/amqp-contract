@@ -35,14 +35,17 @@ const orderMessage = defineMessage(
   }),
 );
 
-// 2. Publisher-first pattern (recommended for events)
-const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } =
-  definePublisherFirst(ordersExchange, orderMessage, { routingKey: "order.created" });
+// 2. Event pattern (recommended for broadcasts)
+const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
+  routingKey: "order.created",
+});
 
-// 3. Create consumer from event
+// 3. Create consumer that subscribes to the event
 const orderProcessingQueue = defineQueue("order-processing", { durable: true });
-const { consumer: processOrderConsumer, binding: orderBinding } =
-  createOrderCreatedConsumer(orderProcessingQueue);
+const { consumer: processOrderConsumer, binding: orderBinding } = defineEventConsumer(
+  orderCreatedEvent,
+  orderProcessingQueue,
+);
 
 // 4. Compose contract
 const contract = defineContract({
@@ -50,7 +53,7 @@ const contract = defineContract({
   queues: { orderProcessing: orderProcessingQueue },
   bindings: { orderBinding },
   publishers: {
-    orderCreated: orderCreatedPublisher,
+    orderCreated: definePublisher(ordersExchange, orderMessage, { routingKey: "order.created" }),
   },
   consumers: {
     processOrder: processOrderConsumer,
@@ -117,24 +120,20 @@ import { type } from "arktype";
 
 const ordersExchange = defineExchange("orders", "topic", { durable: true });
 
-// All work the same way with definePublisherFirst:
-const { publisher: zodPublisher, createConsumer: createZodConsumer } = definePublisherFirst(
-  ordersExchange,
-  defineMessage(z.object({ id: z.string() })),
-  { routingKey: "order.created" },
-);
+// All work the same way with defineEventPublisher:
+const zodEvent = defineEventPublisher(ordersExchange, defineMessage(z.object({ id: z.string() })), {
+  routingKey: "order.created",
+});
 
-const { publisher: valibotPublisher, createConsumer: createValibotConsumer } = definePublisherFirst(
+const valibotEvent = defineEventPublisher(
   ordersExchange,
   defineMessage(v.object({ id: v.string() })),
   { routingKey: "order.created" },
 );
 
-const { publisher: arktypePublisher, createConsumer: createArktypeConsumer } = definePublisherFirst(
-  ordersExchange,
-  defineMessage(type({ id: "string" })),
-  { routingKey: "order.created" },
-);
+const arktypeEvent = defineEventPublisher(ordersExchange, defineMessage(type({ id: "string" })), {
+  routingKey: "order.created",
+});
 ```
 
 ## AMQP Resources

@@ -50,7 +50,9 @@ import {
   defineContract,
   defineExchange,
   defineQueue,
-  definePublisherFirst,
+  defineEventPublisher,
+  defineEventConsumer,
+  definePublisher,
   defineMessage,
 } from "@amqp-contract/contract";
 import { z } from "zod";
@@ -69,17 +71,23 @@ const orderMessage = defineMessage(
   }),
 );
 
-const { publisher: orderCreatedPublisher, createConsumer: createOrderCreatedConsumer } =
-  definePublisherFirst(ordersExchange, orderMessage, { routingKey: "order.created" });
+// Event pattern: publisher broadcasts, consumers subscribe
+const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
+  routingKey: "order.created",
+});
 
-const { consumer: processOrderConsumer, binding: orderBinding } =
-  createOrderCreatedConsumer(orderProcessingQueue);
+const { consumer: processOrderConsumer, binding: orderBinding } = defineEventConsumer(
+  orderCreatedEvent,
+  orderProcessingQueue,
+);
 
 export const contract = defineContract({
   exchanges: { orders: ordersExchange, ordersDlx },
   queues: { orderProcessing: orderProcessingQueue },
   bindings: { orderBinding },
-  publishers: { orderCreated: orderCreatedPublisher },
+  publishers: {
+    orderCreated: definePublisher(ordersExchange, orderMessage, { routingKey: "order.created" }),
+  },
   consumers: { processOrder: processOrderConsumer },
 });
 ```
