@@ -1,4 +1,4 @@
-import type { ContractDefinition, InferConsumerNames } from "@amqp-contract/contract";
+import type { ContractDefinitionInput, InferConsumerNames } from "@amqp-contract/contract";
 import type {
   WorkerInferConsumerHandler,
   WorkerInferConsumerHandlerEntry,
@@ -12,7 +12,7 @@ import type {
 /**
  * Validate that a consumer exists in the contract
  */
-function validateConsumerExists<TContract extends ContractDefinition>(
+function validateConsumerExists<TContract extends ContractDefinitionInput>(
   contract: TContract,
   consumerName: string,
 ): void {
@@ -30,7 +30,7 @@ function validateConsumerExists<TContract extends ContractDefinition>(
 /**
  * Validate that all handlers reference valid consumers
  */
-function validateHandlers<TContract extends ContractDefinition>(
+function validateHandlers<TContract extends ContractDefinitionInput>(
   contract: TContract,
   handlers: Record<string, unknown>,
 ): void {
@@ -101,7 +101,7 @@ function validateHandlers<TContract extends ContractDefinition>(
  * ```
  */
 export function defineHandler<
-  TContract extends ContractDefinition,
+  TContract extends ContractDefinitionInput,
   TName extends InferConsumerNames<TContract>,
 >(
   contract: TContract,
@@ -109,7 +109,7 @@ export function defineHandler<
   handler: WorkerInferConsumerHandler<TContract, TName>,
 ): WorkerInferConsumerHandlerEntry<TContract, TName>;
 export function defineHandler<
-  TContract extends ContractDefinition,
+  TContract extends ContractDefinitionInput,
   TName extends InferConsumerNames<TContract>,
 >(
   contract: TContract,
@@ -118,7 +118,7 @@ export function defineHandler<
   options: { prefetch?: number },
 ): WorkerInferConsumerHandlerEntry<TContract, TName>;
 export function defineHandler<
-  TContract extends ContractDefinition,
+  TContract extends ContractDefinitionInput,
   TName extends InferConsumerNames<TContract>,
 >(
   contract: TContract,
@@ -163,7 +163,7 @@ export function defineHandler<
  * });
  * ```
  */
-export function defineHandlers<TContract extends ContractDefinition>(
+export function defineHandlers<TContract extends ContractDefinitionInput>(
   contract: TContract,
   handlers: WorkerInferConsumerHandlers<TContract>,
 ): WorkerInferConsumerHandlers<TContract> {

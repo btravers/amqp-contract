@@ -52,7 +52,6 @@ import {
   defineQueue,
   defineEventPublisher,
   defineEventConsumer,
-  definePublisher,
   defineMessage,
 } from "@amqp-contract/contract";
 import { z } from "zod";
@@ -76,19 +75,18 @@ const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
   routingKey: "order.created",
 });
 
-const { consumer: processOrderConsumer, binding: orderBinding } = defineEventConsumer(
-  orderCreatedEvent,
-  orderProcessingQueue,
-);
-
+// Compose contract - configs go directly, bindings auto-generated
 export const contract = defineContract({
   exchanges: { orders: ordersExchange, ordersDlx },
   queues: { orderProcessing: orderProcessingQueue },
-  bindings: { orderBinding },
   publishers: {
-    orderCreated: definePublisher(ordersExchange, orderMessage, { routingKey: "order.created" }),
+    // EventPublisherConfig → auto-extracted to publisher
+    orderCreated: orderCreatedEvent,
   },
-  consumers: { processOrder: processOrderConsumer },
+  consumers: {
+    // EventConsumerResult → auto-extracted to consumer + binding
+    processOrder: defineEventConsumer(orderCreatedEvent, orderProcessingQueue),
+  },
 });
 ```
 

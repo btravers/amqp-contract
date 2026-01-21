@@ -11,12 +11,13 @@ import {
 } from "@amqp-contract/core";
 import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
 import type { Channel, ConsumeMessage } from "amqplib";
-import type {
-  ConsumerDefinition,
-  ContractDefinition,
-  InferConsumerNames,
-  ResolvedRetryOptions,
-  ResolvedTtlBackoffRetryOptions,
+import {
+  type ConsumerDefinition,
+  type ContractDefinitionInput,
+  type InferConsumerNames,
+  type ResolvedRetryOptions,
+  type ResolvedTtlBackoffRetryOptions,
+  extractConsumer,
 } from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
 import { MessageValidationError, NonRetryableError } from "./errors.js";
@@ -90,7 +91,7 @@ function isHandlerTuple(entry: unknown): entry is [unknown, ConsumerOptions] {
  * Note: Retry configuration is defined at the queue level in the contract,
  * not at the handler level. See `QueueDefinition.retry` for configuration options.
  */
-export type CreateWorkerOptions<TContract extends ContractDefinition> = {
+export type CreateWorkerOptions<TContract extends ContractDefinitionInput> = {
   /** The AMQP contract definition specifying consumers and their message schemas */
   contract: TContract;
   /**
@@ -153,7 +154,7 @@ export type CreateWorkerOptions<TContract extends ContractDefinition> = {
  * await worker.close().resultToPromise();
  * ```
  */
-export class TypedAmqpWorker<TContract extends ContractDefinition> {
+export class TypedAmqpWorker<TContract extends ContractDefinitionInput> {
   /**
    * Internal handler storage - handlers returning `Future<Result>`.
    */
@@ -230,7 +231,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * }).resultToPromise();
    * ```
    */
-  static create<TContract extends ContractDefinition>({
+  static create<TContract extends ContractDefinitionInput>({
     contract,
     handlers,
     urls,
@@ -336,7 +337,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     consumerName: TName,
   ): Future<Result<void, TechnicalError>> {
     // Non-null assertions safe: TypeScript guarantees these exist for valid TName
-    const consumer = this.contract.consumers![consumerName as string]!;
+    const consumerEntry = this.contract.consumers![consumerName as string]!;
+    const consumer = extractConsumer(consumerEntry);
     const handler = this.actualHandlers[consumerName]!;
 
     return this.consumeSingle(

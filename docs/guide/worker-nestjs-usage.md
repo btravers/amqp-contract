@@ -81,14 +81,13 @@ const processOrderCommand = defineCommandConsumer(
   { routingKey: "order.created" },
 );
 
+// Compose contract - configs go directly, bindings auto-generated
 export const contract = defineContract({
   exchanges: { orders: ordersExchange },
   queues: { orderProcessing: orderProcessingQueue },
-  bindings: {
-    orderBinding: processOrderCommand.binding,
-  },
   consumers: {
-    processOrder: processOrderCommand.consumer,
+    // CommandConsumerConfig → auto-extracted to consumer + binding
+    processOrder: processOrderCommand,
   },
 });
 ```

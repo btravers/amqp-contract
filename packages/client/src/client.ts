@@ -12,7 +12,7 @@ import {
 import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
 import type {
   CompressionAlgorithm,
-  ContractDefinition,
+  ContractDefinitionInput,
   InferPublisherNames,
 } from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
@@ -36,7 +36,7 @@ export type PublishOptions = Options.Publish & {
 /**
  * Options for creating a client
  */
-export type CreateClientOptions<TContract extends ContractDefinition> = {
+export type CreateClientOptions<TContract extends ContractDefinitionInput> = {
   contract: TContract;
   urls: ConnectionUrl[];
   connectionOptions?: AmqpConnectionManagerOptions | undefined;
@@ -52,7 +52,7 @@ export type CreateClientOptions<TContract extends ContractDefinition> = {
 /**
  * Type-safe AMQP client for publishing messages
  */
-export class TypedAmqpClient<TContract extends ContractDefinition> {
+export class TypedAmqpClient<TContract extends ContractDefinitionInput> {
   private constructor(
     private readonly contract: TContract,
     private readonly amqpClient: AmqpClient,
@@ -70,7 +70,7 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
    * Connections are automatically shared across clients with the same URLs and
    * connection options, following RabbitMQ best practices.
    */
-  static create<TContract extends ContractDefinition>({
+  static create<TContract extends ContractDefinitionInput>({
     contract,
     urls,
     connectionOptions,

@@ -36,7 +36,6 @@ import {
   defineContract,
   defineExchange,
   defineQueue,
-  definePublisher,
   defineMessage,
 } from "@amqp-contract/contract";
 import { z } from "zod";
@@ -57,26 +56,23 @@ const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
 
 // Multiple queues can consume the same event
 const orderQueue = defineQueue("order-processing", { durable: true });
-const { consumer, binding } = defineEventConsumer(orderCreatedEvent, orderQueue);
-
-// For topic exchanges, consumers can override with their own pattern
 const analyticsQueue = defineQueue("analytics", { durable: true });
-const { consumer: analyticsConsumer, binding: analyticsBinding } = defineEventConsumer(
-  orderCreatedEvent,
-  analyticsQueue,
-  { routingKey: "order.*" }, // Subscribe to all order events
-);
 
+// Compose contract - configs go directly, bindings auto-generated
 const contract = defineContract({
   exchanges: { orders: ordersExchange },
   queues: { orderQueue, analyticsQueue },
-  bindings: { orderBinding: binding, analyticsBinding },
   publishers: {
-    orderCreated: definePublisher(ordersExchange, orderMessage, { routingKey: "order.created" }),
+    // EventPublisherConfig → auto-extracted to publisher
+    orderCreated: orderCreatedEvent,
   },
   consumers: {
-    processOrder: consumer,
-    trackOrders: analyticsConsumer,
+    // EventConsumerResult → auto-extracted to consumer + binding
+    processOrder: defineEventConsumer(orderCreatedEvent, orderQueue),
+    // For topic exchanges, consumers can override with their own pattern
+    trackOrders: defineEventConsumer(orderCreatedEvent, analyticsQueue, {
+      routingKey: "order.*", // Subscribe to all order events
+    }),
   },
 });
 ```

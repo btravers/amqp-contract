@@ -91,12 +91,6 @@ const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
   routingKey: "order.created",
 });
 
-// Create consumer for processing queue using event pattern
-const { consumer: processOrderConsumer, binding: processOrderBinding } = defineEventConsumer(
-  orderCreatedEvent,
-  orderProcessingQueue,
-);
-
 /**
  * RECOMMENDED APPROACH: Command Pattern (Consumer → Publisher)
  *
@@ -165,12 +159,6 @@ export const orderContract = defineContract({
     ordersDlxQueue,
   },
   bindings: {
-    // Binding from Event pattern (guaranteed consistent routing key)
-    orderProcessingBinding: processOrderBinding,
-
-    // Binding from Command pattern (guaranteed consistent routing key)
-    orderShippingBinding: shipOrderCommand.binding,
-
     // Traditional approach for notifications queue to receive ALL order events
     // (Use wildcard pattern for notifications that need all events)
     orderNotificationsBinding: defineQueueBinding(orderNotificationsQueue, ordersExchange, {
@@ -200,9 +188,8 @@ export const orderContract = defineContract({
   },
   publishers: {
     // Publisher from Event pattern (event-oriented broadcast)
-    orderCreated: definePublisher(ordersExchange, orderMessage, {
-      routingKey: "order.created",
-    }),
+    // EventPublisherConfig → auto-extracted to publisher
+    orderCreated: orderCreatedEvent,
 
     // Publisher from Command pattern (command-oriented)
     orderShipped: shipOrderPublisher,
@@ -218,10 +205,12 @@ export const orderContract = defineContract({
   },
   consumers: {
     // Consumer from Event pattern (same message schema guaranteed)
-    processOrder: processOrderConsumer,
+    // EventConsumerResult → auto-extracted to consumer + binding
+    processOrder: defineEventConsumer(orderCreatedEvent, orderProcessingQueue),
 
     // Consumer from Command pattern (same message schema guaranteed)
-    shipOrder: shipOrderCommand.consumer,
+    // CommandConsumerConfig → auto-extracted to consumer + binding
+    shipOrder: shipOrderCommand,
 
     // Traditional consumer for notifications (receives all order events via wildcard)
     notifyOrder: defineConsumer(orderNotificationsQueue, orderUnionMessage),

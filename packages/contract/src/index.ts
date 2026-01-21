@@ -14,6 +14,7 @@ export {
   defineQuorumQueue,
   defineTtlBackoffQueue,
   defineTtlBackoffRetryInfrastructure,
+  extractConsumer,
   extractQueue,
   isCommandConsumerConfig,
   isEventConsumerResult,

@@ -13,8 +13,9 @@ import { isQueueWithTtlBackoffInfrastructure } from "./queue.js";
 
 /**
  * Type utility to produce the output contract type from the input.
- * The output has the same structure but with all entries normalized to
- * their base definition types (PublisherDefinition, ConsumerDefinition).
+ * The output preserves the exact input type structure to maintain all specific
+ * type information (routing keys, message types, etc.) while the runtime
+ * transforms the values correctly.
  */
 type ContractOutput<TContract extends ContractDefinitionInput> = TContract;
 

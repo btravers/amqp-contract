@@ -143,18 +143,16 @@ const executeTaskCommand = defineCommandConsumer(taskQueue, tasksExchange, taskM
 // Publishers send commands to the consumer
 const executeTaskPublisher = defineCommandPublisher(executeTaskCommand);
 
-// Compose contract
+// Compose contract - configs go directly, bindings auto-generated
 export const contract = defineContract({
   exchanges: { tasks: tasksExchange },
   queues: { taskQueue },
-  bindings: {
-    taskBinding: executeTaskCommand.binding,
-  },
   publishers: {
     executeTask: executeTaskPublisher,
   },
   consumers: {
-    processTask: executeTaskCommand.consumer,
+    // CommandConsumerConfig → auto-extracted to consumer + binding
+    processTask: executeTaskCommand,
   },
 });
 ```
@@ -198,7 +196,8 @@ export const contract = defineContract({
     orderShipped: shipOrderPublisher, // Matches order.*
   },
   consumers: {
-    processOrders: processOrdersCommand.consumer,
+    // CommandConsumerConfig → auto-extracted to consumer + binding
+    processOrders: processOrdersCommand,
   },
 });
 ```

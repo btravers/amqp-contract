@@ -8,14 +8,14 @@ import {
 } from "@asyncapi/parser/esm/spec-types/v3.js";
 import { ConditionalSchemaConverter, JSONSchema } from "@orpc/openapi";
 import type {
-  ContractDefinition,
+  ContractDefinitionInput,
   ExchangeDefinition,
   MessageDefinition,
   QueueBindingDefinition,
   QueueDefinition,
 } from "@amqp-contract/contract";
+import { extractConsumer, extractQueue } from "@amqp-contract/contract";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
-import { extractQueue } from "@amqp-contract/contract";
 
 /**
  * Options for configuring the AsyncAPI generator.
@@ -133,7 +133,7 @@ export class AsyncAPIGenerator {
    * ```
    */
   async generate(
-    contract: ContractDefinition,
+    contract: ContractDefinitionInput,
     options: AsyncAPIGeneratorGenerateOptions,
   ): Promise<AsyncAPIObject> {
     const convertedChannels: ChannelsObject = {};
@@ -154,7 +154,8 @@ export class AsyncAPIGenerator {
 
     // Collect messages from consumers
     if (contract.consumers) {
-      for (const [consumerName, consumer] of Object.entries(contract.consumers)) {
+      for (const [consumerName, consumerEntry] of Object.entries(contract.consumers)) {
+        const consumer = extractConsumer(consumerEntry);
         const channelKey = this.getQueueName(consumer.queue, contract);
         consumerMessages.set(consumerName, { message: consumer.message, channelKey });
       }
@@ -250,7 +251,8 @@ export class AsyncAPIGenerator {
 
     // Generate receive operations from consumers
     if (contract.consumers) {
-      for (const [consumerName, consumer] of Object.entries(contract.consumers)) {
+      for (const [consumerName, consumerEntry] of Object.entries(contract.consumers)) {
+        const consumer = extractConsumer(consumerEntry);
         const queueName = this.getQueueName(consumer.queue, contract);
         const messageName = `${consumerName}Message`;
 
@@ -386,7 +388,7 @@ export class AsyncAPIGenerator {
   /**
    * Get the name/key of an exchange from the contract
    */
-  private getExchangeName(exchange: ExchangeDefinition, contract: ContractDefinition): string {
+  private getExchangeName(exchange: ExchangeDefinition, contract: ContractDefinitionInput): string {
     if (contract.exchanges) {
       for (const [name, ex] of Object.entries(contract.exchanges)) {
         if (ex === exchange || ex.name === exchange.name) {
@@ -400,7 +402,7 @@ export class AsyncAPIGenerator {
   /**
    * Get the name/key of a queue from the contract
    */
-  private getQueueName(queue: QueueDefinition, contract: ContractDefinition): string {
+  private getQueueName(queue: QueueDefinition, contract: ContractDefinitionInput): string {
     if (contract.queues) {
       for (const [name, qEntry] of Object.entries(contract.queues)) {
         const q = extractQueue(qEntry);
@@ -417,7 +419,7 @@ export class AsyncAPIGenerator {
    */
   private getQueueBindings(
     queue: QueueDefinition,
-    contract: ContractDefinition,
+    contract: ContractDefinitionInput,
   ): QueueBindingDefinition[] {
     const result: QueueBindingDefinition[] = [];
 

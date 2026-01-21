@@ -1,20 +1,20 @@
-import type { ContractDefinition } from "@amqp-contract/contract";
+import type { ContractDefinitionInput } from "@amqp-contract/contract";
 import { TypedAmqpWorker } from "../worker.js";
 import type { WorkerInferConsumerHandlers } from "../types.js";
 import { it as baseIt } from "@amqp-contract/testing/extension";
 
 export const it = baseIt.extend<{
-  workerFactory: <TContract extends ContractDefinition>(
+  workerFactory: <TContract extends ContractDefinitionInput>(
     contract: TContract,
     handlers: WorkerInferConsumerHandlers<TContract>,
   ) => Promise<TypedAmqpWorker<TContract>>;
 }>({
   workerFactory: async ({ amqpConnectionUrl }, use) => {
-    const workers: Array<TypedAmqpWorker<ContractDefinition>> = [];
+    const workers: Array<TypedAmqpWorker<ContractDefinitionInput>> = [];
 
     try {
       await use(
-        async <TContract extends ContractDefinition>(
+        async <TContract extends ContractDefinitionInput>(
           contract: TContract,
           handlers: WorkerInferConsumerHandlers<TContract>,
         ) => {
