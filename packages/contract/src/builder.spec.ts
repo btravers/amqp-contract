@@ -11,6 +11,9 @@ import {
   definePublisher,
   defineQueue,
   defineQueueBinding,
+  defineQuorumQueue,
+  defineTtlBackoffQueue,
+  extractQueue,
 } from "./builder.js";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -1365,6 +1368,325 @@ describe("builder", () => {
           sendNotificationBinding: expect.objectContaining({
             type: "queue",
           }),
+        },
+      });
+    });
+  });
+
+  describe("defineQuorumQueue", () => {
+    it("should create a quorum queue with quorum-native retry", () => {
+      // GIVEN
+      const dlx = defineExchange("orders-dlx", "direct", { durable: true });
+
+      // WHEN
+      const queue = defineQuorumQueue("order-processing", {
+        deadLetterExchange: dlx,
+        deliveryLimit: 3,
+      });
+
+      // THEN
+      expect(queue).toEqual({
+        name: "order-processing",
+        type: "quorum",
+        deadLetter: { exchange: dlx },
+        deliveryLimit: 3,
+        retry: { mode: "quorum-native" },
+      });
+    });
+
+    it("should create a quorum queue with dead letter routing key", () => {
+      // GIVEN
+      const dlx = defineExchange("orders-dlx", "topic", { durable: true });
+
+      // WHEN
+      const queue = defineQuorumQueue("order-processing", {
+        deadLetterExchange: dlx,
+        deadLetterRoutingKey: "failed.orders",
+        deliveryLimit: 5,
+      });
+
+      // THEN
+      expect(queue).toEqual({
+        name: "order-processing",
+        type: "quorum",
+        deadLetter: { exchange: dlx, routingKey: "failed.orders" },
+        deliveryLimit: 5,
+        retry: { mode: "quorum-native" },
+      });
+    });
+
+    it("should create a quorum queue with autoDelete option", () => {
+      // GIVEN
+      const dlx = defineExchange("orders-dlx", "direct", { durable: true });
+
+      // WHEN
+      const queue = defineQuorumQueue("order-processing", {
+        deadLetterExchange: dlx,
+        deliveryLimit: 3,
+        autoDelete: true,
+      });
+
+      // THEN
+      expect(queue).toEqual({
+        name: "order-processing",
+        type: "quorum",
+        deadLetter: { exchange: dlx },
+        deliveryLimit: 3,
+        autoDelete: true,
+        retry: { mode: "quorum-native" },
+      });
+    });
+
+    it("should create a quorum queue with additional arguments", () => {
+      // GIVEN
+      const dlx = defineExchange("orders-dlx", "direct", { durable: true });
+
+      // WHEN
+      const queue = defineQuorumQueue("order-processing", {
+        deadLetterExchange: dlx,
+        deliveryLimit: 3,
+        arguments: { "x-message-ttl": 86400000 },
+      });
+
+      // THEN
+      expect(queue).toEqual({
+        name: "order-processing",
+        type: "quorum",
+        deadLetter: { exchange: dlx },
+        deliveryLimit: 3,
+        retry: { mode: "quorum-native" },
+        arguments: { "x-message-ttl": 86400000 },
+      });
+    });
+
+    it("should create a quorum queue with all options combined", () => {
+      // GIVEN
+      const dlx = defineExchange("orders-dlx", "topic", { durable: true });
+
+      // WHEN
+      const queue = defineQuorumQueue("order-processing", {
+        deadLetterExchange: dlx,
+        deadLetterRoutingKey: "failed",
+        deliveryLimit: 10,
+        autoDelete: false,
+        arguments: { "x-message-ttl": 3600000 },
+      });
+
+      // THEN
+      expect(queue).toEqual({
+        name: "order-processing",
+        type: "quorum",
+        deadLetter: { exchange: dlx, routingKey: "failed" },
+        deliveryLimit: 10,
+        autoDelete: false,
+        retry: { mode: "quorum-native" },
+        arguments: { "x-message-ttl": 3600000 },
+      });
+    });
+  });
+
+  describe("defineTtlBackoffQueue", () => {
+    it("should create a TTL-backoff queue with default retry options", () => {
+      // GIVEN
+      const dlx = defineExchange("orders-dlx", "direct", { durable: true });
+
+      // WHEN
+      const queue = defineTtlBackoffQueue("order-processing", {
+        deadLetterExchange: dlx,
+      });
+
+      // THEN - returns QueueWithTtlBackoffInfrastructure
+      expect(queue).toMatchObject({
+        __brand: "QueueWithTtlBackoffInfrastructure",
+        queue: {
+          name: "order-processing",
+          type: "quorum",
+          deadLetter: { exchange: dlx },
+          retry: {
+            mode: "ttl-backoff",
+            maxRetries: 3,
+            initialDelayMs: 1000,
+            maxDelayMs: 30000,
+            backoffMultiplier: 2,
+            jitter: true,
+          },
+        },
+        waitQueue: {
+          name: "order-processing-wait",
+          type: "quorum",
+        },
+      });
+    });
+
+    it("should create a TTL-backoff queue with custom retry options", () => {
+      // GIVEN
+      const dlx = defineExchange("orders-dlx", "direct", { durable: true });
+
+      // WHEN
+      const queue = defineTtlBackoffQueue("order-processing", {
+        deadLetterExchange: dlx,
+        maxRetries: 5,
+        initialDelayMs: 2000,
+        maxDelayMs: 60000,
+        backoffMultiplier: 3,
+        jitter: false,
+      });
+
+      // THEN
+      expect(queue).toMatchObject({
+        __brand: "QueueWithTtlBackoffInfrastructure",
+        queue: {
+          name: "order-processing",
+          type: "quorum",
+          deadLetter: { exchange: dlx },
+          retry: {
+            mode: "ttl-backoff",
+            maxRetries: 5,
+            initialDelayMs: 2000,
+            maxDelayMs: 60000,
+            backoffMultiplier: 3,
+            jitter: false,
+          },
+        },
+      });
+    });
+
+    it("should create a TTL-backoff queue with dead letter routing key", () => {
+      // GIVEN
+      const dlx = defineExchange("orders-dlx", "topic", { durable: true });
+
+      // WHEN
+      const queue = defineTtlBackoffQueue("order-processing", {
+        deadLetterExchange: dlx,
+        deadLetterRoutingKey: "failed.orders",
+      });
+
+      // THEN
+      expect(queue).toMatchObject({
+        __brand: "QueueWithTtlBackoffInfrastructure",
+        queue: {
+          deadLetter: { exchange: dlx, routingKey: "failed.orders" },
+        },
+      });
+    });
+
+    it("should create a TTL-backoff queue with autoDelete option", () => {
+      // GIVEN
+      const dlx = defineExchange("orders-dlx", "direct", { durable: true });
+
+      // WHEN
+      const queue = defineTtlBackoffQueue("order-processing", {
+        deadLetterExchange: dlx,
+        autoDelete: true,
+      });
+
+      // THEN
+      expect(queue).toMatchObject({
+        __brand: "QueueWithTtlBackoffInfrastructure",
+        queue: {
+          autoDelete: true,
+        },
+      });
+    });
+
+    it("should create a TTL-backoff queue with additional arguments", () => {
+      // GIVEN
+      const dlx = defineExchange("orders-dlx", "direct", { durable: true });
+
+      // WHEN
+      const queue = defineTtlBackoffQueue("order-processing", {
+        deadLetterExchange: dlx,
+        arguments: { "x-message-ttl": 86400000 },
+      });
+
+      // THEN
+      expect(queue).toMatchObject({
+        __brand: "QueueWithTtlBackoffInfrastructure",
+        queue: {
+          arguments: { "x-message-ttl": 86400000 },
+        },
+      });
+    });
+
+    it("should allow extractQueue to access underlying queue definition", () => {
+      // GIVEN
+      const dlx = defineExchange("orders-dlx", "direct", { durable: true });
+      const queue = defineTtlBackoffQueue("order-processing", {
+        deadLetterExchange: dlx,
+        maxRetries: 5,
+      });
+
+      // WHEN
+      const queueDef = extractQueue(queue);
+
+      // THEN
+      expect(queueDef.name).toBe("order-processing");
+      expect(queueDef.type).toBe("quorum");
+      expect(queueDef.deadLetter).toEqual({ exchange: dlx });
+    });
+
+    it("should include wait queue bindings in infrastructure", () => {
+      // GIVEN
+      const dlx = defineExchange("orders-dlx", "direct", { durable: true });
+
+      // WHEN
+      const queue = defineTtlBackoffQueue("order-processing", {
+        deadLetterExchange: dlx,
+      });
+
+      // THEN - verify bindings are created
+      expect(queue.waitQueueBinding).toMatchObject({
+        type: "queue",
+        queue: queue.waitQueue,
+        exchange: dlx,
+        routingKey: "order-processing-wait",
+      });
+      expect(queue.mainQueueRetryBinding).toMatchObject({
+        type: "queue",
+        queue: queue.queue,
+        exchange: dlx,
+        routingKey: "order-processing",
+      });
+    });
+
+    it("should create a TTL-backoff queue with all options combined", () => {
+      // GIVEN
+      const dlx = defineExchange("orders-dlx", "topic", { durable: true });
+
+      // WHEN
+      const queue = defineTtlBackoffQueue("order-processing", {
+        deadLetterExchange: dlx,
+        deadLetterRoutingKey: "failed",
+        maxRetries: 10,
+        initialDelayMs: 500,
+        maxDelayMs: 120000,
+        backoffMultiplier: 1.5,
+        jitter: true,
+        autoDelete: false,
+        arguments: { "x-message-ttl": 3600000 },
+      });
+
+      // THEN
+      expect(queue).toMatchObject({
+        __brand: "QueueWithTtlBackoffInfrastructure",
+        queue: {
+          name: "order-processing",
+          type: "quorum",
+          deadLetter: { exchange: dlx, routingKey: "failed" },
+          autoDelete: false,
+          retry: {
+            mode: "ttl-backoff",
+            maxRetries: 10,
+            initialDelayMs: 500,
+            maxDelayMs: 120000,
+            backoffMultiplier: 1.5,
+            jitter: true,
+          },
+          arguments: { "x-message-ttl": 3600000 },
+        },
+        waitQueue: {
+          name: "order-processing-wait",
+          type: "quorum",
         },
       });
     });
