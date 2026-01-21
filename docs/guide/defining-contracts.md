@@ -52,30 +52,18 @@ const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
 const orderQueue = defineQueue("order-processing", { durable: true });
 const analyticsQueue = defineQueue("analytics", { durable: true });
 
-// Create consumers that subscribe to the event
-const { consumer: processConsumer, binding: processBinding } = defineEventConsumer(
-  orderCreatedEvent,
-  orderQueue,
-);
-const { consumer: analyticsConsumer, binding: analyticsBinding } = defineEventConsumer(
-  orderCreatedEvent,
-  analyticsQueue,
-);
-
-// Compose contract
+// Compose contract - configs go directly, bindings auto-generated
 export const contract = defineContract({
   exchanges: { orders: ordersExchange },
   queues: { orderQueue, analyticsQueue },
-  bindings: {
-    orderBinding: processBinding,
-    analyticsBinding: analyticsBinding,
-  },
   publishers: {
-    orderCreated: definePublisher(ordersExchange, orderMessage, { routingKey: "order.created" }),
+    // EventPublisherConfig → auto-extracted to publisher
+    orderCreated: orderCreatedEvent,
   },
   consumers: {
-    processOrder: processConsumer, // Same message schema
-    trackOrder: analyticsConsumer, // Same message schema
+    // EventConsumerResult → auto-extracted to consumer + binding
+    processOrder: defineEventConsumer(orderCreatedEvent, orderQueue),
+    trackOrder: defineEventConsumer(orderCreatedEvent, analyticsQueue),
   },
 });
 ```
@@ -99,26 +87,20 @@ const orderCreatedEvent = defineEventPublisher(
   { routingKey: "order.created" },
 );
 
-// Consumers can use different patterns or the default key
-const { consumer: exactConsumer, binding: exactBinding } = defineEventConsumer(
-  orderCreatedEvent,
-  exactMatchQueue,
-); // Uses 'order.created'
-
-const { consumer: patternConsumer, binding: patternBinding } = defineEventConsumer(
-  orderCreatedEvent,
-  allOrdersQueue,
-  { routingKey: "order.*" }, // Override with pattern
-);
-
+// Compose contract - consumers can use different patterns
 export const contract = defineContract({
   // ...
   publishers: {
-    orderCreated: definePublisher(ordersExchange, orderMessage, { routingKey: "order.created" }),
+    // EventPublisherConfig → auto-extracted to publisher
+    orderCreated: orderCreatedEvent,
   },
   consumers: {
-    processExactOrder: exactConsumer, // Receives only 'order.created'
-    processAllOrders: patternConsumer, // Receives any 'order.*' messages
+    // Uses default 'order.created' routing key
+    processExactOrder: defineEventConsumer(orderCreatedEvent, exactMatchQueue),
+    // Override with pattern to receive any 'order.*' messages
+    processAllOrders: defineEventConsumer(orderCreatedEvent, allOrdersQueue, {
+      routingKey: "order.*",
+    }),
   },
 });
 ```

@@ -40,23 +40,20 @@ const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
   routingKey: "order.created",
 });
 
-// 3. Create consumer that subscribes to the event
+// 3. Define queue for processing
 const orderProcessingQueue = defineQueue("order-processing", { durable: true });
-const { consumer: processOrderConsumer, binding: orderBinding } = defineEventConsumer(
-  orderCreatedEvent,
-  orderProcessingQueue,
-);
 
-// 4. Compose contract
+// 4. Compose contract - configs go directly, bindings auto-generated
 const contract = defineContract({
   exchanges: { orders: ordersExchange },
   queues: { orderProcessing: orderProcessingQueue },
-  bindings: { orderBinding },
   publishers: {
-    orderCreated: definePublisher(ordersExchange, orderMessage, { routingKey: "order.created" }),
+    // EventPublisherConfig → auto-extracted to publisher
+    orderCreated: orderCreatedEvent,
   },
   consumers: {
-    processOrder: processOrderConsumer,
+    // EventConsumerResult → auto-extracted to consumer + binding
+    processOrder: defineEventConsumer(orderCreatedEvent, orderProcessingQueue),
   },
 });
 

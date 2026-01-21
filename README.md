@@ -31,7 +31,6 @@ import {
   defineQueue,
   defineEventPublisher,
   defineEventConsumer,
-  definePublisher,
   defineMessage,
 } from "@amqp-contract/contract";
 import { TypedAmqpClient } from "@amqp-contract/client";
@@ -60,21 +59,18 @@ const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
   routingKey: "order.created",
 });
 
-// 4. Create consumer that subscribes to the event
-const { consumer: processOrderConsumer, binding: orderBinding } = defineEventConsumer(
-  orderCreatedEvent,
-  orderProcessingQueue,
-);
-
-// 5. Define contract
+// 4. Define contract - configs go directly in publishers/consumers, bindings auto-generated
 const contract = defineContract({
   exchanges: { orders: ordersExchange, ordersDlx },
   queues: { orderProcessing: orderProcessingQueue },
-  bindings: { orderBinding },
   publishers: {
-    orderCreated: definePublisher(ordersExchange, orderMessage, { routingKey: "order.created" }),
+    // EventPublisherConfig → auto-extracted to publisher
+    orderCreated: orderCreatedEvent,
   },
-  consumers: { processOrder: processOrderConsumer },
+  consumers: {
+    // EventConsumerResult → auto-extracted to consumer + binding
+    processOrder: defineEventConsumer(orderCreatedEvent, orderProcessingQueue),
+  },
 });
 
 // 6. Type-safe publishing with validation
