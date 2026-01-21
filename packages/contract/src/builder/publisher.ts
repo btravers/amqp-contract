@@ -20,10 +20,10 @@ import type {
  * | Pattern | Best for | Description |
  * |---------|----------|-------------|
  * | `definePublisher` + `defineConsumer` | Independent definition | Define publishers and consumers separately with manual schema consistency |
- * | `definePublisherFirst` | Event broadcasting | Define publisher first, create linked consumers that share the same message schema |
- * | `defineConsumerFirst` | Request handling | Define consumer first, create linked publishers that share the same message schema |
+ * | `defineEventPublisher` + `defineEventConsumer` | Event broadcasting | Define event publisher first, create consumers that subscribe to it |
+ * | `defineCommandConsumer` + `defineCommandPublisher` | Task queues | Define command consumer first, create publishers that send commands to it |
  *
- * Use `definePublisherFirst` when:
+ * Use `defineEventPublisher` when:
  * - One publisher feeds multiple consumers
  * - You want automatic schema consistency between publisher and consumers
  * - You're building event-driven architectures
@@ -49,8 +49,8 @@ import type {
  * const logPublisher = definePublisher(logsExchange, logMessage);
  * ```
  *
- * @see definePublisherFirst - For event-driven patterns with automatic schema consistency
- * @see defineConsumerFirst - For request-handling patterns with automatic schema consistency
+ * @see defineEventPublisher - For event-driven patterns with automatic schema consistency
+ * @see defineCommandConsumer - For task queue patterns with automatic schema consistency
  */
 export function definePublisher<TMessage extends MessageDefinition>(
   exchange: FanoutExchangeDefinition,
@@ -74,10 +74,10 @@ export function definePublisher<TMessage extends MessageDefinition>(
  * | Pattern | Best for | Description |
  * |---------|----------|-------------|
  * | `definePublisher` + `defineConsumer` | Independent definition | Define publishers and consumers separately with manual schema consistency |
- * | `definePublisherFirst` | Event broadcasting | Define publisher first, create linked consumers that share the same message schema |
- * | `defineConsumerFirst` | Request handling | Define consumer first, create linked publishers that share the same message schema |
+ * | `defineEventPublisher` + `defineEventConsumer` | Event broadcasting | Define event publisher first, create consumers that subscribe to it |
+ * | `defineCommandConsumer` + `defineCommandPublisher` | Task queues | Define command consumer first, create publishers that send commands to it |
  *
- * Use `definePublisherFirst` when:
+ * Use `defineEventPublisher` when:
  * - One publisher feeds multiple consumers
  * - You want automatic schema consistency between publisher and consumers
  * - You're building event-driven architectures
@@ -109,8 +109,8 @@ export function definePublisher<TMessage extends MessageDefinition>(
  * });
  * ```
  *
- * @see definePublisherFirst - For event-driven patterns with automatic schema consistency
- * @see defineConsumerFirst - For request-handling patterns with automatic schema consistency
+ * @see defineEventPublisher - For event-driven patterns with automatic schema consistency
+ * @see defineCommandConsumer - For task queue patterns with automatic schema consistency
  */
 export function definePublisher<TMessage extends MessageDefinition>(
   exchange: DirectExchangeDefinition | TopicExchangeDefinition,

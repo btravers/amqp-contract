@@ -15,13 +15,13 @@ import { extractQueue } from "./queue.js";
  * | Pattern | Best for | Description |
  * |---------|----------|-------------|
  * | `definePublisher` + `defineConsumer` | Independent definition | Define publishers and consumers separately with manual schema consistency |
- * | `definePublisherFirst` | Event broadcasting | Define publisher first, create linked consumers that share the same message schema |
- * | `defineConsumerFirst` | Request handling | Define consumer first, create linked publishers that share the same message schema |
+ * | `defineEventPublisher` + `defineEventConsumer` | Event broadcasting | Define event publisher first, create consumers that subscribe to it |
+ * | `defineCommandConsumer` + `defineCommandPublisher` | Task queues | Define command consumer first, create publishers that send commands to it |
  *
- * Use `defineConsumerFirst` when:
+ * Use `defineCommandConsumer` when:
  * - One consumer receives from multiple publishers
  * - You want automatic schema consistency between consumer and publishers
- * - You're building request-handling patterns
+ * - You're building task queue or command patterns
  *
  * @param queue - The queue definition to consume from
  * @param message - The message definition with payload schema
@@ -56,8 +56,8 @@ import { extractQueue } from "./queue.js";
  * // });
  * ```
  *
- * @see defineConsumerFirst - For request-handling patterns with automatic schema consistency
- * @see definePublisherFirst - For event-driven patterns with automatic schema consistency
+ * @see defineCommandConsumer - For task queue patterns with automatic schema consistency
+ * @see defineEventPublisher - For event-driven patterns with automatic schema consistency
  */
 export function defineConsumer<TMessage extends MessageDefinition>(
   queue: QueueEntry,
