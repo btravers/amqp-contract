@@ -206,34 +206,53 @@ packages/[package-name]/
    );
    ```
 
-8. **Publisher-First Pattern**
-   - Use `definePublisherFirst` when one publisher feeds multiple consumers
-   - Ensures schema consistency between publisher and all consumers
-   - Returns `{ publisher, createConsumer }` for creating linked consumers
+8. **Event and Command Patterns**
+   - Use `defineEventPublisher` + `defineEventConsumer` for broadcast patterns (one publisher, many consumers)
+   - Use `defineCommandConsumer` + `defineCommandPublisher` for task queue patterns (many publishers, one consumer)
+   - These patterns ensure schema consistency and routing key synchronization
 
    ```typescript
-   import { definePublisherFirst } from "@amqp-contract/contract";
+   import {
+     defineEventPublisher,
+     defineEventConsumer,
+     defineCommandConsumer,
+     defineCommandPublisher,
+   } from "@amqp-contract/contract";
 
-   // Define publisher-first relationship
-   const { publisher: publishLog, createConsumer: createLogConsumer } = definePublisherFirst(
-     logsExchange,
-     logMessage,
+   // Event Pattern: Publisher broadcasts, multiple consumers subscribe
+   const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
+     routingKey: "order.created",
+   });
+   const { consumer: consumer1, binding: binding1 } = defineEventConsumer(
+     orderCreatedEvent,
+     processingQueue,
+   );
+   const { consumer: consumer2, binding: binding2 } = defineEventConsumer(
+     orderCreatedEvent,
+     notificationQueue,
+     { routingKey: "order.*" }, // Optional: override with pattern for topic exchanges
    );
 
-   // Create multiple consumers with consistent schema
-   const logsQueue1 = defineQueue("logs-queue-1");
-   const logsQueue2 = defineQueue("logs-queue-2");
-
-   const { consumer: consumer1, binding: binding1 } = createLogConsumer(logsQueue1);
-   const { consumer: consumer2, binding: binding2 } = createLogConsumer(logsQueue2);
+   // Command Pattern: Consumer owns the queue, publishers send commands
+   const processOrderCommand = defineCommandConsumer(orderQueue, ordersExchange, orderMessage, {
+     routingKey: "order.process",
+   });
+   const sendOrderPublisher = defineCommandPublisher(processOrderCommand);
 
    // Use in contract
    const contract = defineContract({
-     exchanges: { logs: logsExchange },
-     queues: { logsQueue1, logsQueue2 },
-     bindings: { logBinding1: binding1, logBinding2: binding2 },
-     publishers: { publishLog },
-     consumers: { consumeLog1: consumer1, consumeLog2: consumer2 },
+     exchanges: { orders: ordersExchange },
+     queues: { processing: processingQueue, notification: notificationQueue, orders: orderQueue },
+     bindings: { binding1, binding2, orderBinding: processOrderCommand.binding },
+     publishers: {
+       orderCreated: definePublisher(ordersExchange, orderMessage, { routingKey: "order.created" }),
+       sendOrder: sendOrderPublisher,
+     },
+     consumers: {
+       processOrder: consumer1,
+       notify: consumer2,
+       handleOrder: processOrderCommand.consumer,
+     },
    });
    ```
 

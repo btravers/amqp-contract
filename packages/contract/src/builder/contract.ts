@@ -1,4 +1,13 @@
-import type { BindingDefinition, ContractDefinition, QueueDefinition } from "../types.js";
+import type {
+  BindingDefinition,
+  ConsumerDefinition,
+  ContractDefinition,
+  PublisherDefinition,
+  QueueDefinition,
+} from "../types.js";
+import { definePublisherInternal } from "./publisher.js";
+import { isCommandConsumerConfig } from "./command.js";
+import { isEventPublisherConfig } from "./event.js";
 import { isQueueWithTtlBackoffInfrastructure } from "./queue.js";
 
 /**
@@ -73,46 +82,72 @@ import { isQueueWithTtlBackoffInfrastructure } from "./queue.js";
 export function defineContract<TContract extends ContractDefinition>(
   definition: TContract,
 ): TContract {
-  // If no queues defined, return as-is (no processing needed)
-  if (!definition.queues || Object.keys(definition.queues).length === 0) {
-    return definition;
-  }
+  let result = { ...definition };
+  let hasChanges = false;
 
   // Process queues to extract TTL-backoff infrastructure
-  const queues = definition.queues;
-  const expandedQueues: Record<string, QueueDefinition> = {};
-  const autoBindings: Record<string, BindingDefinition> = {};
+  if (definition.queues && Object.keys(definition.queues).length > 0) {
+    const expandedQueues: Record<string, QueueDefinition> = {};
+    const queueBindings: Record<string, BindingDefinition> = {};
 
-  for (const [name, entry] of Object.entries(queues)) {
-    if (isQueueWithTtlBackoffInfrastructure(entry)) {
-      // Extract the infrastructure
-      expandedQueues[name] = entry.queue;
-      expandedQueues[`${name}Wait`] = entry.waitQueue;
-      autoBindings[`${name}WaitBinding`] = entry.waitQueueBinding;
-      autoBindings[`${name}RetryBinding`] = entry.mainQueueRetryBinding;
-    } else {
-      expandedQueues[name] = entry as QueueDefinition;
+    for (const [name, entry] of Object.entries(definition.queues)) {
+      if (isQueueWithTtlBackoffInfrastructure(entry)) {
+        expandedQueues[name] = entry.queue;
+        expandedQueues[`${name}Wait`] = entry.waitQueue;
+        queueBindings[`${name}WaitBinding`] = entry.waitQueueBinding;
+        queueBindings[`${name}RetryBinding`] = entry.mainQueueRetryBinding;
+      } else {
+        expandedQueues[name] = entry as QueueDefinition;
+      }
+    }
+
+    result.queues = expandedQueues;
+    hasChanges = true;
+
+    if (Object.keys(queueBindings).length > 0) {
+      result.bindings = { ...result.bindings, ...queueBindings };
     }
   }
 
-  // Only add bindings if there are any auto-generated ones
-  if (Object.keys(autoBindings).length > 0) {
-    // Merge with existing bindings
-    const mergedBindings = {
-      ...definition.bindings,
-      ...autoBindings,
-    };
+  // Process events section - extract publishers
+  if (definition.events && Object.keys(definition.events).length > 0) {
+    const eventPublishers: Record<string, PublisherDefinition> = {};
 
-    return {
-      ...definition,
-      queues: expandedQueues,
-      bindings: mergedBindings,
-    } as TContract;
+    for (const [name, config] of Object.entries(definition.events)) {
+      if (isEventPublisherConfig(config)) {
+        // Create a publisher from the event config
+        const publisherOptions: { routingKey?: string } = {};
+        if (config.routingKey !== undefined) {
+          publisherOptions.routingKey = config.routingKey;
+        }
+        eventPublishers[name] = definePublisherInternal(
+          config.exchange,
+          config.message,
+          publisherOptions,
+        );
+      }
+    }
+
+    result.publishers = { ...result.publishers, ...eventPublishers };
+    hasChanges = true;
   }
 
-  // Return with expanded queues only (no auto bindings)
-  return {
-    ...definition,
-    queues: expandedQueues,
-  } as TContract;
+  // Process commands section - extract consumers and bindings
+  if (definition.commands && Object.keys(definition.commands).length > 0) {
+    const commandConsumers: Record<string, ConsumerDefinition> = {};
+    const commandBindings: Record<string, BindingDefinition> = {};
+
+    for (const [name, config] of Object.entries(definition.commands)) {
+      if (isCommandConsumerConfig(config)) {
+        commandConsumers[name] = config.consumer;
+        commandBindings[`${name}Binding`] = config.binding;
+      }
+    }
+
+    result.consumers = { ...result.consumers, ...commandConsumers };
+    result.bindings = { ...result.bindings, ...commandBindings };
+    hasChanges = true;
+  }
+
+  return hasChanges ? (result as TContract) : definition;
 }

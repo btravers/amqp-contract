@@ -28,10 +28,14 @@ export {
   defineConsumer,
   // Contract
   defineContract,
-  // Publisher-first pattern
-  definePublisherFirst,
-  // Consumer-first pattern
-  defineConsumerFirst,
+  // Event pattern
+  defineEventPublisher,
+  defineEventConsumer,
+  isEventPublisherConfig,
+  // Command pattern
+  defineCommandConsumer,
+  defineCommandPublisher,
+  isCommandConsumerConfig,
   // TTL-backoff infrastructure
   defineTtlBackoffRetryInfrastructure,
 } from "./builder/index.js";
@@ -42,12 +46,11 @@ export type {
   RoutingKey,
   BindingPattern,
   MatchingRoutingKey,
-  // Publisher-first types
-  PublisherFirstResult,
-  PublisherFirstResultWithRoutingKey,
-  // Consumer-first types
-  ConsumerFirstResult,
-  ConsumerFirstResultWithRoutingKey,
+  // Event pattern types
+  EventPublisherConfig,
+  EventConsumerResult,
+  // Command pattern types
+  CommandConsumerConfig,
   // TTL-backoff types
   TtlBackoffRetryInfrastructure,
   // Queue helper types

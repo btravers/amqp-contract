@@ -88,6 +88,39 @@ const contract = defineContract({
 // And adds bindings for retry routing
 ```
 
+### Event and Command Patterns
+
+Use these patterns for type-safe publisher/consumer relationships:
+
+| Pattern     | Use Case                                   | Flow                                               |
+| ----------- | ------------------------------------------ | -------------------------------------------------- |
+| **Event**   | One publisher, many consumers (broadcast)  | `defineEventPublisher` → `defineEventConsumer`     |
+| **Command** | Many publishers, one consumer (task queue) | `defineCommandConsumer` → `defineCommandPublisher` |
+
+```typescript
+// Event Pattern: Publisher broadcasts, multiple consumers subscribe
+const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
+  routingKey: "order.created",
+});
+const { consumer, binding } = defineEventConsumer(orderCreatedEvent, processingQueue);
+
+// Consumer can override routing key for topic exchanges
+const { consumer: allConsumer } = defineEventConsumer(orderCreatedEvent, allOrdersQueue, {
+  routingKey: "order.*", // Pattern to receive multiple events
+});
+
+// Command Pattern: Consumer owns the queue, publishers send to it
+const processOrderCommand = defineCommandConsumer(orderQueue, ordersExchange, orderMessage, {
+  routingKey: "order.process",
+});
+const sendOrderPublisher = defineCommandPublisher(processOrderCommand);
+
+// For topic exchanges, publisher can specify concrete routing key
+const createOrderPublisher = defineCommandPublisher(processOrderCommand, {
+  routingKey: "order.create",
+});
+```
+
 ### Retry Configuration
 
 Retry strategy is configured at the queue level in the contract, not at the handler level:

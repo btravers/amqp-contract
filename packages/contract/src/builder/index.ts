@@ -35,16 +35,17 @@ export { defineContract } from "./contract.js";
 // Routing types
 export type { RoutingKey, BindingPattern, MatchingRoutingKey } from "./routing-types.js";
 
-// Publisher-first pattern
-export { definePublisherFirst } from "./publisher-first.js";
-export type {
-  PublisherFirstResult,
-  PublisherFirstResultWithRoutingKey,
-} from "./publisher-first.js";
+// Event pattern
+export { defineEventPublisher, defineEventConsumer, isEventPublisherConfig } from "./event.js";
+export type { EventPublisherConfig, EventConsumerResult } from "./event.js";
 
-// Consumer-first pattern
-export { defineConsumerFirst } from "./consumer-first.js";
-export type { ConsumerFirstResult, ConsumerFirstResultWithRoutingKey } from "./consumer-first.js";
+// Command pattern
+export {
+  defineCommandConsumer,
+  defineCommandPublisher,
+  isCommandConsumerConfig,
+} from "./command.js";
+export type { CommandConsumerConfig } from "./command.js";
 
 // TTL-backoff infrastructure
 export { defineTtlBackoffRetryInfrastructure } from "./ttl-backoff.js";
