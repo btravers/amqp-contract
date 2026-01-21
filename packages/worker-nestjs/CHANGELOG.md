@@ -1,5 +1,60 @@
 # @amqp-contract/worker-nestjs
 
+## 0.14.0
+
+### Minor Changes
+
+- feat: add Event/Command Pattern API for intuitive messaging patterns
+
+  ### New Features
+
+  **Event Pattern** - For broadcasting events to multiple consumers:
+  - `defineEventPublisher(exchange, message, options)` - Define an event publisher
+  - `defineEventConsumer(eventPublisher, queue, options)` - Subscribe to an event (auto-generates binding)
+
+  **Command Pattern** - For task queues with single consumer:
+  - `defineCommandConsumer(queue, exchange, message, options)` - Define a command consumer (auto-generates binding)
+  - `defineCommandPublisher(commandConsumer, options)` - Create a publisher for a command
+
+  **Helper Functions**:
+  - `extractConsumer(entry)` - Extract ConsumerDefinition from any ConsumerEntry type
+
+  ### Breaking Changes
+  - Removed `definePublisherFirst` and `defineConsumerFirst` (replaced by Event/Command patterns)
+
+  ### Example
+
+  ```typescript
+  // Event pattern: one publisher, many consumers
+  const orderCreated = defineEventPublisher(ordersExchange, orderMessage, {
+    routingKey: "order.created",
+  });
+
+  const processOrder = defineEventConsumer(orderCreated, orderQueue);
+  const notifyOrder = defineEventConsumer(orderCreated, notificationQueue);
+
+  // Command pattern: many publishers, one consumer
+  const shipOrder = defineCommandConsumer(shippingQueue, ordersExchange, shipMessage, {
+    routingKey: "order.ship",
+  });
+
+  const sendShipOrder = defineCommandPublisher(shipOrder);
+
+  // Use in contract - bindings are auto-generated
+  const contract = defineContract({
+    exchanges: { orders: ordersExchange },
+    queues: { orderQueue, notificationQueue, shippingQueue },
+    publishers: { orderCreated, sendShipOrder },
+    consumers: { processOrder, notifyOrder, shipOrder },
+  });
+  ```
+
+### Patch Changes
+
+- Updated dependencies
+  - @amqp-contract/contract@0.14.0
+  - @amqp-contract/worker@0.14.0
+
 ## 0.13.0
 
 ### Patch Changes
