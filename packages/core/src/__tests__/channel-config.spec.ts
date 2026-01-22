@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, vi } from "vitest";
-import { defineContract, defineExchange } from "@amqp-contract/contract";
+import type { ContractDefinition } from "@amqp-contract/contract";
+import { defineExchange } from "@amqp-contract/contract";
 import { AmqpClient } from "../amqp-client.js";
 import type { Channel } from "amqplib";
 import { it } from "@amqp-contract/testing/extension";
@@ -12,11 +13,11 @@ describe("AmqpClient Channel Configuration", () => {
 
   it("should allow overriding json option to false", async ({ amqpConnectionUrl }) => {
     // GIVEN
-    const contract = defineContract({
+    const contract: ContractDefinition = {
       exchanges: {
         test: defineExchange("test-json-false", "topic", { durable: false }),
       },
-    });
+    };
 
     // WHEN
     const client = new AmqpClient(contract, {
@@ -38,11 +39,11 @@ describe("AmqpClient Channel Configuration", () => {
 
   it("should keep json as true by default", async ({ amqpConnectionUrl }) => {
     // GIVEN
-    const contract = defineContract({
+    const contract: ContractDefinition = {
       exchanges: {
         test: defineExchange("test-json-default", "topic", { durable: false }),
       },
-    });
+    };
 
     // WHEN - Create client without specifying channelOptions
     const client = new AmqpClient(contract, {
@@ -63,11 +64,11 @@ describe("AmqpClient Channel Configuration", () => {
     amqpChannel,
   }) => {
     // GIVEN
-    const contract = defineContract({
+    const contract: ContractDefinition = {
       exchanges: {
         orders: defineExchange("orders-custom-setup", "topic", { durable: false }),
       },
-    });
+    };
 
     const customSetupMock = vi.fn(async (channel: Channel) => {
       // Create an additional queue in the custom setup
@@ -101,11 +102,11 @@ describe("AmqpClient Channel Configuration", () => {
     amqpChannel,
   }) => {
     // GIVEN
-    const contract = defineContract({
+    const contract: ContractDefinition = {
       exchanges: {
         test: defineExchange("test-callback-setup", "topic", { durable: false }),
       },
-    });
+    };
 
     const callbackSetupMock = vi.fn((channel: Channel, callback: (error?: Error) => void) => {
       // Simulate async operation with callback
@@ -138,11 +139,11 @@ describe("AmqpClient Channel Configuration", () => {
 
   it("should override default channel name", async ({ amqpConnectionUrl }) => {
     // GIVEN
-    const contract = defineContract({
+    const contract: ContractDefinition = {
       exchanges: {
         test: defineExchange("test-channel-name", "topic", { durable: false }),
       },
-    });
+    };
 
     const customChannelName = "my-custom-channel";
 
@@ -165,11 +166,11 @@ describe("AmqpClient Channel Configuration", () => {
 
   it("should allow setting confirmChannel option", async ({ amqpConnectionUrl }) => {
     // GIVEN
-    const contract = defineContract({
+    const contract: ContractDefinition = {
       exchanges: {
         test: defineExchange("test-confirm-channel", "topic", { durable: false }),
       },
-    });
+    };
 
     // WHEN
     const client = new AmqpClient(contract, {
@@ -190,11 +191,11 @@ describe("AmqpClient Channel Configuration", () => {
 
   it("should combine user channel options with defaults", async ({ amqpConnectionUrl }) => {
     // GIVEN
-    const contract = defineContract({
+    const contract: ContractDefinition = {
       exchanges: {
         test: defineExchange("test-combined-options", "topic", { durable: false }),
       },
-    });
+    };
 
     // WHEN - Provide multiple channel options
     const client = new AmqpClient(contract, {

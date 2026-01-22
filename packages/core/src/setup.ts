@@ -1,5 +1,5 @@
 import type { Channel } from "amqplib";
-import type { ContractDefinitionInput } from "@amqp-contract/contract";
+import type { ContractDefinition } from "@amqp-contract/contract";
 import { extractQueue } from "@amqp-contract/contract";
 
 /**
@@ -24,7 +24,7 @@ import { extractQueue } from "@amqp-contract/contract";
  */
 export async function setupAmqpTopology(
   channel: Channel,
-  contract: ContractDefinitionInput,
+  contract: ContractDefinition,
 ): Promise<void> {
   // Setup exchanges
   const exchangeResults = await Promise.allSettled(

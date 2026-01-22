@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect } from "vitest";
-import { defineContract, defineExchange } from "@amqp-contract/contract";
+import type { ContractDefinition } from "@amqp-contract/contract";
+import { defineExchange } from "@amqp-contract/contract";
 import { AmqpClient } from "../amqp-client.js";
 import { it } from "@amqp-contract/testing/extension";
 
@@ -11,11 +12,11 @@ describe("AmqpClient Connection Sharing Integration", () => {
 
   it("should reuse connection for clients with same URLs", async ({ amqpConnectionUrl }) => {
     // GIVEN
-    const contract = defineContract({
+    const contract: ContractDefinition = {
       exchanges: {
         orders: defineExchange("orders", "topic", { durable: false }),
       },
-    });
+    };
 
     const urls = [amqpConnectionUrl];
 
@@ -36,11 +37,11 @@ describe("AmqpClient Connection Sharing Integration", () => {
 
   it("should create separate connections for different URLs", async ({ amqpConnectionUrl }) => {
     // GIVEN
-    const contract = defineContract({
+    const contract: ContractDefinition = {
       exchanges: {
         orders: defineExchange("orders", "topic", { durable: false }),
       },
-    });
+    };
 
     // WHEN - Create two clients with different URLs
     // Use same URL but with different vhost paths to make them different
@@ -62,11 +63,11 @@ describe("AmqpClient Connection Sharing Integration", () => {
 
   it("should maintain connection when only one client closes", async ({ amqpConnectionUrl }) => {
     // GIVEN
-    const contract = defineContract({
+    const contract: ContractDefinition = {
       exchanges: {
         test: defineExchange("test", "topic", { durable: false }),
       },
-    });
+    };
 
     const urls = [amqpConnectionUrl];
     const client1 = new AmqpClient(contract, { urls });
@@ -89,11 +90,11 @@ describe("AmqpClient Connection Sharing Integration", () => {
 
   it("should close connection when last client closes", async ({ amqpConnectionUrl }) => {
     // GIVEN
-    const contract = defineContract({
+    const contract: ContractDefinition = {
       exchanges: {
         test: defineExchange("test", "topic", { durable: false }),
       },
-    });
+    };
 
     const urls = [amqpConnectionUrl];
     const client1 = new AmqpClient(contract, { urls });
@@ -117,11 +118,11 @@ describe("AmqpClient Connection Sharing Integration", () => {
 
   it("should handle multiple clients with mixed URLs", async ({ amqpConnectionUrl }) => {
     // GIVEN
-    const contract = defineContract({
+    const contract: ContractDefinition = {
       exchanges: {
         test: defineExchange("test", "topic", { durable: false }),
       },
-    });
+    };
 
     const urls1 = [amqpConnectionUrl];
     const urls2 = [`${amqpConnectionUrl}-alt`];
@@ -147,11 +148,11 @@ describe("AmqpClient Connection Sharing Integration", () => {
 
   it("should handle rapid create and close cycles", async ({ amqpConnectionUrl }) => {
     // GIVEN
-    const contract = defineContract({
+    const contract: ContractDefinition = {
       exchanges: {
         test: defineExchange("test", "topic", { durable: false }),
       },
-    });
+    };
 
     const urls = [amqpConnectionUrl];
 
