@@ -21,9 +21,9 @@ pnpm dev              # Watch mode for development
 
 ```bash
 pnpm typecheck        # Type check without emitting
-pnpm lint             # Run oxlint (no any types, import sorting, type aliases)
+pnpm lint             # Run oxlint (no any types, type aliases)
 pnpm lint --fix       # Auto-fix linting issues
-pnpm format           # Format with oxfmt
+pnpm format           # Format with oxfmt (import sorting)
 pnpm format --check   # Check formatting only
 ```
 
