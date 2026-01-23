@@ -8,7 +8,7 @@ import type {
 import type { Channel, ConsumeMessage, Options } from "amqplib";
 import { Future, Result } from "@swan-io/boxed";
 import { ConnectionManagerSingleton } from "./connection-manager.js";
-import type { ContractDefinitionInput } from "@amqp-contract/contract";
+import type { ContractDefinition } from "@amqp-contract/contract";
 import { TechnicalError } from "./errors.js";
 import { setupAmqpTopology } from "./setup.js";
 
@@ -76,7 +76,7 @@ export class AmqpClient {
    * @param options - Client configuration options
    */
   constructor(
-    private readonly contract: ContractDefinitionInput,
+    private readonly contract: ContractDefinition,
     options: AmqpClientOptions,
   ) {
     // Store for cleanup

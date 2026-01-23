@@ -1,12 +1,11 @@
 import {
   ContractDefinition,
-  defineConsumer,
   defineContract,
+  defineEventConsumer,
+  defineEventPublisher,
   defineExchange,
   defineMessage,
-  definePublisher,
   defineQueue,
-  defineQueueBinding,
 } from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
 import {
@@ -121,21 +120,16 @@ describe("Client and Worker Integration", () => {
         },
       );
 
+      const orderCreatedEvent = defineEventPublisher(exchange, orderMessage, {
+        routingKey: "order.created",
+      });
+
       const contract = defineContract({
-        exchanges: { orders: exchange },
-        queues: { orderProcessing: queue },
-        bindings: {
-          orderBinding: defineQueueBinding(queue, exchange, {
-            routingKey: "order.created",
-          }),
-        },
         publishers: {
-          orderCreated: definePublisher(exchange, orderMessage, {
-            routingKey: "order.created",
-          }),
+          orderCreated: orderCreatedEvent,
         },
         consumers: {
-          processOrder: defineConsumer(queue, orderMessage),
+          processOrder: defineEventConsumer(orderCreatedEvent, queue),
         },
       });
 
@@ -190,21 +184,18 @@ describe("Client and Worker Integration", () => {
         }),
       );
 
+      const eventPublisherConfig = defineEventPublisher(exchange, eventMessage, {
+        routingKey: "event.general",
+      });
+
       const contract = defineContract({
-        exchanges: { events: exchange },
-        queues: { eventProcessing: queue },
-        bindings: {
-          eventBinding: defineQueueBinding(queue, exchange, {
-            routingKey: "event.#",
-          }),
-        },
         publishers: {
-          eventPublisher: definePublisher(exchange, eventMessage, {
-            routingKey: "event.general",
-          }),
+          eventPublisher: eventPublisherConfig,
         },
         consumers: {
-          processEvent: defineConsumer(queue, eventMessage),
+          processEvent: defineEventConsumer(eventPublisherConfig, queue, {
+            routingKey: "event.#",
+          }),
         },
       });
 
@@ -267,21 +258,16 @@ describe("Client and Worker Integration", () => {
         }),
       );
 
+      const strictEvent = defineEventPublisher(exchange, strictMessage, {
+        routingKey: "strict.message",
+      });
+
       const contract = defineContract({
-        exchanges: { strict: exchange },
-        queues: { strictProcessing: queue },
-        bindings: {
-          strictBinding: defineQueueBinding(queue, exchange, {
-            routingKey: "strict.message",
-          }),
-        },
         publishers: {
-          strictPublisher: definePublisher(exchange, strictMessage, {
-            routingKey: "strict.message",
-          }),
+          strictPublisher: strictEvent,
         },
         consumers: {
-          processStrict: defineConsumer(queue, strictMessage),
+          processStrict: defineEventConsumer(strictEvent, queue),
         },
       });
 
@@ -338,31 +324,25 @@ describe("Client and Worker Integration", () => {
         }),
       );
 
+      const emailEvent = defineEventPublisher(exchange, notificationMessage, {
+        routingKey: "notification.email.send",
+      });
+      const smsEvent = defineEventPublisher(exchange, notificationMessage, {
+        routingKey: "notification.sms.send",
+      });
+
       const contract = defineContract({
-        exchanges: { notifications: exchange },
-        queues: {
-          emailQueue,
-          smsQueue,
-        },
-        bindings: {
-          emailBinding: defineQueueBinding(emailQueue, exchange, {
-            routingKey: "notification.email.*",
-          }),
-          smsBinding: defineQueueBinding(smsQueue, exchange, {
-            routingKey: "notification.sms.*",
-          }),
-        },
         publishers: {
-          emailNotification: definePublisher(exchange, notificationMessage, {
-            routingKey: "notification.email.send",
-          }),
-          smsNotification: definePublisher(exchange, notificationMessage, {
-            routingKey: "notification.sms.send",
-          }),
+          emailNotification: emailEvent,
+          smsNotification: smsEvent,
         },
         consumers: {
-          processEmail: defineConsumer(emailQueue, notificationMessage),
-          processSms: defineConsumer(smsQueue, notificationMessage),
+          processEmail: defineEventConsumer(emailEvent, emailQueue, {
+            routingKey: "notification.email.*",
+          }),
+          processSms: defineEventConsumer(smsEvent, smsQueue, {
+            routingKey: "notification.sms.*",
+          }),
         },
       });
 

@@ -754,17 +754,6 @@ describe("builder", () => {
 
       // WHEN
       const contract = defineContract({
-        exchanges: {
-          orders: ordersExchange,
-        },
-        queues: {
-          orderProcessing: orderProcessingQueue,
-        },
-        bindings: {
-          orderBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
-            routingKey: "order.created",
-          }),
-        },
         publishers: {
           orderCreated: definePublisher(ordersExchange, message, {
             routingKey: "order.created",
@@ -775,22 +764,15 @@ describe("builder", () => {
         },
       });
 
-      // THEN
+      // THEN - exchanges and queues are auto-extracted using resource names as keys
       expect(contract).toMatchObject({
         exchanges: {
           orders: { name: "orders", type: "topic", durable: true },
         },
         queues: {
-          orderProcessing: { name: "order-processing", durable: true },
+          "order-processing": { name: "order-processing", durable: true },
         },
-        bindings: {
-          orderBinding: {
-            type: "queue",
-            queue: orderProcessingQueue,
-            exchange: ordersExchange,
-            routingKey: "order.created",
-          },
-        },
+        bindings: {},
         publishers: {
           orderCreated: {
             exchange: ordersExchange,
@@ -811,11 +793,17 @@ describe("builder", () => {
       // WHEN
       const contract = defineContract({});
 
-      // THEN
-      expect(contract).toEqual({});
+      // THEN - minimal contract now includes empty objects for all properties
+      expect(contract).toEqual({
+        exchanges: {},
+        queues: {},
+        bindings: {},
+        publishers: {},
+        consumers: {},
+      });
     });
 
-    it("should create a contract with exchange-to-exchange bindings", () => {
+    it("should create a contract with multiple exchanges and queues", () => {
       // GIVEN
       const message = defineMessage(
         z.object({
@@ -824,28 +812,10 @@ describe("builder", () => {
         }),
       );
       const sourceExchange = defineExchange("source-exchange", "topic", { durable: true });
-      const destinationExchange = defineExchange("destination-exchange", "topic", {
-        durable: true,
-      });
       const finalQueue = defineQueue("final-queue", { durable: true });
 
-      // WHEN
+      // WHEN - exchanges and queues are auto-extracted from publishers/consumers
       const contract = defineContract({
-        exchanges: {
-          sourceExchange,
-          destinationExchange,
-        },
-        queues: {
-          finalQueue,
-        },
-        bindings: {
-          exchangeToExchange: defineExchangeBinding(destinationExchange, sourceExchange, {
-            routingKey: "order.*",
-          }),
-          queueBinding: defineQueueBinding(finalQueue, destinationExchange, {
-            routingKey: "order.created",
-          }),
-        },
         publishers: {
           orderCreated: definePublisher(sourceExchange, message, {
             routingKey: "order.created",
@@ -856,24 +826,15 @@ describe("builder", () => {
         },
       });
 
-      // THEN
+      // THEN - exchanges and queues use resource names as keys
       expect(contract).toMatchObject({
         exchanges: {
-          sourceExchange: { name: "source-exchange" },
-          destinationExchange: { name: "destination-exchange" },
+          "source-exchange": { name: "source-exchange" },
         },
-        bindings: {
-          exchangeToExchange: {
-            type: "exchange",
-            source: sourceExchange,
-            destination: destinationExchange,
-          },
-          queueBinding: {
-            type: "queue",
-            queue: finalQueue,
-            exchange: destinationExchange,
-          },
+        queues: {
+          "final-queue": { name: "final-queue" },
         },
+        bindings: {},
       });
     });
   });
@@ -1014,12 +975,6 @@ describe("builder", () => {
       });
 
       const contract = defineContract({
-        exchanges: {
-          orders: ordersExchange,
-        },
-        queues: {
-          orderProcessing: orderQueue,
-        },
         publishers: {
           // EventPublisherConfig auto-extracted to publisher
           orderCreated,
@@ -1030,13 +985,13 @@ describe("builder", () => {
         },
       });
 
-      // THEN - EventPublisherConfig is converted to publisher
+      // THEN - EventPublisherConfig is converted to publisher, resources use name as key
       expect(contract).toMatchObject({
         exchanges: {
           orders: { name: "orders", type: "topic", durable: true },
         },
         queues: {
-          orderProcessing: { name: "order-processing", durable: true },
+          "order-processing": { name: "order-processing", durable: true },
         },
         bindings: {
           processOrderBinding: {
@@ -1270,12 +1225,6 @@ describe("builder", () => {
       const logAuditPublisher = defineCommandPublisher(processAudit);
 
       const contract = defineContract({
-        exchanges: {
-          audit: auditExchange,
-        },
-        queues: {
-          auditLog: auditQueue,
-        },
         publishers: {
           logAudit: logAuditPublisher,
         },
@@ -1285,13 +1234,13 @@ describe("builder", () => {
         },
       });
 
-      // THEN - CommandConsumerConfig is converted to consumer and binding
+      // THEN - CommandConsumerConfig is converted to consumer and binding, resources use name as key
       expect(contract).toMatchObject({
         exchanges: {
           audit: { name: "audit", type: "topic", durable: true },
         },
         queues: {
-          auditLog: { name: "audit-log", durable: true },
+          "audit-log": { name: "audit-log", durable: true },
         },
         bindings: {
           processAuditBinding: {

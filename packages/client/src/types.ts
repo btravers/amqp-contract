@@ -1,5 +1,5 @@
 import type {
-  ContractDefinitionInput,
+  ContractDefinition,
   InferPublisherNames,
   PublisherEntry,
 } from "@amqp-contract/contract";
@@ -25,15 +25,13 @@ type PublisherInferInput<TPublisher extends PublisherEntry> = TPublisher extends
 /**
  * Infer all publishers from contract
  */
-type InferPublishers<TContract extends ContractDefinitionInput> = NonNullable<
-  TContract["publishers"]
->;
+type InferPublishers<TContract extends ContractDefinition> = NonNullable<TContract["publishers"]>;
 
 /**
  * Get specific publisher definition from contract
  */
 type InferPublisher<
-  TContract extends ContractDefinitionInput,
+  TContract extends ContractDefinition,
   TName extends InferPublisherNames<TContract>,
 > = InferPublishers<TContract>[TName];
 
@@ -41,6 +39,6 @@ type InferPublisher<
  * Infer publisher input type (message payload) for a specific publisher in a contract
  */
 export type ClientInferPublisherInput<
-  TContract extends ContractDefinitionInput,
+  TContract extends ContractDefinition,
   TName extends InferPublisherNames<TContract>,
 > = PublisherInferInput<InferPublisher<TContract, TName>>;

@@ -257,50 +257,43 @@ const orderMessage = defineMessage(orderSchema, {
 const orderStatusMessage = defineMessage(orderStatusSchema);
 const orderUnionMessage = defineMessage(z.union([orderSchema, orderStatusSchema]));
 
-// 3. Compose contract using object references
+// 3. Define event publishers
+const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
+  routingKey: "order.created",
+});
+const orderShippedEvent = defineEventPublisher(ordersExchange, orderStatusMessage, {
+  routingKey: "order.shipped",
+});
+
+// Virtual event publishers for consumers with different message types or patterns
+const allOrderEvents = defineEventPublisher(ordersExchange, orderUnionMessage, {
+  routingKey: "order.created",
+});
+const urgentOrderEvents = defineEventPublisher(ordersExchange, orderStatusMessage, {
+  routingKey: "order.updated.urgent",
+});
+
+// 4. Compose contract - exchanges, queues, and bindings are auto-extracted
 export const orderContract = defineContract({
-  exchanges: {
-    orders: ordersExchange,
-  },
-  queues: {
-    orderProcessing: orderProcessingQueue,
-    orderNotifications: orderNotificationsQueue,
-    orderShipping: orderShippingQueue,
-    orderUrgent: orderUrgentQueue,
-  },
-  bindings: {
-    orderProcessingBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
-      routingKey: "order.created",
-    }),
-    orderNotificationsBinding: defineQueueBinding(orderNotificationsQueue, ordersExchange, {
-      routingKey: "order.#",
-    }),
-    orderShippingBinding: defineQueueBinding(orderShippingQueue, ordersExchange, {
-      routingKey: "order.shipped",
-    }),
-    orderUrgentBinding: defineQueueBinding(orderUrgentQueue, ordersExchange, {
-      routingKey: "order.*.urgent",
-    }),
-  },
   publishers: {
-    orderCreated: definePublisher(ordersExchange, orderMessage, {
-      routingKey: "order.created",
-    }),
+    orderCreated: orderCreatedEvent,
+    orderShipped: orderShippedEvent,
     orderUpdated: definePublisher(ordersExchange, orderStatusMessage, {
       routingKey: "order.updated",
-    }),
-    orderShipped: definePublisher(ordersExchange, orderStatusMessage, {
-      routingKey: "order.shipped",
     }),
     orderUrgentUpdate: definePublisher(ordersExchange, orderStatusMessage, {
       routingKey: "order.updated.urgent",
     }),
   },
   consumers: {
-    processOrder: defineConsumer(orderProcessingQueue, orderMessage),
-    notifyOrder: defineConsumer(orderNotificationsQueue, orderUnionMessage),
-    shipOrder: defineConsumer(orderShippingQueue, orderStatusMessage),
-    handleUrgentOrder: defineConsumer(orderUrgentQueue, orderStatusMessage),
+    processOrder: defineEventConsumer(orderCreatedEvent, orderProcessingQueue),
+    notifyOrder: defineEventConsumer(allOrderEvents, orderNotificationsQueue, {
+      routingKey: "order.#",
+    }),
+    shipOrder: defineEventConsumer(orderShippedEvent, orderShippingQueue),
+    handleUrgentOrder: defineEventConsumer(urgentOrderEvents, orderUrgentQueue, {
+      routingKey: "order.*.urgent",
+    }),
   },
 });
 ```

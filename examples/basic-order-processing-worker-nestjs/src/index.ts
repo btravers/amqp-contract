@@ -19,10 +19,7 @@ async function runDemo() {
   logger.log("  • order.#           → notifyOrder handler (all events)");
   logger.log("  • order.shipped     → shipOrder handler");
   logger.log("  • order.*.urgent    → handleUrgentOrder handler");
-  logger.log("  • order.# (via analytics exchange) → processAnalytics handler");
-  logger.log("=".repeat(60));
-  logger.log("Exchange-to-Exchange Binding:");
-  logger.log("  orders → order-analytics (routing: order.#)");
+  logger.log("  • order.failed (via DLX) → handleFailedOrders handler");
   logger.log("=".repeat(60));
 
   // Handle graceful shutdown
