@@ -2,7 +2,6 @@ import {
   HandleFailedOrdersHandler,
   HandleUrgentOrderHandler,
   NotifyOrderHandler,
-  ProcessAnalyticsHandler,
   ProcessOrderHandler,
   ShipOrderHandler,
 } from "./index.js";
@@ -14,7 +13,6 @@ import { Module } from "@nestjs/common";
     NotifyOrderHandler,
     ShipOrderHandler,
     HandleUrgentOrderHandler,
-    ProcessAnalyticsHandler,
     HandleFailedOrdersHandler,
   ],
   exports: [
@@ -22,7 +20,6 @@ import { Module } from "@nestjs/common";
     NotifyOrderHandler,
     ShipOrderHandler,
     HandleUrgentOrderHandler,
-    ProcessAnalyticsHandler,
     HandleFailedOrdersHandler,
   ],
 })

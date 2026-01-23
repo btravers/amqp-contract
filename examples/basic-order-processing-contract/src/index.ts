@@ -1,16 +1,11 @@
 import {
-  defineCommandConsumer,
-  defineCommandPublisher,
-  defineConsumer,
   defineContract,
   defineEventConsumer,
   defineEventPublisher,
   defineExchange,
-  defineExchangeBinding,
   defineMessage,
   definePublisher,
   defineQueue,
-  defineQueueBinding,
 } from "@amqp-contract/contract";
 import { z } from "zod";
 
@@ -40,22 +35,19 @@ const orderStatusSchema = z.object({
   updatedAt: z.string().datetime(),
 });
 
-// Define exchanges first so they can be referenced
+// Define exchanges
 const ordersExchange = defineExchange("orders", "topic", { durable: true });
-const orderAnalyticsExchange = defineExchange("order-analytics", "topic", { durable: true });
 
 // Define dead letter exchange for failed messages
 const ordersDlx = defineExchange("orders-dlx", "topic", { durable: true });
 
-// Define queues so they can be referenced
+// Define queues
 const orderProcessingQueue = defineQueue("order-processing", {
   durable: true,
-  // Configure dead letter exchange for failed order processing
   deadLetter: {
     exchange: ordersDlx,
     routingKey: "order.failed",
   },
-  // Optional: Add message TTL (time-to-live) to automatically move old messages to DLX
   arguments: {
     "x-message-ttl": 86400000, // 24 hours
   },
@@ -63,7 +55,6 @@ const orderProcessingQueue = defineQueue("order-processing", {
 const orderNotificationsQueue = defineQueue("order-notifications", { durable: true });
 const orderShippingQueue = defineQueue("order-shipping", { durable: true });
 const orderUrgentQueue = defineQueue("order-urgent", { durable: true });
-const analyticsProcessingQueue = defineQueue("analytics-processing", { durable: true });
 
 // Dead letter queue to collect failed messages
 const ordersDlxQueue = defineQueue("orders-dlx-queue", { durable: true });
@@ -82,144 +73,87 @@ const orderStatusMessage = defineMessage(orderStatusSchema, {
 const orderUnionMessage = defineMessage(z.union([orderSchema, orderStatusSchema]));
 
 /**
- * RECOMMENDED APPROACH: Event Pattern (Publisher → Consumer)
+ * Event publishers for each event type.
  *
- * Use this for events where publishers broadcast without knowing who consumes.
- * Multiple consumers can subscribe to the same event.
+ * Each publisher broadcasts a specific event to the orders exchange.
+ * Consumers subscribe using defineEventConsumer with optional routing key overrides.
  */
 const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
   routingKey: "order.created",
 });
 
+const orderShippedEvent = defineEventPublisher(ordersExchange, orderStatusMessage, {
+  routingKey: "order.shipped",
+});
+
 /**
- * RECOMMENDED APPROACH: Command Pattern (Consumer → Publisher)
+ * Virtual event publisher for the notifications consumer.
  *
- * Use this for commands where the consumer "owns" the queue and
- * publishers send commands to it.
+ * This is not added to the publishers section since it's only used to define
+ * the consumer's message type (union of all order event schemas) and binding
+ * with a wildcard routing key (order.#).
  */
-const shipOrderCommand = defineCommandConsumer(
-  orderShippingQueue,
-  ordersExchange,
-  orderStatusMessage,
-  {
-    routingKey: "order.shipped",
-  },
-);
-
-// Create publisher that sends ship orders
-const shipOrderPublisher = defineCommandPublisher(shipOrderCommand);
+const allOrderEvents = defineEventPublisher(ordersExchange, orderUnionMessage, {
+  routingKey: "order.created",
+});
 
 /**
- * Order processing contract demonstrating recommended patterns
+ * Virtual event publisher for the urgent orders consumer.
+ *
+ * Used to define the binding with the wildcard pattern order.*.urgent.
+ */
+const urgentOrderEvents = defineEventPublisher(ordersExchange, orderStatusMessage, {
+  routingKey: "order.updated.urgent",
+});
+
+/**
+ * Virtual event publisher for the DLX consumer.
+ *
+ * Used to bind the DLX queue to the dead letter exchange.
+ */
+const failedOrderEvent = defineEventPublisher(ordersDlx, orderMessage, {
+  routingKey: "order.failed",
+});
+
+/**
+ * Order processing contract demonstrating the event pattern.
  *
  * This contract demonstrates:
- * 1. Event Pattern: orderCreatedEvent broadcasts to multiple consumers
- * 2. Command Pattern: shipOrderCommand ensures publisher matches consumer
- * 3. Traditional Approach: For advanced scenarios like exchange-to-exchange bindings
- * 4. Dead Letter Exchange: Failed messages from orderProcessingQueue are routed to DLX
+ * 1. Event Pattern: publishers broadcast events, consumers subscribe with routing key overrides
+ * 2. Dead Letter Exchange: Failed messages from orderProcessingQueue are routed to DLX
+ * 3. Topic Exchange Wildcards: Consumers use patterns like order.# and order.*.urgent
  *
- * Benefits of Event / Command patterns:
- * - Guaranteed message schema consistency
- * - Automatic routing key synchronization
- * - Type-safe contract definitions
- *
- * Dead Letter Exchange Pattern:
- * - Failed or rejected messages are automatically routed to a DLX
- * - Messages that exceed TTL are moved to DLX
- * - Enables message retry and error handling strategies
+ * Exchanges, queues, and bindings are automatically extracted from publishers and consumers.
  */
 export const orderContract = defineContract({
-  exchanges: {
-    // Primary exchange for all orders
-    orders: ordersExchange,
-
-    // Secondary exchange for analytics (receives filtered events from orders exchange)
-    orderAnalytics: orderAnalyticsExchange,
-
-    // Dead letter exchange for failed messages
-    ordersDlx,
-  },
-  queues: {
-    // Queue for processing all new orders (with DLX configuration)
-    orderProcessing: orderProcessingQueue,
-
-    // Queue for all notifications (subscribes to all order events)
-    orderNotifications: orderNotificationsQueue,
-
-    // Queue for shipping department (only shipped orders)
-    orderShipping: orderShippingQueue,
-
-    // Queue for urgent orders (any urgent event)
-    orderUrgent: orderUrgentQueue,
-
-    // Queue for analytics (receives events through orderAnalytics exchange)
-    analyticsProcessing: analyticsProcessingQueue,
-
-    // Dead letter queue to collect failed messages
-    ordersDlxQueue,
-  },
-  bindings: {
-    // Traditional approach for notifications queue to receive ALL order events
-    // (Use wildcard pattern for notifications that need all events)
-    orderNotificationsBinding: defineQueueBinding(orderNotificationsQueue, ordersExchange, {
-      routingKey: "order.#",
-    }),
-
-    // Exchange-to-Exchange binding: Route all order events to analytics exchange
-    // (Use traditional approach for complex routing patterns)
-    orderToAnalytics: defineExchangeBinding(orderAnalyticsExchange, ordersExchange, {
-      routingKey: "order.#",
-    }),
-
-    // Traditional approach for urgent queue (when not using Event/Command patterns)
-    orderUrgentBinding: defineQueueBinding(orderUrgentQueue, ordersExchange, {
-      routingKey: "order.*.urgent",
-    }),
-
-    // Bind analytics queue to analytics exchange for all events
-    analyticsBinding: defineQueueBinding(analyticsProcessingQueue, orderAnalyticsExchange, {
-      routingKey: "order.#",
-    }),
-
-    // Bind DLX queue to DLX to collect failed messages
-    ordersDlxBinding: defineQueueBinding(ordersDlxQueue, ordersDlx, {
-      routingKey: "order.failed",
-    }),
-  },
   publishers: {
-    // Publisher from Event pattern (event-oriented broadcast)
-    // EventPublisherConfig → auto-extracted to publisher
     orderCreated: orderCreatedEvent,
-
-    // Publisher from Command pattern (command-oriented)
-    orderShipped: shipOrderPublisher,
-
-    // Traditional publishers (for other events)
+    orderShipped: orderShippedEvent,
     orderUpdated: definePublisher(ordersExchange, orderStatusMessage, {
       routingKey: "order.updated",
     }),
-
     orderUrgentUpdate: definePublisher(ordersExchange, orderStatusMessage, {
       routingKey: "order.updated.urgent",
     }),
   },
   consumers: {
-    // Consumer from Event pattern (same message schema guaranteed)
-    // EventConsumerResult → auto-extracted to consumer + binding
+    // Event consumer: subscribes to order.created events
     processOrder: defineEventConsumer(orderCreatedEvent, orderProcessingQueue),
 
-    // Consumer from Command pattern (same message schema guaranteed)
-    // CommandConsumerConfig → auto-extracted to consumer + binding
-    shipOrder: shipOrderCommand,
+    // Event consumer with routing key override: subscribes to ALL order events
+    notifyOrder: defineEventConsumer(allOrderEvents, orderNotificationsQueue, {
+      routingKey: "order.#",
+    }),
 
-    // Traditional consumer for notifications (receives all order events via wildcard)
-    notifyOrder: defineConsumer(orderNotificationsQueue, orderUnionMessage),
+    // Event consumer: subscribes to order.shipped events
+    shipOrder: defineEventConsumer(orderShippedEvent, orderShippingQueue),
 
-    // Traditional consumers (for other scenarios)
-    handleUrgentOrder: defineConsumer(orderUrgentQueue, orderStatusMessage),
-    processAnalytics: defineConsumer(analyticsProcessingQueue, orderUnionMessage),
+    // Event consumer with routing key override: subscribes to urgent events
+    handleUrgentOrder: defineEventConsumer(urgentOrderEvents, orderUrgentQueue, {
+      routingKey: "order.*.urgent",
+    }),
 
-    // Consumer for dead letter queue (handles failed messages)
-    handleFailedOrders: defineConsumer(ordersDlxQueue, orderMessage),
+    // DLX consumer: receives failed messages
+    handleFailedOrders: defineEventConsumer(failedOrderEvent, ordersDlxQueue),
   },
 });
