@@ -30,7 +30,7 @@ catalog:
   knip: 5.82.1
   lefthook: 2.0.15
   mermaid: 11.12.2
-  oxfmt: 0.26.0
+  oxfmt: 0.27.0
   oxlint: 1.41.0
   pino: 10.2.1
   pino-pretty: 13.1.3
