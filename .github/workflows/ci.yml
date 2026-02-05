@@ -112,7 +112,7 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Run integration tests
-        run: pnpm test:integration --concurrency=1 -- --coverage --reporter=default --reporter=github-actions
+        run: pnpm test:integration --concurrency=3 -- --coverage --reporter=default --reporter=github-actions
 
       - name: Upload Integration Coverage Report
         if: always()
