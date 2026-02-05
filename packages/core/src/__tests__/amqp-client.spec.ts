@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect } from "vitest";
+import type { ContractDefinition } from "@amqp-contract/contract";
 import {
-  defineContract,
   defineExchange,
   defineExchangeBinding,
   defineQueue,
@@ -17,12 +17,12 @@ describe("AmqpClient Integration", () => {
 
   it("should setup exchanges from contract", async ({ amqpConnectionUrl, amqpChannel }) => {
     // GIVEN
-    const contract = defineContract({
+    const contract: ContractDefinition = {
       exchanges: {
         orders: defineExchange("orders", "topic", { durable: false }),
         notifications: defineExchange("notifications", "fanout", { durable: false }),
       },
-    });
+    };
 
     // WHEN
     const client = new AmqpClient(contract, {
@@ -42,12 +42,12 @@ describe("AmqpClient Integration", () => {
 
   it("should setup queues from contract", async ({ amqpConnectionUrl, amqpChannel }) => {
     // GIVEN
-    const contract = defineContract({
+    const contract: ContractDefinition = {
       queues: {
         orderProcessing: defineQueue("order-processing", { type: "classic", durable: false }),
         notifications: defineQueue("notifications", { type: "classic", durable: false }),
       },
-    });
+    };
 
     // WHEN
     const client = new AmqpClient(contract, {
@@ -72,7 +72,7 @@ describe("AmqpClient Integration", () => {
     // GIVEN
     const ordersExchange = defineExchange("orders", "topic", { durable: false });
     const orderQueue = defineQueue("order-processing", { type: "classic", durable: false });
-    const contract = defineContract({
+    const contract: ContractDefinition = {
       exchanges: {
         orders: ordersExchange,
       },
@@ -84,7 +84,7 @@ describe("AmqpClient Integration", () => {
           routingKey: "order.created",
         }),
       },
-    });
+    };
 
     const client = new AmqpClient(contract, {
       urls: [amqpConnectionUrl],
@@ -117,7 +117,7 @@ describe("AmqpClient Integration", () => {
     // GIVEN
     const sourceExchange = defineExchange("source", "topic", { durable: false });
     const destExchange = defineExchange("destination", "topic", { durable: false });
-    const contract = defineContract({
+    const contract: ContractDefinition = {
       exchanges: {
         source: sourceExchange,
         destination: destExchange,
@@ -127,7 +127,7 @@ describe("AmqpClient Integration", () => {
           routingKey: "*.important",
         }),
       },
-    });
+    };
 
     const client = new AmqpClient(contract, {
       urls: [amqpConnectionUrl],
@@ -163,7 +163,7 @@ describe("AmqpClient Integration", () => {
     const orderQueue = defineQueue("order-processing", { type: "classic", durable: false });
     const analyticsQueue = defineQueue("analytics-processing", { type: "classic", durable: false });
 
-    const contract = defineContract({
+    const contract: ContractDefinition = {
       exchanges: {
         orders: ordersExchange,
         analytics: analyticsExchange,
@@ -181,7 +181,7 @@ describe("AmqpClient Integration", () => {
           routingKey: "order.created",
         }),
       },
-    });
+    };
 
     const client = new AmqpClient(contract, {
       urls: [amqpConnectionUrl],
@@ -215,7 +215,7 @@ describe("AmqpClient Integration", () => {
 
   it("should handle empty contract", async ({ amqpConnectionUrl }) => {
     // GIVEN
-    const contract = defineContract({});
+    const contract: ContractDefinition = {};
 
     // WHEN
     const client = new AmqpClient(contract, {
@@ -239,7 +239,7 @@ describe("AmqpClient Integration", () => {
     // GIVEN
     const fanoutExchange = defineExchange("fanout", "fanout", { durable: false });
     const orderQueue = defineQueue("order-queue", { type: "classic", durable: false });
-    const contract = defineContract({
+    const contract: ContractDefinition = {
       exchanges: {
         fanout: fanoutExchange,
       },
@@ -249,7 +249,7 @@ describe("AmqpClient Integration", () => {
       bindings: {
         fanoutBinding: defineQueueBinding(orderQueue, fanoutExchange),
       },
-    });
+    };
 
     const client = new AmqpClient(contract, {
       urls: [amqpConnectionUrl],
@@ -276,14 +276,14 @@ describe("AmqpClient Integration", () => {
 
   it("should pass custom arguments to exchanges", async ({ amqpConnectionUrl, amqpChannel }) => {
     // GIVEN
-    const contract = defineContract({
+    const contract: ContractDefinition = {
       exchanges: {
         orders: defineExchange("orders", "topic", {
           durable: false,
           arguments: { "x-custom": "value" },
         }),
       },
-    });
+    };
 
     // WHEN
     const client = new AmqpClient(contract, {
@@ -301,7 +301,7 @@ describe("AmqpClient Integration", () => {
 
   it("should pass custom arguments to queues", async ({ amqpConnectionUrl, amqpChannel }) => {
     // GIVEN
-    const contract = defineContract({
+    const contract: ContractDefinition = {
       queues: {
         orders: defineQueue("orders", {
           type: "classic",
@@ -309,7 +309,7 @@ describe("AmqpClient Integration", () => {
           arguments: { "x-max-length": 1000 },
         }),
       },
-    });
+    };
 
     // WHEN
     const client = new AmqpClient(contract, {
@@ -327,11 +327,11 @@ describe("AmqpClient Integration", () => {
 
   it("should close channel and connection properly", async ({ amqpConnectionUrl }) => {
     // GIVEN
-    const contract = defineContract({
+    const contract: ContractDefinition = {
       exchanges: {
         test: defineExchange("test", "topic", { durable: false }),
       },
-    });
+    };
 
     const client = new AmqpClient(contract, {
       urls: [amqpConnectionUrl],

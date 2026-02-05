@@ -4,7 +4,6 @@ import {
   HandleUrgentOrderHandler,
   HandlersModule,
   NotifyOrderHandler,
-  ProcessAnalyticsHandler,
   ProcessOrderHandler,
   ShipOrderHandler,
 } from "./handlers/index.js";
@@ -23,7 +22,6 @@ import { orderContract } from "@amqp-contract-examples/basic-order-processing-co
         NotifyOrderHandler,
         ShipOrderHandler,
         HandleUrgentOrderHandler,
-        ProcessAnalyticsHandler,
         HandleFailedOrdersHandler,
         amqpConfig.KEY,
       ],
@@ -32,7 +30,6 @@ import { orderContract } from "@amqp-contract-examples/basic-order-processing-co
         notifyOrder: NotifyOrderHandler,
         shipOrder: ShipOrderHandler,
         handleUrgentOrder: HandleUrgentOrderHandler,
-        processAnalytics: ProcessAnalyticsHandler,
         handleFailedOrders: HandleFailedOrdersHandler,
         config: ConfigType<typeof amqpConfig>,
       ) => ({
@@ -42,7 +39,6 @@ import { orderContract } from "@amqp-contract-examples/basic-order-processing-co
           notifyOrder: notifyOrder.handler,
           shipOrder: shipOrder.handler,
           handleUrgentOrder: handleUrgentOrder.handler,
-          processAnalytics: processAnalytics.handler,
           handleFailedOrders: handleFailedOrders.handler,
         },
         urls: [config.url],

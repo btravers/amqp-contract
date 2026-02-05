@@ -27,11 +27,11 @@ Define your AMQP contracts once — get **type safety**, **autocompletion**, and
 ```typescript
 import {
   defineContract,
-  defineExchange,
-  defineQueue,
-  defineEventPublisher,
   defineEventConsumer,
+  defineEventPublisher,
+  defineExchange,
   defineMessage,
+  defineQueue,
 } from "@amqp-contract/contract";
 import { TypedAmqpClient } from "@amqp-contract/client";
 import { TypedAmqpWorker } from "@amqp-contract/worker";
@@ -59,16 +59,13 @@ const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
   routingKey: "order.created",
 });
 
-// 4. Define contract - configs go directly in publishers/consumers, bindings auto-generated
+// 4. Define contract - only publishers and consumers needed
+//    Exchanges, queues, and bindings are automatically extracted
 const contract = defineContract({
-  exchanges: { orders: ordersExchange, ordersDlx },
-  queues: { orderProcessing: orderProcessingQueue },
   publishers: {
-    // EventPublisherConfig → auto-extracted to publisher
     orderCreated: orderCreatedEvent,
   },
   consumers: {
-    // EventConsumerResult → auto-extracted to consumer + binding
     processOrder: defineEventConsumer(orderCreatedEvent, orderProcessingQueue),
   },
 });

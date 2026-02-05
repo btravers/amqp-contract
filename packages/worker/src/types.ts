@@ -1,7 +1,7 @@
 import type {
   ConsumerDefinition,
   ConsumerEntry,
-  ContractDefinitionInput,
+  ContractDefinition,
   InferConsumerNames,
   MessageDefinition,
 } from "@amqp-contract/contract";
@@ -54,15 +54,13 @@ type ConsumerInferHeadersInput<TConsumer extends ConsumerEntry> =
 /**
  * Infer all consumers from contract
  */
-type InferConsumers<TContract extends ContractDefinitionInput> = NonNullable<
-  TContract["consumers"]
->;
+type InferConsumers<TContract extends ContractDefinition> = NonNullable<TContract["consumers"]>;
 
 /**
  * Get specific consumer entry from contract
  */
 type InferConsumer<
-  TContract extends ContractDefinitionInput,
+  TContract extends ContractDefinition,
   TName extends InferConsumerNames<TContract>,
 > = InferConsumers<TContract>[TName];
 
@@ -70,7 +68,7 @@ type InferConsumer<
  * Infer the payload type for a specific consumer
  */
 type WorkerInferConsumerPayload<
-  TContract extends ContractDefinitionInput,
+  TContract extends ContractDefinition,
   TName extends InferConsumerNames<TContract>,
 > = ConsumerInferPayloadInput<InferConsumer<TContract, TName>>;
 
@@ -79,7 +77,7 @@ type WorkerInferConsumerPayload<
  * Returns undefined if no headers schema is defined
  */
 export type WorkerInferConsumerHeaders<
-  TContract extends ContractDefinitionInput,
+  TContract extends ContractDefinition,
   TName extends InferConsumerNames<TContract>,
 > = ConsumerInferHeadersInput<InferConsumer<TContract, TName>>;
 
@@ -115,7 +113,7 @@ export type WorkerConsumedMessage<TPayload, THeaders = undefined> = {
  * Includes both payload and headers (if defined).
  */
 export type WorkerInferConsumedMessage<
-  TContract extends ContractDefinitionInput,
+  TContract extends ContractDefinition,
   TName extends InferConsumerNames<TContract>,
 > = WorkerConsumedMessage<
   WorkerInferConsumerPayload<TContract, TName>,
@@ -154,7 +152,7 @@ export type WorkerInferConsumedMessage<
  * ```
  */
 export type WorkerInferConsumerHandler<
-  TContract extends ContractDefinitionInput,
+  TContract extends ContractDefinition,
   TName extends InferConsumerNames<TContract>,
 > = (
   message: WorkerInferConsumedMessage<TContract, TName>,
@@ -172,7 +170,7 @@ export type WorkerInferConsumerHandler<
  * not at the handler level. See `QueueDefinition.retry` for configuration options.
  */
 export type WorkerInferConsumerHandlerEntry<
-  TContract extends ContractDefinitionInput,
+  TContract extends ContractDefinition,
   TName extends InferConsumerNames<TContract>,
 > =
   | WorkerInferConsumerHandler<TContract, TName>
@@ -192,7 +190,7 @@ export type WorkerInferConsumerHandlerEntry<
  * };
  * ```
  */
-export type WorkerInferConsumerHandlers<TContract extends ContractDefinitionInput> = {
+export type WorkerInferConsumerHandlers<TContract extends ContractDefinition> = {
   [K in InferConsumerNames<TContract>]: WorkerInferConsumerHandlerEntry<TContract, K>;
 };
 
@@ -205,7 +203,7 @@ export type WorkerInferConsumerHandlers<TContract extends ContractDefinitionInpu
  * @deprecated Use `WorkerInferConsumerHandler` instead. Will be removed in next major version.
  */
 export type WorkerInferSafeConsumerHandler<
-  TContract extends ContractDefinitionInput,
+  TContract extends ContractDefinition,
   TName extends InferConsumerNames<TContract>,
 > = WorkerInferConsumerHandler<TContract, TName>;
 
@@ -213,12 +211,12 @@ export type WorkerInferSafeConsumerHandler<
  * @deprecated Use `WorkerInferConsumerHandlerEntry` instead. Will be removed in next major version.
  */
 export type WorkerInferSafeConsumerHandlerEntry<
-  TContract extends ContractDefinitionInput,
+  TContract extends ContractDefinition,
   TName extends InferConsumerNames<TContract>,
 > = WorkerInferConsumerHandlerEntry<TContract, TName>;
 
 /**
  * @deprecated Use `WorkerInferConsumerHandlers` instead. Will be removed in next major version.
  */
-export type WorkerInferSafeConsumerHandlers<TContract extends ContractDefinitionInput> =
+export type WorkerInferSafeConsumerHandlers<TContract extends ContractDefinition> =
   WorkerInferConsumerHandlers<TContract>;

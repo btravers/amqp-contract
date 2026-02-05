@@ -64,18 +64,17 @@ packages/[package-name]/
 1. **Contract Definition**
    - Always validate contracts at definition time
    - Use Standard Schema v1 compliant schemas (Zod, Valibot, ArkType)
-   - Define exchanges, queues, messages, bindings, publishers, and consumers
-   - Use composition pattern: define resources first, then reference them
+   - Define exchanges, queues, and messages first, then reference them in publishers and consumers
+   - `defineContract` only accepts `publishers` and `consumers` — exchanges, queues, and bindings are auto-extracted
 
    ```typescript
    import {
      defineContract,
+     defineEventConsumer,
+     defineEventPublisher,
      defineExchange,
-     defineQueue,
-     defineQueueBinding,
-     definePublisher,
-     defineConsumer,
      defineMessage,
+     defineQueue,
    } from "@amqp-contract/contract";
    import { z } from "zod";
 
@@ -95,26 +94,19 @@ packages/[package-name]/
      },
    );
 
-   // 3. Compose the contract using object references
+   // 3. Define event publisher
+   const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
+     routingKey: "order.created",
+   });
+
+   // 4. Compose contract — only publishers and consumers
+   //    Exchanges, queues, and bindings are auto-extracted
    const contract = defineContract({
-     exchanges: {
-       orders: ordersExchange,
-     },
-     queues: {
-       orderProcessing: orderProcessingQueue,
-     },
-     bindings: {
-       orderBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
-         routingKey: "order.created",
-       }),
-     },
      publishers: {
-       orderCreated: definePublisher(ordersExchange, orderMessage, {
-         routingKey: "order.created",
-       }),
+       orderCreated: orderCreatedEvent,
      },
      consumers: {
-       processOrder: defineConsumer(orderProcessingQueue, orderMessage),
+       processOrder: defineEventConsumer(orderCreatedEvent, orderProcessingQueue),
      },
    });
    ```
@@ -154,18 +146,16 @@ packages/[package-name]/
    - Configure `prefetch` on consumers to control message flow
 
 5. **Bindings**
-   - Use `defineQueueBinding` for queue-to-exchange bindings
-   - Use `defineExchangeBinding` for exchange-to-exchange bindings
-   - Exchange-to-exchange bindings enable complex routing patterns
+   - Queue-to-exchange bindings are **auto-generated** by `defineEventConsumer` and `defineCommandConsumer`
+   - Exchange-to-exchange bindings must be set up manually via `AmqpClient` channel setup
    - For fanout exchanges, routing keys are optional
 
    ```typescript
-   // Queue-to-exchange binding
-   const queueBinding = defineQueueBinding(orderProcessingQueue, ordersExchange, {
-     routingKey: "order.created",
-   });
+   // Bindings are auto-generated from event/command consumers:
+   const consumer = defineEventConsumer(orderCreatedEvent, orderProcessingQueue);
+   // This auto-generates: orderProcessingQueue → ordersExchange (order.created)
 
-   // Exchange-to-exchange binding for message routing
+   // Exchange-to-exchange binding (manual setup via channel)
    const exchangeBinding = defineExchangeBinding(analyticsExchange, ordersExchange, {
      routingKey: "order.#", // Forward all order events
    });
@@ -231,27 +221,21 @@ packages/[package-name]/
      routingKey: "order.process",
    });
 
-   // Compose contract - everything goes in publishers/consumers, bindings auto-generated
+   // Compose contract — only publishers and consumers
+   // Exchanges, queues, and bindings are auto-extracted
    const contract = defineContract({
-     exchanges: { orders: ordersExchange },
-     queues: { processing: processingQueue, notification: notificationQueue, orders: orderQueue },
      publishers: {
-       // EventPublisherConfig → auto-extracted to publisher
        orderCreated: orderCreatedEvent,
-       // CommandPublisher (from defineCommandPublisher)
        sendOrder: defineCommandPublisher(processOrderCommand),
      },
      consumers: {
-       // EventConsumerResult → auto-extracted to consumer + binding
        processOrder: defineEventConsumer(orderCreatedEvent, processingQueue),
        notify: defineEventConsumer(orderCreatedEvent, notificationQueue, {
          routingKey: "order.*", // Optional: override with pattern for topic exchanges
        }),
-       // CommandConsumerConfig → auto-extracted to consumer + binding
        handleOrder: processOrderCommand,
      },
    });
-   // Output: publishers, consumers, bindings all auto-populated
    ```
 
 ---
@@ -920,39 +904,29 @@ Retry configuration is defined at the **queue level** in the contract, not at th
 4. **Not using composition pattern**
 
    ```typescript
-   // ❌ Bad - using strings directly
+   // ❌ Bad - defining resources inline
    const contract = defineContract({
-     exchanges: {
-       orders: defineExchange("orders", "topic", { durable: true }),
-     },
-     queues: {
-       orderProcessing: defineQueue("order-processing", { durable: true }),
-     },
-     bindings: {
-       // Cannot reference exchange/queue objects, must use strings
-       orderBinding: defineQueueBinding("order-processing", "orders", {
-         routingKey: "order.created",
-       }),
+     publishers: {
+       orderCreated: definePublisher(
+         defineExchange("orders", "topic", { durable: true }),
+         defineMessage(z.object({ orderId: z.string() })),
+         { routingKey: "order.created" },
+       ),
      },
    });
 
-   // ✅ Good - define first, then reference (composition pattern)
+   // ✅ Good - define resources first, then reference (composition pattern)
    const ordersExchange = defineExchange("orders", "topic", { durable: true });
    const orderProcessingQueue = defineQueue("order-processing", { durable: true });
+   const orderMessage = defineMessage(z.object({ orderId: z.string() }));
+
+   const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
+     routingKey: "order.created",
+   });
 
    const contract = defineContract({
-     exchanges: {
-       orders: ordersExchange,
-     },
-     queues: {
-       orderProcessing: orderProcessingQueue,
-     },
-     bindings: {
-       // References the actual objects for better type safety
-       orderBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
-         routingKey: "order.created",
-       }),
-     },
+     publishers: { orderCreated: orderCreatedEvent },
+     consumers: { processOrder: defineEventConsumer(orderCreatedEvent, orderProcessingQueue) },
    });
    ```
 

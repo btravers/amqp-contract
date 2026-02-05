@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect } from "vitest";
+import type { ContractDefinition } from "@amqp-contract/contract";
 import {
   defineConsumer,
-  defineContract,
   defineExchange,
   defineMessage,
   definePublisher,
@@ -32,11 +32,11 @@ describe("Priority Queue", () => {
       maxPriority: 10,
     });
 
-    const contract = defineContract({
+    const contract: ContractDefinition = {
       queues: {
         priority: priorityQueue,
       },
-    });
+    };
 
     // WHEN
     const client = new AmqpClient(contract, {
@@ -71,7 +71,7 @@ describe("Priority Queue", () => {
 
     const message = defineMessage(messageSchema);
 
-    const contract = defineContract({
+    const contract: ContractDefinition = {
       exchanges: {
         test: exchange,
       },
@@ -91,7 +91,7 @@ describe("Priority Queue", () => {
       consumers: {
         testConsumer: defineConsumer(priorityQueue, message),
       },
-    });
+    };
 
     // WHEN - Setup client and publish messages in reverse priority order
     const client = new AmqpClient(contract, {
@@ -177,7 +177,7 @@ describe("Priority Queue", () => {
 
     const message = defineMessage(messageSchema);
 
-    const contract = defineContract({
+    const contract: ContractDefinition = {
       exchanges: {
         test: exchange,
       },
@@ -197,7 +197,7 @@ describe("Priority Queue", () => {
       consumers: {
         testConsumer: defineConsumer(priorityQueue, message),
       },
-    });
+    };
 
     // WHEN - Setup client and publish messages with and without priority
     const client = new AmqpClient(contract, {

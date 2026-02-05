@@ -76,8 +76,6 @@ export default async function setup({ provide }: TestProject) {
       timeout: 5_000,
     })
     .withWaitStrategy(Wait.forHealthCheck())
-    .withReuse()
-    .withAutoRemove(true)
     .start();
 
   console.log("✅ RabbitMQ container started");

@@ -1,7 +1,6 @@
 import {
   HandleUrgentOrderHandler,
   NotifyOrderHandler,
-  ProcessAnalyticsHandler,
   ProcessOrderHandler,
   ShipOrderHandler,
 } from "./handlers/index.js";
@@ -143,41 +142,6 @@ describe("NestJS Worker Integration", () => {
         payload: expect.objectContaining({
           orderId: "ORD-TEST-004",
           status: "cancelled",
-        }),
-      }),
-    );
-  });
-
-  it("should process analytics from exchange-to-exchange binding", async ({
-    app,
-    publishMessage,
-  }) => {
-    // GIVEN
-    // Spy on the handler
-    const analyticsHandler = app.get(ProcessAnalyticsHandler);
-    const handlerSpy = vi.spyOn(analyticsHandler, "handleMessage");
-
-    const newOrder = {
-      orderId: "ORD-TEST-005",
-      customerId: "CUST-456",
-      items: [{ productId: "PROD-B", quantity: 1, price: 15.99 }],
-      totalAmount: 15.99,
-      createdAt: new Date().toISOString(),
-    };
-
-    // WHEN
-    publishMessage(
-      orderContract.publishers.orderCreated.exchange.name,
-      orderContract.publishers.orderCreated.routingKey,
-      newOrder,
-    );
-
-    // THEN
-    await vi.waitFor(() => expect(handlerSpy).toHaveBeenCalledTimes(1));
-    expect(handlerSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        payload: expect.objectContaining({
-          orderId: "ORD-TEST-005",
         }),
       }),
     );

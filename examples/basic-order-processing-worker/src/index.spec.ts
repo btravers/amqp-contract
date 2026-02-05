@@ -21,7 +21,7 @@ describe("Basic Order Processing Worker Integration", () => {
         notifyOrder: () => Future.value(Result.Ok(undefined)),
         shipOrder: () => Future.value(Result.Ok(undefined)),
         handleUrgentOrder: () => Future.value(Result.Ok(undefined)),
-        processAnalytics: () => Future.value(Result.Ok(undefined)),
+
         handleFailedOrders: () => Future.value(Result.Ok(undefined)),
       }),
       urls: [amqpConnectionUrl],
@@ -66,7 +66,7 @@ describe("Basic Order Processing Worker Integration", () => {
         },
         shipOrder: () => Future.value(Result.Ok(undefined)),
         handleUrgentOrder: () => Future.value(Result.Ok(undefined)),
-        processAnalytics: () => Future.value(Result.Ok(undefined)),
+
         handleFailedOrders: () => Future.value(Result.Ok(undefined)),
       }),
       urls: [amqpConnectionUrl],
@@ -126,7 +126,7 @@ describe("Basic Order Processing Worker Integration", () => {
         },
         shipOrder: () => Future.value(Result.Ok(undefined)),
         handleUrgentOrder: () => Future.value(Result.Ok(undefined)),
-        processAnalytics: () => Future.value(Result.Ok(undefined)),
+
         handleFailedOrders: () => Future.value(Result.Ok(undefined)),
       }),
       urls: [amqpConnectionUrl],

@@ -149,12 +149,11 @@ Create `contract.ts` - this defines your message schema and AMQP topology:
 // contract.ts
 import {
   defineContract,
+  defineEventConsumer,
+  defineEventPublisher,
   defineExchange,
-  defineQueue,
-  defineQueueBinding,
-  definePublisher,
-  defineConsumer,
   defineMessage,
+  defineQueue,
 } from "@amqp-contract/contract";
 import { z } from "zod";
 
@@ -180,26 +179,18 @@ const emailMessage = defineMessage(
   },
 );
 
-// 3. Compose contract
+// 3. Define event publisher
+const sendEmailEvent = defineEventPublisher(notificationsExchange, emailMessage, {
+  routingKey: "email",
+});
+
+// 4. Compose contract - exchanges, queues, and bindings are auto-extracted
 export const contract = defineContract({
-  exchanges: {
-    notifications: notificationsExchange,
-  },
-  queues: {
-    email: emailQueue,
-  },
-  bindings: {
-    emailBinding: defineQueueBinding(emailQueue, notificationsExchange, {
-      routingKey: "email",
-    }),
-  },
   publishers: {
-    sendEmail: definePublisher(notificationsExchange, emailMessage, {
-      routingKey: "email",
-    }),
+    sendEmail: sendEmailEvent,
   },
   consumers: {
-    processEmail: defineConsumer(emailQueue, emailMessage),
+    processEmail: defineEventConsumer(sendEmailEvent, emailQueue),
   },
 });
 ```
