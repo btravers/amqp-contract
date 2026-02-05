@@ -1,6 +1,6 @@
 import { Future, Result } from "@swan-io/boxed";
 import { TypedAmqpWorker, defineHandlers } from "@amqp-contract/worker";
-import { describe, expect } from "vitest";
+import { describe, expect, vi } from "vitest";
 import { it } from "@amqp-contract/testing/extension";
 import { orderContract } from "@amqp-contract-examples/basic-order-processing-contract";
 
@@ -43,7 +43,11 @@ describe("Basic Order Processing Worker Integration", () => {
     );
 
     // THEN
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await vi.waitFor(() => {
+      if (processedOrders.length < 1) {
+        throw new Error("Order not yet processed");
+      }
+    });
     expect(processedOrders).toEqual([newOrder]);
 
     // CLEANUP
@@ -99,7 +103,11 @@ describe("Basic Order Processing Worker Integration", () => {
     );
 
     // THEN
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await vi.waitFor(() => {
+      if (notifications.length < 2) {
+        throw new Error("Notifications not yet received");
+      }
+    });
     expect(notifications.length).toBeGreaterThanOrEqual(2);
 
     // CLEANUP
@@ -148,7 +156,11 @@ describe("Basic Order Processing Worker Integration", () => {
     );
 
     // THEN
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    await vi.waitFor(() => {
+      if (processedOrders.length < 1 || notifications.length < 1) {
+        throw new Error("Messages not yet processed");
+      }
+    });
     expect(processedOrders.length).toBeGreaterThanOrEqual(1);
     expect(notifications.length).toBeGreaterThan(0); // Receives all events
 
