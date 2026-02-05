@@ -272,7 +272,7 @@ export class AsyncAPIGenerator {
 
     return {
       ...options,
-      asyncapi: "3.0.0",
+      asyncapi: "3.1.0",
       channels: convertedChannels,
       operations: convertedOperations,
       components: {

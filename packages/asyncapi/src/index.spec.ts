@@ -82,7 +82,7 @@ describe("AsyncAPIGenerator", () => {
       // THEN
       expect(asyncapiDoc).toMatchInlineSnapshot(`
         {
-          "asyncapi": "3.0.0",
+          "asyncapi": "3.1.0",
           "channels": {
             "orderProcessing": {
               "address": "order-processing",
@@ -351,7 +351,7 @@ describe("AsyncAPIGenerator", () => {
       // THEN
       expect(asyncapiDoc).toMatchInlineSnapshot(`
         {
-          "asyncapi": "3.0.0",
+          "asyncapi": "3.1.0",
           "channels": {
             "eventQueue": {
               "address": "event-queue",
@@ -541,7 +541,7 @@ describe("AsyncAPIGenerator", () => {
       // THEN
       expect(asyncapiDoc).toMatchInlineSnapshot(`
         {
-          "asyncapi": "3.0.0",
+          "asyncapi": "3.1.0",
           "channels": {
             "notificationQueue": {
               "address": "notification-queue",
@@ -822,7 +822,7 @@ describe("AsyncAPIGenerator", () => {
       // THEN
       expect(asyncapiDoc).toMatchInlineSnapshot(`
         {
-          "asyncapi": "3.0.0",
+          "asyncapi": "3.1.0",
           "channels": {
             "paymentProcessing": {
               "address": "payment-processing",
@@ -1142,7 +1142,7 @@ describe("AsyncAPIGenerator", () => {
       // THEN
       expect(asyncapiDoc).toMatchInlineSnapshot(`
         {
-          "asyncapi": "3.0.0",
+          "asyncapi": "3.1.0",
           "channels": {
             "mixed": {
               "address": "mixed",
@@ -1372,7 +1372,7 @@ describe("AsyncAPIGenerator", () => {
       // THEN
       expect(asyncapiDoc).toMatchInlineSnapshot(`
         {
-          "asyncapi": "3.0.0",
+          "asyncapi": "3.1.0",
           "channels": {
             "generic": {
               "address": "generic",
@@ -1481,7 +1481,7 @@ describe("AsyncAPIGenerator", () => {
       // THEN
       expect(asyncapiDoc).toMatchInlineSnapshot(`
         {
-          "asyncapi": "3.0.0",
+          "asyncapi": "3.1.0",
           "channels": {
             "testQueue": {
               "address": "test-queue",
@@ -1540,7 +1540,7 @@ describe("AsyncAPIGenerator", () => {
       // THEN
       expect(asyncapiDoc).toMatchInlineSnapshot(`
         {
-          "asyncapi": "3.0.0",
+          "asyncapi": "3.1.0",
           "channels": {
             "testExchange": {
               "address": "test-exchange",
@@ -1605,7 +1605,7 @@ describe("AsyncAPIGenerator", () => {
       // THEN
       expect(asyncapiDoc).toMatchInlineSnapshot(`
         {
-          "asyncapi": "3.0.0",
+          "asyncapi": "3.1.0",
           "channels": {
             "orders": {
               "address": "orders",
@@ -1713,7 +1713,7 @@ describe("AsyncAPIGenerator", () => {
       // THEN
       expect(asyncapiDoc).toMatchInlineSnapshot(`
         {
-          "asyncapi": "3.0.0",
+          "asyncapi": "3.1.0",
           "channels": {},
           "components": {
             "messages": {},
@@ -1762,7 +1762,7 @@ describe("AsyncAPIGenerator", () => {
       // THEN
       expect(asyncapiDoc).toMatchInlineSnapshot(`
         {
-          "asyncapi": "3.0.0",
+          "asyncapi": "3.1.0",
           "channels": {
             "fanout": {
               "address": "fanout-exchange",
