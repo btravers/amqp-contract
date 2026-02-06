@@ -70,11 +70,12 @@ export default async function setup({ provide }: TestProject) {
     })
     .withHealthCheck({
       test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"],
-      interval: 1_000,
-      retries: 30,
-      startPeriod: 3_000,
-      timeout: 5_000,
+      interval: 2_000,
+      retries: 60,
+      startPeriod: 5_000,
+      timeout: 10_000,
     })
+    .withStartupTimeout(120_000)
     .withWaitStrategy(Wait.forHealthCheck())
     .start();
 
