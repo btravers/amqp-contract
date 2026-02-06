@@ -672,6 +672,12 @@ export type QueueWithTtlBackoffInfrastructure<TName extends string = string> = {
   queue: QueueDefinition<TName>;
 
   /**
+   * Dead letter configuration from the main queue.
+   * Always present since TTL-backoff infrastructure requires a dead letter exchange.
+   */
+  deadLetter: DeadLetterConfig;
+
+  /**
    * The wait queue for holding messages during backoff delay.
    */
   waitQueue: QueueDefinition;

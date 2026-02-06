@@ -174,6 +174,7 @@ function wrapWithTtlBackoffInfrastructure(
   return {
     __brand: "QueueWithTtlBackoffInfrastructure",
     queue,
+    deadLetter: queue.deadLetter,
     waitQueue,
     waitQueueBinding,
     mainQueueRetryBinding,
