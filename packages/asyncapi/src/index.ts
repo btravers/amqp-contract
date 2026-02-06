@@ -8,7 +8,7 @@ import {
 } from "@asyncapi/parser/esm/spec-types/v3.js";
 import { ConditionalSchemaConverter, JSONSchema } from "@orpc/openapi";
 import type {
-  ContractDefinitionInput,
+  ContractDefinition,
   ExchangeDefinition,
   MessageDefinition,
   QueueBindingDefinition,
@@ -133,7 +133,7 @@ export class AsyncAPIGenerator {
    * ```
    */
   async generate(
-    contract: ContractDefinitionInput,
+    contract: ContractDefinition,
     options: AsyncAPIGeneratorGenerateOptions,
   ): Promise<AsyncAPIObject> {
     const convertedChannels: ChannelsObject = {};
@@ -388,7 +388,7 @@ export class AsyncAPIGenerator {
   /**
    * Get the name/key of an exchange from the contract
    */
-  private getExchangeName(exchange: ExchangeDefinition, contract: ContractDefinitionInput): string {
+  private getExchangeName(exchange: ExchangeDefinition, contract: ContractDefinition): string {
     if (contract.exchanges) {
       for (const [name, ex] of Object.entries(contract.exchanges)) {
         if (ex === exchange || ex.name === exchange.name) {
@@ -402,7 +402,7 @@ export class AsyncAPIGenerator {
   /**
    * Get the name/key of a queue from the contract
    */
-  private getQueueName(queue: QueueDefinition, contract: ContractDefinitionInput): string {
+  private getQueueName(queue: QueueDefinition, contract: ContractDefinition): string {
     if (contract.queues) {
       for (const [name, qEntry] of Object.entries(contract.queues)) {
         const q = extractQueue(qEntry);
@@ -419,7 +419,7 @@ export class AsyncAPIGenerator {
    */
   private getQueueBindings(
     queue: QueueDefinition,
-    contract: ContractDefinitionInput,
+    contract: ContractDefinition,
   ): QueueBindingDefinition[] {
     const result: QueueBindingDefinition[] = [];
 

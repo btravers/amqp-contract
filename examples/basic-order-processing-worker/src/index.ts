@@ -111,39 +111,6 @@ async function main() {
           .mapError((e) => new RetryableError("Urgent handling failed", e));
       },
 
-      // Handler for ANALYTICS processing (receives events through exchange-to-exchange binding)
-      processAnalytics: ({ payload }) => {
-        // Check if it's a new order or a status update
-        if ("items" in payload) {
-          // It's a full order
-          logger.info(
-            {
-              type: "analytics",
-              orderId: payload.orderId,
-              customerId: payload.customerId,
-              totalAmount: payload.totalAmount,
-            },
-            "[ANALYTICS] New order data received via exchange-to-exchange binding",
-          );
-        } else {
-          // It's a status update
-          logger.info(
-            {
-              type: "analytics",
-              orderId: payload.orderId,
-              status: payload.status,
-            },
-            "[ANALYTICS] Status update received via exchange-to-exchange binding",
-          );
-        }
-
-        return Future.fromPromise(new Promise<void>((resolve) => setTimeout(resolve, 100)))
-          .mapOk(() => {
-            logger.info("Analytics data processed");
-          })
-          .mapError((e) => new RetryableError("Analytics processing failed", e));
-      },
-
       // Handler for FAILED orders (from dead letter exchange)
       handleFailedOrders: ({ payload }) => {
         logger.error(
@@ -174,11 +141,7 @@ async function main() {
   logger.info("  • order.#           → notifyOrder handler (all events)");
   logger.info("  • order.shipped     → shipOrder handler");
   logger.info("  • order.*.urgent    → handleUrgentOrder handler");
-  logger.info("  • order.# (via analytics exchange) → processAnalytics handler");
   logger.info("  • order.failed (via DLX) → handleFailedOrders handler");
-  logger.info("=".repeat(60));
-  logger.info("Exchange-to-Exchange Binding:");
-  logger.info("  orders → order-analytics (routing: order.#)");
   logger.info("=".repeat(60));
   logger.info("Dead Letter Exchange:");
   logger.info("  order-processing → orders-dlx (routing: order.failed)");

@@ -6,20 +6,20 @@ import {
   type Provider,
   type Type,
 } from "@nestjs/common";
-import type { ContractDefinitionInput } from "@amqp-contract/contract";
+import type { ContractDefinition } from "@amqp-contract/contract";
 import { MODULE_OPTIONS_TOKEN } from "./worker.module-definition.js";
 
 /**
  * Factory function return type for async module configuration
  */
-type AmqpWorkerModuleOptionsFactory<TContract extends ContractDefinitionInput> =
+type AmqpWorkerModuleOptionsFactory<TContract extends ContractDefinition> =
   | AmqpWorkerModuleOptions<TContract>
   | Promise<AmqpWorkerModuleOptions<TContract>>;
 
 /**
  * Options for async module configuration using factory pattern
  */
-export type AmqpWorkerModuleAsyncOptions<TContract extends ContractDefinitionInput> = {
+export type AmqpWorkerModuleAsyncOptions<TContract extends ContractDefinition> = {
   /**
    * Factory function that returns the module options.
    * Can use injected dependencies to create configuration.
@@ -52,9 +52,9 @@ export type AmqpWorkerModuleAsyncOptions<TContract extends ContractDefinitionInp
  *     AmqpWorkerModule.forRoot({
  *       contract: myContract,
  *       handlers: {
- *         processOrder: async (message) => {
- *           // message is fully typed based on the contract
- *           console.log('Order:', message.orderId);
+ *         processOrder: ({ payload }) => {
+ *           console.log('Order:', payload.orderId);
+ *           return Future.value(Result.Ok(undefined));
  *         }
  *       },
  *       urls: ['amqp://localhost']
@@ -71,8 +71,9 @@ export type AmqpWorkerModuleAsyncOptions<TContract extends ContractDefinitionInp
  *       useFactory: (configService: ConfigService) => ({
  *         contract: myContract,
  *         handlers: {
- *           processOrder: async (message) => {
- *             console.log('Order:', message.orderId);
+ *           processOrder: ({ payload }) => {
+ *             console.log('Order:', payload.orderId);
+ *             return Future.value(Result.Ok(undefined));
  *           }
  *         },
  *         urls: configService.get('AMQP_URLS')
@@ -92,7 +93,7 @@ export class AmqpWorkerModule {
    * @param options - The worker configuration options with contract and handlers
    * @returns A dynamic module for NestJS
    */
-  static forRoot<TContract extends ContractDefinitionInput>(
+  static forRoot<TContract extends ContractDefinition>(
     options: AmqpWorkerModuleOptions<TContract>,
   ): DynamicModule {
     return {
@@ -114,7 +115,7 @@ export class AmqpWorkerModule {
    * @param options - Async configuration options with factory function
    * @returns A dynamic module for NestJS
    */
-  static forRootAsync<TContract extends ContractDefinitionInput>(
+  static forRootAsync<TContract extends ContractDefinition>(
     options: AmqpWorkerModuleAsyncOptions<TContract>,
   ): DynamicModule {
     const providers: Provider[] = [

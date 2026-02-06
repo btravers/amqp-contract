@@ -1,13 +1,11 @@
 import { Future, Result } from "@swan-io/boxed";
 import {
-  defineConsumer,
   defineContract,
+  defineEventConsumer,
+  defineEventPublisher,
   defineExchange,
-  defineExchangeBinding,
   defineMessage,
-  definePublisher,
   defineQueue,
-  defineQueueBinding,
   extractQueue,
 } from "@amqp-contract/contract";
 import { defineHandler, defineHandlers } from "../handlers.js";
@@ -30,26 +28,13 @@ describe("AmqpWorker Integration", () => {
 
     const exchange = defineExchange("worker-test-exchange", "topic", { durable: false });
     const queue = defineQueue("worker-test-queue", { type: "classic", durable: false });
+    const testMessage = defineMessage(TestMessage);
+    const testEvent = defineEventPublisher(exchange, testMessage, { routingKey: "test.message" });
 
     const contract = defineContract({
-      exchanges: {
-        test: exchange,
-      },
-      queues: {
-        testQueue: queue,
-      },
-      bindings: {
-        testBinding: defineQueueBinding(queue, exchange, {
-          routingKey: "test.#",
-        }),
-      },
-      publishers: {
-        testPublisher: definePublisher(exchange, defineMessage(TestMessage), {
-          routingKey: "test.message",
-        }),
-      },
+      publishers: { testPublisher: testEvent },
       consumers: {
-        testConsumer: defineConsumer(queue, defineMessage(TestMessage)),
+        testConsumer: defineEventConsumer(testEvent, queue, { routingKey: "test.#" }),
       },
     });
 
@@ -94,26 +79,13 @@ describe("AmqpWorker Integration", () => {
 
     const exchange = defineExchange("worker-multi-exchange", "topic", { durable: false });
     const queue = defineQueue("worker-multi-queue", { type: "classic", durable: false });
+    const testMessage = defineMessage(TestMessage);
+    const testEvent = defineEventPublisher(exchange, testMessage, { routingKey: "multi.test" });
 
     const contract = defineContract({
-      exchanges: {
-        test: exchange,
-      },
-      queues: {
-        testQueue: queue,
-      },
-      bindings: {
-        testBinding: defineQueueBinding(queue, exchange, {
-          routingKey: "multi.#",
-        }),
-      },
-      publishers: {
-        testPublisher: definePublisher(exchange, defineMessage(TestMessage), {
-          routingKey: "multi.test",
-        }),
-      },
+      publishers: { testPublisher: testEvent },
       consumers: {
-        testConsumer: defineConsumer(queue, defineMessage(TestMessage)),
+        testConsumer: defineEventConsumer(testEvent, queue, { routingKey: "multi.#" }),
       },
     });
 
@@ -154,34 +126,15 @@ describe("AmqpWorker Integration", () => {
     const exchange = defineExchange("worker-all-exchange", "topic", { durable: false });
     const queue1 = defineQueue("worker-all-queue1", { type: "classic", durable: false });
     const queue2 = defineQueue("worker-all-queue2", { type: "classic", durable: false });
+    const testMessage = defineMessage(TestMessage);
+    const event1 = defineEventPublisher(exchange, testMessage, { routingKey: "all.one" });
+    const event2 = defineEventPublisher(exchange, testMessage, { routingKey: "all.two" });
 
     const contract = defineContract({
-      exchanges: {
-        test: exchange,
-      },
-      queues: {
-        queue1,
-        queue2,
-      },
-      bindings: {
-        binding1: defineQueueBinding(queue1, exchange, {
-          routingKey: "all.one",
-        }),
-        binding2: defineQueueBinding(queue2, exchange, {
-          routingKey: "all.two",
-        }),
-      },
-      publishers: {
-        pub1: definePublisher(exchange, defineMessage(TestMessage), {
-          routingKey: "all.one",
-        }),
-        pub2: definePublisher(exchange, defineMessage(TestMessage), {
-          routingKey: "all.two",
-        }),
-      },
+      publishers: { pub1: event1, pub2: event2 },
       consumers: {
-        consumer1: defineConsumer(queue1, defineMessage(TestMessage)),
-        consumer2: defineConsumer(queue2, defineMessage(TestMessage)),
+        consumer1: defineEventConsumer(event1, queue1),
+        consumer2: defineEventConsumer(event2, queue2),
       },
     });
 
@@ -229,26 +182,15 @@ describe("AmqpWorker Integration", () => {
 
     const exchange = defineExchange("worker-validation-exchange", "topic", { durable: false });
     const queue = defineQueue("worker-validation-queue", { type: "classic", durable: false });
+    const testMessage = defineMessage(TestMessage);
+    const testEvent = defineEventPublisher(exchange, testMessage, {
+      routingKey: "validation.message",
+    });
 
     const contract = defineContract({
-      exchanges: {
-        test: exchange,
-      },
-      queues: {
-        testQueue: queue,
-      },
-      bindings: {
-        testBinding: defineQueueBinding(queue, exchange, {
-          routingKey: "validation.#",
-        }),
-      },
-      publishers: {
-        testPublisher: definePublisher(exchange, defineMessage(TestMessage), {
-          routingKey: "validation.message",
-        }),
-      },
+      publishers: { testPublisher: testEvent },
       consumers: {
-        testConsumer: defineConsumer(queue, defineMessage(TestMessage)),
+        testConsumer: defineEventConsumer(testEvent, queue, { routingKey: "validation.#" }),
       },
     });
 
@@ -284,21 +226,13 @@ describe("AmqpWorker Integration", () => {
 
     const exchange = defineExchange("worker-error-exchange", "topic", { durable: false });
     const queue = defineQueue("worker-error-queue", { type: "classic", durable: false });
+    const testMessage = defineMessage(TestMessage);
+    const testEvent = defineEventPublisher(exchange, testMessage, { routingKey: "error.test" });
 
     const contract = defineContract({
-      exchanges: {
-        test: exchange,
-      },
-      queues: {
-        testQueue: queue,
-      },
-      bindings: {
-        testBinding: defineQueueBinding(queue, exchange, {
-          routingKey: "error.#",
-        }),
-      },
+      publishers: { testPublisher: testEvent },
       consumers: {
-        testConsumer: defineConsumer(queue, defineMessage(TestMessage)),
+        testConsumer: defineEventConsumer(testEvent, queue, { routingKey: "error.#" }),
       },
     });
 
@@ -332,32 +266,26 @@ describe("AmqpWorker Integration", () => {
     expect(attemptCount).toBeGreaterThanOrEqual(2); // At least 2 attempts
   });
 
-  it("should handle exchange-to-exchange bindings", async ({ workerFactory, publishMessage }) => {
+  it("should handle exchange-to-exchange bindings", async ({
+    workerFactory,
+    publishMessage,
+    amqpChannel,
+  }) => {
     // GIVEN
     const TestMessage = z.object({ msg: z.string() });
 
     const sourceExchange = defineExchange("worker-source-exchange", "topic", { durable: false });
     const destExchange = defineExchange("worker-dest-exchange", "topic", { durable: false });
     const queue = defineQueue("worker-dest-queue", { type: "classic", durable: false });
+    const testMessage = defineMessage(TestMessage);
+    const destEvent = defineEventPublisher(destExchange, testMessage, {
+      routingKey: "test.important",
+    });
 
     const contract = defineContract({
-      exchanges: {
-        source: sourceExchange,
-        dest: destExchange,
-      },
-      queues: {
-        destQueue: queue,
-      },
-      bindings: {
-        exchangeBinding: defineExchangeBinding(destExchange, sourceExchange, {
-          routingKey: "*.important",
-        }),
-        queueBinding: defineQueueBinding(queue, destExchange, {
-          routingKey: "test.important",
-        }),
-      },
+      publishers: { destPublisher: destEvent },
       consumers: {
-        destConsumer: defineConsumer(queue, defineMessage(TestMessage)),
+        destConsumer: defineEventConsumer(destEvent, queue),
       },
     });
 
@@ -371,6 +299,11 @@ describe("AmqpWorker Integration", () => {
         },
       }),
     );
+
+    // Set up source exchange and exchange-to-exchange binding manually
+    // (exchange-to-exchange bindings are not part of the new contract input API)
+    await amqpChannel.assertExchange(sourceExchange.name, sourceExchange.type, { durable: false });
+    await amqpChannel.bindExchange(destExchange.name, sourceExchange.name, "*.important");
 
     // WHEN - Publish to source exchange
     publishMessage(sourceExchange.name, "test.important", { msg: "routed through exchange" });
@@ -391,21 +324,13 @@ describe("AmqpWorker Integration", () => {
 
     const exchange = defineExchange("worker-close-exchange", "topic", { durable: false });
     const queue = defineQueue("worker-close-queue", { type: "classic", durable: false });
+    const testMessage = defineMessage(TestMessage);
+    const testEvent = defineEventPublisher(exchange, testMessage, { routingKey: "close.test" });
 
     const contract = defineContract({
-      exchanges: {
-        test: exchange,
-      },
-      queues: {
-        testQueue: queue,
-      },
-      bindings: {
-        testBinding: defineQueueBinding(queue, exchange, {
-          routingKey: "close.#",
-        }),
-      },
+      publishers: { testPublisher: testEvent },
       consumers: {
-        testConsumer: defineConsumer(queue, defineMessage(TestMessage)),
+        testConsumer: defineEventConsumer(testEvent, queue, { routingKey: "close.#" }),
       },
     });
 
@@ -455,26 +380,22 @@ describe("AmqpWorker Integration", () => {
     const exchange = defineExchange("worker-multi-type-exchange", "topic", { durable: false });
     const orderQueue = defineQueue("worker-multi-type-orders", { type: "classic", durable: false });
     const notifQueue = defineQueue("worker-multi-type-notifs", { type: "classic", durable: false });
+    const orderMessage = defineMessage(OrderMessage);
+    const notifMessage = defineMessage(NotificationMessage);
+    const orderEvent = defineEventPublisher(exchange, orderMessage, {
+      routingKey: "order.created",
+    });
+    const notifEvent = defineEventPublisher(exchange, notifMessage, {
+      routingKey: "notification.email",
+    });
 
     const contract = defineContract({
-      exchanges: {
-        test: exchange,
-      },
-      queues: {
-        orders: orderQueue,
-        notifications: notifQueue,
-      },
-      bindings: {
-        orderBinding: defineQueueBinding(orderQueue, exchange, {
-          routingKey: "order.#",
-        }),
-        notifBinding: defineQueueBinding(notifQueue, exchange, {
+      publishers: { orderPub: orderEvent, notifPub: notifEvent },
+      consumers: {
+        orderConsumer: defineEventConsumer(orderEvent, orderQueue, { routingKey: "order.#" }),
+        notificationConsumer: defineEventConsumer(notifEvent, notifQueue, {
           routingKey: "notification.#",
         }),
-      },
-      consumers: {
-        orderConsumer: defineConsumer(orderQueue, defineMessage(OrderMessage)),
-        notificationConsumer: defineConsumer(notifQueue, defineMessage(NotificationMessage)),
       },
     });
 
@@ -570,21 +491,13 @@ describe("AmqpWorker Integration", () => {
 
     const exchange = defineExchange("worker-cancel-log-exchange", "topic", { durable: false });
     const queue = defineQueue("worker-cancel-log-queue", { type: "classic", durable: false });
+    const testMessage = defineMessage(TestMessage);
+    const testEvent = defineEventPublisher(exchange, testMessage, { routingKey: "cancel.test" });
 
     const contract = defineContract({
-      exchanges: {
-        test: exchange,
-      },
-      queues: {
-        testQueue: queue,
-      },
-      bindings: {
-        testBinding: defineQueueBinding(queue, exchange, {
-          routingKey: "cancel.#",
-        }),
-      },
+      publishers: { testPublisher: testEvent },
       consumers: {
-        testConsumer: defineConsumer(queue, defineMessage(TestMessage)),
+        testConsumer: defineEventConsumer(testEvent, queue, { routingKey: "cancel.#" }),
       },
     });
 

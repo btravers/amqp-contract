@@ -76,8 +76,6 @@ export default async function setup({ provide }: TestProject) {
       timeout: 5_000,
     })
     .withWaitStrategy(Wait.forHealthCheck())
-    .withReuse()
-    .withAutoRemove(true)
     .start();
 
   console.log("✅ RabbitMQ container started");
@@ -101,4 +99,11 @@ export default async function setup({ provide }: TestProject) {
   console.log(
     `📊 RabbitMQ management console available at http://${__TESTCONTAINERS_RABBITMQ_IP__}:${__TESTCONTAINERS_RABBITMQ_PORT_15672__}`,
   );
+
+  // Return cleanup function that stops the container
+  return async () => {
+    console.log("🧹 Stopping RabbitMQ test environment...");
+    await rabbitmqContainer.stop();
+    console.log("✅ RabbitMQ container stopped");
+  };
 }

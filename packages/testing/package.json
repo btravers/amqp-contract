@@ -30,7 +30,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "docs"
   ],
   "scripts": {
     "build": "tsdown src/index.ts src/global-setup.ts src/extension.ts --format esm --dts --clean",

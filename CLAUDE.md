@@ -62,30 +62,31 @@ pnpm changeset        # Create changeset entry for version bumps
 
 ### Contract Composition Pattern
 
-Resources are defined individually then composed into a contract:
+Resources are defined individually then composed into a contract. `defineContract` only accepts `publishers` and `consumers` - exchanges, queues, and bindings are automatically extracted and inferred:
 
 ```typescript
 const dlx = defineExchange("orders-dlx", "direct", { durable: true });
 const exchange = defineExchange("orders", "topic", { durable: true });
 const queue = defineQueue("processing", {
   deadLetter: { exchange: dlx },
-  retry: { mode: "ttl-backoff", maxRetries: 5 },
+  retry: { mode: "quorum-native" },
+  deliveryLimit: 5,
 });
 const message = defineMessage(z.object({ orderId: z.string() }));
 
-// TTL-backoff infrastructure (wait queue, bindings) is automatically generated
-// when defineQueue is called with TTL-backoff retry and a dead letter exchange
+// Define event publisher
+const orderCreatedEvent = defineEventPublisher(exchange, message, { routingKey: "order.created" });
+
+// Compose contract - only publishers and consumers are specified
+// Exchanges, queues, and bindings are automatically extracted
 const contract = defineContract({
-  exchanges: { orders: exchange, dlx },
-  queues: { processing: queue },
-  publishers: { orderCreated: definePublisher(exchange, message, { routingKey: "order.created" }) },
-  consumers: { processOrder: defineConsumer(queue, message) },
-  bindings: { binding1: defineQueueBinding(queue, exchange, { routingKey: "order.#" }) },
+  publishers: { orderCreated: orderCreatedEvent },
+  consumers: { processOrder: defineEventConsumer(orderCreatedEvent, queue) },
 });
-// defineContract automatically expands the queue into:
-// - processing: main queue
-// - processingWait: wait queue with TTL
-// And adds bindings for retry routing
+
+// contract.exchanges contains: { orders: exchange, 'orders-dlx': dlx }
+// contract.queues contains: { processing: queue }
+// contract.bindings contains: { processOrderBinding: ... }
 ```
 
 ### Event and Command Patterns
@@ -118,20 +119,20 @@ const createOrderPublisher = defineCommandPublisher(processOrderCommand, {
   routingKey: "order.create",
 });
 
-// Compose contract - configs go directly, bindings auto-generated
+// Compose contract - only publishers and consumers are specified
+// Exchanges, queues, and bindings are automatically extracted
 const contract = defineContract({
-  exchanges: { orders: ordersExchange },
-  queues: { processing: processingQueue, allOrders: allOrdersQueue, orderQueue },
   publishers: {
-    orderCreated: orderCreatedEvent, // EventPublisherConfig → auto-extracted
+    orderCreated: orderCreatedEvent,
     createOrder: createOrderPublisher,
   },
   consumers: {
-    processOrder: defineEventConsumer(orderCreatedEvent, processingQueue), // Binding auto-generated
-    allOrders: allOrdersConsumer, // Binding auto-generated
-    handleOrder: processOrderCommand, // CommandConsumerConfig → auto-extracted
+    processOrder: defineEventConsumer(orderCreatedEvent, processingQueue),
+    allOrders: allOrdersConsumer,
+    handleOrder: processOrderCommand,
   },
 });
+// contract.exchanges, contract.queues, and contract.bindings are auto-populated
 ```
 
 ### Retry Configuration
@@ -337,16 +338,16 @@ expect(mockHandler).toHaveBeenCalledWith(
 | `@swan-io/boxed`          | 3.2.1   | Future/Result functional types         |
 | `amqplib`                 | 0.10.9  | AMQP 0.9.1 client                      |
 | `amqp-connection-manager` | 5.0.0   | Connection management                  |
-| `zod`                     | 4.3.5   | Schema validation (Standard Schema v1) |
+| `zod`                     | 4.3.6   | Schema validation (Standard Schema v1) |
 | `valibot`                 | 1.2.0   | Schema validation alternative          |
 | `arktype`                 | 2.1.29  | Schema validation alternative          |
 | `@standard-schema/spec`   | 1.1.0   | Universal schema interface             |
-| `vitest`                  | 4.0.17  | Test framework                         |
+| `vitest`                  | 4.0.18  | Test framework                         |
 | `testcontainers`          | 11.11.0 | Docker containers for tests            |
 
 ## Monorepo Tooling
 
-- **Package manager**: pnpm 10.27.0
+- **Package manager**: pnpm 10.28.2
 - **Build**: turbo + tsdown (generates CJS/ESM with TypeScript definitions)
 - **Linting**: oxlint (Rust-based, enforces strict type rules)
 - **Formatting**: oxfmt (Rust-based)

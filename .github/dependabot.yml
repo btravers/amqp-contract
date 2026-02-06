@@ -27,8 +27,7 @@ updates:
       dev-dependencies:
         dependency-type: "development"
     ignore:
-      # Only allow @types/node updates that match the Node.js major version (24.x)
-      # specified in .npmrc (use-node-version=24.12.0)
+      # Only allow @types/node patch/minor updates (block major version bumps)
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
     open-pull-requests-limit: 10

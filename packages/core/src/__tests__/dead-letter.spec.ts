@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect } from "vitest";
-import { defineContract, defineExchange, defineQueue } from "@amqp-contract/contract";
+import type { ContractDefinition } from "@amqp-contract/contract";
+import { defineExchange, defineQueue } from "@amqp-contract/contract";
 import { AmqpClient } from "../amqp-client.js";
 import { it } from "@amqp-contract/testing/extension";
 
@@ -21,14 +22,14 @@ describe("Dead Letter Exchange Support", () => {
       },
     });
 
-    const contract = defineContract({
+    const contract: ContractDefinition = {
       exchanges: {
         dlx,
       },
       queues: {
         testQueue: queue,
       },
-    });
+    };
 
     // WHEN
     const client = new AmqpClient(contract, {
@@ -66,14 +67,14 @@ describe("Dead Letter Exchange Support", () => {
       },
     });
 
-    const contract = defineContract({
+    const contract: ContractDefinition = {
       exchanges: {
         dlx,
       },
       queues: {
         testQueue: queue,
       },
-    });
+    };
 
     // WHEN
     const client = new AmqpClient(contract, {
@@ -106,11 +107,11 @@ describe("Dead Letter Exchange Support", () => {
       durable: false,
     });
 
-    const contract = defineContract({
+    const contract: ContractDefinition = {
       queues: {
         testQueue: queue,
       },
-    });
+    };
 
     // WHEN
     const client = new AmqpClient(contract, {
@@ -151,7 +152,7 @@ describe("Dead Letter Exchange Support", () => {
       },
     });
 
-    const contract = defineContract({
+    const contract: ContractDefinition = {
       exchanges: {
         main: mainExchange,
         dlx,
@@ -160,7 +161,7 @@ describe("Dead Letter Exchange Support", () => {
         mainQueue,
         dlxQueue,
       },
-    });
+    };
 
     // WHEN
     const client = new AmqpClient(contract, {
@@ -218,11 +219,11 @@ describe("Dead Letter Exchange Support", () => {
     });
 
     // Contract doesn't include the DLX in exchanges
-    const contract = defineContract({
+    const contract: ContractDefinition = {
       queues: {
         testQueue: queue,
       },
-    });
+    };
 
     // WHEN - Creating client with invalid contract
     const client = new AmqpClient(contract, {

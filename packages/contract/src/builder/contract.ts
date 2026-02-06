@@ -3,39 +3,33 @@ import type {
   ConsumerDefinition,
   ContractDefinition,
   ContractDefinitionInput,
+  ContractOutput,
+  ExchangeDefinition,
   PublisherDefinition,
   QueueDefinition,
+  QuorumQueueDefinition,
 } from "../types.js";
 import { isEventConsumerResult, isEventPublisherConfig } from "./event.js";
 import { definePublisherInternal } from "./publisher.js";
 import { isCommandConsumerConfig } from "./command.js";
-import { isQueueWithTtlBackoffInfrastructure } from "./queue.js";
-
-/**
- * Type utility to produce the output contract type from the input.
- * The output preserves the exact input type structure to maintain all specific
- * type information (routing keys, message types, etc.) while the runtime
- * transforms the values correctly.
- */
-type ContractOutput<TContract extends ContractDefinitionInput> = TContract;
+import { defineQueueBindingInternal } from "./binding.js";
+import { resolveTtlBackoffOptions } from "./queue.js";
 
 /**
  * Define an AMQP contract.
  *
  * A contract is the central definition of your AMQP messaging topology. It brings together
- * all exchanges, queues, bindings, publishers, and consumers in a single, type-safe definition.
+ * publishers and consumers in a single, type-safe definition. Exchanges, queues, and bindings
+ * are automatically extracted from publishers and consumers.
  *
  * The contract is used by both clients (for publishing) and workers (for consuming) to ensure
  * type safety throughout your messaging infrastructure. TypeScript will infer all message types
  * and publisher/consumer names from the contract.
  *
- * @param definition - The contract definition containing all AMQP resources
- * @param definition.exchanges - Named exchange definitions
- * @param definition.queues - Named queue definitions
- * @param definition.bindings - Named binding definitions (queue-to-exchange or exchange-to-exchange)
+ * @param definition - The contract definition containing publishers and consumers
  * @param definition.publishers - Named publisher definitions for sending messages
  * @param definition.consumers - Named consumer definitions for receiving messages
- * @returns The same contract definition with full type inference
+ * @returns The contract definition with fully inferred exchanges, queues, bindings, publishers, and consumers
  *
  * @example
  * ```typescript
@@ -43,16 +37,20 @@ type ContractOutput<TContract extends ContractDefinitionInput> = TContract;
  *   defineContract,
  *   defineExchange,
  *   defineQueue,
- *   defineQueueBinding,
- *   definePublisher,
- *   defineConsumer,
+ *   defineEventPublisher,
+ *   defineEventConsumer,
  *   defineMessage,
  * } from '@amqp-contract/contract';
  * import { z } from 'zod';
  *
  * // Define resources
  * const ordersExchange = defineExchange('orders', 'topic', { durable: true });
- * const orderQueue = defineQueue('order-processing', { durable: true });
+ * const dlx = defineExchange('orders-dlx', 'direct', { durable: true });
+ * const orderQueue = defineQueue('order-processing', {
+ *   deadLetter: { exchange: dlx },
+ *   retry: { mode: 'quorum-native' },
+ *   deliveryLimit: 3,
+ * });
  * const orderMessage = defineMessage(
  *   z.object({
  *     orderId: z.string(),
@@ -60,71 +58,50 @@ type ContractOutput<TContract extends ContractDefinitionInput> = TContract;
  *   })
  * );
  *
- * // Compose contract
+ * // Define event publisher
+ * const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
+ *   routingKey: 'order.created',
+ * });
+ *
+ * // Compose contract - exchanges, queues, bindings are auto-extracted
  * export const contract = defineContract({
- *   exchanges: {
- *     orders: ordersExchange,
- *   },
- *   queues: {
- *     orderProcessing: orderQueue,
- *   },
- *   bindings: {
- *     orderBinding: defineQueueBinding(orderQueue, ordersExchange, {
- *       routingKey: 'order.created',
- *     }),
- *   },
  *   publishers: {
- *     orderCreated: definePublisher(ordersExchange, orderMessage, {
- *       routingKey: 'order.created',
- *     }),
+ *     orderCreated: orderCreatedEvent,
  *   },
  *   consumers: {
- *     processOrder: defineConsumer(orderQueue, orderMessage),
+ *     processOrder: defineEventConsumer(orderCreatedEvent, orderQueue),
  *   },
  * });
  *
  * // TypeScript now knows:
+ * // - contract.exchanges.orders, contract.exchanges['orders-dlx']
+ * // - contract.queues['order-processing']
+ * // - contract.bindings.processOrderBinding
  * // - client.publish('orderCreated', { orderId: string, amount: number })
- * // - handler: async (message: { orderId: string, amount: number }) => void
+ * // - handler: (message: { orderId: string, amount: number }) => Future<Result<void, HandlerError>>
  * ```
  */
 export function defineContract<TContract extends ContractDefinitionInput>(
   definition: TContract,
 ): ContractOutput<TContract> {
-  // Exclude publishers and consumers from spread since they may contain config entries
-  const { publishers: inputPublishers, consumers: inputConsumers, ...rest } = definition;
-  const result: ContractDefinition = rest as ContractDefinition;
+  const { publishers: inputPublishers, consumers: inputConsumers } = definition;
+  const result: ContractDefinition = {
+    exchanges: {},
+    queues: {},
+    bindings: {},
+    publishers: {},
+    consumers: {},
+  };
 
-  // Process queues to extract TTL-backoff infrastructure
-  if (definition.queues && Object.keys(definition.queues).length > 0) {
-    const expandedQueues: Record<string, QueueDefinition> = {};
-    const queueBindings: Record<string, BindingDefinition> = {};
-
-    for (const [name, entry] of Object.entries(definition.queues)) {
-      if (isQueueWithTtlBackoffInfrastructure(entry)) {
-        expandedQueues[name] = entry.queue;
-        expandedQueues[`${name}Wait`] = entry.waitQueue;
-        queueBindings[`${name}WaitBinding`] = entry.waitQueueBinding;
-        queueBindings[`${name}RetryBinding`] = entry.mainQueueRetryBinding;
-      } else {
-        expandedQueues[name] = entry as QueueDefinition;
-      }
-    }
-
-    result.queues = expandedQueues;
-
-    if (Object.keys(queueBindings).length > 0) {
-      result.bindings = { ...result.bindings, ...queueBindings };
-    }
-  }
-
-  // Process publishers section - extract EventPublisherConfig entries
+  // Process publishers section - extract exchanges and convert EventPublisherConfig entries
   if (inputPublishers && Object.keys(inputPublishers).length > 0) {
     const processedPublishers: Record<string, PublisherDefinition> = {};
+    const exchanges: Record<string, ExchangeDefinition> = {};
 
     for (const [name, entry] of Object.entries(inputPublishers)) {
       if (isEventPublisherConfig(entry)) {
-        // EventPublisherConfig: extract to publisher definition
+        // EventPublisherConfig: extract exchange and convert to publisher definition
+        exchanges[entry.exchange.name] = entry.exchange;
         const publisherOptions: { routingKey?: string } = {};
         if (entry.routingKey !== undefined) {
           publisherOptions.routingKey = entry.routingKey;
@@ -135,39 +112,111 @@ export function defineContract<TContract extends ContractDefinitionInput>(
           publisherOptions,
         );
       } else {
-        // Plain PublisherDefinition
-        processedPublishers[name] = entry as PublisherDefinition;
+        // Plain PublisherDefinition: extract exchange
+        const publisher = entry as PublisherDefinition;
+        exchanges[publisher.exchange.name] = publisher.exchange;
+        processedPublishers[name] = publisher;
       }
     }
 
     result.publishers = processedPublishers;
+    result.exchanges = { ...result.exchanges, ...exchanges };
   }
 
-  // Process consumers section - extract EventConsumerResult and CommandConsumerConfig entries
+  // Process consumers section - extract queues, exchanges, bindings, and consumer definitions
   if (inputConsumers && Object.keys(inputConsumers).length > 0) {
     const processedConsumers: Record<string, ConsumerDefinition> = {};
     const consumerBindings: Record<string, BindingDefinition> = {};
+    const queues: Record<string, QueueDefinition> = {};
+    const exchanges: Record<string, ExchangeDefinition> = {};
 
     for (const [name, entry] of Object.entries(inputConsumers)) {
       if (isEventConsumerResult(entry)) {
-        // EventConsumerResult: extract consumer and binding
+        // EventConsumerResult: extract consumer, binding, queue, and exchange
         processedConsumers[name] = entry.consumer;
         consumerBindings[`${name}Binding`] = entry.binding;
+
+        // Extract queue (handle TTL-backoff infrastructure)
+        const queueEntry = entry.consumer.queue;
+        queues[queueEntry.name] = queueEntry;
+
+        // Extract exchange from binding
+        exchanges[entry.binding.exchange.name] = entry.binding.exchange;
+
+        // Extract dead letter exchange if present
+        if (queueEntry.deadLetter?.exchange) {
+          exchanges[queueEntry.deadLetter.exchange.name] = queueEntry.deadLetter.exchange;
+        }
       } else if (isCommandConsumerConfig(entry)) {
-        // CommandConsumerConfig: extract consumer and binding
+        // CommandConsumerConfig: extract consumer, binding, queue, and exchange
         processedConsumers[name] = entry.consumer;
         consumerBindings[`${name}Binding`] = entry.binding;
+
+        // Extract queue (handle TTL-backoff infrastructure)
+        const queueEntry = entry.consumer.queue;
+        queues[queueEntry.name] = queueEntry;
+
+        // Extract exchange
+        exchanges[entry.exchange.name] = entry.exchange;
+
+        // Extract dead letter exchange if present
+        if (queueEntry.deadLetter?.exchange) {
+          exchanges[queueEntry.deadLetter.exchange.name] = queueEntry.deadLetter.exchange;
+        }
       } else {
-        // Plain ConsumerDefinition
-        processedConsumers[name] = entry as ConsumerDefinition;
+        // Plain ConsumerDefinition: extract queue
+        const consumer = entry as ConsumerDefinition;
+        processedConsumers[name] = consumer;
+
+        // Extract queue (handle TTL-backoff infrastructure)
+        const queueEntry = consumer.queue;
+        queues[queueEntry.name] = queueEntry;
+
+        // Extract dead letter exchange if present
+        if (queueEntry.deadLetter?.exchange) {
+          exchanges[queueEntry.deadLetter.exchange.name] = queueEntry.deadLetter.exchange;
+        }
+      }
+    }
+
+    // Auto-generate TTL-backoff retry infrastructure for queues with retry.mode === "ttl-backoff" and deadLetter
+    for (const queue of Object.values(queues) as QueueDefinition[]) {
+      if (queue.retry?.mode === "ttl-backoff" && queue.deadLetter) {
+        const dlx = queue.deadLetter.exchange;
+        const waitQueueName = `${queue.name}-wait`;
+
+        // Create wait queue (quorum for durability)
+        const waitQueue: QuorumQueueDefinition = {
+          name: waitQueueName,
+          type: "quorum",
+          durable: queue.durable ?? true,
+          deadLetter: {
+            exchange: dlx,
+            routingKey: queue.name,
+          },
+          retry: resolveTtlBackoffOptions(undefined),
+        };
+        queues[waitQueueName] = waitQueue;
+
+        // Binding: DLX → wait queue (receives failed messages)
+        consumerBindings[`${queue.name}WaitBinding`] = defineQueueBindingInternal(waitQueue, dlx, {
+          routingKey: waitQueueName,
+        });
+
+        // Binding: DLX → main queue (retried messages after TTL expires)
+        consumerBindings[`${queue.name}RetryBinding`] = defineQueueBindingInternal(queue, dlx, {
+          routingKey: queue.name,
+        });
+
+        // Ensure DLX is in exchanges
+        exchanges[dlx.name] = dlx;
       }
     }
 
     result.consumers = processedConsumers;
-
-    if (Object.keys(consumerBindings).length > 0) {
-      result.bindings = { ...result.bindings, ...consumerBindings };
-    }
+    result.bindings = { ...result.bindings, ...consumerBindings };
+    result.queues = { ...result.queues, ...queues };
+    result.exchanges = { ...result.exchanges, ...exchanges };
   }
 
   return result as ContractOutput<TContract>;

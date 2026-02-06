@@ -29,7 +29,6 @@ import {
   defineContract,
   defineExchange,
   defineQueue,
-  definePublisher,
   defineMessage,
 } from "@amqp-contract/contract";
 import { z } from "zod";
@@ -52,16 +51,13 @@ const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
 const orderQueue = defineQueue("order-processing", { durable: true });
 const analyticsQueue = defineQueue("analytics", { durable: true });
 
-// Compose contract - configs go directly, bindings auto-generated
+// Compose contract - only publishers and consumers needed
+// Exchanges, queues, and bindings are automatically extracted
 export const contract = defineContract({
-  exchanges: { orders: ordersExchange },
-  queues: { orderQueue, analyticsQueue },
   publishers: {
-    // EventPublisherConfig → auto-extracted to publisher
     orderCreated: orderCreatedEvent,
   },
   consumers: {
-    // EventConsumerResult → auto-extracted to consumer + binding
     processOrder: defineEventConsumer(orderCreatedEvent, orderQueue),
     trackOrder: defineEventConsumer(orderCreatedEvent, analyticsQueue),
   },
@@ -89,9 +85,7 @@ const orderCreatedEvent = defineEventPublisher(
 
 // Compose contract - consumers can use different patterns
 export const contract = defineContract({
-  // ...
   publishers: {
-    // EventPublisherConfig → auto-extracted to publisher
     orderCreated: orderCreatedEvent,
   },
   consumers: {
@@ -143,15 +137,13 @@ const executeTaskCommand = defineCommandConsumer(taskQueue, tasksExchange, taskM
 // Publishers send commands to the consumer
 const executeTaskPublisher = defineCommandPublisher(executeTaskCommand);
 
-// Compose contract - configs go directly, bindings auto-generated
+// Compose contract - only publishers and consumers needed
+// Exchanges, queues, and bindings are automatically extracted
 export const contract = defineContract({
-  exchanges: { tasks: tasksExchange },
-  queues: { taskQueue },
   publishers: {
     executeTask: executeTaskPublisher,
   },
   consumers: {
-    // CommandConsumerConfig → auto-extracted to consumer + binding
     processTask: executeTaskCommand,
   },
 });
@@ -189,14 +181,12 @@ const shipOrderPublisher = defineCommandPublisher(processOrdersCommand, {
 });
 
 export const contract = defineContract({
-  // ...
   publishers: {
     orderCreated: createOrderPublisher, // Matches order.*
     orderUpdated: updateOrderPublisher, // Matches order.*
     orderShipped: shipOrderPublisher, // Matches order.*
   },
   consumers: {
-    // CommandConsumerConfig → auto-extracted to consumer + binding
     processOrders: processOrdersCommand,
   },
 });
@@ -209,19 +199,10 @@ export const contract = defineContract({
 
 ## Contract Structure
 
-A contract has five main parts:
+`defineContract` accepts two properties:
 
 ```typescript
 const contract = defineContract({
-  exchanges: {
-    /* ... */
-  },
-  queues: {
-    /* ... */
-  },
-  bindings: {
-    /* ... */
-  },
   publishers: {
     /* ... */
   },
@@ -230,6 +211,8 @@ const contract = defineContract({
   },
 });
 ```
+
+The resulting contract object contains five parts — `exchanges`, `queues`, `bindings`, `publishers`, and `consumers` — all automatically extracted from the publisher and consumer definitions you provide.
 
 ## Composition Pattern
 
@@ -247,7 +230,7 @@ amqp-contract uses a **composition pattern**:
 
 ## Defining Exchanges
 
-Exchanges route messages to queues:
+Exchanges route messages to queues. Define them as variables and reference them in publishers and consumers:
 
 ```typescript
 import { defineExchange } from "@amqp-contract/contract";
@@ -262,12 +245,8 @@ const notificationsExchange = defineExchange("notifications", "fanout", {
   durable: true,
 });
 
-const contract = defineContract({
-  exchanges: {
-    orders: ordersExchange,
-    notifications: notificationsExchange,
-  },
-});
+// Exchanges are automatically included in the contract output
+// when referenced by publishers or consumers
 ```
 
 **Exchange Types:**
@@ -298,11 +277,8 @@ const tempQueue = defineQueue("temp-queue", {
   autoDelete: true,
 });
 
-const contract = defineContract({
-  queues: {
-    orderProcessing: orderProcessingQueue,
-  },
-});
+// Queues are automatically included in the contract output
+// when referenced by consumers
 ```
 
 **Queue Types:**
@@ -450,30 +426,28 @@ Learn more about schema libraries:
 - [Valibot](https://valibot.dev/)
 - [ArkType](https://arktype.io/)
 
-## Defining Bindings
+## Bindings
 
-Bindings connect queues to exchanges:
+Bindings connect queues to exchanges. With `defineContract`, bindings are **automatically generated** from event and command consumer patterns:
 
 ```typescript
-import { defineQueueBinding } from "@amqp-contract/contract";
-
 const ordersExchange = defineExchange("orders", "topic", { durable: true });
 const orderProcessingQueue = defineQueue("order-processing", { durable: true });
 const allOrdersQueue = defineQueue("all-orders", { durable: true });
 
+const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
+  routingKey: "order.created",
+});
+
 const contract = defineContract({
-  exchanges: { orders: ordersExchange },
-  queues: {
-    orderProcessing: orderProcessingQueue,
-    allOrders: allOrdersQueue,
+  publishers: {
+    orderCreated: orderCreatedEvent,
   },
-  bindings: {
-    // Exact routing key
-    orderBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
-      routingKey: "order.created",
-    }),
-    // Wildcard pattern
-    allOrdersBinding: defineQueueBinding(allOrdersQueue, ordersExchange, {
+  consumers: {
+    // Binding auto-generated: orderProcessingQueue → ordersExchange (order.created)
+    processOrder: defineEventConsumer(orderCreatedEvent, orderProcessingQueue),
+    // Binding auto-generated with override: allOrdersQueue → ordersExchange (order.*)
+    processAllOrders: defineEventConsumer(orderCreatedEvent, allOrdersQueue, {
       routingKey: "order.*",
     }),
   },
@@ -489,10 +463,10 @@ TypeScript enforces these rules at compile time!
 
 ## Defining Publishers
 
-Publishers define message schemas for publishing:
+Publishers define message schemas for publishing. Use `defineEventPublisher` (recommended) or `definePublisher`:
 
 ```typescript
-import { definePublisher, defineMessage } from "@amqp-contract/contract";
+import { defineEventPublisher, definePublisher, defineMessage } from "@amqp-contract/contract";
 import { z } from "zod";
 
 const ordersExchange = defineExchange("orders", "topic", { durable: true });
@@ -506,12 +480,23 @@ const orderMessage = defineMessage(
   }),
 );
 
+// Recommended: Event publisher (enables defineEventConsumer with auto-binding)
+const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
+  routingKey: "order.created",
+});
+
+// Alternative: Plain publisher (no auto-binding for consumers)
+const orderUpdatedPublisher = definePublisher(ordersExchange, orderMessage, {
+  routingKey: "order.updated",
+});
+
 const contract = defineContract({
-  exchanges: { orders: ordersExchange },
   publishers: {
-    orderCreated: definePublisher(ordersExchange, orderMessage, {
-      routingKey: "order.created",
-    }),
+    orderCreated: orderCreatedEvent,
+    orderUpdated: orderUpdatedPublisher,
+  },
+  consumers: {
+    /* ... */
   },
 });
 ```
@@ -523,10 +508,10 @@ const contract = defineContract({
 
 ## Defining Consumers
 
-Consumers define message schemas for consuming:
+Consumers define message schemas for consuming. Use `defineEventConsumer` (recommended) or `defineConsumer`:
 
 ```typescript
-import { defineConsumer, defineMessage } from "@amqp-contract/contract";
+import { defineEventConsumer, defineConsumer, defineMessage } from "@amqp-contract/contract";
 import { z } from "zod";
 
 const orderProcessingQueue = defineQueue("order-processing", { durable: true });
@@ -540,10 +525,18 @@ const orderMessage = defineMessage(
   }),
 );
 
+// Recommended: Event consumer (auto-generates binding from publisher's exchange)
+const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
+  routingKey: "order.created",
+});
+
+// Alternative: Plain consumer (no auto-binding)
+const plainConsumer = defineConsumer(orderProcessingQueue, orderMessage);
+
 const contract = defineContract({
-  queues: { orderProcessing: orderProcessingQueue },
+  publishers: { orderCreated: orderCreatedEvent },
   consumers: {
-    processOrder: defineConsumer(orderProcessingQueue, orderMessage),
+    processOrder: defineEventConsumer(orderCreatedEvent, orderProcessingQueue),
   },
 });
 ```
@@ -553,23 +546,22 @@ const contract = defineContract({
 ```typescript
 import {
   defineContract,
+  defineEventConsumer,
+  defineEventPublisher,
   defineExchange,
-  defineQueue,
-  defineQueueBinding,
-  definePublisher,
-  defineConsumer,
   defineMessage,
+  defineQueue,
 } from "@amqp-contract/contract";
 import { z } from "zod";
 
-// 1. Define exchanges
+// 1. Define exchange
 const ordersExchange = defineExchange("orders", "topic", { durable: true });
 
 // 2. Define queues
 const orderProcessingQueue = defineQueue("order-processing", { durable: true });
 const orderNotificationsQueue = defineQueue("order-notifications", { durable: true });
 
-// 3. Define messages
+// 3. Define message
 const orderMessage = defineMessage(
   z.object({
     orderId: z.string(),
@@ -578,38 +570,26 @@ const orderMessage = defineMessage(
   }),
 );
 
-// 4. Compose contract
+// 4. Define event publisher
+const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
+  routingKey: "order.created",
+});
+
+// 5. Compose contract - exchanges, queues, and bindings are auto-extracted
 export const contract = defineContract({
-  exchanges: {
-    orders: ordersExchange,
-  },
-  queues: {
-    orderProcessing: orderProcessingQueue,
-    orderNotifications: orderNotificationsQueue,
-  },
-  bindings: {
-    processingBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
-      routingKey: "order.created",
-    }),
-    notificationBinding: defineQueueBinding(orderNotificationsQueue, ordersExchange, {
-      routingKey: "order.created",
-    }),
-  },
   publishers: {
-    orderCreated: definePublisher(ordersExchange, orderMessage, {
-      routingKey: "order.created",
-    }),
+    orderCreated: orderCreatedEvent,
   },
   consumers: {
-    processOrder: defineConsumer(orderProcessingQueue, orderMessage),
-    notifyOrder: defineConsumer(orderNotificationsQueue, orderMessage),
+    processOrder: defineEventConsumer(orderCreatedEvent, orderProcessingQueue),
+    notifyOrder: defineEventConsumer(orderCreatedEvent, orderNotificationsQueue),
   },
 });
 ```
 
 ## Exchange-to-Exchange Bindings
 
-Bind exchanges together for advanced routing:
+For advanced routing, you can bind exchanges together. Exchange-to-exchange bindings are not auto-generated by `defineContract` — they must be set up manually via the `AmqpClient`'s channel setup:
 
 ```typescript
 import { defineExchangeBinding } from "@amqp-contract/contract";
@@ -617,16 +597,20 @@ import { defineExchangeBinding } from "@amqp-contract/contract";
 const sourceExchange = defineExchange("source", "topic", { durable: true });
 const destExchange = defineExchange("destination", "topic", { durable: true });
 
-const contract = defineContract({
-  exchanges: {
-    source: sourceExchange,
-    destination: destExchange,
-  },
-  bindings: {
-    // Messages from source flow to destination
-    crossExchange: defineExchangeBinding(destExchange, sourceExchange, {
-      routingKey: "order.#",
-    }),
+// Exchange-to-exchange binding definition
+const crossExchangeBinding = defineExchangeBinding(destExchange, sourceExchange, {
+  routingKey: "order.#",
+});
+
+// Set up manually via AmqpClient's channel options
+const client = new AmqpClient(contract, {
+  urls: ["amqp://localhost"],
+  channelOptions: {
+    setup: async (channel) => {
+      await channel.assertExchange("source", "topic", { durable: true });
+      await channel.assertExchange("destination", "topic", { durable: true });
+      await channel.bindExchange("destination", "source", "order.#");
+    },
   },
 });
 ```
@@ -644,17 +628,17 @@ const contract = defineContract({
 
 ### Use Basic Definition (Advanced)
 
-Use the basic `definePublisher`, `defineConsumer`, `defineQueueBinding` approach only when:
+Use `definePublisher` and `defineConsumer` (without event/command patterns) only when:
 
-- You need exchange-to-exchange bindings
 - You're working with complex routing patterns that don't fit the event/command model
 - You're integrating with existing AMQP infrastructure with specific requirements
 
 ::: warning
-When using basic definitions, you must manually ensure:
+When using basic definitions:
 
-- Publishers and consumers use the same message schemas
-- Routing keys match between publishers and bindings
+- No bindings are auto-generated (you must set up bindings manually)
+- You must ensure publishers and consumers use the same message schemas
+- Use exchange-to-exchange bindings via `AmqpClient` channel setup
   :::
 
 ## Type Validation Utilities
@@ -704,7 +688,8 @@ Dead Letter Exchanges (DLX) automatically handle failed, rejected, or expired me
 import {
   defineExchange,
   defineQueue,
-  defineQueueBinding,
+  defineEventPublisher,
+  defineEventConsumer,
   defineContract,
 } from "@amqp-contract/contract";
 
@@ -727,20 +712,20 @@ const orderProcessingQueue = defineQueue("order-processing", {
 // 3. Define a queue to collect dead-lettered messages
 const ordersDlxQueue = defineQueue("orders-dlx-queue", { durable: true });
 
-// 4. Compose the contract
+// 4. Define event publisher for DLX binding
+const failedOrderEvent = defineEventPublisher(ordersDlx, orderMessage, {
+  routingKey: "order.failed",
+});
+
+// 5. Compose the contract - DLX exchange is auto-extracted from queue's deadLetter config
 export const contract = defineContract({
-  exchanges: {
-    ordersDlx,
+  publishers: {
+    /* ... */
   },
-  queues: {
-    orderProcessing: orderProcessingQueue,
-    ordersDlxQueue,
-  },
-  bindings: {
-    // Bind the DLX queue to receive failed messages
-    dlxBinding: defineQueueBinding(ordersDlxQueue, ordersDlx, {
-      routingKey: "order.failed",
-    }),
+  consumers: {
+    processOrder: defineEventConsumer(orderCreatedEvent, orderProcessingQueue),
+    // DLX consumer: binds ordersDlxQueue to ordersDlx with routing key "order.failed"
+    handleFailedOrders: defineEventConsumer(failedOrderEvent, ordersDlxQueue),
   },
 });
 ```
@@ -770,12 +755,11 @@ export const contract = defineContract({
 ```typescript
 import {
   defineContract,
+  defineEventConsumer,
+  defineEventPublisher,
   defineExchange,
-  defineQueue,
-  defineQueueBinding,
-  definePublisher,
-  defineConsumer,
   defineMessage,
+  defineQueue,
 } from "@amqp-contract/contract";
 import { z } from "zod";
 
@@ -805,42 +789,31 @@ const orderProcessingQueue = defineQueue("order-processing", {
 
 const ordersDlxQueue = defineQueue("orders-dlx-queue", { durable: true });
 
-// Compose contract
+// Define event publishers
+const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
+  routingKey: "order.created",
+});
+
+const failedOrderEvent = defineEventPublisher(ordersDlx, orderMessage, {
+  routingKey: "order.failed",
+});
+
+// Compose contract - all topology auto-extracted
 export const contract = defineContract({
-  exchanges: {
-    orders: ordersExchange,
-    ordersDlx,
-  },
-  queues: {
-    orderProcessing: orderProcessingQueue,
-    ordersDlxQueue,
-  },
-  bindings: {
-    // Main queue binding
-    orderBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
-      routingKey: "order.created",
-    }),
-    // DLX queue binding
-    dlxBinding: defineQueueBinding(ordersDlxQueue, ordersDlx, {
-      routingKey: "order.failed",
-    }),
-  },
   publishers: {
-    orderCreated: definePublisher(ordersExchange, orderMessage, {
-      routingKey: "order.created",
-    }),
+    orderCreated: orderCreatedEvent,
   },
   consumers: {
-    processOrder: defineConsumer(orderProcessingQueue, orderMessage),
-    handleFailedOrders: defineConsumer(ordersDlxQueue, orderMessage),
+    processOrder: defineEventConsumer(orderCreatedEvent, orderProcessingQueue),
+    handleFailedOrders: defineEventConsumer(failedOrderEvent, ordersDlxQueue),
   },
 });
 ```
 
 ::: tip Best Practices
 
-- Always declare the DLX in your contract's `exchanges`
-- Create a dedicated queue for collecting dead-lettered messages
+- Reference the DLX exchange in a queue's `deadLetter` config (it will be auto-extracted)
+- Create a dedicated consumer for dead-lettered messages using `defineEventConsumer`
 - Use meaningful routing keys for DLX messages (e.g., `order.failed`)
 - Consider implementing retry logic in your DLX consumer
 - Monitor DLX queues for issues in your message processing

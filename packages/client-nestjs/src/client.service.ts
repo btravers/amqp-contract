@@ -5,7 +5,7 @@ import {
   type PublishOptions,
   TypedAmqpClient,
 } from "@amqp-contract/client";
-import type { ContractDefinitionInput, InferPublisherNames } from "@amqp-contract/contract";
+import type { ContractDefinition, InferPublisherNames } from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
 import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
 import { MODULE_OPTIONS_TOKEN } from "./client.module-definition.js";
@@ -27,7 +27,7 @@ import { TechnicalError } from "@amqp-contract/core";
  * };
  * ```
  */
-export type AmqpClientModuleOptions<TContract extends ContractDefinitionInput> = {
+export type AmqpClientModuleOptions<TContract extends ContractDefinition> = {
   /** The AMQP contract definition specifying publishers and their message schemas */
   contract: TContract;
   /** AMQP broker URL(s). Multiple URLs provide failover support */
@@ -79,7 +79,7 @@ export type AmqpClientModuleOptions<TContract extends ContractDefinitionInput> =
  * ```
  */
 @Injectable()
-export class AmqpClientService<TContract extends ContractDefinitionInput>
+export class AmqpClientService<TContract extends ContractDefinition>
   implements OnModuleInit, OnModuleDestroy
 {
   private client: TypedAmqpClient<TContract> | null = null;

@@ -54,23 +54,15 @@ export type TtlBackoffRetryInfrastructure = {
  *   },
  * });
  *
- * // Generate TTL-backoff infrastructure
- * const retryInfra = defineTtlBackoffRetryInfrastructure(orderQueue);
- *
- * // Spread into contract
+ * // Infrastructure is auto-extracted when using defineContract:
  * const contract = defineContract({
- *   exchanges: { dlx },
- *   queues: {
- *     orderProcessing: orderQueue,
- *     orderProcessingWait: retryInfra.waitQueue,
- *   },
- *   bindings: {
- *     ...// your other bindings
- *     orderWaitBinding: retryInfra.waitQueueBinding,
- *     orderRetryBinding: retryInfra.mainQueueRetryBinding,
- *   },
- *   // ... publishers and consumers
+ *   publishers: { ... },
+ *   consumers: { processOrder: defineEventConsumer(event, extractQueue(orderQueue)) },
  * });
+ * // contract.queues includes the wait queue, contract.bindings includes retry bindings
+ *
+ * // Or generate manually for advanced use cases:
+ * const retryInfra = defineTtlBackoffRetryInfrastructure(orderQueue);
  * ```
  */
 export function defineTtlBackoffRetryInfrastructure(

@@ -13,7 +13,7 @@ import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connectio
 import type { Channel, ConsumeMessage } from "amqplib";
 import {
   type ConsumerDefinition,
-  type ContractDefinitionInput,
+  type ContractDefinition,
   type InferConsumerNames,
   type ResolvedRetryOptions,
   type ResolvedTtlBackoffRetryOptions,
@@ -91,7 +91,7 @@ function isHandlerTuple(entry: unknown): entry is [unknown, ConsumerOptions] {
  * Note: Retry configuration is defined at the queue level in the contract,
  * not at the handler level. See `QueueDefinition.retry` for configuration options.
  */
-export type CreateWorkerOptions<TContract extends ContractDefinitionInput> = {
+export type CreateWorkerOptions<TContract extends ContractDefinition> = {
   /** The AMQP contract definition specifying consumers and their message schemas */
   contract: TContract;
   /**
@@ -154,7 +154,7 @@ export type CreateWorkerOptions<TContract extends ContractDefinitionInput> = {
  * await worker.close().resultToPromise();
  * ```
  */
-export class TypedAmqpWorker<TContract extends ContractDefinitionInput> {
+export class TypedAmqpWorker<TContract extends ContractDefinition> {
   /**
    * Internal handler storage - handlers returning `Future<Result>`.
    */
@@ -231,7 +231,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinitionInput> {
    * }).resultToPromise();
    * ```
    */
-  static create<TContract extends ContractDefinitionInput>({
+  static create<TContract extends ContractDefinition>({
     contract,
     handlers,
     urls,

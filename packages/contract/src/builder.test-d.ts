@@ -4,7 +4,21 @@
  */
 
 import type { BindingPattern, MatchingRoutingKey, RoutingKey } from "./builder.js";
+import type { ConsumerDefinition, PublisherDefinition } from "./types.js";
+import {
+  defineCommandConsumer,
+  defineCommandPublisher,
+  defineConsumer,
+  defineContract,
+  defineEventConsumer,
+  defineEventPublisher,
+  defineExchange,
+  defineMessage,
+  definePublisher,
+  defineQueue,
+} from "./builder.js";
 import { describe, expectTypeOf, test } from "vitest";
+import { z } from "zod";
 
 describe("RoutingKey type validation", () => {
   test("should accept valid routing keys", () => {
@@ -164,5 +178,161 @@ describe("Publisher and Consumer factory types", () => {
     expectTypeOf<BindingPattern<"order.created">>().toEqualTypeOf<"order.created">();
     expectTypeOf<BindingPattern<"order.*">>().toEqualTypeOf<"order.*">();
     expectTypeOf<BindingPattern<"order.#">>().toEqualTypeOf<"order.#">();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ContractOutput type inference
+// ---------------------------------------------------------------------------
+
+describe("ContractOutput type inference", () => {
+  const ordersExchange = defineExchange("orders", "topic", { durable: true });
+  const dlx = defineExchange("orders-dlx", "direct", { durable: true });
+  const fanoutExchange = defineExchange("notifications", "fanout");
+  const orderQueue = defineQueue("order-processing", {
+    deadLetter: { exchange: dlx },
+    retry: { mode: "quorum-native" },
+    deliveryLimit: 3,
+  });
+  const notificationQueue = defineQueue("notifications");
+  const orderMessage = defineMessage(z.object({ orderId: z.string() }));
+  const notificationMessage = defineMessage(z.object({ text: z.string() }));
+
+  test("should extract exchanges from EventPublisherConfig in publishers", () => {
+    const orderCreated = defineEventPublisher(ordersExchange, orderMessage, {
+      routingKey: "order.created",
+    });
+    const contract = defineContract({
+      publishers: { orderCreated },
+    });
+
+    expectTypeOf(contract.exchanges).toHaveProperty("orders");
+  });
+
+  test("should extract queues and binding exchanges from EventConsumerResult", () => {
+    const orderCreated = defineEventPublisher(ordersExchange, orderMessage, {
+      routingKey: "order.created",
+    });
+    const contract = defineContract({
+      publishers: { orderCreated },
+      consumers: {
+        processOrder: defineEventConsumer(orderCreated, orderQueue),
+      },
+    });
+
+    expectTypeOf(contract.queues).toHaveProperty("order-processing");
+    expectTypeOf(contract.exchanges).toHaveProperty("orders");
+    expectTypeOf(contract.bindings).toHaveProperty("processOrderBinding");
+  });
+
+  test("should extract DLX exchanges from consumer queue deadLetter", () => {
+    const orderCreated = defineEventPublisher(ordersExchange, orderMessage, {
+      routingKey: "order.created",
+    });
+    const contract = defineContract({
+      publishers: { orderCreated },
+      consumers: {
+        processOrder: defineEventConsumer(orderCreated, orderQueue),
+      },
+    });
+
+    // DLX should be auto-extracted into exchanges
+    expectTypeOf(contract.exchanges).toHaveProperty("orders-dlx");
+  });
+
+  test("should extract CommandConsumerConfig into consumer + binding + exchange", () => {
+    const processCommand = defineCommandConsumer(orderQueue, ordersExchange, orderMessage, {
+      routingKey: "order.process",
+    });
+    const contract = defineContract({
+      consumers: { processCommand },
+    });
+
+    expectTypeOf(contract.consumers).toHaveProperty("processCommand");
+    expectTypeOf(contract.consumers.processCommand).toMatchTypeOf<ConsumerDefinition>();
+    expectTypeOf(contract.bindings).toHaveProperty("processCommandBinding");
+    expectTypeOf(contract.exchanges).toHaveProperty("orders");
+    // DLX from queue's deadLetter
+    expectTypeOf(contract.exchanges).toHaveProperty("orders-dlx");
+  });
+
+  test("should normalize EventPublisherConfig to PublisherDefinition", () => {
+    const orderCreated = defineEventPublisher(ordersExchange, orderMessage, {
+      routingKey: "order.created",
+    });
+    const contract = defineContract({
+      publishers: { orderCreated },
+    });
+
+    expectTypeOf(contract.publishers).toHaveProperty("orderCreated");
+    expectTypeOf(contract.publishers.orderCreated).toMatchTypeOf<PublisherDefinition>();
+  });
+
+  test("should handle plain ConsumerDefinition without generating binding", () => {
+    const contract = defineContract({
+      consumers: {
+        plainConsumer: defineConsumer(notificationQueue, notificationMessage),
+      },
+    });
+
+    expectTypeOf(contract.consumers).toHaveProperty("plainConsumer");
+    expectTypeOf(contract.consumers.plainConsumer).toMatchTypeOf<ConsumerDefinition>();
+    expectTypeOf(contract.queues).toHaveProperty("notifications");
+    // Plain consumers don't generate bindings
+    expectTypeOf(contract.bindings).not.toHaveProperty("plainConsumerBinding");
+  });
+
+  test("should handle mixed publisher patterns", () => {
+    const orderCreated = defineEventPublisher(ordersExchange, orderMessage, {
+      routingKey: "order.created",
+    });
+    const processCommand = defineCommandConsumer(orderQueue, ordersExchange, orderMessage, {
+      routingKey: "order.process",
+    });
+    const sendCommand = defineCommandPublisher(processCommand);
+    const contract = defineContract({
+      publishers: {
+        orderCreated,
+        sendCommand,
+        directPublisher: definePublisher(fanoutExchange, notificationMessage),
+      },
+      consumers: {
+        processCommand,
+      },
+    });
+
+    // All three publisher types present
+    expectTypeOf(contract.publishers).toHaveProperty("orderCreated");
+    expectTypeOf(contract.publishers).toHaveProperty("sendCommand");
+    expectTypeOf(contract.publishers).toHaveProperty("directPublisher");
+
+    // Exchanges from all sources
+    expectTypeOf(contract.exchanges).toHaveProperty("orders");
+    expectTypeOf(contract.exchanges).toHaveProperty("notifications");
+    expectTypeOf(contract.exchanges).toHaveProperty("orders-dlx");
+  });
+
+  test("should handle empty contract", () => {
+    const contract = defineContract({});
+
+    expectTypeOf(contract.exchanges).toEqualTypeOf<{}>();
+    expectTypeOf(contract.queues).toEqualTypeOf<{}>();
+    expectTypeOf(contract.bindings).toEqualTypeOf<{}>();
+    expectTypeOf(contract.publishers).toEqualTypeOf<{}>();
+    expectTypeOf(contract.consumers).toEqualTypeOf<{}>();
+  });
+
+  test("should handle fanout exchange without routing key", () => {
+    const broadcast = defineEventPublisher(fanoutExchange, notificationMessage);
+    const contract = defineContract({
+      publishers: { broadcast },
+      consumers: {
+        receiveNotif: defineEventConsumer(broadcast, notificationQueue),
+      },
+    });
+
+    expectTypeOf(contract.exchanges).toHaveProperty("notifications");
+    expectTypeOf(contract.queues).toHaveProperty("notifications");
+    expectTypeOf(contract.bindings).toHaveProperty("receiveNotifBinding");
   });
 });

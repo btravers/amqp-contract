@@ -429,10 +429,10 @@ export type DefineQuorumQueueOptions = {
  *   deliveryLimit: 3, // Retry up to 3 times
  * });
  *
+ * // Use in a contract — exchanges, queues, and bindings are auto-extracted
  * const contract = defineContract({
- *   exchanges: { dlx },
- *   queues: { orderProcessing: orderQueue },
- *   // ...
+ *   publishers: { ... },
+ *   consumers: { processOrder: defineEventConsumer(event, orderQueue) },
  * });
  * ```
  *
@@ -562,10 +562,10 @@ export type DefineTtlBackoffQueueOptions = {
  *   maxDelayMs: 30000,     // Cap at 30s
  * });
  *
+ * // Use in a contract — wait queue, bindings, and DLX are auto-extracted
  * const contract = defineContract({
- *   exchanges: { dlx },
- *   queues: { orderProcessing: orderQueue }, // Wait queue auto-added
- *   // ... bindings auto-generated
+ *   publishers: { ... },
+ *   consumers: { processOrder: defineEventConsumer(event, extractQueue(orderQueue)) },
  * });
  *
  * // To access the underlying queue definition (e.g., for the queue name):

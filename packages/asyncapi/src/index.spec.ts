@@ -1,5 +1,6 @@
 import * as v from "valibot";
 import {
+  type ContractDefinition,
   type MessageDefinition,
   defineConsumer,
   defineContract,
@@ -84,7 +85,7 @@ describe("AsyncAPIGenerator", () => {
         {
           "asyncapi": "3.1.0",
           "channels": {
-            "orderProcessing": {
+            "order-processing": {
               "address": "order-processing",
               "bindings": {
                 "amqp": {
@@ -99,7 +100,7 @@ describe("AsyncAPIGenerator", () => {
                   },
                 },
               },
-              "description": "AMQP Queue: order-processing (bound to exchange 'orders' with routing key 'order.created')",
+              "description": "AMQP Queue: order-processing",
               "messages": {
                 "processOrderMessage": {
                   "contentType": "application/json",
@@ -285,11 +286,11 @@ describe("AsyncAPIGenerator", () => {
                 },
               },
               "channel": {
-                "$ref": "#/channels/orderProcessing",
+                "$ref": "#/channels/order-processing",
               },
               "messages": [
                 {
-                  "$ref": "#/channels/orderProcessing/messages/processOrderMessage",
+                  "$ref": "#/channels/order-processing/messages/processOrderMessage",
                 },
               ],
               "summary": "Consume from order-processing",
@@ -353,24 +354,6 @@ describe("AsyncAPIGenerator", () => {
         {
           "asyncapi": "3.1.0",
           "channels": {
-            "eventQueue": {
-              "address": "event-queue",
-              "bindings": {
-                "amqp": {
-                  "bindingVersion": "0.3.0",
-                  "is": "queue",
-                  "queue": {
-                    "autoDelete": false,
-                    "durable": false,
-                    "exclusive": false,
-                    "name": "event-queue",
-                    "vhost": "/",
-                  },
-                },
-              },
-              "description": "AMQP Queue: event-queue",
-              "title": "event-queue",
-            },
             "events": {
               "address": "events",
               "bindings": {
@@ -543,7 +526,7 @@ describe("AsyncAPIGenerator", () => {
         {
           "asyncapi": "3.1.0",
           "channels": {
-            "notificationQueue": {
+            "notification-queue": {
               "address": "notification-queue",
               "bindings": {
                 "amqp": {
@@ -729,11 +712,11 @@ describe("AsyncAPIGenerator", () => {
                 },
               },
               "channel": {
-                "$ref": "#/channels/notificationQueue",
+                "$ref": "#/channels/notification-queue",
               },
               "messages": [
                 {
-                  "$ref": "#/channels/notificationQueue/messages/processNotificationMessage",
+                  "$ref": "#/channels/notification-queue/messages/processNotificationMessage",
                 },
               ],
               "summary": "Consume from notification-queue",
@@ -824,7 +807,7 @@ describe("AsyncAPIGenerator", () => {
         {
           "asyncapi": "3.1.0",
           "channels": {
-            "paymentProcessing": {
+            "payment-processing": {
               "address": "payment-processing",
               "bindings": {
                 "amqp": {
@@ -1068,11 +1051,11 @@ describe("AsyncAPIGenerator", () => {
                 },
               },
               "channel": {
-                "$ref": "#/channels/paymentProcessing",
+                "$ref": "#/channels/payment-processing",
               },
               "messages": [
                 {
-                  "$ref": "#/channels/paymentProcessing/messages/processPaymentMessage",
+                  "$ref": "#/channels/payment-processing/messages/processPaymentMessage",
                 },
               ],
               "summary": "Consume from payment-processing",
@@ -1200,42 +1183,6 @@ describe("AsyncAPIGenerator", () => {
                 },
               },
               "title": "mixed",
-            },
-            "valibotQueue": {
-              "address": "valibot-queue",
-              "bindings": {
-                "amqp": {
-                  "bindingVersion": "0.3.0",
-                  "is": "queue",
-                  "queue": {
-                    "autoDelete": false,
-                    "durable": false,
-                    "exclusive": false,
-                    "name": "valibot-queue",
-                    "vhost": "/",
-                  },
-                },
-              },
-              "description": "AMQP Queue: valibot-queue",
-              "title": "valibot-queue",
-            },
-            "zodQueue": {
-              "address": "zod-queue",
-              "bindings": {
-                "amqp": {
-                  "bindingVersion": "0.3.0",
-                  "is": "queue",
-                  "queue": {
-                    "autoDelete": false,
-                    "durable": false,
-                    "exclusive": false,
-                    "name": "zod-queue",
-                    "vhost": "/",
-                  },
-                },
-              },
-              "description": "AMQP Queue: zod-queue",
-              "title": "zod-queue",
             },
           },
           "components": {
@@ -1400,24 +1347,6 @@ describe("AsyncAPIGenerator", () => {
               },
               "title": "generic",
             },
-            "genericQueue": {
-              "address": "generic-queue",
-              "bindings": {
-                "amqp": {
-                  "bindingVersion": "0.3.0",
-                  "is": "queue",
-                  "queue": {
-                    "autoDelete": false,
-                    "durable": false,
-                    "exclusive": false,
-                    "name": "generic-queue",
-                    "vhost": "/",
-                  },
-                },
-              },
-              "description": "AMQP Queue: generic-queue",
-              "title": "generic-queue",
-            },
           },
           "components": {
             "messages": {
@@ -1467,9 +1396,9 @@ describe("AsyncAPIGenerator", () => {
         autoDelete: false,
       });
 
-      const contract = defineContract({
+      const contract: ContractDefinition = {
         queues: { testQueue: queue },
-      });
+      };
 
       const generator = new AsyncAPIGenerator();
 
@@ -1526,9 +1455,9 @@ describe("AsyncAPIGenerator", () => {
         autoDelete: false,
       });
 
-      const contract = defineContract({
+      const contract: ContractDefinition = {
         exchanges: { testExchange: exchange },
-      });
+      };
 
       const generator = new AsyncAPIGenerator();
 
@@ -1764,7 +1693,7 @@ describe("AsyncAPIGenerator", () => {
         {
           "asyncapi": "3.1.0",
           "channels": {
-            "fanout": {
+            "fanout-exchange": {
               "address": "fanout-exchange",
               "bindings": {
                 "amqp": {
@@ -1798,24 +1727,6 @@ describe("AsyncAPIGenerator", () => {
               },
               "title": "fanout-exchange",
             },
-            "fanoutQueue": {
-              "address": "fanout-queue",
-              "bindings": {
-                "amqp": {
-                  "bindingVersion": "0.3.0",
-                  "is": "queue",
-                  "queue": {
-                    "autoDelete": false,
-                    "durable": false,
-                    "exclusive": false,
-                    "name": "fanout-queue",
-                    "vhost": "/",
-                  },
-                },
-              },
-              "description": "AMQP Queue: fanout-queue (bound to exchange 'fanout-exchange')",
-              "title": "fanout-queue",
-            },
           },
           "components": {
             "messages": {
@@ -1843,11 +1754,11 @@ describe("AsyncAPIGenerator", () => {
             "broadcast": {
               "action": "send",
               "channel": {
-                "$ref": "#/channels/fanout",
+                "$ref": "#/channels/fanout-exchange",
               },
               "messages": [
                 {
-                  "$ref": "#/channels/fanout/messages/broadcastMessage",
+                  "$ref": "#/channels/fanout-exchange/messages/broadcastMessage",
                 },
               ],
               "summary": "Publish to fanout-exchange",

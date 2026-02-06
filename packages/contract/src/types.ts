@@ -638,16 +638,19 @@ export type QueueDefinition = QuorumQueueDefinition | ClassicQueueDefinition;
  * @example
  * ```typescript
  * const dlx = defineExchange('orders-dlx', 'direct', { durable: true });
+ * const exchange = defineExchange('orders', 'topic', { durable: true });
  * const queue = defineQueue('order-processing', {
  *   deadLetter: { exchange: dlx },
  *   retry: { mode: 'ttl-backoff', maxRetries: 5 },
  * });
  * // queue is QueueWithTtlBackoffInfrastructure
+ * const message = defineMessage(z.object({ orderId: z.string() }));
+ * const orderCreated = defineEventPublisher(exchange, message, { routingKey: 'order.created' });
  *
+ * // Wait queue, bindings, and DLX exchange are automatically extracted
  * const contract = defineContract({
- *   exchanges: { dlx },
- *   queues: { orderProcessing: queue }, // Automatically adds wait queue
- *   // ... bindings are automatically generated
+ *   publishers: { orderCreated },
+ *   consumers: { processOrder: defineEventConsumer(orderCreated, extractQueue(queue)) },
  * });
  * ```
  */
@@ -1027,15 +1030,12 @@ export type ConsumerEntry =
 /**
  * Contract definition input type with automatic extraction of event/command patterns.
  *
- * This type allows passing event and command configs directly to the publishers
- * and consumers sections. `defineContract` will automatically extract the appropriate
- * definitions and generate bindings.
+ * Users only define publishers and consumers. Exchanges, queues, and bindings are
+ * automatically extracted from these definitions.
  *
  * @example
  * ```typescript
  * const contract = defineContract({
- *   exchanges: { orders: ordersExchange },
- *   queues: { processing: processingQueue },
  *   publishers: {
  *     // EventPublisherConfig → auto-extracted to publisher
  *     orderCreated: defineEventPublisher(ordersExchange, orderMessage, { routingKey: "order.created" }),
@@ -1051,7 +1051,7 @@ export type ConsumerEntry =
  *
  * @see defineContract - Processes this input and returns a ContractDefinition
  */
-export type ContractDefinitionInput = Omit<ContractDefinition, "publishers" | "consumers"> & {
+export type ContractDefinitionInput = {
   /**
    * Named publisher definitions.
    *
@@ -1072,6 +1072,198 @@ export type ContractDefinitionInput = Omit<ContractDefinition, "publishers" | "c
   consumers?: Record<string, ConsumerEntry>;
 };
 
+// =============================================================================
+// Contract Output Type Inference Helpers
+// =============================================================================
+
+/**
+ * Extract the exchange from a publisher entry.
+ * @internal
+ */
+type ExtractPublisherExchange<T extends PublisherEntry> = T extends EventPublisherConfigBase
+  ? T["exchange"]
+  : T extends PublisherDefinition
+    ? T["exchange"]
+    : never;
+
+/**
+ * Extract the queue from a consumer entry.
+ * @internal
+ */
+type ExtractConsumerQueue<T extends ConsumerEntry> = T extends EventConsumerResultBase
+  ? T["consumer"]["queue"]
+  : T extends CommandConsumerConfigBase
+    ? T["consumer"]["queue"]
+    : T extends ConsumerDefinition
+      ? T["queue"]
+      : never;
+
+/**
+ * Extract the exchange from a consumer entry (from binding).
+ * @internal
+ */
+type ExtractConsumerExchange<T extends ConsumerEntry> = T extends EventConsumerResultBase
+  ? T["binding"]["exchange"]
+  : T extends CommandConsumerConfigBase
+    ? T["exchange"]
+    : never;
+
+/**
+ * Extract the binding from a consumer entry.
+ * @internal
+ */
+type ExtractConsumerBinding<T extends ConsumerEntry> = T extends EventConsumerResultBase
+  ? T["binding"]
+  : T extends CommandConsumerConfigBase
+    ? T["binding"]
+    : never;
+
+/**
+ * Check if a consumer entry has a binding.
+ * @internal
+ */
+type HasBinding<T extends ConsumerEntry> = T extends EventConsumerResultBase
+  ? true
+  : T extends CommandConsumerConfigBase
+    ? true
+    : false;
+
+/**
+ * Extract exchanges from all publishers in a contract.
+ * @internal
+ */
+type ExtractExchangesFromPublishers<TPublishers extends Record<string, PublisherEntry>> = {
+  [K in keyof TPublishers as ExtractPublisherExchange<
+    TPublishers[K]
+  >["name"]]: ExtractPublisherExchange<TPublishers[K]>;
+};
+
+/**
+ * Extract exchanges from all consumers in a contract.
+ * @internal
+ */
+type ExtractExchangesFromConsumers<TConsumers extends Record<string, ConsumerEntry>> = {
+  [K in keyof TConsumers as ExtractConsumerExchange<TConsumers[K]> extends ExchangeDefinition
+    ? ExtractConsumerExchange<TConsumers[K]>["name"]
+    : never]: ExtractConsumerExchange<TConsumers[K]> extends ExchangeDefinition
+    ? ExtractConsumerExchange<TConsumers[K]>
+    : never;
+};
+
+/**
+ * Extract the dead letter exchange from a consumer's queue.
+ * @internal
+ */
+type ExtractDeadLetterExchange<T extends ConsumerEntry> =
+  ExtractConsumerQueue<T> extends { deadLetter: { exchange: infer E extends ExchangeDefinition } }
+    ? E
+    : never;
+
+/**
+ * Extract dead letter exchanges from all consumers in a contract.
+ * @internal
+ */
+type ExtractDeadLetterExchangesFromConsumers<TConsumers extends Record<string, ConsumerEntry>> = {
+  [K in keyof TConsumers as ExtractDeadLetterExchange<TConsumers[K]> extends never
+    ? never
+    : ExtractDeadLetterExchange<TConsumers[K]>["name"]]: ExtractDeadLetterExchange<TConsumers[K]>;
+};
+
+/**
+ * Extract queues from all consumers in a contract.
+ * @internal
+ */
+type ExtractQueuesFromConsumers<TConsumers extends Record<string, ConsumerEntry>> = {
+  [K in keyof TConsumers as ExtractConsumerQueue<TConsumers[K]>["name"]]: ExtractConsumerQueue<
+    TConsumers[K]
+  >;
+};
+
+/**
+ * Extract bindings from all consumers in a contract.
+ * @internal
+ */
+type ExtractBindingsFromConsumers<TConsumers extends Record<string, ConsumerEntry>> = {
+  [K in keyof TConsumers as HasBinding<TConsumers[K]> extends true
+    ? `${K & string}Binding`
+    : never]: ExtractConsumerBinding<TConsumers[K]>;
+};
+
+/**
+ * Extract the consumer definition from a consumer entry.
+ * @internal
+ */
+type ExtractConsumerDefinition<T extends ConsumerEntry> = T extends EventConsumerResultBase
+  ? T["consumer"]
+  : T extends CommandConsumerConfigBase
+    ? T["consumer"]
+    : T extends ConsumerDefinition
+      ? T
+      : never;
+
+/**
+ * Extract consumer definitions from all consumers in a contract.
+ * @internal
+ */
+type ExtractConsumerDefinitions<TConsumers extends Record<string, ConsumerEntry>> = {
+  [K in keyof TConsumers]: ExtractConsumerDefinition<TConsumers[K]>;
+};
+
+/**
+ * Extract the publisher definition from a publisher entry.
+ * @internal
+ */
+type ExtractPublisherDefinition<T extends PublisherEntry> = T extends EventPublisherConfigBase
+  ? PublisherDefinition<T["message"]> &
+      (T["exchange"] extends FanoutExchangeDefinition
+        ? { exchange: T["exchange"]; routingKey?: never }
+        : { exchange: T["exchange"]; routingKey: T["routingKey"] & string })
+  : T extends PublisherDefinition
+    ? T
+    : never;
+
+/**
+ * Extract publisher definitions from all publishers in a contract.
+ * @internal
+ */
+type ExtractPublisherDefinitions<TPublishers extends Record<string, PublisherEntry>> = {
+  [K in keyof TPublishers]: ExtractPublisherDefinition<TPublishers[K]>;
+};
+
+/**
+ * Contract output type with all resources extracted and properly typed.
+ *
+ * This type represents the fully expanded contract with:
+ * - exchanges: Extracted from publishers and consumer bindings
+ * - queues: Extracted from consumers
+ * - bindings: Extracted from event/command consumers
+ * - publishers: Normalized publisher definitions
+ * - consumers: Normalized consumer definitions
+ */
+export type ContractOutput<TContract extends ContractDefinitionInput> = {
+  exchanges: (TContract["publishers"] extends Record<string, PublisherEntry>
+    ? ExtractExchangesFromPublishers<TContract["publishers"]>
+    : {}) &
+    (TContract["consumers"] extends Record<string, ConsumerEntry>
+      ? ExtractExchangesFromConsumers<TContract["consumers"]>
+      : {}) &
+    (TContract["consumers"] extends Record<string, ConsumerEntry>
+      ? ExtractDeadLetterExchangesFromConsumers<TContract["consumers"]>
+      : {});
+  queues: TContract["consumers"] extends Record<string, ConsumerEntry>
+    ? ExtractQueuesFromConsumers<TContract["consumers"]>
+    : {};
+  bindings: TContract["consumers"] extends Record<string, ConsumerEntry>
+    ? ExtractBindingsFromConsumers<TContract["consumers"]>
+    : {};
+  publishers: TContract["publishers"] extends Record<string, PublisherEntry>
+    ? ExtractPublisherDefinitions<TContract["publishers"]>
+    : {};
+  consumers: TContract["consumers"] extends Record<string, ConsumerEntry>
+    ? ExtractConsumerDefinitions<TContract["consumers"]>
+    : {};
+};
+
 /**
  * Extract publisher names from a contract.
  *
@@ -1087,7 +1279,7 @@ export type ContractDefinitionInput = Omit<ContractDefinition, "publishers" | "c
  * // Result: 'orderCreated' | 'orderUpdated' | 'orderCancelled'
  * ```
  */
-export type InferPublisherNames<TContract extends ContractDefinitionInput> =
+export type InferPublisherNames<TContract extends ContractDefinition> =
   TContract["publishers"] extends Record<string, unknown> ? keyof TContract["publishers"] : never;
 
 /**
@@ -1105,5 +1297,5 @@ export type InferPublisherNames<TContract extends ContractDefinitionInput> =
  * // Result: 'processOrder' | 'sendNotification' | 'updateInventory'
  * ```
  */
-export type InferConsumerNames<TContract extends ContractDefinitionInput> =
+export type InferConsumerNames<TContract extends ContractDefinition> =
   TContract["consumers"] extends Record<string, unknown> ? keyof TContract["consumers"] : never;

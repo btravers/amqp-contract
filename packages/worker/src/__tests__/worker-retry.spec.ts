@@ -1,12 +1,11 @@
 import { Future, Result } from "@swan-io/boxed";
 import {
-  defineConsumer,
   defineContract,
+  defineEventConsumer,
+  defineEventPublisher,
   defineExchange,
   defineMessage,
   defineQueue,
-  defineQueueBinding,
-  defineTtlBackoffRetryInfrastructure,
 } from "@amqp-contract/contract";
 import { describe, expect, vi } from "vitest";
 import { RetryableError } from "../errors.js";
@@ -41,33 +40,14 @@ describe("Worker Retry Mechanism", () => {
           jitter: false, // Disable jitter for predictable testing
         },
       });
-      const dlq = defineQueue("retry-flow-dlq", { type: "classic", durable: false });
 
-      // Use helper to generate TTL-backoff retry infrastructure
-      const retryInfra = defineTtlBackoffRetryInfrastructure(queue);
+      const testMessage = defineMessage(TestMessage);
+      const testEvent = defineEventPublisher(exchange, testMessage, { routingKey: "test.message" });
 
       const contract = defineContract({
-        exchanges: {
-          main: exchange,
-          dlx,
-        },
-        queues: {
-          main: queue,
-          waitQueue: retryInfra.waitQueue,
-          dlq,
-        },
-        bindings: {
-          mainBinding: defineQueueBinding(queue, exchange, {
-            routingKey: "test.#",
-          }),
-          waitQueueBinding: retryInfra.waitQueueBinding,
-          mainQueueRetryBinding: retryInfra.mainQueueRetryBinding,
-          dlqBinding: defineQueueBinding(dlq, dlx, {
-            routingKey: "retry-flow-queue.dlq",
-          }),
-        },
+        publishers: { testPublisher: testEvent },
         consumers: {
-          testConsumer: defineConsumer(queue, defineMessage(TestMessage)),
+          testConsumer: defineEventConsumer(testEvent, queue, { routingKey: "test.#" }),
         },
       });
 
@@ -163,39 +143,24 @@ describe("Worker Retry Mechanism", () => {
           jitter: false,
         },
       });
-      const dlq = defineQueue("backoff-dlq", { type: "classic", durable: false });
 
-      // Use helper to generate TTL-backoff retry infrastructure
-      const retryInfra = defineTtlBackoffRetryInfrastructure(queue);
+      const testMessage = defineMessage(TestMessage);
+      const testEvent = defineEventPublisher(exchange, testMessage, { routingKey: "test.message" });
 
       const contract = defineContract({
-        exchanges: {
-          main: exchange,
-          dlx,
-        },
-        queues: {
-          main: queue,
-          waitQueue: retryInfra.waitQueue,
-          dlq,
-        },
-        bindings: {
-          mainBinding: defineQueueBinding(queue, exchange, {
-            routingKey: "test.#",
-          }),
-          waitQueueBinding: retryInfra.waitQueueBinding,
-          mainQueueRetryBinding: retryInfra.mainQueueRetryBinding,
-          dlqBinding: defineQueueBinding(dlq, dlx, {
-            routingKey: "backoff-queue.dlq",
-          }),
-        },
+        publishers: { testPublisher: testEvent },
         consumers: {
-          testConsumer: defineConsumer(queue, defineMessage(TestMessage)),
+          testConsumer: defineEventConsumer(testEvent, queue, { routingKey: "test.#" }),
         },
       });
 
       await workerFactory(contract, {
         testConsumer: () => Future.value(Result.Error(new RetryableError("Always fails"))),
       });
+
+      // Set up DLQ manually for verification (after worker creates the DLX exchange)
+      await amqpChannel.assertQueue("backoff-dlq", { durable: false });
+      await amqpChannel.bindQueue("backoff-dlq", dlx.name, "backoff-queue.dlq");
 
       // WHEN publishing a message that always fails
       publishMessage(exchange.name, "test.message", { id: "backoff-1" });
@@ -267,33 +232,14 @@ describe("Worker Retry Mechanism", () => {
           jitter: false,
         },
       });
-      const dlq = defineQueue("maxretry-dlq", { type: "classic", durable: false });
 
-      // Use helper to generate TTL-backoff retry infrastructure
-      const retryInfra = defineTtlBackoffRetryInfrastructure(queue);
+      const testMessage = defineMessage(TestMessage);
+      const testEvent = defineEventPublisher(exchange, testMessage, { routingKey: "test.message" });
 
       const contract = defineContract({
-        exchanges: {
-          main: exchange,
-          dlx,
-        },
-        queues: {
-          main: queue,
-          waitQueue: retryInfra.waitQueue,
-          dlq,
-        },
-        bindings: {
-          mainBinding: defineQueueBinding(queue, exchange, {
-            routingKey: "test.#",
-          }),
-          waitQueueBinding: retryInfra.waitQueueBinding,
-          mainQueueRetryBinding: retryInfra.mainQueueRetryBinding,
-          dlqBinding: defineQueueBinding(dlq, dlx, {
-            routingKey: "maxretry-queue.dlq",
-          }),
-        },
+        publishers: { testPublisher: testEvent },
         consumers: {
-          testConsumer: defineConsumer(queue, defineMessage(TestMessage)),
+          testConsumer: defineEventConsumer(testEvent, queue, { routingKey: "test.#" }),
         },
       });
 
@@ -304,6 +250,10 @@ describe("Worker Retry Mechanism", () => {
           return Future.value(Result.Error(new RetryableError("Always fails")));
         },
       });
+
+      // Set up DLQ manually for verification (after worker creates the DLX exchange)
+      await amqpChannel.assertQueue("maxretry-dlq", { durable: false });
+      await amqpChannel.bindQueue("maxretry-dlq", dlx.name, "maxretry-queue.dlq");
 
       // WHEN publishing a message that always fails
       publishMessage(exchange.name, "test.message", { id: "maxretry-1" });
@@ -361,33 +311,14 @@ describe("Worker Retry Mechanism", () => {
           jitter: false,
         },
       });
-      const dlq = defineQueue("headers-dlq", { type: "classic", durable: false });
 
-      // Use helper to generate TTL-backoff retry infrastructure
-      const retryInfra = defineTtlBackoffRetryInfrastructure(queue);
+      const testMessage = defineMessage(TestMessage);
+      const testEvent = defineEventPublisher(exchange, testMessage, { routingKey: "test.message" });
 
       const contract = defineContract({
-        exchanges: {
-          main: exchange,
-          dlx,
-        },
-        queues: {
-          main: queue,
-          waitQueue: retryInfra.waitQueue,
-          dlq,
-        },
-        bindings: {
-          mainBinding: defineQueueBinding(queue, exchange, {
-            routingKey: "test.#",
-          }),
-          waitQueueBinding: retryInfra.waitQueueBinding,
-          mainQueueRetryBinding: retryInfra.mainQueueRetryBinding,
-          dlqBinding: defineQueueBinding(dlq, dlx, {
-            routingKey: "headers-queue.dlq",
-          }),
-        },
+        publishers: { testPublisher: testEvent },
         consumers: {
-          testConsumer: defineConsumer(queue, defineMessage(TestMessage)),
+          testConsumer: defineEventConsumer(testEvent, queue, { routingKey: "test.#" }),
         },
       });
 
@@ -438,20 +369,13 @@ describe("Worker Retry Mechanism", () => {
         // No deadLetter configuration
       });
 
+      const testMessage = defineMessage(TestMessage);
+      const testEvent = defineEventPublisher(exchange, testMessage, { routingKey: "test.message" });
+
       const contract = defineContract({
-        exchanges: {
-          main: exchange,
-        },
-        queues: {
-          main: queue,
-        },
-        bindings: {
-          mainBinding: defineQueueBinding(queue, exchange, {
-            routingKey: "test.#",
-          }),
-        },
+        publishers: { testPublisher: testEvent },
         consumers: {
-          testConsumer: defineConsumer(queue, defineMessage(TestMessage)),
+          testConsumer: defineEventConsumer(testEvent, queue, { routingKey: "test.#" }),
         },
       });
 
@@ -508,27 +432,14 @@ describe("Worker Retry Mechanism", () => {
           mode: "quorum-native", // Use quorum queue's native delivery limit
         },
       });
-      const dlq = defineQueue("quorum-native-dlq", { type: "quorum" });
+
+      const testMessage = defineMessage(TestMessage);
+      const testEvent = defineEventPublisher(exchange, testMessage, { routingKey: "test.message" });
 
       const contract = defineContract({
-        exchanges: {
-          main: exchange,
-          dlx,
-        },
-        queues: {
-          main: queue,
-          dlq,
-        },
-        bindings: {
-          mainBinding: defineQueueBinding(queue, exchange, {
-            routingKey: "test.#",
-          }),
-          dlqBinding: defineQueueBinding(dlq, dlx, {
-            routingKey: "quorum-native-queue.dlq",
-          }),
-        },
+        publishers: { testPublisher: testEvent },
         consumers: {
-          testConsumer: defineConsumer(queue, defineMessage(TestMessage)),
+          testConsumer: defineEventConsumer(testEvent, queue, { routingKey: "test.#" }),
         },
       });
 
@@ -583,27 +494,14 @@ describe("Worker Retry Mechanism", () => {
           mode: "quorum-native",
         },
       });
-      const dlq = defineQueue("quorum-dlq-dlq", { type: "quorum" });
+
+      const testMessage = defineMessage(TestMessage);
+      const testEvent = defineEventPublisher(exchange, testMessage, { routingKey: "test.message" });
 
       const contract = defineContract({
-        exchanges: {
-          main: exchange,
-          dlx,
-        },
-        queues: {
-          main: queue,
-          dlq,
-        },
-        bindings: {
-          mainBinding: defineQueueBinding(queue, exchange, {
-            routingKey: "test.#",
-          }),
-          dlqBinding: defineQueueBinding(dlq, dlx, {
-            routingKey: "quorum-dlq-queue.dlq",
-          }),
-        },
+        publishers: { testPublisher: testEvent },
         consumers: {
-          testConsumer: defineConsumer(queue, defineMessage(TestMessage)),
+          testConsumer: defineEventConsumer(testEvent, queue, { routingKey: "test.#" }),
         },
       });
 
@@ -615,6 +513,10 @@ describe("Worker Retry Mechanism", () => {
           return Future.value(Result.Error(new RetryableError("Always fails")));
         },
       });
+
+      // Set up DLQ manually for verification (after worker creates the DLX exchange)
+      await amqpChannel.assertQueue("quorum-dlq-dlq", { durable: true });
+      await amqpChannel.bindQueue("quorum-dlq-dlq", dlx.name, "quorum-dlq-queue.dlq");
 
       // WHEN publishing a message that always fails
       publishMessage(exchange.name, "test.message", { id: "quorum-dlq-1" });
