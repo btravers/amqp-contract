@@ -1035,14 +1035,7 @@ describe("builder", () => {
       });
 
       const contract = defineContract({
-        exchanges: {
-          orders: ordersExchange,
-        },
-        queues: {
-          orderProcessing: orderQueue,
-          notifications: notificationQueue,
-        },
-        events: {
+        publishers: {
           orderCreated,
         },
         // Pass EventConsumerResult directly - bindings are auto-extracted
@@ -1093,9 +1086,6 @@ describe("builder", () => {
 
       // WHEN - Mix of plain consumer and EventConsumerResult
       const contract = defineContract({
-        exchanges: { events: exchange },
-        queues: { queue1, queue2 },
-        bindings: {}, // Include bindings section for proper type inference
         consumers: {
           // Plain ConsumerDefinition
           plainConsumer: defineConsumer(queue1, message),
@@ -1369,14 +1359,6 @@ describe("builder", () => {
       );
 
       const contract = defineContract({
-        exchanges: {
-          orders: ordersExchange,
-          notifications: notificationsExchange,
-        },
-        queues: {
-          orderQueue,
-          notificationQueue,
-        },
         publishers: {
           // EventPublisherConfig auto-extracted to publisher
           orderCreated,
@@ -1413,6 +1395,70 @@ describe("builder", () => {
             type: "queue",
           }),
         },
+      });
+    });
+
+    it("should auto-generate TTL-backoff retry infrastructure from consumer queue", () => {
+      // GIVEN
+      const dlx = defineExchange("orders-dlx", "direct", { durable: true });
+      const ordersExchange = defineExchange("orders", "topic", { durable: true });
+      const orderMessage = defineMessage(z.object({ orderId: z.string() }));
+      const orderQueue = defineQueue("order-processing", {
+        deadLetter: { exchange: dlx },
+        retry: { mode: "ttl-backoff", maxRetries: 5, initialDelayMs: 2000 },
+      });
+
+      const orderCreated = defineEventPublisher(ordersExchange, orderMessage, {
+        routingKey: "order.created",
+      });
+
+      // WHEN
+      const contract = defineContract({
+        publishers: { orderCreated },
+        consumers: {
+          processOrder: defineEventConsumer(orderCreated, extractQueue(orderQueue)),
+        },
+      });
+
+      // THEN - DLX exchange is auto-extracted
+      expect(contract.exchanges).toMatchObject({
+        orders: ordersExchange,
+        "orders-dlx": dlx,
+      });
+
+      // Wait queue is auto-generated
+      expect(contract.queues).toMatchObject({
+        "order-processing": extractQueue(orderQueue),
+        "order-processing-wait": expect.objectContaining({
+          name: "order-processing-wait",
+          type: "quorum",
+          deadLetter: {
+            exchange: dlx,
+            routingKey: "order-processing",
+          },
+        }),
+      });
+
+      // Wait binding (DLX → wait queue) and retry binding (DLX → main queue)
+      expect(contract.bindings).toMatchObject({
+        processOrderBinding: expect.objectContaining({
+          type: "queue",
+          queue: extractQueue(orderQueue),
+          exchange: ordersExchange,
+          routingKey: "order.created",
+        }),
+        "order-processingWaitBinding": expect.objectContaining({
+          type: "queue",
+          queue: expect.objectContaining({ name: "order-processing-wait" }),
+          exchange: dlx,
+          routingKey: "order-processing-wait",
+        }),
+        "order-processingRetryBinding": expect.objectContaining({
+          type: "queue",
+          queue: extractQueue(orderQueue),
+          exchange: dlx,
+          routingKey: "order-processing",
+        }),
       });
     });
   });

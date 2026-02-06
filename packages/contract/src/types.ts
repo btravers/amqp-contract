@@ -638,16 +638,19 @@ export type QueueDefinition = QuorumQueueDefinition | ClassicQueueDefinition;
  * @example
  * ```typescript
  * const dlx = defineExchange('orders-dlx', 'direct', { durable: true });
+ * const exchange = defineExchange('orders', 'topic', { durable: true });
  * const queue = defineQueue('order-processing', {
  *   deadLetter: { exchange: dlx },
  *   retry: { mode: 'ttl-backoff', maxRetries: 5 },
  * });
  * // queue is QueueWithTtlBackoffInfrastructure
+ * const message = defineMessage(z.object({ orderId: z.string() }));
+ * const orderCreated = defineEventPublisher(exchange, message, { routingKey: 'order.created' });
  *
+ * // Wait queue, bindings, and DLX exchange are automatically extracted
  * const contract = defineContract({
- *   exchanges: { dlx },
- *   queues: { orderProcessing: queue }, // Automatically adds wait queue
- *   // ... bindings are automatically generated
+ *   publishers: { orderCreated },
+ *   consumers: { processOrder: defineEventConsumer(orderCreated, extractQueue(queue)) },
  * });
  * ```
  */
@@ -1148,6 +1151,25 @@ type ExtractExchangesFromConsumers<TConsumers extends Record<string, ConsumerEnt
 };
 
 /**
+ * Extract the dead letter exchange from a consumer's queue.
+ * @internal
+ */
+type ExtractDeadLetterExchange<T extends ConsumerEntry> =
+  ExtractConsumerQueue<T> extends { deadLetter: { exchange: infer E extends ExchangeDefinition } }
+    ? E
+    : never;
+
+/**
+ * Extract dead letter exchanges from all consumers in a contract.
+ * @internal
+ */
+type ExtractDeadLetterExchangesFromConsumers<TConsumers extends Record<string, ConsumerEntry>> = {
+  [K in keyof TConsumers as ExtractDeadLetterExchange<TConsumers[K]> extends never
+    ? never
+    : ExtractDeadLetterExchange<TConsumers[K]>["name"]]: ExtractDeadLetterExchange<TConsumers[K]>;
+};
+
+/**
  * Extract queues from all consumers in a contract.
  * @internal
  */
@@ -1224,6 +1246,9 @@ export type ContractOutput<TContract extends ContractDefinitionInput> = {
     : {}) &
     (TContract["consumers"] extends Record<string, ConsumerEntry>
       ? ExtractExchangesFromConsumers<TContract["consumers"]>
+      : {}) &
+    (TContract["consumers"] extends Record<string, ConsumerEntry>
+      ? ExtractDeadLetterExchangesFromConsumers<TContract["consumers"]>
       : {});
   queues: TContract["consumers"] extends Record<string, ConsumerEntry>
     ? ExtractQueuesFromConsumers<TContract["consumers"]>
