@@ -1,11 +1,10 @@
 import { Future, Result } from "@swan-io/boxed";
 import {
-  defineConsumer,
+  defineCommandConsumer,
   defineContract,
   defineExchange,
   defineMessage,
   defineQueue,
-  defineQueueBinding,
 } from "@amqp-contract/contract";
 import { describe, expect, vi } from "vitest";
 import { AmqpWorkerModule } from "../worker.module.js";
@@ -18,9 +17,6 @@ import { z } from "zod";
 // Define contract at module level for type inference
 const testExchange = defineExchange("test-exchange", "topic", { durable: false });
 const testQueue = defineQueue("test-queue", { type: "classic", durable: false });
-const testBinding = defineQueueBinding(testQueue, testExchange, {
-  routingKey: "test.#",
-});
 
 const testMessage = defineMessage(
   z.object({
@@ -29,18 +25,13 @@ const testMessage = defineMessage(
   }),
 );
 
+const testConsumer = defineCommandConsumer(testQueue, testExchange, testMessage, {
+  routingKey: "test.#",
+});
+
 const testContract = defineContract({
-  exchanges: {
-    test: testExchange,
-  },
-  queues: {
-    test: testQueue,
-  },
-  bindings: {
-    testBinding,
-  },
   consumers: {
-    testConsumer: defineConsumer(testQueue, testMessage),
+    testConsumer,
   },
 });
 
