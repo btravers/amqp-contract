@@ -338,16 +338,16 @@ expect(mockHandler).toHaveBeenCalledWith(
 | `@swan-io/boxed`          | 3.2.1   | Future/Result functional types         |
 | `amqplib`                 | 0.10.9  | AMQP 0.9.1 client                      |
 | `amqp-connection-manager` | 5.0.0   | Connection management                  |
-| `zod`                     | 4.3.5   | Schema validation (Standard Schema v1) |
+| `zod`                     | 4.3.6   | Schema validation (Standard Schema v1) |
 | `valibot`                 | 1.2.0   | Schema validation alternative          |
 | `arktype`                 | 2.1.29  | Schema validation alternative          |
 | `@standard-schema/spec`   | 1.1.0   | Universal schema interface             |
-| `vitest`                  | 4.0.17  | Test framework                         |
+| `vitest`                  | 4.0.18  | Test framework                         |
 | `testcontainers`          | 11.11.0 | Docker containers for tests            |
 
 ## Monorepo Tooling
 
-- **Package manager**: pnpm 10.27.0
+- **Package manager**: pnpm 10.28.2
 - **Build**: turbo + tsdown (generates CJS/ESM with TypeScript definitions)
 - **Linting**: oxlint (Rust-based, enforces strict type rules)
 - **Formatting**: oxfmt (Rust-based)

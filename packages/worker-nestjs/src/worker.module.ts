@@ -52,9 +52,9 @@ export type AmqpWorkerModuleAsyncOptions<TContract extends ContractDefinition> =
  *     AmqpWorkerModule.forRoot({
  *       contract: myContract,
  *       handlers: {
- *         processOrder: async (message) => {
- *           // message is fully typed based on the contract
- *           console.log('Order:', message.orderId);
+ *         processOrder: ({ payload }) => {
+ *           console.log('Order:', payload.orderId);
+ *           return Future.value(Result.Ok(undefined));
  *         }
  *       },
  *       urls: ['amqp://localhost']
@@ -71,8 +71,9 @@ export type AmqpWorkerModuleAsyncOptions<TContract extends ContractDefinition> =
  *       useFactory: (configService: ConfigService) => ({
  *         contract: myContract,
  *         handlers: {
- *           processOrder: async (message) => {
- *             console.log('Order:', message.orderId);
+ *           processOrder: ({ payload }) => {
+ *             console.log('Order:', payload.orderId);
+ *             return Future.value(Result.Ok(undefined));
  *           }
  *         },
  *         urls: configService.get('AMQP_URLS')
