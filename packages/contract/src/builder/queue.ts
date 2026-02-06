@@ -4,6 +4,7 @@ import type {
   DeadLetterConfig,
   DefineQueueOptions,
   ExchangeDefinition,
+  ExtractQueueFromEntry,
   QueueDefinition,
   QueueEntry,
   QueueWithTtlBackoffInfrastructure,
@@ -123,11 +124,11 @@ export function isQueueWithTtlBackoffInfrastructure(
  * @see isQueueWithTtlBackoffInfrastructure - Type guard to check if extraction is needed
  * @see defineTtlBackoffQueue - Creates queues with TTL-backoff infrastructure
  */
-export function extractQueue(entry: QueueEntry): QueueDefinition {
+export function extractQueue<T extends QueueEntry>(entry: T): ExtractQueueFromEntry<T> {
   if (isQueueWithTtlBackoffInfrastructure(entry)) {
-    return entry.queue;
+    return entry.queue as unknown as ExtractQueueFromEntry<T>;
   }
-  return entry;
+  return entry as unknown as ExtractQueueFromEntry<T>;
 }
 
 /**
@@ -241,6 +242,18 @@ function wrapWithTtlBackoffInfrastructure(
  * // orderQueue is QueueWithTtlBackoffInfrastructure, pass directly to defineContract
  * ```
  */
+export function defineQueue<TName extends string, TDlx extends ExchangeDefinition>(
+  name: TName,
+  options: DefineQueueOptions & { deadLetter: { exchange: TDlx } },
+): (QueueDefinition<TName> | QueueWithTtlBackoffInfrastructure<TName>) & {
+  deadLetter: { exchange: TDlx };
+};
+
+export function defineQueue<TName extends string>(
+  name: TName,
+  options?: DefineQueueOptions,
+): QueueDefinition<TName> | QueueWithTtlBackoffInfrastructure<TName>;
+
 export function defineQueue(
   name: string,
   options?: DefineQueueOptions,
@@ -439,10 +452,10 @@ export type DefineQuorumQueueOptions = {
  * @see defineQueue - For full queue configuration options
  * @see defineTtlBackoffQueue - For queues with exponential backoff retry
  */
-export function defineQuorumQueue(
-  name: string,
+export function defineQuorumQueue<TName extends string>(
+  name: TName,
   options: DefineQuorumQueueOptions,
-): QuorumQueueDefinition {
+): QuorumQueueDefinition<TName> {
   const {
     deadLetterExchange,
     deadLetterRoutingKey,
@@ -465,7 +478,7 @@ export function defineQuorumQueue(
   if (autoDelete !== undefined) queueOptions.autoDelete = autoDelete;
   if (args !== undefined) queueOptions.arguments = args;
 
-  return defineQueue(name, queueOptions) as QuorumQueueDefinition;
+  return defineQueue(name, queueOptions) as QuorumQueueDefinition<TName>;
 }
 
 /**
@@ -577,10 +590,10 @@ export type DefineTtlBackoffQueueOptions = {
  * @see defineQuorumQueue - For queues with quorum-native retry (simpler, immediate retries)
  * @see extractQueue - To access the underlying queue definition
  */
-export function defineTtlBackoffQueue(
-  name: string,
+export function defineTtlBackoffQueue<TName extends string>(
+  name: TName,
   options: DefineTtlBackoffQueueOptions,
-): QueueWithTtlBackoffInfrastructure {
+): QueueWithTtlBackoffInfrastructure<TName> {
   const {
     deadLetterExchange,
     deadLetterRoutingKey,
@@ -618,5 +631,5 @@ export function defineTtlBackoffQueue(
 
   // Since we configured TTL-backoff with a dead letter exchange, the result will
   // always be QueueWithTtlBackoffInfrastructure
-  return result as QueueWithTtlBackoffInfrastructure;
+  return result as QueueWithTtlBackoffInfrastructure<TName>;
 }

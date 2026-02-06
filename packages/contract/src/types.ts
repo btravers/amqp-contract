@@ -373,11 +373,11 @@ export type DefineQueueOptions = QuorumQueueOptions | ClassicQueueOptions;
  * An exchange receives messages from publishers and routes them to queues based on the exchange
  * type and routing rules. This type contains properties common to all exchange types.
  */
-export type BaseExchangeDefinition = {
+export type BaseExchangeDefinition<TName extends string = string> = {
   /**
    * The name of the exchange. Must be unique within the RabbitMQ virtual host.
    */
-  name: string;
+  name: TName;
 
   /**
    * If true, the exchange survives broker restarts. Durable exchanges are persisted to disk.
@@ -418,9 +418,10 @@ export type BaseExchangeDefinition = {
  * });
  * ```
  */
-export type FanoutExchangeDefinition = BaseExchangeDefinition & {
-  type: "fanout";
-};
+export type FanoutExchangeDefinition<TName extends string = string> =
+  BaseExchangeDefinition<TName> & {
+    type: "fanout";
+  };
 
 /**
  * A direct exchange definition.
@@ -435,9 +436,10 @@ export type FanoutExchangeDefinition = BaseExchangeDefinition & {
  * });
  * ```
  */
-export type DirectExchangeDefinition = BaseExchangeDefinition & {
-  type: "direct";
-};
+export type DirectExchangeDefinition<TName extends string = string> =
+  BaseExchangeDefinition<TName> & {
+    type: "direct";
+  };
 
 /**
  * A topic exchange definition.
@@ -456,19 +458,20 @@ export type DirectExchangeDefinition = BaseExchangeDefinition & {
  * // Can be bound with patterns like 'order.*' or 'order.#'
  * ```
  */
-export type TopicExchangeDefinition = BaseExchangeDefinition & {
-  type: "topic";
-};
+export type TopicExchangeDefinition<TName extends string = string> =
+  BaseExchangeDefinition<TName> & {
+    type: "topic";
+  };
 
 /**
  * Union type of all exchange definitions.
  *
  * Represents any type of AMQP exchange: fanout, direct, or topic.
  */
-export type ExchangeDefinition =
-  | FanoutExchangeDefinition
-  | DirectExchangeDefinition
-  | TopicExchangeDefinition;
+export type ExchangeDefinition<TName extends string = string> =
+  | FanoutExchangeDefinition<TName>
+  | DirectExchangeDefinition<TName>
+  | TopicExchangeDefinition<TName>;
 
 /**
  * Configuration for dead letter exchange (DLX) on a queue.
@@ -494,11 +497,11 @@ export type DeadLetterConfig = {
 /**
  * Common properties shared by all queue definitions.
  */
-type BaseQueueDefinition = {
+type BaseQueueDefinition<TName extends string = string> = {
   /**
    * The name of the queue. Must be unique within the RabbitMQ virtual host.
    */
-  name: string;
+  name: TName;
 
   /**
    * If true, the queue survives broker restarts. Durable queues are persisted to disk.
@@ -539,7 +542,7 @@ type BaseQueueDefinition = {
  * Quorum queues provide better durability and high-availability using the Raft consensus algorithm.
  * They support native retry handling via `deliveryLimit` and both TTL-backoff and quorum-native retry modes.
  */
-export type QuorumQueueDefinition = BaseQueueDefinition & {
+export type QuorumQueueDefinition<TName extends string = string> = BaseQueueDefinition<TName> & {
   /**
    * Queue type discriminator: quorum queue.
    */
@@ -589,7 +592,7 @@ export type QuorumQueueDefinition = BaseQueueDefinition & {
  * Classic queues are the traditional RabbitMQ queue type. Use them when you need
  * specific features not supported by quorum queues (e.g., exclusive queues, priority queues).
  */
-export type ClassicQueueDefinition = BaseQueueDefinition & {
+export type ClassicQueueDefinition<TName extends string = string> = BaseQueueDefinition<TName> & {
   /**
    * Queue type discriminator: classic queue.
    */
@@ -626,7 +629,9 @@ export type ClassicQueueDefinition = BaseQueueDefinition & {
  *
  * Use `queue.type` as the discriminator to narrow the type.
  */
-export type QueueDefinition = QuorumQueueDefinition | ClassicQueueDefinition;
+export type QueueDefinition<TName extends string = string> =
+  | QuorumQueueDefinition<TName>
+  | ClassicQueueDefinition<TName>;
 
 /**
  * A queue with automatically generated TTL-backoff retry infrastructure.
@@ -654,7 +659,7 @@ export type QueueDefinition = QuorumQueueDefinition | ClassicQueueDefinition;
  * });
  * ```
  */
-export type QueueWithTtlBackoffInfrastructure = {
+export type QueueWithTtlBackoffInfrastructure<TName extends string = string> = {
   /**
    * Discriminator to identify this as a queue with TTL-backoff infrastructure.
    * @internal
@@ -664,7 +669,7 @@ export type QueueWithTtlBackoffInfrastructure = {
   /**
    * The main queue definition.
    */
-  queue: QueueDefinition;
+  queue: QueueDefinition<TName>;
 
   /**
    * The wait queue for holding messages during backoff delay.
@@ -687,7 +692,9 @@ export type QueueWithTtlBackoffInfrastructure = {
  *
  * Can be either a plain queue definition or a queue with TTL-backoff infrastructure.
  */
-export type QueueEntry = QueueDefinition | QueueWithTtlBackoffInfrastructure;
+export type QueueEntry<TName extends string = string> =
+  | QueueDefinition<TName>
+  | QueueWithTtlBackoffInfrastructure<TName>;
 
 /**
  * Definition of a message with typed payload and optional headers.
@@ -917,6 +924,8 @@ export type CommandConsumerConfigBase = {
   consumer: ConsumerDefinition;
   binding: QueueBindingDefinition;
   exchange: ExchangeDefinition;
+  queue: QueueDefinition;
+  deadLetterExchange: ExchangeDefinition | undefined;
   message: MessageDefinition;
   routingKey: string | undefined;
 };
@@ -933,6 +942,9 @@ export type EventConsumerResultBase = {
   __brand: "EventConsumerResult";
   consumer: ConsumerDefinition;
   binding: QueueBindingDefinition;
+  exchange: ExchangeDefinition;
+  queue: QueueDefinition;
+  deadLetterExchange: ExchangeDefinition | undefined;
 };
 
 /**
@@ -1087,13 +1099,44 @@ type ExtractPublisherExchange<T extends PublisherEntry> = T extends EventPublish
     : never;
 
 /**
+ * Extract the QueueDefinition from a QueueEntry type.
+ * For QueueWithTtlBackoffInfrastructure, returns the inner queue definition.
+ * For QueueDefinition, returns as-is.
+ * For complex intersections, falls back to extracting TName from QueueEntry<TName>.
+ * @internal
+ */
+export type ExtractQueueFromEntry<T extends QueueEntry> =
+  T extends QueueWithTtlBackoffInfrastructure<infer TName>
+    ? QueueDefinition<TName>
+    : T extends QueueDefinition<infer TName>
+      ? QueueDefinition<TName>
+      : T extends QueueEntry<infer TName>
+        ? QueueDefinition<TName>
+        : QueueDefinition;
+
+/**
+ * Extract the dead letter exchange from a QueueEntry type.
+ * Handles both plain queue entries and those with DLX intersection from defineQueue overloads.
+ * @internal
+ */
+export type ExtractDlxFromEntry<T extends QueueEntry> = T extends {
+  deadLetter: { exchange: infer E extends ExchangeDefinition };
+}
+  ? E
+  : T extends QueueWithTtlBackoffInfrastructure
+    ? T["queue"] extends { deadLetter: { exchange: infer E extends ExchangeDefinition } }
+      ? E
+      : undefined
+    : undefined;
+
+/**
  * Extract the queue from a consumer entry.
  * @internal
  */
 type ExtractConsumerQueue<T extends ConsumerEntry> = T extends EventConsumerResultBase
-  ? T["consumer"]["queue"]
+  ? T["queue"]
   : T extends CommandConsumerConfigBase
-    ? T["consumer"]["queue"]
+    ? T["queue"]
     : T extends ConsumerDefinition
       ? T["queue"]
       : never;
@@ -1103,7 +1146,7 @@ type ExtractConsumerQueue<T extends ConsumerEntry> = T extends EventConsumerResu
  * @internal
  */
 type ExtractConsumerExchange<T extends ConsumerEntry> = T extends EventConsumerResultBase
-  ? T["binding"]["exchange"]
+  ? T["exchange"]
   : T extends CommandConsumerConfigBase
     ? T["exchange"]
     : never;
@@ -1151,12 +1194,19 @@ type ExtractExchangesFromConsumers<TConsumers extends Record<string, ConsumerEnt
 };
 
 /**
- * Extract the dead letter exchange from a consumer's queue.
+ * Extract the dead letter exchange from a consumer entry.
  * @internal
  */
-type ExtractDeadLetterExchange<T extends ConsumerEntry> =
-  ExtractConsumerQueue<T> extends { deadLetter: { exchange: infer E extends ExchangeDefinition } }
-    ? E
+type ExtractDeadLetterExchange<T extends ConsumerEntry> = T extends
+  | EventConsumerResultBase
+  | CommandConsumerConfigBase
+  ? T["deadLetterExchange"] extends ExchangeDefinition
+    ? T["deadLetterExchange"]
+    : never
+  : T extends ConsumerDefinition
+    ? T["queue"] extends { deadLetter: { exchange: infer E extends ExchangeDefinition } }
+      ? E
+      : never
     : never;
 
 /**

@@ -4,7 +4,13 @@
  */
 
 import type { BindingPattern, MatchingRoutingKey, RoutingKey } from "./builder.js";
-import type { ConsumerDefinition, PublisherDefinition } from "./types.js";
+import type {
+  ConsumerDefinition,
+  DirectExchangeDefinition,
+  FanoutExchangeDefinition,
+  PublisherDefinition,
+  TopicExchangeDefinition,
+} from "./types.js";
 import {
   defineCommandConsumer,
   defineCommandPublisher,
@@ -334,5 +340,96 @@ describe("ContractOutput type inference", () => {
     expectTypeOf(contract.exchanges).toHaveProperty("notifications");
     expectTypeOf(contract.queues).toHaveProperty("notifications");
     expectTypeOf(contract.bindings).toHaveProperty("receiveNotifBinding");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ContractOutput strict literal key inference (issue #347)
+// ---------------------------------------------------------------------------
+
+describe("ContractOutput strict literal keys", () => {
+  const ordersExchange = defineExchange("orders", "topic", { durable: true });
+  const dlx = defineExchange("orders-dlx", "direct", { durable: true });
+  const orderQueue = defineQueue("order-processing", {
+    deadLetter: { exchange: dlx },
+    retry: { mode: "quorum-native" },
+    deliveryLimit: 3,
+  });
+  const orderMessage = defineMessage(z.object({ orderId: z.string() }));
+
+  test("exchange keys should be literal string types, not string", () => {
+    const orderCreated = defineEventPublisher(ordersExchange, orderMessage, {
+      routingKey: "order.created",
+    });
+    const contract = defineContract({
+      publishers: { orderCreated },
+      consumers: {
+        processOrder: defineEventConsumer(orderCreated, orderQueue),
+      },
+    });
+
+    // Exchange keys should be literal union, not string
+    expectTypeOf<keyof typeof contract.exchanges>().toEqualTypeOf<"orders" | "orders-dlx">();
+  });
+
+  test("queue keys should be literal string types, not string", () => {
+    const orderCreated = defineEventPublisher(ordersExchange, orderMessage, {
+      routingKey: "order.created",
+    });
+    const contract = defineContract({
+      publishers: { orderCreated },
+      consumers: {
+        processOrder: defineEventConsumer(orderCreated, orderQueue),
+      },
+    });
+
+    // Queue keys should be literal, not string
+    expectTypeOf<keyof typeof contract.queues>().toEqualTypeOf<"order-processing">();
+  });
+
+  test("exchange type discriminator should be narrowed", () => {
+    const orderCreated = defineEventPublisher(ordersExchange, orderMessage, {
+      routingKey: "order.created",
+    });
+    const contract = defineContract({
+      publishers: { orderCreated },
+      consumers: {
+        processOrder: defineEventConsumer(orderCreated, orderQueue),
+      },
+    });
+
+    expectTypeOf(contract.exchanges.orders).toMatchTypeOf<TopicExchangeDefinition>();
+    expectTypeOf(contract.exchanges["orders-dlx"]).toMatchTypeOf<DirectExchangeDefinition>();
+  });
+
+  test("command consumer should preserve queue and exchange literal types", () => {
+    const processCommand = defineCommandConsumer(orderQueue, ordersExchange, orderMessage, {
+      routingKey: "order.process",
+    });
+    const contract = defineContract({
+      consumers: { processCommand },
+    });
+
+    // Exchange key should be literal
+    expectTypeOf<keyof typeof contract.exchanges>().toEqualTypeOf<"orders" | "orders-dlx">();
+
+    // Queue key should be literal
+    expectTypeOf<keyof typeof contract.queues>().toEqualTypeOf<"order-processing">();
+  });
+
+  test("fanout exchange should preserve literal name", () => {
+    const fanoutExchange = defineExchange("notifications", "fanout");
+    const notifMessage = defineMessage(z.object({ text: z.string() }));
+    const notifQueue = defineQueue("notifications");
+    const broadcast = defineEventPublisher(fanoutExchange, notifMessage);
+    const contract = defineContract({
+      publishers: { broadcast },
+      consumers: {
+        receiveNotif: defineEventConsumer(broadcast, notifQueue),
+      },
+    });
+
+    expectTypeOf(contract.exchanges.notifications).toMatchTypeOf<FanoutExchangeDefinition>();
+    expectTypeOf<keyof typeof contract.queues>().toEqualTypeOf<"notifications">();
   });
 });
