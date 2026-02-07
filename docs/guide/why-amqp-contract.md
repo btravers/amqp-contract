@@ -134,16 +134,12 @@ const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
   routingKey: "order.created",
 });
 
-// 4. Create contract - configs go directly, bindings auto-generated
+// 4. Create contract - exchanges, queues, bindings auto-extracted
 const contract = defineContract({
-  exchanges: { orders: ordersExchange },
-  queues: { orderProcessing: orderProcessingQueue },
   publishers: {
-    // EventPublisherConfig → auto-extracted to publisher
     orderCreated: orderCreatedEvent,
   },
   consumers: {
-    // EventConsumerResult → auto-extracted to consumer + binding
     processOrder: defineEventConsumer(orderCreatedEvent, orderProcessingQueue),
   },
 });
@@ -231,14 +227,10 @@ const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
 const contract = defineContract({
   // Define once, use across all publishers and consumers
   // Publisher and consumer guaranteed to use same schema
-  exchanges: { orders: ordersExchange },
-  queues: { orderProcessing: orderProcessingQueue },
   publishers: {
-    // EventPublisherConfig → auto-extracted to publisher
     orderCreated: orderCreatedEvent,
   },
   consumers: {
-    // EventConsumerResult → auto-extracted to consumer + binding
     processOrder: defineEventConsumer(orderCreatedEvent, orderProcessingQueue),
   },
 });

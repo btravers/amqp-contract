@@ -35,9 +35,6 @@ describe("AmqpClientService", () => {
       const testMessage = defineMessage(z.object({ message: z.string() }));
 
       const contract = defineContract({
-        exchanges: {
-          testExchange,
-        },
         publishers: {
           testPublisher: definePublisher(testExchange, testMessage, {
             routingKey: "test.key",

@@ -24,9 +24,6 @@ const testMessage = defineMessage(
 );
 
 const testContract = defineContract({
-  exchanges: {
-    test: testExchange,
-  },
   publishers: {
     testPublisher: definePublisher(testExchange, testMessage, {
       routingKey: "test.key",

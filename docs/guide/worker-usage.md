@@ -573,9 +573,16 @@ const worker = await TypedAmqpWorker.create({
 This mode provides exponential backoff using RabbitMQ's TTL and Dead Letter Exchange (DLX) pattern. **Wait queues and bindings are automatically generated** when you use `defineContract`:
 
 ```typescript
-import { defineQueue, defineExchange, defineContract } from "@amqp-contract/contract";
+import {
+  defineQueue,
+  defineExchange,
+  defineContract,
+  defineConsumer,
+  defineMessage,
+} from "@amqp-contract/contract";
 import { TypedAmqpWorker, RetryableError } from "@amqp-contract/worker";
 import { Future } from "@swan-io/boxed";
+import { z } from "zod";
 
 // 1. Define queue with TTL-backoff retry - infrastructure auto-generated
 const dlx = defineExchange("orders-dlx", "topic", { durable: true });
@@ -590,12 +597,13 @@ const ordersQueue = defineQueue("orders", {
     jitter: true, // Add random jitter to prevent thundering herd (default: true)
   },
 });
+const orderMessage = defineMessage(z.object({ orderId: z.string(), amount: z.number() }));
 
-// 2. defineContract automatically creates wait queue and bindings
+// 2. defineContract auto-extracts exchanges, queues and creates wait queue + bindings
 const contract = defineContract({
-  exchanges: { dlx },
-  queues: { orders: ordersQueue }, // Wait queue auto-added as "ordersWait"
-  // Bindings for retry routing are auto-added
+  consumers: {
+    processOrder: defineConsumer(ordersQueue, orderMessage),
+  },
 });
 
 // 3. Worker automatically uses queue's retry configuration
@@ -674,7 +682,8 @@ import {
   defineQueue,
   defineExchange,
   defineContract,
-  defineQueueBinding,
+  defineConsumer,
+  defineMessage,
 } from "@amqp-contract/contract";
 
 // Define the Dead Letter Exchange
@@ -692,23 +701,12 @@ const ordersQueue = defineQueue("orders", {
   retry: { mode: "quorum-native" }, // Or ttl-backoff
 });
 
-// Compose the contract
+// Compose the contract - exchanges, queues, bindings auto-extracted
 const contract = defineContract({
-  exchanges: {
-    main: mainExchange,
-    dlx: dlxExchange,
+  consumers: {
+    processOrder: defineConsumer(ordersQueue, orderMessage),
   },
-  queues: {
-    orders: ordersQueue,
-    ordersDlq: dlq,
-  },
-  bindings: {
-    // ... main queue bindings
-    dlqBinding: defineQueueBinding(dlq, dlxExchange, {
-      routingKey: "orders.failed",
-    }),
-  },
-  // ... rest of contract
+  // ... publishers
 });
 ```
 
@@ -892,7 +890,7 @@ import {
   defineContract,
   defineQueue,
   defineExchange,
-  defineQueueBinding,
+  definePublisher,
   defineConsumer,
   defineMessage,
 } from "@amqp-contract/contract";
@@ -928,25 +926,8 @@ const ordersQueue = defineQueue("orders", {
 });
 const dlq = defineQueue("orders-dlq");
 
-// defineContract automatically creates wait queue and retry bindings for TTL-backoff
+// defineContract auto-extracts exchanges, queues, and creates wait queue + retry bindings for TTL-backoff
 const contract = defineContract({
-  exchanges: {
-    main: mainExchange,
-    dlx: dlxExchange,
-  },
-  queues: {
-    orders: ordersQueue, // Wait queue auto-added as "ordersWait"
-    ordersDlq: dlq,
-  },
-  bindings: {
-    mainBinding: defineQueueBinding(ordersQueue, mainExchange, {
-      routingKey: "order.#",
-    }),
-    dlqBinding: defineQueueBinding(dlq, dlxExchange, {
-      routingKey: "orders.failed",
-    }),
-    // Retry bindings are auto-added
-  },
   consumers: {
     processOrder: defineConsumer(ordersQueue, orderMessage),
   },
