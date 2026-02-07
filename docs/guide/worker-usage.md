@@ -685,12 +685,21 @@ import {
   defineConsumer,
   defineMessage,
 } from "@amqp-contract/contract";
+import { z } from "zod";
 
 // Define the Dead Letter Exchange
 const dlxExchange = defineExchange("orders-dlx", "topic", { durable: true });
 
 // Define the Dead Letter Queue
 const dlq = defineQueue("orders-dlq");
+
+// Define your message schema
+const orderMessage = defineMessage(
+  z.object({
+    orderId: z.string(),
+    amount: z.number().positive(),
+  }),
+);
 
 // Define your main queue with deadLetter and retry configuration
 const ordersQueue = defineQueue("orders", {

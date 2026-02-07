@@ -547,10 +547,11 @@ import {
 import { z } from "zod";
 
 const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const ordersDlx = defineExchange("orders-dlx", "topic", { durable: true });
 const orderProcessingQueue = defineQueue("order-processing", {
   durable: true,
   deadLetter: {
-    exchange: defineExchange("orders-dlx", "topic", { durable: true }),
+    exchange: ordersDlx,
   },
 });
 

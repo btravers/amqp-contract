@@ -54,6 +54,7 @@ export type AsyncAPIGeneratorGenerateOptions = Pick<AsyncAPIObject, "info"> &
  * @example
  * ```typescript
  * import { AsyncAPIGenerator } from '@amqp-contract/asyncapi';
+ * import { defineExchange, defineMessage, defineContract, definePublisher } from '@amqp-contract/contract';
  * import { zodToJsonSchema } from '@orpc/zod';
  * import { z } from 'zod';
  *

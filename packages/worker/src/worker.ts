@@ -125,6 +125,7 @@ export type CreateWorkerOptions<TContract extends ContractDefinition> = {
  * @example
  * ```typescript
  * import { TypedAmqpWorker } from '@amqp-contract/worker';
+ * import { defineQueue, defineMessage, defineContract, defineConsumer } from '@amqp-contract/contract';
  * import { z } from 'zod';
  *
  * const orderQueue = defineQueue('order-processing', { durable: true });
