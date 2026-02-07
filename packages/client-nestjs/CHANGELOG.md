@@ -1,5 +1,18 @@
 # @amqp-contract/client-nestjs
 
+## 0.15.0
+
+### Minor Changes
+
+- Simplify contract definition API and preserve literal types in ContractOutput
+
+### Patch Changes
+
+- Updated dependencies
+  - @amqp-contract/contract@0.15.0
+  - @amqp-contract/core@0.15.0
+  - @amqp-contract/client@0.15.0
+
 ## 0.14.0
 
 ### Minor Changes
