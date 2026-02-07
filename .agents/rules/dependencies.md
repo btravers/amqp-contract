@@ -20,8 +20,8 @@
 - **Build**: turbo + tsdown (generates CJS/ESM with TypeScript definitions)
 - **Linting**: oxlint (Rust-based, enforces strict type rules)
 - **Formatting**: oxfmt (Rust-based)
-- **Pre-commit**: lefthook (runs format, lint, sort-package-json, commitlint)
-- **Commits**: conventional commits required (feat, fix, docs, chore, test, refactor)
+- **Pre-commit**: lefthook (runs format, lint, sort-package-json). Commitlint runs via the `commit-msg` hook.
+- **Commits**: conventional commits required (e.g. feat, fix, docs, chore, test, refactor; see `@commitlint/config-conventional` for the full list of types)
 
 ## Catalog-Based Dependencies
 

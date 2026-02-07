@@ -23,7 +23,7 @@ Type-safe contracts for AMQP/RabbitMQ messaging with automatic runtime validatio
 - Handlers return `Future<Result<void, HandlerError>>` — not async/await
 - Standard Schema v1 for validation (Zod, Valibot, ArkType)
 - Catalog dependencies via `pnpm-workspace.yaml` — not hardcoded versions
-- Conventional commits required (feat, fix, docs, chore, test, refactor)
+- Conventional commits required (e.g. feat, fix, docs, chore, test, refactor — full set per Conventional Commits spec)
 - Quorum queues by default — classic queues only for special cases
 - Composition pattern — define resources first, then reference
-- Pre-commit: lefthook runs format, lint, sort-package-json, commitlint
+- Git hooks: lefthook runs format, lint, sort-package-json on `pre-commit`, and commitlint on `commit-msg`

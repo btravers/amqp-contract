@@ -8,7 +8,7 @@
 - **Standard Schema v1** — for runtime validation (Zod, Valibot, ArkType supported)
 - **Catalog dependencies** — use `pnpm-workspace.yaml` catalog, not hardcoded versions
 - **Future/Result handlers** — always use `Future<Result<void, HandlerError>>`, not `async`
-- **Conventional commits** — required (feat, fix, docs, chore, test, refactor)
+- **Conventional commits** — required; use conventional commit types (for example: feat, fix, docs, chore, test, refactor)
 - **Strict mode** — enabled in tsconfig.json
 - Prefer `readonly` arrays and properties where appropriate
 - Prefer `const` over `let`
