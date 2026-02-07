@@ -1,5 +1,11 @@
 # @amqp-contract/contract
 
+## 0.16.0
+
+### Minor Changes
+
+- Update JSDoc examples and tests to use the simplified `defineContract()` API where only publishers and consumers are specified, with exchanges, queues, and bindings automatically extracted.
+
 ## 0.15.0
 
 ### Minor Changes
