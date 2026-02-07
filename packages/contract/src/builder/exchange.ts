@@ -28,11 +28,11 @@ import type {
  * });
  * ```
  */
-export function defineExchange(
-  name: string,
+export function defineExchange<TName extends string>(
+  name: TName,
   type: "fanout",
   options?: Omit<BaseExchangeDefinition, "name" | "type">,
-): FanoutExchangeDefinition;
+): FanoutExchangeDefinition<TName>;
 
 /**
  * Define a direct exchange.
@@ -56,11 +56,11 @@ export function defineExchange(
  * });
  * ```
  */
-export function defineExchange(
-  name: string,
+export function defineExchange<TName extends string>(
+  name: TName,
   type: "direct",
   options?: Omit<BaseExchangeDefinition, "name" | "type">,
-): DirectExchangeDefinition;
+): DirectExchangeDefinition<TName>;
 
 /**
  * Define a topic exchange.
@@ -85,11 +85,11 @@ export function defineExchange(
  * });
  * ```
  */
-export function defineExchange(
-  name: string,
+export function defineExchange<TName extends string>(
+  name: TName,
   type: "topic",
   options?: Omit<BaseExchangeDefinition, "name" | "type">,
-): TopicExchangeDefinition;
+): TopicExchangeDefinition<TName>;
 
 /**
  * Define an AMQP exchange.

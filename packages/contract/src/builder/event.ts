@@ -3,9 +3,12 @@ import type {
   ConsumerDefinition,
   DirectExchangeDefinition,
   ExchangeDefinition,
+  ExtractDlxFromEntry,
+  ExtractQueueFromEntry,
   FanoutExchangeDefinition,
   MessageDefinition,
   QueueBindingDefinition,
+  QueueDefinition,
   QueueEntry,
   TopicExchangeDefinition,
 } from "../types.js";
@@ -49,13 +52,24 @@ export type EventPublisherConfig<
  *
  * @template TMessage - The message definition
  */
-export type EventConsumerResult<TMessage extends MessageDefinition> = {
+export type EventConsumerResult<
+  TMessage extends MessageDefinition,
+  TExchange extends ExchangeDefinition = ExchangeDefinition,
+  TQueue extends QueueDefinition = QueueDefinition,
+  TDlxExchange extends ExchangeDefinition | undefined = ExchangeDefinition | undefined,
+> = {
   /** Discriminator to identify this as an event consumer result */
   __brand: "EventConsumerResult";
   /** The consumer definition for processing messages */
   consumer: ConsumerDefinition<TMessage>;
   /** The binding connecting the queue to the exchange */
   binding: QueueBindingDefinition;
+  /** The exchange this consumer subscribes to */
+  exchange: TExchange;
+  /** The queue this consumer reads from */
+  queue: TQueue;
+  /** The dead letter exchange from the queue, if configured */
+  deadLetterExchange: TDlxExchange;
 };
 
 /**
@@ -86,10 +100,10 @@ export type EventConsumerResult<TMessage extends MessageDefinition> = {
  *   defineEventConsumer(logEvent, alertsQueue);
  * ```
  */
-export function defineEventPublisher<TMessage extends MessageDefinition>(
-  exchange: FanoutExchangeDefinition,
-  message: TMessage,
-): EventPublisherConfig<TMessage, FanoutExchangeDefinition, undefined>;
+export function defineEventPublisher<
+  TMessage extends MessageDefinition,
+  TExchange extends FanoutExchangeDefinition,
+>(exchange: TExchange, message: TMessage): EventPublisherConfig<TMessage, TExchange, undefined>;
 
 /**
  * Define an event publisher for broadcasting messages via direct exchange.
@@ -117,14 +131,15 @@ export function defineEventPublisher<TMessage extends MessageDefinition>(
 export function defineEventPublisher<
   TMessage extends MessageDefinition,
   TRoutingKey extends string,
+  TExchange extends DirectExchangeDefinition,
 >(
-  exchange: DirectExchangeDefinition,
+  exchange: TExchange,
   message: TMessage,
   options: {
     routingKey: RoutingKey<TRoutingKey>;
     arguments?: Record<string, unknown>;
   },
-): EventPublisherConfig<TMessage, DirectExchangeDefinition, TRoutingKey>;
+): EventPublisherConfig<TMessage, TExchange, TRoutingKey>;
 
 /**
  * Define an event publisher for broadcasting messages via topic exchange.
@@ -163,14 +178,15 @@ export function defineEventPublisher<
 export function defineEventPublisher<
   TMessage extends MessageDefinition,
   TRoutingKey extends string,
+  TExchange extends TopicExchangeDefinition,
 >(
-  exchange: TopicExchangeDefinition,
+  exchange: TExchange,
   message: TMessage,
   options: {
     routingKey: RoutingKey<TRoutingKey>;
     arguments?: Record<string, unknown>;
   },
-): EventPublisherConfig<TMessage, TopicExchangeDefinition, TRoutingKey>;
+): EventPublisherConfig<TMessage, TExchange, TRoutingKey>;
 
 /**
  * Implementation of defineEventPublisher.
@@ -212,13 +228,22 @@ export function defineEventPublisher<TMessage extends MessageDefinition>(
  * const { consumer, binding } = defineEventConsumer(logEvent, logsQueue);
  * ```
  */
-export function defineEventConsumer<TMessage extends MessageDefinition>(
-  eventPublisher: EventPublisherConfig<TMessage, FanoutExchangeDefinition, undefined>,
-  queue: QueueEntry,
+export function defineEventConsumer<
+  TMessage extends MessageDefinition,
+  TExchange extends FanoutExchangeDefinition,
+  TQueueEntry extends QueueEntry,
+>(
+  eventPublisher: EventPublisherConfig<TMessage, TExchange, undefined>,
+  queue: TQueueEntry,
   options?: {
     arguments?: Record<string, unknown>;
   },
-): EventConsumerResult<TMessage>;
+): EventConsumerResult<
+  TMessage,
+  TExchange,
+  ExtractQueueFromEntry<TQueueEntry>,
+  ExtractDlxFromEntry<TQueueEntry>
+>;
 
 /**
  * Create a consumer that subscribes to an event from a direct exchange.
@@ -228,13 +253,23 @@ export function defineEventConsumer<TMessage extends MessageDefinition>(
  * @param options - Optional binding configuration
  * @returns An object with the consumer definition and binding
  */
-export function defineEventConsumer<TMessage extends MessageDefinition, TRoutingKey extends string>(
-  eventPublisher: EventPublisherConfig<TMessage, DirectExchangeDefinition, TRoutingKey>,
-  queue: QueueEntry,
+export function defineEventConsumer<
+  TMessage extends MessageDefinition,
+  TRoutingKey extends string,
+  TExchange extends DirectExchangeDefinition,
+  TQueueEntry extends QueueEntry,
+>(
+  eventPublisher: EventPublisherConfig<TMessage, TExchange, TRoutingKey>,
+  queue: TQueueEntry,
   options?: {
     arguments?: Record<string, unknown>;
   },
-): EventConsumerResult<TMessage>;
+): EventConsumerResult<
+  TMessage,
+  TExchange,
+  ExtractQueueFromEntry<TQueueEntry>,
+  ExtractDlxFromEntry<TQueueEntry>
+>;
 
 /**
  * Create a consumer that subscribes to an event from a topic exchange.
@@ -266,15 +301,22 @@ export function defineEventConsumer<TMessage extends MessageDefinition, TRouting
 export function defineEventConsumer<
   TMessage extends MessageDefinition,
   TRoutingKey extends string,
+  TExchange extends TopicExchangeDefinition,
+  TQueueEntry extends QueueEntry,
   TConsumerRoutingKey extends string = TRoutingKey,
 >(
-  eventPublisher: EventPublisherConfig<TMessage, TopicExchangeDefinition, TRoutingKey>,
-  queue: QueueEntry,
+  eventPublisher: EventPublisherConfig<TMessage, TExchange, TRoutingKey>,
+  queue: TQueueEntry,
   options?: {
     routingKey?: BindingPattern<TConsumerRoutingKey>;
     arguments?: Record<string, unknown>;
   },
-): EventConsumerResult<TMessage>;
+): EventConsumerResult<
+  TMessage,
+  TExchange,
+  ExtractQueueFromEntry<TQueueEntry>,
+  ExtractDlxFromEntry<TQueueEntry>
+>;
 
 /**
  * Implementation of defineEventConsumer.
@@ -309,6 +351,9 @@ export function defineEventConsumer<TMessage extends MessageDefinition>(
     __brand: "EventConsumerResult",
     consumer,
     binding,
+    exchange,
+    queue: consumer.queue,
+    deadLetterExchange: consumer.queue.deadLetter?.exchange,
   };
 }
 

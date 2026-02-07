@@ -3,10 +3,13 @@ import type {
   ConsumerDefinition,
   DirectExchangeDefinition,
   ExchangeDefinition,
+  ExtractDlxFromEntry,
+  ExtractQueueFromEntry,
   FanoutExchangeDefinition,
   MessageDefinition,
   PublisherDefinition,
   QueueBindingDefinition,
+  QueueDefinition,
   QueueEntry,
   TopicExchangeDefinition,
 } from "../types.js";
@@ -28,6 +31,8 @@ export type CommandConsumerConfig<
   TMessage extends MessageDefinition,
   TExchange extends ExchangeDefinition,
   TRoutingKey extends string | undefined = undefined,
+  TQueue extends QueueDefinition = QueueDefinition,
+  TDlxExchange extends ExchangeDefinition | undefined = ExchangeDefinition | undefined,
 > = {
   /** Discriminator to identify this as a command consumer config */
   __brand: "CommandConsumerConfig";
@@ -37,6 +42,10 @@ export type CommandConsumerConfig<
   binding: QueueBindingDefinition;
   /** The exchange that receives commands */
   exchange: TExchange;
+  /** The queue this consumer reads from */
+  queue: TQueue;
+  /** The dead letter exchange from the queue, if configured */
+  deadLetterExchange: TDlxExchange;
   /** The message definition */
   message: TMessage;
   /** The routing key pattern for the binding */
@@ -66,11 +75,21 @@ export type CommandConsumerConfig<
  * const sendTask = defineCommandPublisher(executeTask);
  * ```
  */
-export function defineCommandConsumer<TMessage extends MessageDefinition>(
-  queue: QueueEntry,
-  exchange: FanoutExchangeDefinition,
+export function defineCommandConsumer<
+  TMessage extends MessageDefinition,
+  TQueueEntry extends QueueEntry,
+  TExchange extends FanoutExchangeDefinition,
+>(
+  queue: TQueueEntry,
+  exchange: TExchange,
   message: TMessage,
-): CommandConsumerConfig<TMessage, FanoutExchangeDefinition, undefined>;
+): CommandConsumerConfig<
+  TMessage,
+  TExchange,
+  undefined,
+  ExtractQueueFromEntry<TQueueEntry>,
+  ExtractDlxFromEntry<TQueueEntry>
+>;
 
 /**
  * Define a command consumer for receiving commands via direct exchange.
@@ -101,15 +120,23 @@ export function defineCommandConsumer<TMessage extends MessageDefinition>(
 export function defineCommandConsumer<
   TMessage extends MessageDefinition,
   TRoutingKey extends string,
+  TQueueEntry extends QueueEntry,
+  TExchange extends DirectExchangeDefinition,
 >(
-  queue: QueueEntry,
-  exchange: DirectExchangeDefinition,
+  queue: TQueueEntry,
+  exchange: TExchange,
   message: TMessage,
   options: {
     routingKey: RoutingKey<TRoutingKey>;
     arguments?: Record<string, unknown>;
   },
-): CommandConsumerConfig<TMessage, DirectExchangeDefinition, TRoutingKey>;
+): CommandConsumerConfig<
+  TMessage,
+  TExchange,
+  TRoutingKey,
+  ExtractQueueFromEntry<TQueueEntry>,
+  ExtractDlxFromEntry<TQueueEntry>
+>;
 
 /**
  * Define a command consumer for receiving commands via topic exchange.
@@ -147,15 +174,23 @@ export function defineCommandConsumer<
 export function defineCommandConsumer<
   TMessage extends MessageDefinition,
   TRoutingKey extends string,
+  TQueueEntry extends QueueEntry,
+  TExchange extends TopicExchangeDefinition,
 >(
-  queue: QueueEntry,
-  exchange: TopicExchangeDefinition,
+  queue: TQueueEntry,
+  exchange: TExchange,
   message: TMessage,
   options: {
     routingKey: BindingPattern<TRoutingKey>;
     arguments?: Record<string, unknown>;
   },
-): CommandConsumerConfig<TMessage, TopicExchangeDefinition, TRoutingKey>;
+): CommandConsumerConfig<
+  TMessage,
+  TExchange,
+  TRoutingKey,
+  ExtractQueueFromEntry<TQueueEntry>,
+  ExtractDlxFromEntry<TQueueEntry>
+>;
 
 /**
  * Implementation of defineCommandConsumer.
@@ -178,6 +213,8 @@ export function defineCommandConsumer<TMessage extends MessageDefinition>(
     consumer,
     binding,
     exchange,
+    queue: consumer.queue,
+    deadLetterExchange: consumer.queue.deadLetter?.exchange,
     message,
     routingKey: options?.routingKey,
   };
