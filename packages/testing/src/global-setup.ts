@@ -68,14 +68,9 @@ export default async function setup({ provide }: TestProject) {
       RABBITMQ_DEFAULT_USER: "guest",
       RABBITMQ_DEFAULT_PASS: "guest",
     })
-    .withHealthCheck({
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"],
-      interval: 1_000,
-      retries: 30,
-      startPeriod: 3_000,
-      timeout: 5_000,
-    })
-    .withWaitStrategy(Wait.forHealthCheck())
+    .withWaitStrategy(
+      Wait.forAll([Wait.forLogMessage(/Server startup complete/), Wait.forListeningPorts()]),
+    )
     .start();
 
   console.log("✅ RabbitMQ container started");
