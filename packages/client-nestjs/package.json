@@ -1,6 +1,6 @@
 {
   "name": "@amqp-contract/client-nestjs",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "description": "NestJS integration for @amqp-contract/client",
   "keywords": [
     "amqp",

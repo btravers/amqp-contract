@@ -1,5 +1,11 @@
 # @amqp-contract/testing
 
+## 0.15.0
+
+### Minor Changes
+
+- Simplify contract definition API and preserve literal types in ContractOutput
+
 ## 0.14.0
 
 ### Minor Changes
