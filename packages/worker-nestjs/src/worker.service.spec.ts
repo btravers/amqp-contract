@@ -28,9 +28,6 @@ describe("AmqpWorkerService", () => {
       const testMessage = defineMessage(z.object({ message: z.string() }));
 
       const contract = defineContract({
-        queues: {
-          testQueue,
-        },
         consumers: {
           testConsumer: defineConsumer(testQueue, testMessage),
         },

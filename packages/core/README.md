@@ -32,27 +32,30 @@ The core package exports an `AmqpClient` class that handles the creation of all 
 import { AmqpClient } from "@amqp-contract/core";
 import {
   defineContract,
+  defineEventPublisher,
+  defineEventConsumer,
   defineExchange,
   defineQueue,
-  defineQueueBinding,
+  defineMessage,
 } from "@amqp-contract/contract";
+import { z } from "zod";
 
 // Define resources
 const ordersExchange = defineExchange("orders", "topic", { durable: true });
 const orderProcessingQueue = defineQueue("order-processing", { durable: true });
+const orderMessage = defineMessage(z.object({ orderId: z.string() }));
+
+const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
+  routingKey: "order.created",
+});
 
 // Define your contract
 const contract = defineContract({
-  exchanges: {
-    orders: ordersExchange,
+  publishers: {
+    orderCreated: orderCreatedEvent,
   },
-  queues: {
-    orderProcessing: orderProcessingQueue,
-  },
-  bindings: {
-    orderBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
-      routingKey: "order.created",
-    }),
+  consumers: {
+    processOrder: defineEventConsumer(orderCreatedEvent, orderProcessingQueue),
   },
 });
 

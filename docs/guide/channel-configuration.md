@@ -21,12 +21,9 @@ By default, `AmqpClient` creates channels with JSON serialization enabled:
 
 ```typescript
 import { AmqpClient } from "@amqp-contract/core";
-import { defineContract, defineExchange } from "@amqp-contract/contract";
+import { defineContract } from "@amqp-contract/contract";
 
-const ordersExchange = defineExchange("orders", "topic", { durable: true });
-const contract = defineContract({
-  exchanges: { orders: ordersExchange },
-});
+const contract = defineContract({});
 
 // Default: JSON serialization enabled
 const client = new AmqpClient(contract, {
@@ -383,17 +380,15 @@ Custom setup runs **after** contract topology. You cannot override or prevent co
 
 ```typescript
 const contract = defineContract({
-  exchanges: {
-    orders: defineExchange("orders", "topic", { durable: true }),
-  },
+  // ... publishers and consumers
 });
 
 const client = new AmqpClient(contract, {
   urls: ["amqp://localhost"],
   channelOptions: {
     setup: async (channel: Channel) => {
-      // ❌ This won't prevent 'orders' exchange from being created
-      // The 'orders' exchange is already created by the contract
+      // ❌ This won't prevent contract-defined resources from being created
+      // The exchanges, queues, and bindings are already created by the contract
     },
   },
 });

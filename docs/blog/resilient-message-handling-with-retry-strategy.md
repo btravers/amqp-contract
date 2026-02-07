@@ -57,11 +57,19 @@ amqp-contract now provides a built-in retry mechanism that solves all these prob
 Configure retry options when defining your queue:
 
 ```typescript
-import { defineQueue, defineExchange, defineContract } from "@amqp-contract/contract";
+import {
+  defineQueue,
+  defineExchange,
+  defineContract,
+  defineConsumer,
+  defineMessage,
+} from "@amqp-contract/contract";
 import { TypedAmqpWorker, RetryableError } from "@amqp-contract/worker";
 import { Future } from "@swan-io/boxed";
+import { z } from "zod";
 
 const dlx = defineExchange("orders-dlx", "topic", { durable: true });
+const orderMessage = defineMessage(z.object({ orderId: z.string(), amount: z.number() }));
 
 // Define queue with retry configuration
 const ordersQueue = defineQueue("orders", {
@@ -76,11 +84,11 @@ const ordersQueue = defineQueue("orders", {
   },
 });
 
-// defineContract automatically creates wait queue and retry bindings
+// defineContract auto-extracts exchanges, queues, and creates wait queue + retry bindings
 const contract = defineContract({
-  exchanges: { dlx },
-  queues: { orders: ordersQueue }, // Wait queue auto-added as "ordersWait"
-  // ... bindings for retry routing auto-added
+  consumers: {
+    processOrder: defineConsumer(ordersQueue, orderMessage),
+  },
 });
 
 // Worker automatically uses queue's retry configuration
@@ -240,7 +248,7 @@ import {
   defineContract,
   defineExchange,
   defineQueue,
-  defineQueueBinding,
+  definePublisher,
   defineConsumer,
   defineMessage,
 } from "@amqp-contract/contract";
@@ -251,9 +259,6 @@ const mainExchange = defineExchange("orders", "topic", { durable: true });
 
 // Define the Dead Letter Exchange
 const dlxExchange = defineExchange("orders-dlx", "topic", { durable: true });
-
-// Define the Dead Letter Queue
-const dlq = defineQueue("orders-dlq", { durable: true });
 
 // Define your main queue with deadLetter configuration
 const ordersQueue = defineQueue("orders", {
@@ -273,29 +278,13 @@ const orderMessage = defineMessage(
   }),
 );
 
-// Compose the contract
+// Compose the contract - exchanges, queues, bindings auto-extracted
 const contract = defineContract({
-  exchanges: {
-    main: mainExchange,
-    dlx: dlxExchange,
-  },
-  queues: {
-    orders: ordersQueue,
-    ordersDlq: dlq,
-  },
-  bindings: {
-    mainBinding: defineQueueBinding(ordersQueue, mainExchange, {
-      routingKey: "order.#",
-    }),
-    dlqBinding: defineQueueBinding(dlq, dlxExchange, {
-      routingKey: "orders.failed",
-    }),
-  },
   consumers: {
     processOrder: defineConsumer(ordersQueue, orderMessage),
   },
   publishers: {
-    // ... your publishers
+    orderCreated: definePublisher(mainExchange, orderMessage, { routingKey: "order.created" }),
   },
 });
 ```

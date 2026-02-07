@@ -72,7 +72,6 @@ const orderMessage = defineMessage(
 );
 
 export const contract = defineContract({
-  exchanges: { orders: ordersExchange },
   publishers: {
     orderCreated: definePublisher(ordersExchange, orderMessage, { routingKey: "order.created" }),
   },
@@ -840,7 +839,6 @@ const orderMessage = defineMessage(
 );
 
 export const contract = defineContract({
-  exchanges: { orders: ordersExchange },
   publishers: {
     orderCreated: definePublisher(ordersExchange, orderMessage, {
       routingKey: "order.created",

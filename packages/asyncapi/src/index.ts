@@ -54,18 +54,19 @@ export type AsyncAPIGeneratorGenerateOptions = Pick<AsyncAPIObject, "info"> &
  * @example
  * ```typescript
  * import { AsyncAPIGenerator } from '@amqp-contract/asyncapi';
+ * import { defineExchange, defineMessage, defineContract, definePublisher } from '@amqp-contract/contract';
  * import { zodToJsonSchema } from '@orpc/zod';
  * import { z } from 'zod';
  *
+ * const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+ * const orderMessage = defineMessage(z.object({
+ *   orderId: z.string(),
+ *   amount: z.number()
+ * }));
+ *
  * const contract = defineContract({
- *   exchanges: {
- *     orders: defineExchange('orders', 'topic', { durable: true })
- *   },
  *   publishers: {
- *     orderCreated: definePublisher('orders', z.object({
- *       orderId: z.string(),
- *       amount: z.number()
- *     }), {
+ *     orderCreated: definePublisher(ordersExchange, orderMessage, {
  *       routingKey: 'order.created'
  *     })
  *   }

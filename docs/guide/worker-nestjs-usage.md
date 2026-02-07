@@ -81,10 +81,8 @@ const processOrderCommand = defineCommandConsumer(
   { routingKey: "order.created" },
 );
 
-// Compose contract - configs go directly, bindings auto-generated
+// Compose contract - exchanges, queues, bindings auto-extracted
 export const contract = defineContract({
-  exchanges: { orders: ordersExchange },
-  queues: { orderProcessing: orderProcessingQueue },
   consumers: {
     // CommandConsumerConfig → auto-extracted to consumer + binding
     processOrder: processOrderCommand,
@@ -543,17 +541,17 @@ import {
   defineContract,
   defineExchange,
   defineQueue,
-  defineQueueBinding,
-  defineConsumer,
+  defineCommandConsumer,
   defineMessage,
 } from "@amqp-contract/contract";
 import { z } from "zod";
 
 const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const ordersDlx = defineExchange("orders-dlx", "topic", { durable: true });
 const orderProcessingQueue = defineQueue("order-processing", {
   durable: true,
-  arguments: {
-    "x-dead-letter-exchange": "orders-dlx",
+  deadLetter: {
+    exchange: ordersDlx,
   },
 });
 
@@ -573,15 +571,10 @@ const orderMessage = defineMessage(
 );
 
 export const contract = defineContract({
-  exchanges: { orders: ordersExchange },
-  queues: { orderProcessing: orderProcessingQueue },
-  bindings: {
-    orderBinding: defineQueueBinding(orderProcessingQueue, ordersExchange, {
+  consumers: {
+    processOrder: defineCommandConsumer(orderProcessingQueue, ordersExchange, orderMessage, {
       routingKey: "order.created",
     }),
-  },
-  consumers: {
-    processOrder: defineConsumer(orderProcessingQueue, orderMessage),
   },
 });
 ```

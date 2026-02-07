@@ -1,6 +1,6 @@
 # @amqp-contract/worker
 
-**Type-safe AMQP worker for consuming messages using amqp-contract with standard async/await error handling.**
+**Type-safe AMQP worker for consuming messages using amqp-contract with Future/Result error handling.**
 
 [![CI](https://github.com/btravers/amqp-contract/actions/workflows/ci.yml/badge.svg)](https://github.com/btravers/amqp-contract/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/@amqp-contract/worker.svg?logo=npm)](https://www.npmjs.com/package/@amqp-contract/worker)

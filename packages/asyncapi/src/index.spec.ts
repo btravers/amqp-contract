@@ -8,7 +8,6 @@ import {
   defineMessage,
   definePublisher,
   defineQueue,
-  defineQueueBinding,
 } from "@amqp-contract/contract";
 import { describe, expect, it } from "vitest";
 import { AsyncAPIGenerator } from "./index.js";
@@ -39,17 +38,6 @@ describe("AsyncAPIGenerator", () => {
       });
 
       const contract = defineContract({
-        exchanges: {
-          orders: orderExchange,
-        },
-        queues: {
-          orderProcessing: orderQueue,
-        },
-        bindings: {
-          orderBinding: defineQueueBinding(orderQueue, orderExchange, {
-            routingKey: "order.created",
-          }),
-        },
         publishers: {
           orderCreated: definePublisher(orderExchange, orderMessage, {
             routingKey: "order.created",
@@ -315,7 +303,6 @@ describe("AsyncAPIGenerator", () => {
     it("should handle message with headers", async () => {
       // GIVEN
       const exchange = defineExchange("events", "fanout");
-      const queue = defineQueue("event-queue");
 
       const payloadSchema = z.object({
         eventId: z.string(),
@@ -333,8 +320,6 @@ describe("AsyncAPIGenerator", () => {
       });
 
       const contract = defineContract({
-        exchanges: { events: exchange },
-        queues: { eventQueue: queue },
         publishers: {
           sendEvent: definePublisher(exchange, message as unknown as MessageDefinition),
         },
@@ -493,12 +478,6 @@ describe("AsyncAPIGenerator", () => {
       });
 
       const contract = defineContract({
-        exchanges: {
-          notifications: notificationExchange,
-        },
-        queues: {
-          notificationQueue: notificationQueue,
-        },
         publishers: {
           sendNotification: definePublisher(notificationExchange, notificationMessage, {
             routingKey: "notification.send",
@@ -774,12 +753,6 @@ describe("AsyncAPIGenerator", () => {
       });
 
       const contract = defineContract({
-        exchanges: {
-          payments: paymentExchange,
-        },
-        queues: {
-          paymentProcessing: paymentQueue,
-        },
         publishers: {
           paymentCreated: definePublisher(paymentExchange, paymentMessage, {
             routingKey: "payment.created",
@@ -1075,8 +1048,6 @@ describe("AsyncAPIGenerator", () => {
     it("should handle contract with mixed schema types", async () => {
       // GIVEN
       const exchange = defineExchange("mixed", "topic");
-      const queue1 = defineQueue("zod-queue");
-      const queue2 = defineQueue("valibot-queue");
 
       const zodSchema = z.object({
         id: z.string(),
@@ -1092,11 +1063,6 @@ describe("AsyncAPIGenerator", () => {
       const valibotMessage = defineMessage(valibotSchema);
 
       const contract = defineContract({
-        exchanges: { mixed: exchange },
-        queues: {
-          zodQueue: queue1,
-          valibotQueue: queue2,
-        },
         publishers: {
           publishZod: definePublisher(exchange, zodMessage, {
             routingKey: "zod.event",
@@ -1290,7 +1256,6 @@ describe("AsyncAPIGenerator", () => {
     it("should generate document with generic object schemas", async () => {
       // GIVEN
       const exchange = defineExchange("generic", "fanout");
-      const queue = defineQueue("generic-queue");
 
       const schema = z.object({
         id: z.string(),
@@ -1299,8 +1264,6 @@ describe("AsyncAPIGenerator", () => {
       const message = defineMessage(schema);
 
       const contract = defineContract({
-        exchanges: { generic: exchange },
-        queues: { genericQueue: queue },
         publishers: {
           publish: definePublisher(exchange, message),
         },
@@ -1514,7 +1477,6 @@ describe("AsyncAPIGenerator", () => {
       const message = defineMessage(schema);
 
       const contract = defineContract({
-        exchanges: { orders: exchange },
         publishers: {
           orderCreated: definePublisher(exchange, message, {
             routingKey: "order.created",
@@ -1664,18 +1626,12 @@ describe("AsyncAPIGenerator", () => {
     it("should handle fanout exchanges without routing keys", async () => {
       // GIVEN
       const exchange = defineExchange("fanout-exchange", "fanout");
-      const queue = defineQueue("fanout-queue");
       const schema = z.object({ id: z.string() });
       const message = defineMessage(schema);
 
       const contract = defineContract({
-        exchanges: { fanout: exchange },
-        queues: { fanoutQueue: queue },
         publishers: {
           broadcast: definePublisher(exchange, message),
-        },
-        bindings: {
-          binding: defineQueueBinding(queue, exchange),
         },
       });
 

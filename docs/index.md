@@ -75,10 +75,8 @@ const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
   routingKey: "order.created",
 });
 
-// Compose contract - configs go directly, bindings auto-generated
+// Compose contract - exchanges, queues, bindings auto-extracted
 export const contract = defineContract({
-  exchanges: { orders: ordersExchange, ordersDlx },
-  queues: { orderProcessing: orderProcessingQueue },
   publishers: {
     // EventPublisherConfig → auto-extracted to publisher
     orderCreated: orderCreatedEvent,

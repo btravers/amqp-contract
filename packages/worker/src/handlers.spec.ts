@@ -3,7 +3,6 @@ import { NonRetryableError, RetryableError } from "./errors.js";
 import {
   defineConsumer,
   defineContract,
-  defineExchange,
   defineMessage,
   defineQueue,
 } from "@amqp-contract/contract";
@@ -46,7 +45,6 @@ function createMockConsumeMessage(): ConsumeMessage {
 
 describe("handlers", () => {
   // Setup test contract
-  const testExchange = defineExchange("test-exchange", "topic", { durable: true });
   const testQueue = defineQueue("test-queue", { durable: true });
   const testMessage = defineMessage(
     z.object({
@@ -56,8 +54,6 @@ describe("handlers", () => {
   );
 
   const testContract = defineContract({
-    exchanges: { test: testExchange },
-    queues: { testQueue },
     consumers: {
       testConsumer: defineConsumer(testQueue, testMessage),
       anotherConsumer: defineConsumer(testQueue, testMessage),
