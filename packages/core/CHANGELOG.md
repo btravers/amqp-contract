@@ -1,5 +1,12 @@
 # @amqp-contract/core
 
+## 0.17.0
+
+### Patch Changes
+
+- Updated dependencies [22242a4]
+  - @amqp-contract/contract@0.17.0
+
 ## 0.16.0
 
 ### Patch Changes
