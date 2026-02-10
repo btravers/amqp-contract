@@ -103,7 +103,7 @@ export function isQueueWithTtlBackoffInfrastructure(
  *
  * // TTL-backoff queue returns a wrapper
  * const orderQueue = defineTtlBackoffQueue('orders', {
- *   deadLetterExchange: dlx,
+ *   deadLetter: { exchange: dlx },
  *   maxRetries: 3,
  * });
  *
@@ -392,12 +392,7 @@ export type DefineQuorumQueueOptions = {
    * Dead letter configuration - required for retry support.
    * Failed messages will be sent to this exchange.
    */
-  deadLetterExchange: ExchangeDefinition;
-
-  /**
-   * Optional routing key for dead-lettered messages.
-   */
-  deadLetterRoutingKey?: string;
+  deadLetter: DeadLetterConfig;
 
   /**
    * Maximum number of delivery attempts before dead-lettering.
@@ -439,7 +434,7 @@ export type DefineQuorumQueueOptions = {
  * const dlx = defineExchange('orders-dlx', 'direct', { durable: true });
  *
  * const orderQueue = defineQuorumQueue('order-processing', {
- *   deadLetterExchange: dlx,
+ *   deadLetter: { exchange: dlx },
  *   deliveryLimit: 3, // Retry up to 3 times
  * });
  *
@@ -457,17 +452,7 @@ export function defineQuorumQueue<TName extends string>(
   name: TName,
   options: DefineQuorumQueueOptions,
 ): QuorumQueueDefinition<TName> {
-  const {
-    deadLetterExchange,
-    deadLetterRoutingKey,
-    deliveryLimit,
-    autoDelete,
-    arguments: args,
-  } = options;
-
-  const deadLetter: DeadLetterConfig = deadLetterRoutingKey
-    ? { exchange: deadLetterExchange, routingKey: deadLetterRoutingKey }
-    : { exchange: deadLetterExchange };
+  const { deadLetter, deliveryLimit, autoDelete, arguments: args } = options;
 
   const queueOptions: QuorumQueueOptions = {
     type: "quorum",
@@ -491,15 +476,10 @@ export function defineQuorumQueue<TName extends string>(
  */
 export type DefineTtlBackoffQueueOptions = {
   /**
-   * Dead letter exchange - required for TTL-backoff retry.
+   * Dead letter configuration - required for TTL-backoff retry.
    * Used for routing messages to the wait queue and back.
    */
-  deadLetterExchange: ExchangeDefinition;
-
-  /**
-   * Optional routing key for dead-lettered messages.
-   */
-  deadLetterRoutingKey?: string;
+  deadLetter: DeadLetterConfig;
 
   /**
    * Maximum retry attempts before sending to DLQ.
@@ -570,7 +550,7 @@ export type DefineTtlBackoffQueueOptions = {
  * const dlx = defineExchange('orders-dlx', 'direct', { durable: true });
  *
  * const orderQueue = defineTtlBackoffQueue('order-processing', {
- *   deadLetterExchange: dlx,
+ *   deadLetter: { exchange: dlx },
  *   maxRetries: 5,
  *   initialDelayMs: 1000,  // Start with 1s delay
  *   maxDelayMs: 30000,     // Cap at 30s
@@ -596,8 +576,7 @@ export function defineTtlBackoffQueue<TName extends string>(
   options: DefineTtlBackoffQueueOptions,
 ): QueueWithTtlBackoffInfrastructure<TName> {
   const {
-    deadLetterExchange,
-    deadLetterRoutingKey,
+    deadLetter,
     maxRetries,
     initialDelayMs,
     maxDelayMs,
@@ -606,10 +585,6 @@ export function defineTtlBackoffQueue<TName extends string>(
     autoDelete,
     arguments: args,
   } = options;
-
-  const deadLetter: DeadLetterConfig = deadLetterRoutingKey
-    ? { exchange: deadLetterExchange, routingKey: deadLetterRoutingKey }
-    : { exchange: deadLetterExchange };
 
   // Build retry options, only including defined values
   const retryOptions: TtlBackoffRetryOptions = { mode: "ttl-backoff" };
