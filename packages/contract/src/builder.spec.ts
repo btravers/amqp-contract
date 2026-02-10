@@ -1470,7 +1470,7 @@ describe("builder", () => {
 
       // WHEN
       const queue = defineQuorumQueue("order-processing", {
-        deadLetterExchange: dlx,
+        deadLetter: { exchange: dlx },
         deliveryLimit: 3,
       });
 
@@ -1490,8 +1490,7 @@ describe("builder", () => {
 
       // WHEN
       const queue = defineQuorumQueue("order-processing", {
-        deadLetterExchange: dlx,
-        deadLetterRoutingKey: "failed.orders",
+        deadLetter: { exchange: dlx, routingKey: "failed.orders" },
         deliveryLimit: 5,
       });
 
@@ -1511,7 +1510,7 @@ describe("builder", () => {
 
       // WHEN
       const queue = defineQuorumQueue("order-processing", {
-        deadLetterExchange: dlx,
+        deadLetter: { exchange: dlx },
         deliveryLimit: 3,
         autoDelete: true,
       });
@@ -1533,7 +1532,7 @@ describe("builder", () => {
 
       // WHEN
       const queue = defineQuorumQueue("order-processing", {
-        deadLetterExchange: dlx,
+        deadLetter: { exchange: dlx },
         deliveryLimit: 3,
         arguments: { "x-message-ttl": 86400000 },
       });
@@ -1555,8 +1554,7 @@ describe("builder", () => {
 
       // WHEN
       const queue = defineQuorumQueue("order-processing", {
-        deadLetterExchange: dlx,
-        deadLetterRoutingKey: "failed",
+        deadLetter: { exchange: dlx, routingKey: "failed" },
         deliveryLimit: 10,
         autoDelete: false,
         arguments: { "x-message-ttl": 3600000 },
@@ -1582,7 +1580,7 @@ describe("builder", () => {
 
       // WHEN
       const queue = defineTtlBackoffQueue("order-processing", {
-        deadLetterExchange: dlx,
+        deadLetter: { exchange: dlx },
       });
 
       // THEN - returns QueueWithTtlBackoffInfrastructure
@@ -1614,7 +1612,7 @@ describe("builder", () => {
 
       // WHEN
       const queue = defineTtlBackoffQueue("order-processing", {
-        deadLetterExchange: dlx,
+        deadLetter: { exchange: dlx },
         maxRetries: 5,
         initialDelayMs: 2000,
         maxDelayMs: 60000,
@@ -1647,8 +1645,7 @@ describe("builder", () => {
 
       // WHEN
       const queue = defineTtlBackoffQueue("order-processing", {
-        deadLetterExchange: dlx,
-        deadLetterRoutingKey: "failed.orders",
+        deadLetter: { exchange: dlx, routingKey: "failed.orders" },
       });
 
       // THEN
@@ -1666,7 +1663,7 @@ describe("builder", () => {
 
       // WHEN
       const queue = defineTtlBackoffQueue("order-processing", {
-        deadLetterExchange: dlx,
+        deadLetter: { exchange: dlx },
         autoDelete: true,
       });
 
@@ -1685,7 +1682,7 @@ describe("builder", () => {
 
       // WHEN
       const queue = defineTtlBackoffQueue("order-processing", {
-        deadLetterExchange: dlx,
+        deadLetter: { exchange: dlx },
         arguments: { "x-message-ttl": 86400000 },
       });
 
@@ -1702,7 +1699,7 @@ describe("builder", () => {
       // GIVEN
       const dlx = defineExchange("orders-dlx", "direct", { durable: true });
       const queue = defineTtlBackoffQueue("order-processing", {
-        deadLetterExchange: dlx,
+        deadLetter: { exchange: dlx },
         maxRetries: 5,
       });
 
@@ -1721,7 +1718,7 @@ describe("builder", () => {
 
       // WHEN
       const queue = defineTtlBackoffQueue("order-processing", {
-        deadLetterExchange: dlx,
+        deadLetter: { exchange: dlx },
       });
 
       // THEN - verify bindings are created
@@ -1745,8 +1742,7 @@ describe("builder", () => {
 
       // WHEN
       const queue = defineTtlBackoffQueue("order-processing", {
-        deadLetterExchange: dlx,
-        deadLetterRoutingKey: "failed",
+        deadLetter: { exchange: dlx, routingKey: "failed" },
         maxRetries: 10,
         initialDelayMs: 500,
         maxDelayMs: 120000,
