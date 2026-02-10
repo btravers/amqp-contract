@@ -1,6 +1,6 @@
 {
   "name": "@amqp-contract/worker-nestjs",
-  "version": "0.16.0",
+  "version": "0.17.0",
   "description": "NestJS integration for @amqp-contract/worker",
   "keywords": [
     "amqp",
