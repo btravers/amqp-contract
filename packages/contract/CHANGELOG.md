@@ -1,5 +1,11 @@
 # @amqp-contract/contract
 
+## 0.18.0
+
+### Minor Changes
+
+- Add `bridgeExchange` support for cross-domain communication
+
 ## 0.17.0
 
 ### Minor Changes
