@@ -14,6 +14,7 @@ import {
   defineQuorumQueue,
   defineTtlBackoffQueue,
   extractQueue,
+  isBridgedPublisherConfig,
 } from "./builder.js";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -1775,6 +1776,269 @@ describe("builder", () => {
           type: "quorum",
         },
       });
+    });
+  });
+
+  describe("bridgeExchange support", () => {
+    it("should create a bridged event consumer with topic exchange", () => {
+      // GIVEN - Two domains: orders (source) and billing (local)
+      const ordersExchange = defineExchange("orders", "topic", { durable: true });
+      const billingExchange = defineExchange("billing", "topic", { durable: true });
+      const message = defineMessage(z.object({ orderId: z.string() }));
+      const billingQueue = defineQueue("billing-order-processing");
+
+      // WHEN - Subscribe to orders events via bridge
+      const orderCreated = defineEventPublisher(ordersExchange, message, {
+        routingKey: "order.created",
+      });
+      const result = defineEventConsumer(orderCreated, billingQueue, {
+        bridgeExchange: billingExchange,
+      });
+
+      // THEN - Queue binds to bridge, e2e binding from source → bridge
+      expect(result.__brand).toBe("EventConsumerResult");
+      expect(result.exchange).toBe(ordersExchange); // source exchange preserved
+      expect(result.bridgeExchange).toBe(billingExchange);
+      expect(result.binding).toMatchObject({
+        type: "queue",
+        queue: billingQueue,
+        exchange: billingExchange, // queue binds to bridge
+        routingKey: "order.created",
+      });
+      expect(result.exchangeBinding).toEqual({
+        type: "exchange",
+        source: ordersExchange,
+        destination: billingExchange,
+        routingKey: "order.created",
+      });
+    });
+
+    it("should create a bridged event consumer with fanout exchange", () => {
+      // GIVEN
+      const logsExchange = defineExchange("logs", "fanout");
+      const analyticsExchange = defineExchange("analytics", "fanout");
+      const message = defineMessage(z.object({ level: z.string() }));
+      const analyticsQueue = defineQueue("analytics-logs");
+
+      // WHEN
+      const logEvent = defineEventPublisher(logsExchange, message);
+      const result = defineEventConsumer(logEvent, analyticsQueue, {
+        bridgeExchange: analyticsExchange,
+      });
+
+      // THEN
+      expect(result.bridgeExchange).toBe(analyticsExchange);
+      expect(result.binding).toMatchObject({
+        type: "queue",
+        queue: analyticsQueue,
+        exchange: analyticsExchange,
+      });
+      expect(result.exchangeBinding).toEqual({
+        type: "exchange",
+        source: logsExchange,
+        destination: analyticsExchange,
+      });
+    });
+
+    it("should create a bridged command publisher with topic exchange", () => {
+      // GIVEN - Remote domain owns the command consumer
+      const remoteExchange = defineExchange("remote-commands", "topic", { durable: true });
+      const localExchange = defineExchange("local-commands", "topic", { durable: true });
+      const message = defineMessage(z.object({ taskId: z.string() }));
+      const remoteQueue = defineQueue("remote-task-queue");
+
+      // WHEN - Create command consumer on remote, publish via bridge
+      const command = defineCommandConsumer(remoteQueue, remoteExchange, message, {
+        routingKey: "task.execute",
+      });
+      const publisher = defineCommandPublisher(command, {
+        bridgeExchange: localExchange,
+      });
+
+      // THEN - Publisher is bridged
+      expect(isBridgedPublisherConfig(publisher)).toBe(true);
+      expect(publisher).toMatchObject({
+        __brand: "BridgedPublisherConfig",
+        bridgeExchange: localExchange,
+        targetExchange: remoteExchange,
+      });
+      expect(publisher.publisher).toMatchObject({
+        exchange: localExchange,
+        message,
+        routingKey: "task.execute",
+      });
+      expect(publisher.exchangeBinding).toEqual({
+        type: "exchange",
+        source: localExchange,
+        destination: remoteExchange,
+        routingKey: "task.execute",
+      });
+    });
+
+    it("should extract bridged event consumer into contract", () => {
+      // GIVEN
+      const ordersExchange = defineExchange("orders", "topic", { durable: true });
+      const billingExchange = defineExchange("billing", "topic", { durable: true });
+      const message = defineMessage(z.object({ orderId: z.string() }));
+      const billingQueue = defineQueue("billing-orders");
+
+      const orderCreated = defineEventPublisher(ordersExchange, message, {
+        routingKey: "order.created",
+      });
+
+      // WHEN
+      const contract = defineContract({
+        consumers: {
+          processOrder: defineEventConsumer(orderCreated, billingQueue, {
+            bridgeExchange: billingExchange,
+          }),
+        },
+      });
+
+      // THEN - All resources extracted
+      expect(contract.exchanges).toMatchObject({
+        orders: ordersExchange,
+        billing: billingExchange,
+      });
+      expect(contract.queues).toMatchObject({
+        "billing-orders": billingQueue,
+      });
+      expect(contract.bindings).toMatchObject({
+        processOrderBinding: {
+          type: "queue",
+          queue: billingQueue,
+          exchange: billingExchange,
+          routingKey: "order.created",
+        },
+        processOrderExchangeBinding: {
+          type: "exchange",
+          source: ordersExchange,
+          destination: billingExchange,
+          routingKey: "order.created",
+        },
+      });
+      expect(contract.consumers).toMatchObject({
+        processOrder: {
+          queue: billingQueue,
+          message,
+        },
+      });
+    });
+
+    it("should extract bridged command publisher into contract", () => {
+      // GIVEN
+      const remoteExchange = defineExchange("remote", "topic", { durable: true });
+      const localExchange = defineExchange("local", "topic", { durable: true });
+      const message = defineMessage(z.object({ id: z.string() }));
+      const remoteQueue = defineQueue("remote-queue");
+
+      const command = defineCommandConsumer(remoteQueue, remoteExchange, message, {
+        routingKey: "cmd.run",
+      });
+
+      // WHEN
+      const contract = defineContract({
+        publishers: {
+          runCommand: defineCommandPublisher(command, {
+            bridgeExchange: localExchange,
+          }),
+        },
+      });
+
+      // THEN - All resources extracted
+      expect(contract.exchanges).toMatchObject({
+        local: localExchange,
+        remote: remoteExchange,
+      });
+      expect(contract.bindings).toMatchObject({
+        runCommandExchangeBinding: {
+          type: "exchange",
+          source: localExchange,
+          destination: remoteExchange,
+          routingKey: "cmd.run",
+        },
+      });
+      expect(contract.publishers).toMatchObject({
+        runCommand: {
+          exchange: localExchange,
+          message,
+          routingKey: "cmd.run",
+        },
+      });
+    });
+
+    it("should mix bridged and non-bridged entries in contract", () => {
+      // GIVEN
+      const ordersExchange = defineExchange("orders", "topic", { durable: true });
+      const billingExchange = defineExchange("billing", "topic", { durable: true });
+      const localExchange = defineExchange("local", "topic", { durable: true });
+      const orderMessage = defineMessage(z.object({ orderId: z.string() }));
+      const localMessage = defineMessage(z.object({ id: z.string() }));
+      const billingQueue = defineQueue("billing-orders");
+      const localQueue = defineQueue("local-processing");
+
+      const orderCreated = defineEventPublisher(ordersExchange, orderMessage, {
+        routingKey: "order.created",
+      });
+      const localEvent = defineEventPublisher(localExchange, localMessage, {
+        routingKey: "local.event",
+      });
+
+      // WHEN - Mix bridged and non-bridged
+      const contract = defineContract({
+        publishers: {
+          orderCreated,
+          localEvent,
+        },
+        consumers: {
+          // Bridged: subscribe to remote orders via billing exchange
+          processBillingOrder: defineEventConsumer(orderCreated, billingQueue, {
+            bridgeExchange: billingExchange,
+          }),
+          // Non-bridged: direct local consumer
+          processLocal: defineEventConsumer(localEvent, localQueue),
+        },
+      });
+
+      // THEN - Both types extracted correctly
+      expect(contract.exchanges).toMatchObject({
+        orders: ordersExchange,
+        billing: billingExchange,
+        local: localExchange,
+      });
+      expect(contract.bindings).toMatchObject({
+        processBillingOrderBinding: {
+          type: "queue",
+          exchange: billingExchange,
+        },
+        processBillingOrderExchangeBinding: {
+          type: "exchange",
+          source: ordersExchange,
+          destination: billingExchange,
+        },
+        processLocalBinding: {
+          type: "queue",
+          exchange: localExchange,
+        },
+      });
+      // Non-bridged consumer should NOT have exchange binding
+      expect(contract.bindings).not.toHaveProperty("processLocalExchangeBinding");
+    });
+
+    it("should not produce bridge fields when bridgeExchange is not provided", () => {
+      // GIVEN
+      const exchange = defineExchange("test", "topic");
+      const message = defineMessage(z.object({ id: z.string() }));
+      const queue = defineQueue("test-queue");
+
+      const event = defineEventPublisher(exchange, message, { routingKey: "test.event" });
+
+      // WHEN - No bridgeExchange
+      const result = defineEventConsumer(event, queue);
+
+      // THEN - No bridge fields
+      expect(result.exchangeBinding).toBeUndefined();
+      expect(result.bridgeExchange).toBeUndefined();
     });
   });
 });

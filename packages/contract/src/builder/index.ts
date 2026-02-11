@@ -48,9 +48,10 @@ export type { EventPublisherConfig, EventConsumerResult } from "./event.js";
 export {
   defineCommandConsumer,
   defineCommandPublisher,
+  isBridgedPublisherConfig,
   isCommandConsumerConfig,
 } from "./command.js";
-export type { CommandConsumerConfig } from "./command.js";
+export type { BridgedPublisherConfig, CommandConsumerConfig } from "./command.js";
 
 // TTL-backoff infrastructure
 export { defineTtlBackoffRetryInfrastructure } from "./ttl-backoff.js";

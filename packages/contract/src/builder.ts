@@ -37,6 +37,7 @@ export {
   // Command pattern
   defineCommandConsumer,
   defineCommandPublisher,
+  isBridgedPublisherConfig,
   isCommandConsumerConfig,
   // TTL-backoff infrastructure
   defineTtlBackoffRetryInfrastructure,
@@ -52,6 +53,7 @@ export type {
   EventPublisherConfig,
   EventConsumerResult,
   // Command pattern types
+  BridgedPublisherConfig,
   CommandConsumerConfig,
   // TTL-backoff types
   TtlBackoffRetryInfrastructure,

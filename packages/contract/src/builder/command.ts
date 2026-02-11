@@ -2,6 +2,7 @@ import type { BindingPattern, RoutingKey } from "./routing-types.js";
 import type {
   ConsumerDefinition,
   DirectExchangeDefinition,
+  ExchangeBindingDefinition,
   ExchangeDefinition,
   ExtractDlxFromEntry,
   ExtractQueueFromEntry,
@@ -15,7 +16,7 @@ import type {
 } from "../types.js";
 import { defineConsumer } from "./consumer.js";
 import { definePublisherInternal } from "./publisher.js";
-import { defineQueueBindingInternal } from "./binding.js";
+import { defineExchangeBinding, defineQueueBindingInternal } from "./binding.js";
 
 /**
  * Configuration for a command consumer.
@@ -50,6 +51,33 @@ export type CommandConsumerConfig<
   message: TMessage;
   /** The routing key pattern for the binding */
   routingKey: TRoutingKey;
+};
+
+/**
+ * Configuration for a bridged command publisher.
+ *
+ * A bridged publisher publishes to a bridge exchange (local domain), which forwards
+ * messages to the target exchange (remote domain) via an exchange-to-exchange binding.
+ *
+ * @template TMessage - The message definition
+ * @template TBridgeExchange - The bridge (local domain) exchange definition
+ * @template TTargetExchange - The target (remote domain) exchange definition
+ */
+export type BridgedPublisherConfig<
+  TMessage extends MessageDefinition,
+  TBridgeExchange extends ExchangeDefinition,
+  TTargetExchange extends ExchangeDefinition,
+> = {
+  /** Discriminator to identify this as a bridged publisher config */
+  __brand: "BridgedPublisherConfig";
+  /** The publisher definition (publishes to bridge exchange) */
+  publisher: PublisherDefinition<TMessage>;
+  /** The exchange-to-exchange binding (bridge → target) */
+  exchangeBinding: ExchangeBindingDefinition;
+  /** The bridge (local domain) exchange */
+  bridgeExchange: TBridgeExchange;
+  /** The target (remote domain) exchange */
+  targetExchange: TTargetExchange;
 };
 
 /**
@@ -221,6 +249,68 @@ export function defineCommandConsumer<TMessage extends MessageDefinition>(
 }
 
 /**
+ * Create a bridged publisher that sends commands to a fanout exchange consumer via a bridge exchange.
+ *
+ * @param commandConsumer - The command consumer configuration
+ * @param options - Configuration with required bridgeExchange
+ * @param options.bridgeExchange - The local domain exchange to bridge through
+ * @returns A bridged publisher configuration
+ */
+export function defineCommandPublisher<
+  TMessage extends MessageDefinition,
+  TExchange extends FanoutExchangeDefinition,
+  TBridgeExchange extends ExchangeDefinition,
+>(
+  commandConsumer: CommandConsumerConfig<TMessage, TExchange, undefined>,
+  options: {
+    bridgeExchange: TBridgeExchange;
+  },
+): BridgedPublisherConfig<TMessage, TBridgeExchange, TExchange>;
+
+/**
+ * Create a bridged publisher that sends commands to a direct exchange consumer via a bridge exchange.
+ *
+ * @param commandConsumer - The command consumer configuration
+ * @param options - Configuration with required bridgeExchange
+ * @param options.bridgeExchange - The local domain exchange to bridge through
+ * @returns A bridged publisher configuration
+ */
+export function defineCommandPublisher<
+  TMessage extends MessageDefinition,
+  TRoutingKey extends string,
+  TExchange extends DirectExchangeDefinition,
+  TBridgeExchange extends ExchangeDefinition,
+>(
+  commandConsumer: CommandConsumerConfig<TMessage, TExchange, TRoutingKey>,
+  options: {
+    bridgeExchange: TBridgeExchange;
+  },
+): BridgedPublisherConfig<TMessage, TBridgeExchange, TExchange>;
+
+/**
+ * Create a bridged publisher that sends commands to a topic exchange consumer via a bridge exchange.
+ *
+ * @param commandConsumer - The command consumer configuration
+ * @param options - Configuration with required bridgeExchange and optional routingKey override
+ * @param options.bridgeExchange - The local domain exchange to bridge through
+ * @param options.routingKey - Override routing key (must match consumer's pattern)
+ * @returns A bridged publisher configuration
+ */
+export function defineCommandPublisher<
+  TMessage extends MessageDefinition,
+  TRoutingKey extends string,
+  TExchange extends TopicExchangeDefinition,
+  TBridgeExchange extends ExchangeDefinition,
+  TPublisherRoutingKey extends string = TRoutingKey,
+>(
+  commandConsumer: CommandConsumerConfig<TMessage, TExchange, TRoutingKey>,
+  options: {
+    bridgeExchange: TBridgeExchange;
+    routingKey?: RoutingKey<TPublisherRoutingKey>;
+  },
+): BridgedPublisherConfig<TMessage, TBridgeExchange, TExchange>;
+
+/**
  * Create a publisher that sends commands to a fanout exchange consumer.
  *
  * @param commandConsumer - The command consumer configuration
@@ -292,19 +382,56 @@ export function defineCommandPublisher<TMessage extends MessageDefinition>(
   commandConsumer: CommandConsumerConfig<TMessage, ExchangeDefinition, string | undefined>,
   options?: {
     routingKey?: string;
+    bridgeExchange?: ExchangeDefinition;
   },
-): PublisherDefinition<TMessage> {
-  const { exchange, message, routingKey: consumerRoutingKey } = commandConsumer;
+):
+  | PublisherDefinition<TMessage>
+  | BridgedPublisherConfig<TMessage, ExchangeDefinition, ExchangeDefinition> {
+  const { exchange: targetExchange, message, routingKey: consumerRoutingKey } = commandConsumer;
 
   // For topic exchanges, publisher can override the routing key
   const publisherRoutingKey = options?.routingKey ?? consumerRoutingKey;
+
+  const bridgeExchange = options?.bridgeExchange;
+
+  if (bridgeExchange) {
+    // Bridged: publisher publishes to bridge exchange, e2e binding from bridge → target
+    const publisherOptions: { routingKey?: string } = {};
+    if (publisherRoutingKey !== undefined) {
+      publisherOptions.routingKey = publisherRoutingKey;
+    }
+
+    const publisher = definePublisherInternal(bridgeExchange, message, publisherOptions);
+
+    // Create e2e binding: target ← bridge (destination = target, source = bridge)
+    const e2eBindingOptions: { routingKey?: string } = {};
+    if (publisherRoutingKey !== undefined) {
+      e2eBindingOptions.routingKey = publisherRoutingKey;
+    }
+    const e2eBinding =
+      bridgeExchange.type === "fanout"
+        ? defineExchangeBinding(targetExchange, bridgeExchange)
+        : defineExchangeBinding(
+            targetExchange,
+            bridgeExchange as DirectExchangeDefinition | TopicExchangeDefinition,
+            e2eBindingOptions as { routingKey: string },
+          );
+
+    return {
+      __brand: "BridgedPublisherConfig",
+      publisher,
+      exchangeBinding: e2eBinding,
+      bridgeExchange,
+      targetExchange,
+    };
+  }
 
   const publisherOptions: { routingKey?: string } = {};
   if (publisherRoutingKey !== undefined) {
     publisherOptions.routingKey = publisherRoutingKey;
   }
 
-  return definePublisherInternal(exchange, message, publisherOptions);
+  return definePublisherInternal(targetExchange, message, publisherOptions);
 }
 
 /**
@@ -321,5 +448,22 @@ export function isCommandConsumerConfig(
     value !== null &&
     "__brand" in value &&
     value.__brand === "CommandConsumerConfig"
+  );
+}
+
+/**
+ * Type guard to check if a value is a BridgedPublisherConfig.
+ *
+ * @param value - The value to check
+ * @returns True if the value is a BridgedPublisherConfig
+ */
+export function isBridgedPublisherConfig(
+  value: unknown,
+): value is BridgedPublisherConfig<MessageDefinition, ExchangeDefinition, ExchangeDefinition> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "__brand" in value &&
+    value.__brand === "BridgedPublisherConfig"
   );
 }

@@ -325,6 +325,59 @@ describe("AmqpClient Integration", () => {
     await client.close().resultToPromise();
   });
 
+  it("should setup bridged exchange-to-exchange bindings from contract", async ({
+    amqpConnectionUrl,
+    publishMessage,
+    initConsumer,
+  }) => {
+    // GIVEN - Cross-domain: source exchange → (e2e) → bridge exchange → queue
+    const sourceExchange = defineExchange("source-domain", "topic", { durable: false });
+    const bridgeExchange = defineExchange("local-domain", "topic", { durable: false });
+    const localQueue = defineQueue("local-processing", { type: "classic", durable: false });
+
+    const contract: ContractDefinition = {
+      exchanges: {
+        source: sourceExchange,
+        bridge: bridgeExchange,
+      },
+      queues: {
+        localProcessing: localQueue,
+      },
+      bindings: {
+        // e2e binding: source → bridge
+        exchangeBinding: defineExchangeBinding(bridgeExchange, sourceExchange, {
+          routingKey: "order.created",
+        }),
+        // queue binding: bridge → queue
+        queueBinding: defineQueueBinding(localQueue, bridgeExchange, {
+          routingKey: "order.created",
+        }),
+      },
+    };
+
+    const client = new AmqpClient(contract, {
+      urls: [amqpConnectionUrl],
+    });
+
+    await client.waitForConnect().resultToPromise();
+
+    // Setup consumer on the local queue via bridge exchange
+    const waitForMessages = await initConsumer("local-domain", "order.created");
+
+    // WHEN - Publish to source exchange (simulating remote domain)
+    publishMessage("source-domain", "order.created", { orderId: "bridge-test-123" });
+
+    // THEN - Message flows: source → (e2e) → bridge → queue → consumer
+    await expect(waitForMessages()).resolves.toEqual([
+      expect.objectContaining({
+        content: Buffer.from(JSON.stringify({ orderId: "bridge-test-123" })),
+      }),
+    ]);
+
+    // CLEANUP
+    await client.close().resultToPromise();
+  });
+
   it("should close channel and connection properly", async ({ amqpConnectionUrl }) => {
     // GIVEN
     const contract: ContractDefinition = {

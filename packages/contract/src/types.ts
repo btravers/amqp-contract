@@ -951,6 +951,24 @@ export type EventConsumerResultBase = {
   exchange: ExchangeDefinition;
   queue: QueueDefinition;
   deadLetterExchange: ExchangeDefinition | undefined;
+  exchangeBinding: ExchangeBindingDefinition | undefined;
+  bridgeExchange: ExchangeDefinition | undefined;
+};
+
+/**
+ * Base type for bridged publisher configuration.
+ *
+ * A bridged publisher publishes to a bridge exchange, which forwards messages
+ * to the target exchange via an exchange-to-exchange binding.
+ *
+ * @see defineCommandPublisher with bridgeExchange option
+ */
+export type BridgedPublisherConfigBase = {
+  __brand: "BridgedPublisherConfig";
+  publisher: PublisherDefinition;
+  exchangeBinding: ExchangeBindingDefinition;
+  bridgeExchange: ExchangeDefinition;
+  targetExchange: ExchangeDefinition;
 };
 
 /**
@@ -1030,7 +1048,10 @@ export type ContractDefinition = {
  * - A plain PublisherDefinition from definePublisher
  * - An EventPublisherConfig from defineEventPublisher (auto-extracted to publisher)
  */
-export type PublisherEntry = PublisherDefinition | EventPublisherConfigBase;
+export type PublisherEntry =
+  | PublisherDefinition
+  | EventPublisherConfigBase
+  | BridgedPublisherConfigBase;
 
 /**
  * Consumer entry that can be passed to defineContract's consumers section.
@@ -1098,11 +1119,13 @@ export type ContractDefinitionInput = {
  * Extract the exchange from a publisher entry.
  * @internal
  */
-type ExtractPublisherExchange<T extends PublisherEntry> = T extends EventPublisherConfigBase
-  ? T["exchange"]
-  : T extends PublisherDefinition
+type ExtractPublisherExchange<T extends PublisherEntry> = T extends BridgedPublisherConfigBase
+  ? T["bridgeExchange"]
+  : T extends EventPublisherConfigBase
     ? T["exchange"]
-    : never;
+    : T extends PublisherDefinition
+      ? T["exchange"]
+      : never;
 
 /**
  * Extract the QueueDefinition from a QueueEntry type.
@@ -1269,14 +1292,16 @@ type ExtractConsumerDefinitions<TConsumers extends Record<string, ConsumerEntry>
  * Extract the publisher definition from a publisher entry.
  * @internal
  */
-type ExtractPublisherDefinition<T extends PublisherEntry> = T extends EventPublisherConfigBase
-  ? PublisherDefinition<T["message"]> &
-      (T["exchange"] extends FanoutExchangeDefinition
-        ? { exchange: T["exchange"]; routingKey?: never }
-        : { exchange: T["exchange"]; routingKey: T["routingKey"] & string })
-  : T extends PublisherDefinition
-    ? T
-    : never;
+type ExtractPublisherDefinition<T extends PublisherEntry> = T extends BridgedPublisherConfigBase
+  ? T["publisher"]
+  : T extends EventPublisherConfigBase
+    ? PublisherDefinition<T["message"]> &
+        (T["exchange"] extends FanoutExchangeDefinition
+          ? { exchange: T["exchange"]; routingKey?: never }
+          : { exchange: T["exchange"]; routingKey: T["routingKey"] & string })
+    : T extends PublisherDefinition
+      ? T
+      : never;
 
 /**
  * Extract publisher definitions from all publishers in a contract.
@@ -1284,6 +1309,102 @@ type ExtractPublisherDefinition<T extends PublisherEntry> = T extends EventPubli
  */
 type ExtractPublisherDefinitions<TPublishers extends Record<string, PublisherEntry>> = {
   [K in keyof TPublishers]: ExtractPublisherDefinition<TPublishers[K]>;
+};
+
+/**
+ * Extract the bridge exchange from a consumer entry (when bridgeExchange is set).
+ * @internal
+ */
+type ExtractBridgeExchangeFromConsumer<T extends ConsumerEntry> = T extends EventConsumerResultBase
+  ? T["bridgeExchange"] extends ExchangeDefinition
+    ? T["bridgeExchange"]
+    : never
+  : never;
+
+/**
+ * Extract bridge exchanges from all consumers in a contract.
+ * @internal
+ */
+type ExtractBridgeExchangesFromConsumers<TConsumers extends Record<string, ConsumerEntry>> = {
+  [K in keyof TConsumers as ExtractBridgeExchangeFromConsumer<TConsumers[K]> extends never
+    ? never
+    : ExtractBridgeExchangeFromConsumer<TConsumers[K]>["name"]]: ExtractBridgeExchangeFromConsumer<
+    TConsumers[K]
+  >;
+};
+
+/**
+ * Extract the target exchange from a bridged publisher entry.
+ * @internal
+ */
+type ExtractTargetExchangeFromPublisher<T extends PublisherEntry> =
+  T extends BridgedPublisherConfigBase ? T["targetExchange"] : never;
+
+/**
+ * Extract target exchanges from all publishers in a contract.
+ * @internal
+ */
+type ExtractTargetExchangesFromPublishers<TPublishers extends Record<string, PublisherEntry>> = {
+  [K in keyof TPublishers as ExtractTargetExchangeFromPublisher<TPublishers[K]> extends never
+    ? never
+    : ExtractTargetExchangeFromPublisher<
+        TPublishers[K]
+      >["name"]]: ExtractTargetExchangeFromPublisher<TPublishers[K]>;
+};
+
+/**
+ * Check if a consumer entry has an exchange binding (e2e).
+ * @internal
+ */
+type HasConsumerExchangeBinding<T extends ConsumerEntry> = T extends EventConsumerResultBase
+  ? T["exchangeBinding"] extends ExchangeBindingDefinition
+    ? true
+    : false
+  : false;
+
+/**
+ * Extract the exchange binding from a consumer entry.
+ * @internal
+ */
+type ExtractConsumerExchangeBinding<T extends ConsumerEntry> = T extends EventConsumerResultBase
+  ? T["exchangeBinding"] extends ExchangeBindingDefinition
+    ? T["exchangeBinding"]
+    : never
+  : never;
+
+/**
+ * Extract exchange bindings from all consumers in a contract.
+ * @internal
+ */
+type ExtractExchangeBindingsFromConsumers<TConsumers extends Record<string, ConsumerEntry>> = {
+  [K in keyof TConsumers as HasConsumerExchangeBinding<TConsumers[K]> extends true
+    ? `${K & string}ExchangeBinding`
+    : never]: ExtractConsumerExchangeBinding<TConsumers[K]>;
+};
+
+/**
+ * Check if a publisher entry has an exchange binding (bridged).
+ * @internal
+ */
+type HasPublisherExchangeBinding<T extends PublisherEntry> = T extends BridgedPublisherConfigBase
+  ? true
+  : false;
+
+/**
+ * Extract the exchange binding from a bridged publisher entry.
+ * @internal
+ */
+type ExtractPublisherExchangeBinding<T extends PublisherEntry> =
+  T extends BridgedPublisherConfigBase ? T["exchangeBinding"] : never;
+
+/**
+ * Extract exchange bindings from all publishers in a contract.
+ * @internal
+ */
+type ExtractExchangeBindingsFromPublishers<TPublishers extends Record<string, PublisherEntry>> = {
+  [K in keyof TPublishers as HasPublisherExchangeBinding<TPublishers[K]> extends true
+    ? `${K & string}ExchangeBinding`
+    : never]: ExtractPublisherExchangeBinding<TPublishers[K]>;
 };
 
 /**
@@ -1305,13 +1426,25 @@ export type ContractOutput<TContract extends ContractDefinitionInput> = {
       : {}) &
     (TContract["consumers"] extends Record<string, ConsumerEntry>
       ? ExtractDeadLetterExchangesFromConsumers<TContract["consumers"]>
+      : {}) &
+    (TContract["consumers"] extends Record<string, ConsumerEntry>
+      ? ExtractBridgeExchangesFromConsumers<TContract["consumers"]>
+      : {}) &
+    (TContract["publishers"] extends Record<string, PublisherEntry>
+      ? ExtractTargetExchangesFromPublishers<TContract["publishers"]>
       : {});
   queues: TContract["consumers"] extends Record<string, ConsumerEntry>
     ? ExtractQueuesFromConsumers<TContract["consumers"]>
     : {};
-  bindings: TContract["consumers"] extends Record<string, ConsumerEntry>
+  bindings: (TContract["consumers"] extends Record<string, ConsumerEntry>
     ? ExtractBindingsFromConsumers<TContract["consumers"]>
-    : {};
+    : {}) &
+    (TContract["consumers"] extends Record<string, ConsumerEntry>
+      ? ExtractExchangeBindingsFromConsumers<TContract["consumers"]>
+      : {}) &
+    (TContract["publishers"] extends Record<string, PublisherEntry>
+      ? ExtractExchangeBindingsFromPublishers<TContract["publishers"]>
+      : {});
   publishers: TContract["publishers"] extends Record<string, PublisherEntry>
     ? ExtractPublisherDefinitions<TContract["publishers"]>
     : {};
