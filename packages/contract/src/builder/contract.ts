@@ -11,7 +11,7 @@ import type {
 } from "../types.js";
 import { isEventConsumerResult, isEventPublisherConfig } from "./event.js";
 import { definePublisherInternal } from "./publisher.js";
-import { isCommandConsumerConfig } from "./command.js";
+import { isBridgedPublisherConfig, isCommandConsumerConfig } from "./command.js";
 import { defineQueueBindingInternal } from "./binding.js";
 import { resolveTtlBackoffOptions } from "./queue.js";
 
@@ -97,9 +97,16 @@ export function defineContract<TContract extends ContractDefinitionInput>(
   if (inputPublishers && Object.keys(inputPublishers).length > 0) {
     const processedPublishers: Record<string, PublisherDefinition> = {};
     const exchanges: Record<string, ExchangeDefinition> = {};
+    const publisherBindings: Record<string, BindingDefinition> = {};
 
     for (const [name, entry] of Object.entries(inputPublishers)) {
-      if (isEventPublisherConfig(entry)) {
+      if (isBridgedPublisherConfig(entry)) {
+        // BridgedPublisherConfig: extract publisher, exchanges, and e2e binding
+        exchanges[entry.bridgeExchange.name] = entry.bridgeExchange;
+        exchanges[entry.targetExchange.name] = entry.targetExchange;
+        publisherBindings[`${name}ExchangeBinding`] = entry.exchangeBinding;
+        processedPublishers[name] = entry.publisher;
+      } else if (isEventPublisherConfig(entry)) {
         // EventPublisherConfig: extract exchange and convert to publisher definition
         exchanges[entry.exchange.name] = entry.exchange;
         const publisherOptions: { routingKey?: string } = {};
@@ -121,6 +128,7 @@ export function defineContract<TContract extends ContractDefinitionInput>(
 
     result.publishers = processedPublishers;
     result.exchanges = { ...result.exchanges, ...exchanges };
+    result.bindings = { ...result.bindings, ...publisherBindings };
   }
 
   // Process consumers section - extract queues, exchanges, bindings, and consumer definitions
@@ -146,6 +154,18 @@ export function defineContract<TContract extends ContractDefinitionInput>(
         // Extract dead letter exchange if present
         if (queueEntry.deadLetter?.exchange) {
           exchanges[queueEntry.deadLetter.exchange.name] = queueEntry.deadLetter.exchange;
+        }
+
+        // Extract bridge exchange and e2e binding if present
+        if (entry.exchangeBinding) {
+          consumerBindings[`${name}ExchangeBinding`] = entry.exchangeBinding;
+        }
+        if (entry.bridgeExchange) {
+          exchanges[entry.bridgeExchange.name] = entry.bridgeExchange;
+        }
+        // Also extract the source exchange (stored in entry.exchange for bridged consumers)
+        if (entry.exchange) {
+          exchanges[entry.exchange.name] = entry.exchange;
         }
       } else if (isCommandConsumerConfig(entry)) {
         // CommandConsumerConfig: extract consumer, binding, queue, and exchange

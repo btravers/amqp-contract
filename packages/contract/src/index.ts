@@ -16,6 +16,7 @@ export {
   defineTtlBackoffRetryInfrastructure,
   extractConsumer,
   extractQueue,
+  isBridgedPublisherConfig,
   isCommandConsumerConfig,
   isEventConsumerResult,
   isEventPublisherConfig,
@@ -23,6 +24,7 @@ export {
 } from "./builder.js";
 export type {
   BindingPattern,
+  BridgedPublisherConfig,
   CommandConsumerConfig,
   DefineQuorumQueueOptions,
   DefineTtlBackoffQueueOptions,
@@ -36,6 +38,7 @@ export type {
   AnySchema,
   BaseExchangeDefinition,
   BindingDefinition,
+  BridgedPublisherConfigBase,
   ClassicQueueDefinition,
   ClassicQueueOptions,
   CommandConsumerConfigBase,

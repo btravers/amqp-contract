@@ -2,6 +2,7 @@ import type { BindingPattern, RoutingKey } from "./routing-types.js";
 import type {
   ConsumerDefinition,
   DirectExchangeDefinition,
+  ExchangeBindingDefinition,
   ExchangeDefinition,
   ExtractDlxFromEntry,
   ExtractQueueFromEntry,
@@ -13,7 +14,7 @@ import type {
   TopicExchangeDefinition,
 } from "../types.js";
 import { defineConsumer } from "./consumer.js";
-import { defineQueueBindingInternal } from "./binding.js";
+import { defineExchangeBinding, defineQueueBindingInternal } from "./binding.js";
 
 /**
  * Configuration for an event publisher.
@@ -57,6 +58,10 @@ export type EventConsumerResult<
   TExchange extends ExchangeDefinition = ExchangeDefinition,
   TQueue extends QueueDefinition = QueueDefinition,
   TDlxExchange extends ExchangeDefinition | undefined = ExchangeDefinition | undefined,
+  TExchangeBinding extends ExchangeBindingDefinition | undefined =
+    | ExchangeBindingDefinition
+    | undefined,
+  TBridgeExchange extends ExchangeDefinition | undefined = ExchangeDefinition | undefined,
 > = {
   /** Discriminator to identify this as an event consumer result */
   __brand: "EventConsumerResult";
@@ -64,12 +69,16 @@ export type EventConsumerResult<
   consumer: ConsumerDefinition<TMessage>;
   /** The binding connecting the queue to the exchange */
   binding: QueueBindingDefinition;
-  /** The exchange this consumer subscribes to */
+  /** The source exchange this consumer subscribes to */
   exchange: TExchange;
   /** The queue this consumer reads from */
   queue: TQueue;
   /** The dead letter exchange from the queue, if configured */
   deadLetterExchange: TDlxExchange;
+  /** The exchange-to-exchange binding when bridging, if configured */
+  exchangeBinding: TExchangeBinding;
+  /** The bridge (local domain) exchange when bridging, if configured */
+  bridgeExchange: TBridgeExchange;
 };
 
 /**
@@ -215,6 +224,104 @@ export function defineEventPublisher<TMessage extends MessageDefinition>(
 }
 
 /**
+ * Create a consumer that subscribes to an event from a fanout exchange via a bridge exchange.
+ *
+ * When `bridgeExchange` is provided, the queue binds to the bridge exchange instead of the
+ * source exchange, and an exchange-to-exchange binding is created from the source to the bridge.
+ *
+ * @param eventPublisher - The event publisher configuration
+ * @param queue - The queue that will receive messages
+ * @param options - Binding configuration with required bridgeExchange
+ * @param options.bridgeExchange - The fanout bridge exchange (must be fanout to match source)
+ * @returns An object with the consumer definition, queue binding, and exchange binding
+ */
+export function defineEventConsumer<
+  TMessage extends MessageDefinition,
+  TExchange extends FanoutExchangeDefinition,
+  TQueueEntry extends QueueEntry,
+  TBridgeExchange extends FanoutExchangeDefinition,
+>(
+  eventPublisher: EventPublisherConfig<TMessage, TExchange, undefined>,
+  queue: TQueueEntry,
+  options: {
+    bridgeExchange: TBridgeExchange;
+    arguments?: Record<string, unknown>;
+  },
+): EventConsumerResult<
+  TMessage,
+  TExchange,
+  ExtractQueueFromEntry<TQueueEntry>,
+  ExtractDlxFromEntry<TQueueEntry>,
+  ExchangeBindingDefinition,
+  TBridgeExchange
+>;
+
+/**
+ * Create a consumer that subscribes to an event from a direct exchange via a bridge exchange.
+ *
+ * @param eventPublisher - The event publisher configuration
+ * @param queue - The queue that will receive messages
+ * @param options - Binding configuration with required bridgeExchange
+ * @param options.bridgeExchange - The bridge exchange (must be direct or topic to preserve routing keys)
+ * @returns An object with the consumer definition, queue binding, and exchange binding
+ */
+export function defineEventConsumer<
+  TMessage extends MessageDefinition,
+  TRoutingKey extends string,
+  TExchange extends DirectExchangeDefinition,
+  TQueueEntry extends QueueEntry,
+  TBridgeExchange extends DirectExchangeDefinition | TopicExchangeDefinition,
+>(
+  eventPublisher: EventPublisherConfig<TMessage, TExchange, TRoutingKey>,
+  queue: TQueueEntry,
+  options: {
+    bridgeExchange: TBridgeExchange;
+    arguments?: Record<string, unknown>;
+  },
+): EventConsumerResult<
+  TMessage,
+  TExchange,
+  ExtractQueueFromEntry<TQueueEntry>,
+  ExtractDlxFromEntry<TQueueEntry>,
+  ExchangeBindingDefinition,
+  TBridgeExchange
+>;
+
+/**
+ * Create a consumer that subscribes to an event from a topic exchange via a bridge exchange.
+ *
+ * @param eventPublisher - The event publisher configuration
+ * @param queue - The queue that will receive messages
+ * @param options - Binding configuration with required bridgeExchange
+ * @param options.bridgeExchange - The bridge exchange (must be direct or topic to preserve routing keys)
+ * @param options.routingKey - Override routing key with pattern (defaults to publisher's key)
+ * @returns An object with the consumer definition, queue binding, and exchange binding
+ */
+export function defineEventConsumer<
+  TMessage extends MessageDefinition,
+  TRoutingKey extends string,
+  TExchange extends TopicExchangeDefinition,
+  TQueueEntry extends QueueEntry,
+  TBridgeExchange extends DirectExchangeDefinition | TopicExchangeDefinition,
+  TConsumerRoutingKey extends string = TRoutingKey,
+>(
+  eventPublisher: EventPublisherConfig<TMessage, TExchange, TRoutingKey>,
+  queue: TQueueEntry,
+  options: {
+    bridgeExchange: TBridgeExchange;
+    routingKey?: BindingPattern<TConsumerRoutingKey>;
+    arguments?: Record<string, unknown>;
+  },
+): EventConsumerResult<
+  TMessage,
+  TExchange,
+  ExtractQueueFromEntry<TQueueEntry>,
+  ExtractDlxFromEntry<TQueueEntry>,
+  ExchangeBindingDefinition,
+  TBridgeExchange
+>;
+
+/**
  * Create a consumer that subscribes to an event from a fanout exchange.
  *
  * @param eventPublisher - The event publisher configuration
@@ -327,10 +434,11 @@ export function defineEventConsumer<TMessage extends MessageDefinition>(
   queue: QueueEntry,
   options?: {
     routingKey?: string;
+    bridgeExchange?: ExchangeDefinition;
     arguments?: Record<string, unknown>;
   },
 ): EventConsumerResult<TMessage> {
-  const { exchange, message, routingKey: publisherRoutingKey } = eventPublisher;
+  const { exchange: sourceExchange, message, routingKey: publisherRoutingKey } = eventPublisher;
 
   // For topic exchanges, consumer can override the routing key
   const bindingRoutingKey = options?.routingKey ?? publisherRoutingKey;
@@ -344,16 +452,51 @@ export function defineEventConsumer<TMessage extends MessageDefinition>(
     bindingOptions.arguments = bindingArguments;
   }
 
-  const binding = defineQueueBindingInternal(queue, exchange, bindingOptions);
+  const bridgeExchange = options?.bridgeExchange;
+
+  if (bridgeExchange) {
+    // Bridged: queue binds to bridge exchange, e2e binding from source → bridge
+    const binding = defineQueueBindingInternal(queue, bridgeExchange, bindingOptions);
+    const consumer = defineConsumer(queue, message);
+
+    // Create e2e binding: bridge ← source (destination ← source)
+    const exchangeBindingOptions: { routingKey?: string } = {};
+    if (bindingRoutingKey !== undefined) {
+      exchangeBindingOptions.routingKey = bindingRoutingKey;
+    }
+    const e2eBinding =
+      sourceExchange.type === "fanout"
+        ? defineExchangeBinding(bridgeExchange, sourceExchange)
+        : defineExchangeBinding(
+            bridgeExchange,
+            sourceExchange as DirectExchangeDefinition | TopicExchangeDefinition,
+            exchangeBindingOptions as { routingKey: string },
+          );
+
+    return {
+      __brand: "EventConsumerResult",
+      consumer,
+      binding,
+      exchange: sourceExchange,
+      queue: consumer.queue,
+      deadLetterExchange: consumer.queue.deadLetter?.exchange,
+      exchangeBinding: e2eBinding,
+      bridgeExchange,
+    } as EventConsumerResult<TMessage>;
+  }
+
+  const binding = defineQueueBindingInternal(queue, sourceExchange, bindingOptions);
   const consumer = defineConsumer(queue, message);
 
   return {
     __brand: "EventConsumerResult",
     consumer,
     binding,
-    exchange,
+    exchange: sourceExchange,
     queue: consumer.queue,
     deadLetterExchange: consumer.queue.deadLetter?.exchange,
+    exchangeBinding: undefined,
+    bridgeExchange: undefined,
   };
 }
 

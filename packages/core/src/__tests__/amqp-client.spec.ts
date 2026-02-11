@@ -1,11 +1,16 @@
 import { beforeEach, describe, expect } from "vitest";
 import type { ContractDefinition } from "@amqp-contract/contract";
 import {
+  defineContract,
+  defineEventConsumer,
+  defineEventPublisher,
   defineExchange,
   defineExchangeBinding,
+  defineMessage,
   defineQueue,
   defineQueueBinding,
 } from "@amqp-contract/contract";
+import { z } from "zod";
 import { AmqpClient } from "../amqp-client.js";
 import { it } from "@amqp-contract/testing/extension";
 
@@ -320,6 +325,52 @@ describe("AmqpClient Integration", () => {
 
     // THEN - Queue should exist with custom arguments
     await expect(amqpChannel.checkQueue("orders")).resolves.toBeDefined();
+
+    // CLEANUP
+    await client.close().resultToPromise();
+  });
+
+  it("should setup bridged exchange-to-exchange bindings from contract", async ({
+    amqpConnectionUrl,
+    publishMessage,
+    initConsumer,
+  }) => {
+    // GIVEN - Cross-domain: source exchange → (e2e) → bridge exchange → queue
+    const sourceExchange = defineExchange("source-domain", "topic", { durable: false });
+    const bridgeExchange = defineExchange("local-domain", "topic", { durable: false });
+    const localQueue = defineQueue("local-processing", { type: "classic", durable: false });
+    const orderMessage = defineMessage(z.object({ orderId: z.string() }));
+
+    const orderCreated = defineEventPublisher(sourceExchange, orderMessage, {
+      routingKey: "order.created",
+    });
+
+    const contract = defineContract({
+      consumers: {
+        processOrder: defineEventConsumer(orderCreated, localQueue, {
+          bridgeExchange,
+        }),
+      },
+    });
+
+    const client = new AmqpClient(contract, {
+      urls: [amqpConnectionUrl],
+    });
+
+    await client.waitForConnect().resultToPromise();
+
+    // Setup consumer on the local queue via bridge exchange
+    const waitForMessages = await initConsumer(bridgeExchange.name, "order.created");
+
+    // WHEN - Publish to source exchange (simulating remote domain)
+    publishMessage(sourceExchange.name, "order.created", { orderId: "bridge-test-123" });
+
+    // THEN - Message flows: source → (e2e) → bridge → queue → consumer
+    await expect(waitForMessages()).resolves.toEqual([
+      expect.objectContaining({
+        content: Buffer.from(JSON.stringify({ orderId: "bridge-test-123" })),
+      }),
+    ]);
 
     // CLEANUP
     await client.close().resultToPromise();
