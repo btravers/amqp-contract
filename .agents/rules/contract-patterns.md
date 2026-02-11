@@ -106,7 +106,8 @@ const priorityQueue = defineQueue("priority-tasks", {
 ## Bindings
 
 - Queue-to-exchange bindings are **auto-generated** by `defineEventConsumer` and `defineCommandConsumer`
-- Exchange-to-exchange bindings must be set up manually via `AmqpClient` channel setup
+- Exchange-to-exchange bindings are **auto-generated** when using `bridgeExchange` (see Bridge Exchange below)
+- For other exchange-to-exchange routing, set up manually via `AmqpClient` channel setup
 - For fanout exchanges, routing keys are optional
 
 ```typescript
@@ -114,10 +115,60 @@ const priorityQueue = defineQueue("priority-tasks", {
 const consumer = defineEventConsumer(orderCreatedEvent, orderProcessingQueue);
 // This auto-generates: orderProcessingQueue → ordersExchange (order.created)
 
-// Exchange-to-exchange binding (manual setup via channel)
+// Bridge exchange auto-generates exchange-to-exchange binding:
+const bridgedConsumer = defineEventConsumer(orderCreatedEvent, billingQueue, {
+  bridgeExchange: billingExchange,
+});
+// This auto-generates: billingQueue → billingExchange AND ordersExchange → billingExchange
+
+// Manual exchange-to-exchange binding (via channel setup, for non-bridge cases)
 const exchangeBinding = defineExchangeBinding(analyticsExchange, ordersExchange, {
   routingKey: "order.#", // Forward all order events
 });
+```
+
+## Bridge Exchange (Cross-Domain Communication)
+
+Bridge exchanges enable cross-domain messaging by routing through a local exchange that forwards to or receives from a remote exchange. Both exchanges and the exchange-to-exchange binding are auto-extracted by `defineContract`.
+
+- **Event consumer bridging**: `defineEventConsumer(event, queue, { bridgeExchange })` — queue binds to bridge, e2e binding from source → bridge
+- **Command publisher bridging**: `defineCommandPublisher(command, { bridgeExchange })` — publisher publishes to bridge, e2e binding from bridge → target
+- Bridge exchange type must be compatible with source: fanout↔fanout, topic/direct↔topic/direct
+
+```typescript
+// Consuming events from a remote domain via bridge
+const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const billingExchange = defineExchange("billing", "topic", { durable: true });
+const billingQueue = defineQueue("billing-orders");
+
+const orderCreated = defineEventPublisher(ordersExchange, orderMessage, {
+  routingKey: "order.created",
+});
+
+const contract = defineContract({
+  consumers: {
+    processOrder: defineEventConsumer(orderCreated, billingQueue, {
+      bridgeExchange: billingExchange,
+    }),
+  },
+});
+// contract.exchanges: { orders, billing }
+// contract.bindings: queue binding + exchange-to-exchange binding (both auto-generated)
+
+// Publishing commands to a remote domain via bridge
+const remoteExchange = defineExchange("remote", "topic", { durable: true });
+const localExchange = defineExchange("local", "topic", { durable: true });
+
+const command = defineCommandConsumer(remoteQueue, remoteExchange, message, {
+  routingKey: "cmd.run",
+});
+
+const contract = defineContract({
+  publishers: {
+    runCommand: defineCommandPublisher(command, { bridgeExchange: localExchange }),
+  },
+});
+// Publisher publishes to localExchange, e2e binding forwards to remoteExchange
 ```
 
 ## Routing Keys
