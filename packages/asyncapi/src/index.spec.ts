@@ -1,7 +1,6 @@
 import * as v from "valibot";
 import {
   type ContractDefinition,
-  type MessageDefinition,
   defineConsumer,
   defineContract,
   defineExchange,
@@ -321,7 +320,7 @@ describe("AsyncAPIGenerator", () => {
 
       const contract = defineContract({
         publishers: {
-          sendEvent: definePublisher(exchange, message as unknown as MessageDefinition),
+          sendEvent: definePublisher(exchange, message),
         },
       });
 

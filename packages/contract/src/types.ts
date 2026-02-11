@@ -710,7 +710,9 @@ export type QueueEntry<TName extends string = string> =
  */
 export type MessageDefinition<
   TPayload extends AnySchema = AnySchema,
-  THeaders extends StandardSchemaV1<Record<string, unknown>> | undefined = undefined,
+  THeaders extends StandardSchemaV1<Record<string, unknown>> | undefined =
+    | StandardSchemaV1<Record<string, unknown>>
+    | undefined,
 > = {
   /**
    * The payload schema for validating message content.
