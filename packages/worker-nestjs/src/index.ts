@@ -2,5 +2,6 @@ export { AmqpWorkerModule, type AmqpWorkerModuleAsyncOptions } from "./worker.mo
 export { MODULE_OPTIONS_TOKEN } from "./worker.module-definition.js";
 export { AmqpWorkerService } from "./worker.service.js";
 export type { AmqpWorkerModuleOptions } from "./worker.service.js";
-export type { WorkerInferSafeConsumerHandlers } from "@amqp-contract/worker";
+export type { WorkerInferConsumerHandlers } from "@amqp-contract/worker";
 export { defineHandler, defineHandlers } from "@amqp-contract/worker";
+export { RetryableError, NonRetryableError, MessageValidationError } from "@amqp-contract/worker";

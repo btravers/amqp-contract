@@ -32,7 +32,7 @@ function validateConsumerExists<TContract extends ContractDefinition>(
  */
 function validateHandlers<TContract extends ContractDefinition>(
   contract: TContract,
-  handlers: Record<string, unknown>,
+  handlers: object,
 ): void {
   const consumers = contract.consumers;
   const availableConsumers = Object.keys(consumers ?? {});
@@ -167,6 +167,6 @@ export function defineHandlers<TContract extends ContractDefinition>(
   contract: TContract,
   handlers: WorkerInferConsumerHandlers<TContract>,
 ): WorkerInferConsumerHandlers<TContract> {
-  validateHandlers(contract, handlers as unknown as Record<string, unknown>);
+  validateHandlers(contract, handlers);
   return handlers;
 }

@@ -1,6 +1,6 @@
 import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
 import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
-import { TypedAmqpWorker, type WorkerInferSafeConsumerHandlers } from "@amqp-contract/worker";
+import { TypedAmqpWorker, type WorkerInferConsumerHandlers } from "@amqp-contract/worker";
 import type { ContractDefinition } from "@amqp-contract/contract";
 import { MODULE_OPTIONS_TOKEN } from "./worker.module-definition.js";
 
@@ -30,7 +30,7 @@ export type AmqpWorkerModuleOptions<TContract extends ContractDefinition> = {
   /** The AMQP contract definition specifying consumers and their message schemas */
   contract: TContract;
   /** Message handlers for each consumer defined in the contract. Use defineHandlers to create type-safe handlers. */
-  handlers: WorkerInferSafeConsumerHandlers<TContract>;
+  handlers: WorkerInferConsumerHandlers<TContract>;
   /** AMQP broker URL(s). Multiple URLs provide failover support */
   urls: ConnectionUrl[];
   /** Optional connection configuration (heartbeat, reconnect settings, etc.) */
@@ -48,17 +48,17 @@ export type AmqpWorkerModuleOptions<TContract extends ContractDefinition> = {
  *
  * @example
  * ```typescript
- * // In your module
  * import { AmqpWorkerModule } from '@amqp-contract/worker-nestjs';
+ * import { Future, Result } from '@swan-io/boxed';
  *
  * @Module({
  *   imports: [
  *     AmqpWorkerModule.forRoot({
  *       contract: myContract,
  *       handlers: {
- *         processOrder: async (message) => {
- *           console.log('Received order:', message.orderId);
- *           // Process the order...
+ *         processOrder: ({ payload }) => {
+ *           console.log('Received order:', payload.orderId);
+ *           return Future.value(Result.Ok(undefined));
  *         }
  *       },
  *       urls: ['amqp://localhost']
@@ -66,9 +66,6 @@ export type AmqpWorkerModuleOptions<TContract extends ContractDefinition> = {
  *   ]
  * })
  * export class AppModule {}
- *
- * // The worker automatically starts consuming messages when the module initializes
- * // and stops gracefully when the application shuts down
  * ```
  */
 @Injectable()

@@ -1,6 +1,7 @@
 import {
   AmqpClient,
   type Logger,
+  MessagingSemanticConventions,
   TechnicalError,
   type TelemetryProvider,
   defaultTelemetryProvider,
@@ -117,7 +118,7 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
 
     // Start telemetry span
     const span = startPublishSpan(this.telemetry, exchange.name, routingKey, {
-      "amqp.publisher.name": String(publisherName),
+      [MessagingSemanticConventions.AMQP_PUBLISHER_NAME]: String(publisherName),
     });
 
     const validateMessage = () => {

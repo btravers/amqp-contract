@@ -23,9 +23,12 @@ export type AmqpClientModuleAsyncOptions<TContract extends ContractDefinition> =
   /**
    * Factory function that returns the module options.
    * Can use injected dependencies to create configuration.
+   *
+   * Method syntax is intentional: it enables bivariant parameter checking so
+   * users can write typed factories like `(config: ConfigService) => ({ ... })`
+   * without casting, even though the actual args come from NestJS DI at runtime.
    */
-  // oxlint-disable-next-line no-explicit-any
-  useFactory: (...args: any[]) => AmqpClientModuleOptionsFactory<TContract>;
+  useFactory(...args: unknown[]): AmqpClientModuleOptionsFactory<TContract>;
   /**
    * Optional dependencies to inject into the factory function.
    * Can be a token (string/symbol) or a class reference to a provider.

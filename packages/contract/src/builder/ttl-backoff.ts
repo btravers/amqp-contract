@@ -1,6 +1,5 @@
 import type { QueueBindingDefinition, QueueDefinition, QueueEntry } from "../types.js";
-import { defineQueue, extractQueue } from "./queue.js";
-import { defineQueueBindingInternal } from "./binding.js";
+import { createTtlBackoffInfrastructure, extractQueue } from "./queue.js";
 
 /**
  * Result type for TTL-backoff retry infrastructure builder.
@@ -72,40 +71,12 @@ export function defineTtlBackoffRetryInfrastructure(
   },
 ): TtlBackoffRetryInfrastructure {
   const queue = extractQueue(queueEntry);
-  if (!queue.deadLetter) {
-    throw new Error(
-      `Queue "${queue.name}" does not have a dead letter exchange configured. ` +
-        `TTL-backoff retry requires deadLetter to be set on the queue.`,
-    );
+  const infra = createTtlBackoffInfrastructure(queue);
+
+  // Apply waitQueueDurable override if specified
+  if (options?.waitQueueDurable !== undefined) {
+    infra.waitQueue.durable = options.waitQueueDurable;
   }
 
-  const dlx = queue.deadLetter.exchange;
-  const waitQueueName = `${queue.name}-wait`;
-
-  // Create the wait queue - quorum for better durability
-  // Wait queue uses default TTL-backoff retry (infrastructure queue, not directly consumed)
-  const waitQueue = defineQueue(waitQueueName, {
-    type: "quorum",
-    durable: options?.waitQueueDurable ?? queue.durable ?? true,
-    deadLetter: {
-      exchange: dlx,
-      routingKey: queue.name, // Routes back to main queue after TTL
-    },
-  }) as QueueDefinition;
-
-  // Create binding for wait queue to receive failed messages
-  const waitQueueBinding = defineQueueBindingInternal(waitQueue, dlx, {
-    routingKey: waitQueueName,
-  });
-
-  // Create binding for main queue to receive retried messages
-  const mainQueueRetryBinding = defineQueueBindingInternal(queue, dlx, {
-    routingKey: queue.name,
-  });
-
-  return {
-    waitQueue,
-    waitQueueBinding,
-    mainQueueRetryBinding,
-  };
+  return infra;
 }

@@ -105,6 +105,28 @@ const result = await client
   .resultToPromise();
 ```
 
+### Publishing with Headers
+
+When your message schema defines a [headers schema](/guide/defining-contracts#message-headers), pass headers via the `options.headers` property:
+
+```typescript
+const result = await client
+  .publish(
+    "orderCreated",
+    { orderId: "ORD-123", amount: 99.99 },
+    {
+      headers: {
+        correlationId: "550e8400-e29b-41d4-a716-446655440000",
+        priority: "high",
+        tenantId: "tenant-42",
+      },
+    },
+  )
+  .resultToPromise();
+```
+
+Headers are validated by the consumer at runtime using the headers schema defined in `defineMessage`. On the publish side, headers are passed as raw AMQP message properties — make sure to match the expected schema to avoid consumer-side validation errors.
+
 ## Connection Management
 
 ### Closing the Connection

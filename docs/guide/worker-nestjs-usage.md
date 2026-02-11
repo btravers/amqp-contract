@@ -306,7 +306,7 @@ Handle errors in your service layer:
 ```typescript
 @Injectable()
 export class OrderService {
-  async processOrder(order: any) {
+  async processOrder(order: { orderId: string; customerId: string }) {
     try {
       await this.validateOrder(order);
       await this.saveOrder(order);
@@ -364,14 +364,15 @@ import { Injectable, Logger } from "@nestjs/common";
 export class OrderService {
   private readonly logger = new Logger(OrderService.name);
 
-  async processOrder(order: any) {
+  async processOrder(order: { orderId: string }) {
     this.logger.log(`Processing order ${order.orderId}`);
 
     try {
       await this.saveOrder(order);
       this.logger.log(`Order ${order.orderId} processed successfully`);
     } catch (error) {
-      this.logger.error(`Failed to process order ${order.orderId}`, error.stack);
+      const stack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Failed to process order ${order.orderId}`, stack);
       throw error;
     }
   }

@@ -28,13 +28,12 @@ export const MessagingSemanticConventions = {
   MESSAGING_DESTINATION: "messaging.destination.name",
   MESSAGING_DESTINATION_KIND: "messaging.destination.kind",
   MESSAGING_OPERATION: "messaging.operation",
-  MESSAGING_MESSAGE_ID: "messaging.message.id",
-  MESSAGING_MESSAGE_PAYLOAD_SIZE: "messaging.message.body.size",
-  MESSAGING_MESSAGE_CONVERSATION_ID: "messaging.message.conversation_id",
 
-  // AMQP specific attributes
+  // AMQP/RabbitMQ specific attributes
   MESSAGING_RABBITMQ_ROUTING_KEY: "messaging.rabbitmq.destination.routing_key",
   MESSAGING_RABBITMQ_MESSAGE_DELIVERY_TAG: "messaging.rabbitmq.message.delivery_tag",
+  AMQP_PUBLISHER_NAME: "amqp.publisher.name",
+  AMQP_CONSUMER_NAME: "amqp.consumer.name",
 
   // Error attributes
   ERROR_TYPE: "error.type",
@@ -44,7 +43,6 @@ export const MessagingSemanticConventions = {
   MESSAGING_DESTINATION_KIND_EXCHANGE: "exchange",
   MESSAGING_DESTINATION_KIND_QUEUE: "queue",
   MESSAGING_OPERATION_PUBLISH: "publish",
-  MESSAGING_OPERATION_RECEIVE: "receive",
   MESSAGING_OPERATION_PROCESS: "process",
 } as const;
 
@@ -263,7 +261,7 @@ export function startConsumeSpan(
         MessagingSemanticConventions.MESSAGING_DESTINATION_KIND_QUEUE,
       [MessagingSemanticConventions.MESSAGING_OPERATION]:
         MessagingSemanticConventions.MESSAGING_OPERATION_PROCESS,
-      "amqp.consumer.name": consumerName,
+      [MessagingSemanticConventions.AMQP_CONSUMER_NAME]: consumerName,
       ...attributes,
     },
   });
@@ -345,7 +343,7 @@ export function recordConsumeMetric(
     [MessagingSemanticConventions.MESSAGING_SYSTEM]:
       MessagingSemanticConventions.MESSAGING_SYSTEM_RABBITMQ,
     [MessagingSemanticConventions.MESSAGING_DESTINATION]: queueName,
-    "amqp.consumer.name": consumerName,
+    [MessagingSemanticConventions.AMQP_CONSUMER_NAME]: consumerName,
     success: success,
   };
 

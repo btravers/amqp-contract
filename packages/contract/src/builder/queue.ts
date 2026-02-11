@@ -5,6 +5,7 @@ import type {
   DefineQueueOptions,
   ExchangeDefinition,
   ExtractQueueFromEntry,
+  QueueBindingDefinition,
   QueueDefinition,
   QueueEntry,
   QueueWithTtlBackoffInfrastructure,
@@ -14,6 +15,10 @@ import type {
   TtlBackoffRetryOptions,
 } from "../types.js";
 import { defineQueueBindingInternal } from "./binding.js";
+import {
+  isQueueWithTtlBackoffInfrastructure as isQueueWithTtlBackoffInfrastructureImpl,
+  extractQueueFromEntry,
+} from "./queue-utils.js";
 
 /**
  * Resolve TTL-backoff retry options with defaults applied.
@@ -68,12 +73,7 @@ export function resolveTtlBackoffOptions(
 export function isQueueWithTtlBackoffInfrastructure(
   entry: QueueEntry,
 ): entry is QueueWithTtlBackoffInfrastructure {
-  return (
-    typeof entry === "object" &&
-    entry !== null &&
-    "__brand" in entry &&
-    entry.__brand === "QueueWithTtlBackoffInfrastructure"
-  );
+  return isQueueWithTtlBackoffInfrastructureImpl(entry);
 }
 
 /**
@@ -125,19 +125,18 @@ export function isQueueWithTtlBackoffInfrastructure(
  * @see defineTtlBackoffQueue - Creates queues with TTL-backoff infrastructure
  */
 export function extractQueue<T extends QueueEntry>(entry: T): ExtractQueueFromEntry<T> {
-  if (isQueueWithTtlBackoffInfrastructure(entry)) {
-    return entry.queue as unknown as ExtractQueueFromEntry<T>;
-  }
-  return entry as unknown as ExtractQueueFromEntry<T>;
+  return extractQueueFromEntry(entry) as ExtractQueueFromEntry<T>;
 }
 
 /**
- * Wrap a queue definition with TTL-backoff retry infrastructure.
+ * Create TTL-backoff retry infrastructure (wait queue + bindings) for a queue.
  * @internal
  */
-function wrapWithTtlBackoffInfrastructure(
-  queue: QueueDefinition,
-): QueueWithTtlBackoffInfrastructure {
+export function createTtlBackoffInfrastructure(queue: QueueDefinition): {
+  waitQueue: QuorumQueueDefinition;
+  waitQueueBinding: QueueBindingDefinition;
+  mainQueueRetryBinding: QueueBindingDefinition;
+} {
   if (!queue.deadLetter) {
     throw new Error(
       `Queue "${queue.name}" does not have a dead letter exchange configured. ` +
@@ -171,13 +170,23 @@ function wrapWithTtlBackoffInfrastructure(
     routingKey: queue.name,
   });
 
+  return { waitQueue, waitQueueBinding, mainQueueRetryBinding };
+}
+
+/**
+ * Wrap a queue definition with TTL-backoff retry infrastructure.
+ * @internal
+ */
+function wrapWithTtlBackoffInfrastructure(
+  queue: QueueDefinition,
+): QueueWithTtlBackoffInfrastructure {
+  const infra = createTtlBackoffInfrastructure(queue);
+
   return {
     __brand: "QueueWithTtlBackoffInfrastructure",
     queue,
-    deadLetter: queue.deadLetter,
-    waitQueue,
-    waitQueueBinding,
-    mainQueueRetryBinding,
+    deadLetter: queue.deadLetter!,
+    ...infra,
   };
 }
 

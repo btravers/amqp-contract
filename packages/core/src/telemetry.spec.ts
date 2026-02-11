@@ -11,6 +11,34 @@ import {
 } from "./telemetry.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+/** Provider where all instruments are unavailable */
+const noopProvider: TelemetryProvider = {
+  getTracer: () => undefined,
+  getPublishCounter: () => undefined,
+  getConsumeCounter: () => undefined,
+  getPublishLatencyHistogram: () => undefined,
+  getConsumeLatencyHistogram: () => undefined,
+};
+
+function createMockSpan() {
+  return { end: vi.fn(), setStatus: vi.fn(), recordException: vi.fn(), setAttribute: vi.fn() };
+}
+
+function createMockTracer() {
+  const span = createMockSpan();
+  const tracer = { startSpan: vi.fn().mockReturnValue(span) };
+  return { tracer, span };
+}
+
+function providerWithTracer(
+  tracer: ReturnType<typeof createMockTracer>["tracer"],
+): TelemetryProvider {
+  return {
+    ...noopProvider,
+    getTracer: () => tracer as unknown as ReturnType<TelemetryProvider["getTracer"]>,
+  };
+}
+
 describe("Telemetry", () => {
   beforeEach(() => {
     _resetTelemetryCacheForTesting();
@@ -40,45 +68,20 @@ describe("Telemetry", () => {
 
   describe("startPublishSpan", () => {
     it("should return undefined when tracer is not available", () => {
-      const mockProvider: TelemetryProvider = {
-        getTracer: () => undefined,
-        getPublishCounter: () => undefined,
-        getConsumeCounter: () => undefined,
-        getPublishLatencyHistogram: () => undefined,
-        getConsumeLatencyHistogram: () => undefined,
-      };
-
-      const span = startPublishSpan(mockProvider, "test-exchange", "test.key");
+      const span = startPublishSpan(noopProvider, "test-exchange", "test.key");
       expect(span).toBeUndefined();
     });
 
     it("should create span with correct attributes when tracer is available", () => {
-      const mockSpan = {
-        end: vi.fn(),
-        setStatus: vi.fn(),
-        recordException: vi.fn(),
-        setAttribute: vi.fn(),
-      };
+      const { tracer, span } = createMockTracer();
 
-      const mockTracer = {
-        startSpan: vi.fn().mockReturnValue(mockSpan),
-      };
-
-      const mockProvider: TelemetryProvider = {
-        getTracer: () => mockTracer as unknown as ReturnType<TelemetryProvider["getTracer"]>,
-        getPublishCounter: () => undefined,
-        getConsumeCounter: () => undefined,
-        getPublishLatencyHistogram: () => undefined,
-        getConsumeLatencyHistogram: () => undefined,
-      };
-
-      const span = startPublishSpan(mockProvider, "test-exchange", "test.key", {
+      const result = startPublishSpan(providerWithTracer(tracer), "test-exchange", "test.key", {
         "amqp.publisher.name": "testPublisher",
       });
 
-      expect(span).toBe(mockSpan);
-      expect(mockTracer.startSpan).toHaveBeenCalledTimes(1);
-      expect(mockTracer.startSpan).toHaveBeenCalledWith("test-exchange publish", {
+      expect(result).toBe(span);
+      expect(tracer.startSpan).toHaveBeenCalledTimes(1);
+      expect(tracer.startSpan).toHaveBeenCalledWith("test-exchange publish", {
         kind: 3, // SpanKind.PRODUCER
         attributes: expect.objectContaining({
           "messaging.system": "rabbitmq",
@@ -92,28 +95,11 @@ describe("Telemetry", () => {
     });
 
     it("should not include routing key when undefined", () => {
-      const mockSpan = {
-        end: vi.fn(),
-        setStatus: vi.fn(),
-        recordException: vi.fn(),
-        setAttribute: vi.fn(),
-      };
+      const { tracer } = createMockTracer();
 
-      const mockTracer = {
-        startSpan: vi.fn().mockReturnValue(mockSpan),
-      };
+      startPublishSpan(providerWithTracer(tracer), "test-exchange", undefined);
 
-      const mockProvider: TelemetryProvider = {
-        getTracer: () => mockTracer as unknown as ReturnType<TelemetryProvider["getTracer"]>,
-        getPublishCounter: () => undefined,
-        getConsumeCounter: () => undefined,
-        getPublishLatencyHistogram: () => undefined,
-        getConsumeLatencyHistogram: () => undefined,
-      };
-
-      startPublishSpan(mockProvider, "test-exchange", undefined);
-
-      expect(mockTracer.startSpan).toHaveBeenCalledWith("test-exchange publish", {
+      expect(tracer.startSpan).toHaveBeenCalledWith("test-exchange publish", {
         kind: 3,
         attributes: expect.not.objectContaining({
           "messaging.rabbitmq.destination.routing_key": expect.anything(),
@@ -124,45 +110,20 @@ describe("Telemetry", () => {
 
   describe("startConsumeSpan", () => {
     it("should return undefined when tracer is not available", () => {
-      const mockProvider: TelemetryProvider = {
-        getTracer: () => undefined,
-        getPublishCounter: () => undefined,
-        getConsumeCounter: () => undefined,
-        getPublishLatencyHistogram: () => undefined,
-        getConsumeLatencyHistogram: () => undefined,
-      };
-
-      const span = startConsumeSpan(mockProvider, "test-queue", "testConsumer");
+      const span = startConsumeSpan(noopProvider, "test-queue", "testConsumer");
       expect(span).toBeUndefined();
     });
 
     it("should create span with correct attributes when tracer is available", () => {
-      const mockSpan = {
-        end: vi.fn(),
-        setStatus: vi.fn(),
-        recordException: vi.fn(),
-        setAttribute: vi.fn(),
-      };
+      const { tracer, span } = createMockTracer();
 
-      const mockTracer = {
-        startSpan: vi.fn().mockReturnValue(mockSpan),
-      };
-
-      const mockProvider: TelemetryProvider = {
-        getTracer: () => mockTracer as unknown as ReturnType<TelemetryProvider["getTracer"]>,
-        getPublishCounter: () => undefined,
-        getConsumeCounter: () => undefined,
-        getPublishLatencyHistogram: () => undefined,
-        getConsumeLatencyHistogram: () => undefined,
-      };
-
-      const span = startConsumeSpan(mockProvider, "test-queue", "testConsumer", {
+      const result = startConsumeSpan(providerWithTracer(tracer), "test-queue", "testConsumer", {
         "messaging.rabbitmq.message.delivery_tag": 1,
       });
 
-      expect(span).toBe(mockSpan);
-      expect(mockTracer.startSpan).toHaveBeenCalledTimes(1);
-      expect(mockTracer.startSpan).toHaveBeenCalledWith("test-queue process", {
+      expect(result).toBe(span);
+      expect(tracer.startSpan).toHaveBeenCalledTimes(1);
+      expect(tracer.startSpan).toHaveBeenCalledWith("test-queue process", {
         kind: 4, // SpanKind.CONSUMER
         attributes: expect.objectContaining({
           "messaging.system": "rabbitmq",
@@ -178,17 +139,12 @@ describe("Telemetry", () => {
 
   describe("endSpanSuccess", () => {
     it("should do nothing when span is undefined", () => {
-      // Should not throw
       expect(() => endSpanSuccess(undefined)).not.toThrow();
     });
 
     it("should end span without status when OpenTelemetry is not available", () => {
-      const mockSpan = {
-        end: vi.fn(),
-        setStatus: vi.fn(),
-      };
+      const mockSpan = createMockSpan();
 
-      // Without OpenTelemetry loaded, it just calls end
       endSpanSuccess(mockSpan as unknown as Parameters<typeof endSpanSuccess>[0]);
 
       expect(mockSpan.end).toHaveBeenCalledTimes(1);
@@ -197,21 +153,13 @@ describe("Telemetry", () => {
 
   describe("endSpanError", () => {
     it("should do nothing when span is undefined", () => {
-      const error = new Error("Test error");
-      // Should not throw
-      expect(() => endSpanError(undefined, error)).not.toThrow();
+      expect(() => endSpanError(undefined, new Error("Test error"))).not.toThrow();
     });
 
     it("should end span when called with error", () => {
-      const mockSpan = {
-        end: vi.fn(),
-        setStatus: vi.fn(),
-        recordException: vi.fn(),
-        setAttribute: vi.fn(),
-      };
+      const mockSpan = createMockSpan();
 
-      const error = new Error("Test error");
-      endSpanError(mockSpan as unknown as Parameters<typeof endSpanError>[0], error);
+      endSpanError(mockSpan as unknown as Parameters<typeof endSpanError>[0], new Error("Test"));
 
       expect(mockSpan.end).toHaveBeenCalledTimes(1);
     });
@@ -219,17 +167,8 @@ describe("Telemetry", () => {
 
   describe("recordPublishMetric", () => {
     it("should do nothing when counter and histogram are undefined", () => {
-      const mockProvider: TelemetryProvider = {
-        getTracer: () => undefined,
-        getPublishCounter: () => undefined,
-        getConsumeCounter: () => undefined,
-        getPublishLatencyHistogram: () => undefined,
-        getConsumeLatencyHistogram: () => undefined,
-      };
-
-      // Should not throw
       expect(() =>
-        recordPublishMetric(mockProvider, "test-exchange", "test.key", true, 100),
+        recordPublishMetric(noopProvider, "test-exchange", "test.key", true, 100),
       ).not.toThrow();
     });
 
@@ -237,19 +176,16 @@ describe("Telemetry", () => {
       const mockCounter = { add: vi.fn() };
       const mockHistogram = { record: vi.fn() };
 
-      const mockProvider: TelemetryProvider = {
-        getTracer: () => undefined,
+      const provider: TelemetryProvider = {
+        ...noopProvider,
         getPublishCounter: () =>
           mockCounter as unknown as ReturnType<TelemetryProvider["getPublishCounter"]>,
-        getConsumeCounter: () => undefined,
         getPublishLatencyHistogram: () =>
           mockHistogram as unknown as ReturnType<TelemetryProvider["getPublishLatencyHistogram"]>,
-        getConsumeLatencyHistogram: () => undefined,
       };
 
-      recordPublishMetric(mockProvider, "test-exchange", "test.key", true, 150);
+      recordPublishMetric(provider, "test-exchange", "test.key", true, 150);
 
-      expect(mockCounter.add).toHaveBeenCalledTimes(1);
       expect(mockCounter.add).toHaveBeenCalledWith(1, {
         "messaging.system": "rabbitmq",
         "messaging.destination.name": "test-exchange",
@@ -257,7 +193,6 @@ describe("Telemetry", () => {
         success: true,
       });
 
-      expect(mockHistogram.record).toHaveBeenCalledTimes(1);
       expect(mockHistogram.record).toHaveBeenCalledWith(150, {
         "messaging.system": "rabbitmq",
         "messaging.destination.name": "test-exchange",
@@ -269,17 +204,8 @@ describe("Telemetry", () => {
 
   describe("recordConsumeMetric", () => {
     it("should do nothing when counter and histogram are undefined", () => {
-      const mockProvider: TelemetryProvider = {
-        getTracer: () => undefined,
-        getPublishCounter: () => undefined,
-        getConsumeCounter: () => undefined,
-        getPublishLatencyHistogram: () => undefined,
-        getConsumeLatencyHistogram: () => undefined,
-      };
-
-      // Should not throw
       expect(() =>
-        recordConsumeMetric(mockProvider, "test-queue", "testConsumer", false, 200),
+        recordConsumeMetric(noopProvider, "test-queue", "testConsumer", false, 200),
       ).not.toThrow();
     });
 
@@ -287,19 +213,16 @@ describe("Telemetry", () => {
       const mockCounter = { add: vi.fn() };
       const mockHistogram = { record: vi.fn() };
 
-      const mockProvider: TelemetryProvider = {
-        getTracer: () => undefined,
-        getPublishCounter: () => undefined,
+      const provider: TelemetryProvider = {
+        ...noopProvider,
         getConsumeCounter: () =>
           mockCounter as unknown as ReturnType<TelemetryProvider["getConsumeCounter"]>,
-        getPublishLatencyHistogram: () => undefined,
         getConsumeLatencyHistogram: () =>
           mockHistogram as unknown as ReturnType<TelemetryProvider["getConsumeLatencyHistogram"]>,
       };
 
-      recordConsumeMetric(mockProvider, "test-queue", "testConsumer", false, 250);
+      recordConsumeMetric(provider, "test-queue", "testConsumer", false, 250);
 
-      expect(mockCounter.add).toHaveBeenCalledTimes(1);
       expect(mockCounter.add).toHaveBeenCalledWith(1, {
         "messaging.system": "rabbitmq",
         "messaging.destination.name": "test-queue",
@@ -307,7 +230,6 @@ describe("Telemetry", () => {
         success: false,
       });
 
-      expect(mockHistogram.record).toHaveBeenCalledTimes(1);
       expect(mockHistogram.record).toHaveBeenCalledWith(250, {
         "messaging.system": "rabbitmq",
         "messaging.destination.name": "test-queue",

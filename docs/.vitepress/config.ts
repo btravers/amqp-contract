@@ -113,6 +113,10 @@ export default withMermaid(
             items: [
               { text: "Connection Sharing", link: "/guide/connection-sharing" },
               { text: "Channel Configuration", link: "/guide/channel-configuration" },
+              { text: "Message Compression", link: "/guide/message-compression" },
+              { text: "Schema Libraries", link: "/guide/schema-libraries" },
+              { text: "Performance Tuning", link: "/guide/performance" },
+              { text: "AsyncAPI Generation", link: "/guide/asyncapi-generation" },
               { text: "OpenTelemetry Observability", link: "/guide/opentelemetry-observability" },
             ],
           },
@@ -152,6 +156,10 @@ export default withMermaid(
               {
                 text: "Basic Order Processing",
                 link: "/examples/basic-order-processing",
+              },
+              {
+                text: "AsyncAPI Generation",
+                link: "/examples/asyncapi-generation",
               },
             ],
           },

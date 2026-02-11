@@ -1,6 +1,7 @@
 import type { Channel } from "amqplib";
 import type { ContractDefinition } from "@amqp-contract/contract";
 import { extractQueue } from "@amqp-contract/contract";
+import { TechnicalError } from "./errors.js";
 
 /**
  * Setup AMQP topology (exchanges, queues, and bindings) from a contract definition.
@@ -14,7 +15,7 @@ import { extractQueue } from "@amqp-contract/contract";
  * @param channel - The AMQP channel to use for topology setup
  * @param contract - The contract definition containing the topology specification
  * @throws {AggregateError} If any exchanges, queues, or bindings fail to be created
- * @throws {Error} If a queue references a dead letter exchange not declared in the contract
+ * @throws {TechnicalError} If a queue references a dead letter exchange not declared in the contract
  *
  * @example
  * ```typescript
@@ -57,7 +58,7 @@ export async function setupAmqpTopology(
       );
 
       if (!exchangeExists) {
-        throw new Error(
+        throw new TechnicalError(
           `Queue "${queue.name}" references dead letter exchange "${dlxName}" which is not declared in the contract. ` +
             `Add the exchange to contract.exchanges to ensure it is created before the queue.`,
         );
