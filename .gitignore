@@ -160,3 +160,11 @@ vite.config.ts.timestamp-*
 # IDEs
 .vscode/
 .idea/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
