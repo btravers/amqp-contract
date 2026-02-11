@@ -117,7 +117,17 @@ export default withMermaid(
               { text: "Schema Libraries", link: "/guide/schema-libraries" },
               { text: "Performance Tuning", link: "/guide/performance" },
               { text: "AsyncAPI Generation", link: "/guide/asyncapi-generation" },
-              { text: "OpenTelemetry Observability", link: "/guide/opentelemetry-observability" },
+              {
+                text: "Observability",
+                collapsed: true,
+                items: [
+                  { text: "Logging", link: "/guide/logging" },
+                  {
+                    text: "OpenTelemetry",
+                    link: "/guide/opentelemetry-observability",
+                  },
+                ],
+              },
             ],
           },
           {
