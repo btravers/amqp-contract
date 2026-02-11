@@ -231,6 +231,7 @@ The telemetry data can be visualized in any OpenTelemetry-compatible backend:
 
 ## Related
 
+- [Logging](/guide/logging) - Structured logging for publish/consume operations
 - [OpenTelemetry Documentation](https://opentelemetry.io/docs/)
 - [OpenTelemetry Messaging Semantic Conventions](https://opentelemetry.io/docs/specs/semconv/messaging/messaging-spans/)
 - [Worker Usage](/guide/worker-usage) - Error handling and retry strategies
