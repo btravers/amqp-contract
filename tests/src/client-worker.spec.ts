@@ -10,7 +10,7 @@ import {
 import { Future, Result } from "@swan-io/boxed";
 import {
   TypedAmqpWorker,
-  type WorkerInferSafeConsumerHandlers,
+  type WorkerInferConsumerHandlers,
   defineHandlers,
 } from "@amqp-contract/worker";
 import { describe, expect, vi } from "vitest";
@@ -24,7 +24,7 @@ const it = baseIt.extend<{
   ) => Promise<TypedAmqpClient<TContract>>;
   workerFactory: <TContract extends ContractDefinition>(
     contract: TContract,
-    handlers: WorkerInferSafeConsumerHandlers<TContract>,
+    handlers: WorkerInferConsumerHandlers<TContract>,
   ) => Promise<TypedAmqpWorker<TContract>>;
 }>({
   clientFactory: async ({ amqpConnectionUrl }, use) => {
@@ -61,7 +61,7 @@ const it = baseIt.extend<{
       await use(
         async <TContract extends ContractDefinition>(
           contract: TContract,
-          handlers: WorkerInferSafeConsumerHandlers<TContract>,
+          handlers: WorkerInferConsumerHandlers<TContract>,
         ) => {
           const worker = await TypedAmqpWorker.create({
             contract,

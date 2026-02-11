@@ -193,30 +193,3 @@ export type WorkerInferConsumerHandlerEntry<
 export type WorkerInferConsumerHandlers<TContract extends ContractDefinition> = {
   [K in InferConsumerNames<TContract>]: WorkerInferConsumerHandlerEntry<TContract, K>;
 };
-
-// =============================================================================
-// Deprecated Type Aliases (for backwards compatibility)
-// =============================================================================
-// These aliases preserve backwards compatibility. They will be removed in a future major version.
-
-/**
- * @deprecated Use `WorkerInferConsumerHandler` instead. Will be removed in next major version.
- */
-export type WorkerInferSafeConsumerHandler<
-  TContract extends ContractDefinition,
-  TName extends InferConsumerNames<TContract>,
-> = WorkerInferConsumerHandler<TContract, TName>;
-
-/**
- * @deprecated Use `WorkerInferConsumerHandlerEntry` instead. Will be removed in next major version.
- */
-export type WorkerInferSafeConsumerHandlerEntry<
-  TContract extends ContractDefinition,
-  TName extends InferConsumerNames<TContract>,
-> = WorkerInferConsumerHandlerEntry<TContract, TName>;
-
-/**
- * @deprecated Use `WorkerInferConsumerHandlers` instead. Will be removed in next major version.
- */
-export type WorkerInferSafeConsumerHandlers<TContract extends ContractDefinition> =
-  WorkerInferConsumerHandlers<TContract>;

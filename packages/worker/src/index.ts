@@ -16,15 +16,9 @@ export {
 } from "./errors.js";
 export { defineHandler, defineHandlers } from "./handlers.js";
 export type {
-  // Handler types (current names)
   WorkerInferConsumerHandler,
   WorkerInferConsumerHandlerEntry,
   WorkerInferConsumerHandlers,
-  // Handler types (deprecated aliases - for backwards compatibility)
-  WorkerInferSafeConsumerHandler,
-  WorkerInferSafeConsumerHandlerEntry,
-  WorkerInferSafeConsumerHandlers,
-  // Common types
   WorkerConsumedMessage,
   WorkerInferConsumedMessage,
   WorkerInferConsumerHeaders,
