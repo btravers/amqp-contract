@@ -1,6 +1,6 @@
 export type { Logger, LoggerContext } from "./logger.js";
 export { AmqpClient, type AmqpClientOptions, type ConsumeCallback } from "./amqp-client.js";
-export { TechnicalError } from "./errors.js";
+export { TechnicalError, MessageValidationError } from "./errors.js";
 export { ConnectionManagerSingleton } from "./connection-manager.js";
 export { setupAmqpTopology } from "./setup.js";
 export {
