@@ -1796,20 +1796,22 @@ describe("builder", () => {
       });
 
       // THEN - Queue binds to bridge, e2e binding from source → bridge
-      expect(result.__brand).toBe("EventConsumerResult");
-      expect(result.exchange).toBe(ordersExchange); // source exchange preserved
-      expect(result.bridgeExchange).toBe(billingExchange);
-      expect(result.binding).toMatchObject({
-        type: "queue",
-        queue: billingQueue,
-        exchange: billingExchange, // queue binds to bridge
-        routingKey: "order.created",
-      });
-      expect(result.exchangeBinding).toEqual({
-        type: "exchange",
-        source: ordersExchange,
-        destination: billingExchange,
-        routingKey: "order.created",
+      expect(result).toMatchObject({
+        __brand: "EventConsumerResult",
+        exchange: ordersExchange,
+        bridgeExchange: billingExchange,
+        binding: {
+          type: "queue",
+          queue: billingQueue,
+          exchange: billingExchange,
+          routingKey: "order.created",
+        },
+        exchangeBinding: {
+          type: "exchange",
+          source: ordersExchange,
+          destination: billingExchange,
+          routingKey: "order.created",
+        },
       });
     });
 
@@ -1827,16 +1829,18 @@ describe("builder", () => {
       });
 
       // THEN
-      expect(result.bridgeExchange).toBe(analyticsExchange);
-      expect(result.binding).toMatchObject({
-        type: "queue",
-        queue: analyticsQueue,
-        exchange: analyticsExchange,
-      });
-      expect(result.exchangeBinding).toEqual({
-        type: "exchange",
-        source: logsExchange,
-        destination: analyticsExchange,
+      expect(result).toMatchObject({
+        bridgeExchange: analyticsExchange,
+        binding: {
+          type: "queue",
+          queue: analyticsQueue,
+          exchange: analyticsExchange,
+        },
+        exchangeBinding: {
+          type: "exchange",
+          source: logsExchange,
+          destination: analyticsExchange,
+        },
       });
     });
 
@@ -1861,17 +1865,17 @@ describe("builder", () => {
         __brand: "BridgedPublisherConfig",
         bridgeExchange: localExchange,
         targetExchange: remoteExchange,
-      });
-      expect(publisher.publisher).toMatchObject({
-        exchange: localExchange,
-        message,
-        routingKey: "task.execute",
-      });
-      expect(publisher.exchangeBinding).toEqual({
-        type: "exchange",
-        source: localExchange,
-        destination: remoteExchange,
-        routingKey: "task.execute",
+        publisher: {
+          exchange: localExchange,
+          message,
+          routingKey: "task.execute",
+        },
+        exchangeBinding: {
+          type: "exchange",
+          source: localExchange,
+          destination: remoteExchange,
+          routingKey: "task.execute",
+        },
       });
     });
 
@@ -1896,31 +1900,33 @@ describe("builder", () => {
       });
 
       // THEN - All resources extracted
-      expect(contract.exchanges).toMatchObject({
-        orders: ordersExchange,
-        billing: billingExchange,
-      });
-      expect(contract.queues).toMatchObject({
-        "billing-orders": billingQueue,
-      });
-      expect(contract.bindings).toMatchObject({
-        processOrderBinding: {
-          type: "queue",
-          queue: billingQueue,
-          exchange: billingExchange,
-          routingKey: "order.created",
+      expect(contract).toMatchObject({
+        exchanges: {
+          orders: ordersExchange,
+          billing: billingExchange,
         },
-        processOrderExchangeBinding: {
-          type: "exchange",
-          source: ordersExchange,
-          destination: billingExchange,
-          routingKey: "order.created",
+        queues: {
+          "billing-orders": billingQueue,
         },
-      });
-      expect(contract.consumers).toMatchObject({
-        processOrder: {
-          queue: billingQueue,
-          message,
+        bindings: {
+          processOrderBinding: {
+            type: "queue",
+            queue: billingQueue,
+            exchange: billingExchange,
+            routingKey: "order.created",
+          },
+          processOrderExchangeBinding: {
+            type: "exchange",
+            source: ordersExchange,
+            destination: billingExchange,
+            routingKey: "order.created",
+          },
+        },
+        consumers: {
+          processOrder: {
+            queue: billingQueue,
+            message,
+          },
         },
       });
     });
@@ -1946,23 +1952,25 @@ describe("builder", () => {
       });
 
       // THEN - All resources extracted
-      expect(contract.exchanges).toMatchObject({
-        local: localExchange,
-        remote: remoteExchange,
-      });
-      expect(contract.bindings).toMatchObject({
-        runCommandExchangeBinding: {
-          type: "exchange",
-          source: localExchange,
-          destination: remoteExchange,
-          routingKey: "cmd.run",
+      expect(contract).toMatchObject({
+        exchanges: {
+          local: localExchange,
+          remote: remoteExchange,
         },
-      });
-      expect(contract.publishers).toMatchObject({
-        runCommand: {
-          exchange: localExchange,
-          message,
-          routingKey: "cmd.run",
+        bindings: {
+          runCommandExchangeBinding: {
+            type: "exchange",
+            source: localExchange,
+            destination: remoteExchange,
+            routingKey: "cmd.run",
+          },
+        },
+        publishers: {
+          runCommand: {
+            exchange: localExchange,
+            message,
+            routingKey: "cmd.run",
+          },
         },
       });
     });
@@ -2001,24 +2009,26 @@ describe("builder", () => {
       });
 
       // THEN - Both types extracted correctly
-      expect(contract.exchanges).toMatchObject({
-        orders: ordersExchange,
-        billing: billingExchange,
-        local: localExchange,
-      });
-      expect(contract.bindings).toMatchObject({
-        processBillingOrderBinding: {
-          type: "queue",
-          exchange: billingExchange,
+      expect(contract).toMatchObject({
+        exchanges: {
+          orders: ordersExchange,
+          billing: billingExchange,
+          local: localExchange,
         },
-        processBillingOrderExchangeBinding: {
-          type: "exchange",
-          source: ordersExchange,
-          destination: billingExchange,
-        },
-        processLocalBinding: {
-          type: "queue",
-          exchange: localExchange,
+        bindings: {
+          processBillingOrderBinding: {
+            type: "queue",
+            exchange: billingExchange,
+          },
+          processBillingOrderExchangeBinding: {
+            type: "exchange",
+            source: ordersExchange,
+            destination: billingExchange,
+          },
+          processLocalBinding: {
+            type: "queue",
+            exchange: localExchange,
+          },
         },
       });
       // Non-bridged consumer should NOT have exchange binding
@@ -2037,8 +2047,10 @@ describe("builder", () => {
       const result = defineEventConsumer(event, queue);
 
       // THEN - No bridge fields
-      expect(result.exchangeBinding).toBeUndefined();
-      expect(result.bridgeExchange).toBeUndefined();
+      expect(result).toMatchObject({
+        exchangeBinding: undefined,
+        bridgeExchange: undefined,
+      });
     });
   });
 });
