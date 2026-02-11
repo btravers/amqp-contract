@@ -418,7 +418,53 @@ const orderMessage = defineMessage(
 
 - Enables AsyncAPI documentation
 - Improves code readability
-- Allows header schema definition
+- Allows header schema definition (see below)
+
+### Message Headers
+
+Messages can include a **headers schema** in addition to the payload schema. Headers are validated at runtime on both the publishing and consuming sides, just like payloads.
+
+Use headers for cross-cutting metadata that isn't part of the business payload — correlation IDs, tracing context, priority hints, or tenant identifiers.
+
+```typescript
+import { defineMessage } from "@amqp-contract/contract";
+import { z } from "zod";
+
+const orderMessage = defineMessage(
+  z.object({
+    orderId: z.string().uuid(),
+    amount: z.number().positive(),
+  }),
+  {
+    headers: z.object({
+      correlationId: z.string().uuid(),
+      priority: z.enum(["low", "medium", "high"]).optional(),
+      tenantId: z.string(),
+    }),
+    summary: "Order created event",
+  },
+);
+```
+
+When a headers schema is defined, the consumer handler receives validated headers alongside the payload:
+
+```typescript
+import { defineHandlers } from "@amqp-contract/worker";
+
+const handlers = defineHandlers(contract, {
+  processOrder: (message) => {
+    // message.payload is typed: { orderId: string, amount: number }
+    // message.headers is typed: { correlationId: string, priority?: "low" | "medium" | "high", tenantId: string }
+    console.log(
+      `Processing order ${message.payload.orderId} for tenant ${message.headers.tenantId}`,
+    );
+
+    return Future.value(Result.Ok(undefined));
+  },
+});
+```
+
+If no headers schema is defined, `message.headers` is `undefined`.
 
 Learn more about schema libraries:
 

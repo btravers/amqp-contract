@@ -4,39 +4,10 @@ import type {
   ExchangeDefinition,
   FanoutExchangeDefinition,
   QueueBindingDefinition,
-  QueueDefinition,
   QueueEntry,
-  QueueWithTtlBackoffInfrastructure,
   TopicExchangeDefinition,
 } from "../types.js";
-
-/**
- * Type guard to check if a queue entry is a QueueWithTtlBackoffInfrastructure.
- * Duplicated here to avoid circular dependency with queue.ts.
- * @internal
- */
-function isQueueWithTtlBackoffInfrastructure(
-  entry: QueueEntry,
-): entry is QueueWithTtlBackoffInfrastructure {
-  return (
-    typeof entry === "object" &&
-    entry !== null &&
-    "__brand" in entry &&
-    entry.__brand === "QueueWithTtlBackoffInfrastructure"
-  );
-}
-
-/**
- * Extract the plain QueueDefinition from a QueueEntry.
- * Duplicated here to avoid circular dependency with queue.ts.
- * @internal
- */
-function extractQueueInternal(entry: QueueEntry): QueueDefinition {
-  if (isQueueWithTtlBackoffInfrastructure(entry)) {
-    return entry.queue;
-  }
-  return entry;
-}
+import { extractQueueFromEntry } from "./queue-utils.js";
 
 /**
  * Define a binding between a queue and a fanout exchange.
@@ -136,7 +107,7 @@ export function defineQueueBinding(
   },
 ): QueueBindingDefinition {
   // Extract the plain queue definition from QueueEntry
-  const queueDef = extractQueueInternal(queue);
+  const queueDef = extractQueueFromEntry(queue);
 
   if (exchange.type === "fanout") {
     return {

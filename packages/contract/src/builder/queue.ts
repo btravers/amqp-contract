@@ -15,6 +15,10 @@ import type {
   TtlBackoffRetryOptions,
 } from "../types.js";
 import { defineQueueBindingInternal } from "./binding.js";
+import {
+  isQueueWithTtlBackoffInfrastructure as isQueueWithTtlBackoffInfrastructureImpl,
+  extractQueueFromEntry,
+} from "./queue-utils.js";
 
 /**
  * Resolve TTL-backoff retry options with defaults applied.
@@ -69,12 +73,7 @@ export function resolveTtlBackoffOptions(
 export function isQueueWithTtlBackoffInfrastructure(
   entry: QueueEntry,
 ): entry is QueueWithTtlBackoffInfrastructure {
-  return (
-    typeof entry === "object" &&
-    entry !== null &&
-    "__brand" in entry &&
-    entry.__brand === "QueueWithTtlBackoffInfrastructure"
-  );
+  return isQueueWithTtlBackoffInfrastructureImpl(entry);
 }
 
 /**
@@ -126,10 +125,7 @@ export function isQueueWithTtlBackoffInfrastructure(
  * @see defineTtlBackoffQueue - Creates queues with TTL-backoff infrastructure
  */
 export function extractQueue<T extends QueueEntry>(entry: T): ExtractQueueFromEntry<T> {
-  if (isQueueWithTtlBackoffInfrastructure(entry)) {
-    return entry.queue as unknown as ExtractQueueFromEntry<T>;
-  }
-  return entry as unknown as ExtractQueueFromEntry<T>;
+  return extractQueueFromEntry(entry) as ExtractQueueFromEntry<T>;
 }
 
 /**
