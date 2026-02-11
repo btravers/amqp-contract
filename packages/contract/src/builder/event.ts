@@ -69,7 +69,7 @@ export type EventConsumerResult<
   consumer: ConsumerDefinition<TMessage>;
   /** The binding connecting the queue to the exchange */
   binding: QueueBindingDefinition;
-  /** The exchange this consumer subscribes to (source exchange, or bridge exchange if bridged) */
+  /** The source exchange this consumer subscribes to */
   exchange: TExchange;
   /** The queue this consumer reads from */
   queue: TQueue;
@@ -232,14 +232,14 @@ export function defineEventPublisher<TMessage extends MessageDefinition>(
  * @param eventPublisher - The event publisher configuration
  * @param queue - The queue that will receive messages
  * @param options - Binding configuration with required bridgeExchange
- * @param options.bridgeExchange - The local domain exchange to bridge through
+ * @param options.bridgeExchange - The fanout bridge exchange (must be fanout to match source)
  * @returns An object with the consumer definition, queue binding, and exchange binding
  */
 export function defineEventConsumer<
   TMessage extends MessageDefinition,
   TExchange extends FanoutExchangeDefinition,
   TQueueEntry extends QueueEntry,
-  TBridgeExchange extends ExchangeDefinition,
+  TBridgeExchange extends FanoutExchangeDefinition,
 >(
   eventPublisher: EventPublisherConfig<TMessage, TExchange, undefined>,
   queue: TQueueEntry,
@@ -262,7 +262,7 @@ export function defineEventConsumer<
  * @param eventPublisher - The event publisher configuration
  * @param queue - The queue that will receive messages
  * @param options - Binding configuration with required bridgeExchange
- * @param options.bridgeExchange - The local domain exchange to bridge through
+ * @param options.bridgeExchange - The bridge exchange (must be direct or topic to preserve routing keys)
  * @returns An object with the consumer definition, queue binding, and exchange binding
  */
 export function defineEventConsumer<
@@ -270,7 +270,7 @@ export function defineEventConsumer<
   TRoutingKey extends string,
   TExchange extends DirectExchangeDefinition,
   TQueueEntry extends QueueEntry,
-  TBridgeExchange extends ExchangeDefinition,
+  TBridgeExchange extends DirectExchangeDefinition | TopicExchangeDefinition,
 >(
   eventPublisher: EventPublisherConfig<TMessage, TExchange, TRoutingKey>,
   queue: TQueueEntry,
@@ -293,7 +293,7 @@ export function defineEventConsumer<
  * @param eventPublisher - The event publisher configuration
  * @param queue - The queue that will receive messages
  * @param options - Binding configuration with required bridgeExchange
- * @param options.bridgeExchange - The local domain exchange to bridge through
+ * @param options.bridgeExchange - The bridge exchange (must be direct or topic to preserve routing keys)
  * @param options.routingKey - Override routing key with pattern (defaults to publisher's key)
  * @returns An object with the consumer definition, queue binding, and exchange binding
  */
@@ -302,7 +302,7 @@ export function defineEventConsumer<
   TRoutingKey extends string,
   TExchange extends TopicExchangeDefinition,
   TQueueEntry extends QueueEntry,
-  TBridgeExchange extends ExchangeDefinition,
+  TBridgeExchange extends DirectExchangeDefinition | TopicExchangeDefinition,
   TConsumerRoutingKey extends string = TRoutingKey,
 >(
   eventPublisher: EventPublisherConfig<TMessage, TExchange, TRoutingKey>,

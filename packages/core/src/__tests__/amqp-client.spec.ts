@@ -1,11 +1,16 @@
 import { beforeEach, describe, expect } from "vitest";
 import type { ContractDefinition } from "@amqp-contract/contract";
 import {
+  defineContract,
+  defineEventConsumer,
+  defineEventPublisher,
   defineExchange,
   defineExchangeBinding,
+  defineMessage,
   defineQueue,
   defineQueueBinding,
 } from "@amqp-contract/contract";
+import { z } from "zod";
 import { AmqpClient } from "../amqp-client.js";
 import { it } from "@amqp-contract/testing/extension";
 
@@ -334,26 +339,19 @@ describe("AmqpClient Integration", () => {
     const sourceExchange = defineExchange("source-domain", "topic", { durable: false });
     const bridgeExchange = defineExchange("local-domain", "topic", { durable: false });
     const localQueue = defineQueue("local-processing", { type: "classic", durable: false });
+    const orderMessage = defineMessage(z.object({ orderId: z.string() }));
 
-    const contract: ContractDefinition = {
-      exchanges: {
-        source: sourceExchange,
-        bridge: bridgeExchange,
-      },
-      queues: {
-        localProcessing: localQueue,
-      },
-      bindings: {
-        // e2e binding: source → bridge
-        exchangeBinding: defineExchangeBinding(bridgeExchange, sourceExchange, {
-          routingKey: "order.created",
-        }),
-        // queue binding: bridge → queue
-        queueBinding: defineQueueBinding(localQueue, bridgeExchange, {
-          routingKey: "order.created",
+    const orderCreated = defineEventPublisher(sourceExchange, orderMessage, {
+      routingKey: "order.created",
+    });
+
+    const contract = defineContract({
+      consumers: {
+        processOrder: defineEventConsumer(orderCreated, localQueue, {
+          bridgeExchange,
         }),
       },
-    };
+    });
 
     const client = new AmqpClient(contract, {
       urls: [amqpConnectionUrl],
@@ -362,10 +360,10 @@ describe("AmqpClient Integration", () => {
     await client.waitForConnect().resultToPromise();
 
     // Setup consumer on the local queue via bridge exchange
-    const waitForMessages = await initConsumer("local-domain", "order.created");
+    const waitForMessages = await initConsumer(bridgeExchange.name, "order.created");
 
     // WHEN - Publish to source exchange (simulating remote domain)
-    publishMessage("source-domain", "order.created", { orderId: "bridge-test-123" });
+    publishMessage(sourceExchange.name, "order.created", { orderId: "bridge-test-123" });
 
     // THEN - Message flows: source → (e2e) → bridge → queue → consumer
     await expect(waitForMessages()).resolves.toEqual([

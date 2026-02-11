@@ -259,7 +259,7 @@ export function defineCommandConsumer<TMessage extends MessageDefinition>(
 export function defineCommandPublisher<
   TMessage extends MessageDefinition,
   TExchange extends FanoutExchangeDefinition,
-  TBridgeExchange extends ExchangeDefinition,
+  TBridgeExchange extends FanoutExchangeDefinition,
 >(
   commandConsumer: CommandConsumerConfig<TMessage, TExchange, undefined>,
   options: {
@@ -272,14 +272,14 @@ export function defineCommandPublisher<
  *
  * @param commandConsumer - The command consumer configuration
  * @param options - Configuration with required bridgeExchange
- * @param options.bridgeExchange - The local domain exchange to bridge through
+ * @param options.bridgeExchange - The bridge exchange (must be direct or topic to preserve routing keys)
  * @returns A bridged publisher configuration
  */
 export function defineCommandPublisher<
   TMessage extends MessageDefinition,
   TRoutingKey extends string,
   TExchange extends DirectExchangeDefinition,
-  TBridgeExchange extends ExchangeDefinition,
+  TBridgeExchange extends DirectExchangeDefinition | TopicExchangeDefinition,
 >(
   commandConsumer: CommandConsumerConfig<TMessage, TExchange, TRoutingKey>,
   options: {
@@ -292,7 +292,7 @@ export function defineCommandPublisher<
  *
  * @param commandConsumer - The command consumer configuration
  * @param options - Configuration with required bridgeExchange and optional routingKey override
- * @param options.bridgeExchange - The local domain exchange to bridge through
+ * @param options.bridgeExchange - The bridge exchange (must be direct or topic to preserve routing keys)
  * @param options.routingKey - Override routing key (must match consumer's pattern)
  * @returns A bridged publisher configuration
  */
@@ -300,7 +300,7 @@ export function defineCommandPublisher<
   TMessage extends MessageDefinition,
   TRoutingKey extends string,
   TExchange extends TopicExchangeDefinition,
-  TBridgeExchange extends ExchangeDefinition,
+  TBridgeExchange extends DirectExchangeDefinition | TopicExchangeDefinition,
   TPublisherRoutingKey extends string = TRoutingKey,
 >(
   commandConsumer: CommandConsumerConfig<TMessage, TExchange, TRoutingKey>,
