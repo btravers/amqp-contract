@@ -15,24 +15,24 @@ catalog:
   "@nestjs/core": 11.1.13
   "@nestjs/testing": 11.1.13
   "@opentelemetry/api": 1.9.0
-  "@orpc/arktype": 1.13.4
-  "@orpc/openapi": 1.13.4
-  "@orpc/valibot": 1.13.4
-  "@orpc/zod": 1.13.4
+  "@orpc/arktype": 1.13.5
+  "@orpc/openapi": 1.13.5
+  "@orpc/valibot": 1.13.5
+  "@orpc/zod": 1.13.5
   "@standard-schema/spec": 1.1.0
   "@swan-io/boxed": 3.2.1
   "@types/amqplib": 0.10.8
-  "@types/node": 25.2.1
+  "@types/node": 25.2.3
   "@vitest/coverage-v8": 4.0.18
   amqp-connection-manager: 5.0.0
   amqplib: 0.10.9
   arktype: 2.1.29
-  knip: 5.83.0
+  knip: 5.83.1
   lefthook: 2.1.0
   mermaid: 11.12.2
-  oxfmt: 0.28.0
-  oxlint: 1.43.0
-  pino: 10.3.0
+  oxfmt: 0.31.0
+  oxlint: 1.46.0
+  pino: 10.3.1
   pino-pretty: 13.1.3
   reflect-metadata: 0.2.2
   rxjs: 7.8.2
@@ -41,9 +41,9 @@ catalog:
   ts-pattern: 5.9.0
   tsdown: 0.20.3
   tsx: 4.21.0
-  turbo: 2.8.3
+  turbo: 2.8.6
   typedoc: 0.28.16
-  typedoc-plugin-markdown: 4.9.0
+  typedoc-plugin-markdown: 4.10.0
   typescript: 5.9.3
   valibot: 1.2.0
   vitepress: 1.6.4
@@ -51,3 +51,10 @@ catalog:
   vitest: 4.0.18
   yaml: 2.8.2
   zod: 4.3.6
+
+settings:
+  autoInstallPeers: false
+  engineStrict: true
+  saveExact: true
+  strictPeerDependencies: true
+  useNodeVersion: 24.12.0
