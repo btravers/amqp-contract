@@ -1,5 +1,14 @@
 # @amqp-contract/client-nestjs
 
+## 0.19.0
+
+### Patch Changes
+
+- Updated dependencies [acfd949]
+  - @amqp-contract/core@0.19.0
+  - @amqp-contract/client@0.19.0
+  - @amqp-contract/contract@0.19.0
+
 ## 0.18.0
 
 ### Patch Changes

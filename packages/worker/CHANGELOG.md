@@ -1,5 +1,25 @@
 # @amqp-contract/worker
 
+## 0.19.0
+
+### Minor Changes
+
+- acfd949: **BREAKING:** `MessageValidationError` is now defined in `@amqp-contract/core` and re-exported from `@amqp-contract/client` and `@amqp-contract/worker`.
+
+  The `publisherName` (client) and `consumerName` (worker) properties have been replaced with a unified `source` property. Update any code that accesses these properties:
+
+  ```diff
+  - error.publisherName
+  - error.consumerName
+  + error.source
+  ```
+
+### Patch Changes
+
+- Updated dependencies [acfd949]
+  - @amqp-contract/core@0.19.0
+  - @amqp-contract/contract@0.19.0
+
 ## 0.18.0
 
 ### Patch Changes
