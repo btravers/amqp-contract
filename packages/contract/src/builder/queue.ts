@@ -5,6 +5,7 @@ import type {
   DefineQueueOptions,
   ExchangeDefinition,
   ExtractQueueFromEntry,
+  QueueBindingDefinition,
   QueueDefinition,
   QueueEntry,
   QueueWithTtlBackoffInfrastructure,
@@ -132,12 +133,14 @@ export function extractQueue<T extends QueueEntry>(entry: T): ExtractQueueFromEn
 }
 
 /**
- * Wrap a queue definition with TTL-backoff retry infrastructure.
+ * Create TTL-backoff retry infrastructure (wait queue + bindings) for a queue.
  * @internal
  */
-function wrapWithTtlBackoffInfrastructure(
-  queue: QueueDefinition,
-): QueueWithTtlBackoffInfrastructure {
+export function createTtlBackoffInfrastructure(queue: QueueDefinition): {
+  waitQueue: QuorumQueueDefinition;
+  waitQueueBinding: QueueBindingDefinition;
+  mainQueueRetryBinding: QueueBindingDefinition;
+} {
   if (!queue.deadLetter) {
     throw new Error(
       `Queue "${queue.name}" does not have a dead letter exchange configured. ` +
@@ -171,13 +174,23 @@ function wrapWithTtlBackoffInfrastructure(
     routingKey: queue.name,
   });
 
+  return { waitQueue, waitQueueBinding, mainQueueRetryBinding };
+}
+
+/**
+ * Wrap a queue definition with TTL-backoff retry infrastructure.
+ * @internal
+ */
+function wrapWithTtlBackoffInfrastructure(
+  queue: QueueDefinition,
+): QueueWithTtlBackoffInfrastructure {
+  const infra = createTtlBackoffInfrastructure(queue);
+
   return {
     __brand: "QueueWithTtlBackoffInfrastructure",
     queue,
-    deadLetter: queue.deadLetter,
-    waitQueue,
-    waitQueueBinding,
-    mainQueueRetryBinding,
+    deadLetter: queue.deadLetter!,
+    ...infra,
   };
 }
 

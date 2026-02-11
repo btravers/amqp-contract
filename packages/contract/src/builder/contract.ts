@@ -7,13 +7,11 @@ import type {
   ExchangeDefinition,
   PublisherDefinition,
   QueueDefinition,
-  QuorumQueueDefinition,
 } from "../types.js";
 import { isEventConsumerResult, isEventPublisherConfig } from "./event.js";
 import { definePublisherInternal } from "./publisher.js";
 import { isBridgedPublisherConfig, isCommandConsumerConfig } from "./command.js";
-import { defineQueueBindingInternal } from "./binding.js";
-import { resolveTtlBackoffOptions } from "./queue.js";
+import { createTtlBackoffInfrastructure } from "./queue.js";
 
 /**
  * Define an AMQP contract.
@@ -202,34 +200,11 @@ export function defineContract<TContract extends ContractDefinitionInput>(
     // Auto-generate TTL-backoff retry infrastructure for queues with retry.mode === "ttl-backoff" and deadLetter
     for (const queue of Object.values(queues) as QueueDefinition[]) {
       if (queue.retry?.mode === "ttl-backoff" && queue.deadLetter) {
-        const dlx = queue.deadLetter.exchange;
-        const waitQueueName = `${queue.name}-wait`;
-
-        // Create wait queue (quorum for durability)
-        const waitQueue: QuorumQueueDefinition = {
-          name: waitQueueName,
-          type: "quorum",
-          durable: queue.durable ?? true,
-          deadLetter: {
-            exchange: dlx,
-            routingKey: queue.name,
-          },
-          retry: resolveTtlBackoffOptions(undefined),
-        };
-        queues[waitQueueName] = waitQueue;
-
-        // Binding: DLX → wait queue (receives failed messages)
-        consumerBindings[`${queue.name}WaitBinding`] = defineQueueBindingInternal(waitQueue, dlx, {
-          routingKey: waitQueueName,
-        });
-
-        // Binding: DLX → main queue (retried messages after TTL expires)
-        consumerBindings[`${queue.name}RetryBinding`] = defineQueueBindingInternal(queue, dlx, {
-          routingKey: queue.name,
-        });
-
-        // Ensure DLX is in exchanges
-        exchanges[dlx.name] = dlx;
+        const infra = createTtlBackoffInfrastructure(queue);
+        queues[infra.waitQueue.name] = infra.waitQueue;
+        consumerBindings[`${queue.name}WaitBinding`] = infra.waitQueueBinding;
+        consumerBindings[`${queue.name}RetryBinding`] = infra.mainQueueRetryBinding;
+        exchanges[queue.deadLetter.exchange.name] = queue.deadLetter.exchange;
       }
     }
 

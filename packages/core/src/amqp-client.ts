@@ -13,6 +13,29 @@ import { TechnicalError } from "./errors.js";
 import { setupAmqpTopology } from "./setup.js";
 
 /**
+ * Invoke a SetupFunc, handling both callback-based and promise-based signatures.
+ * Uses Function.length to distinguish (same approach as promise-breaker).
+ * @internal
+ */
+function callSetupFunc(
+  setup: NonNullable<CreateChannelOpts["setup"]>,
+  channel: Channel,
+): Promise<void> {
+  if (setup.length >= 2) {
+    return new Promise<void>((resolve, reject) => {
+      (setup as (channel: Channel, callback: (error?: Error) => void) => void)(
+        channel,
+        (error?: Error) => {
+          if (error) reject(error);
+          else resolve();
+        },
+      );
+    });
+  }
+  return (setup as (channel: Channel) => Promise<void>)(channel);
+}
+
+/**
  * Options for creating an AMQP client.
  *
  * @property urls - AMQP broker URL(s). Multiple URLs provide failover support.
@@ -105,24 +128,8 @@ export class AmqpClient {
     // If user provided a custom setup, wrap it to call both
     if (userSetup) {
       channelOpts.setup = async (channel: Channel) => {
-        // First run the topology setup
         await defaultSetup(channel);
-        // Then run user's setup - check arity to determine if it expects a callback
-        if (userSetup.length === 2) {
-          // Callback-based setup function
-          await new Promise<void>((resolve, reject) => {
-            (userSetup as (channel: Channel, callback: (error?: Error) => void) => void)(
-              channel,
-              (error?: Error) => {
-                if (error) reject(error);
-                else resolve();
-              },
-            );
-          });
-        } else {
-          // Promise-based setup function
-          await (userSetup as (channel: Channel) => Promise<void>)(channel);
-        }
+        await callSetupFunc(userSetup, channel);
       };
     }
 
