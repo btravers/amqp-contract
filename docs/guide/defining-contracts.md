@@ -422,7 +422,7 @@ const orderMessage = defineMessage(
 
 ### Message Headers
 
-Messages can include a **headers schema** in addition to the payload schema. Headers are validated at runtime on both the publishing and consuming sides, just like payloads.
+Messages can include a **headers schema** in addition to the payload schema. Headers are validated at runtime on the **consumer side**, just like payloads.
 
 Use headers for cross-cutting metadata that isn't part of the business payload — correlation IDs, tracing context, priority hints, or tenant identifiers.
 
