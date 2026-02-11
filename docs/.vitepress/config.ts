@@ -114,6 +114,8 @@ export default withMermaid(
               { text: "Connection Sharing", link: "/guide/connection-sharing" },
               { text: "Channel Configuration", link: "/guide/channel-configuration" },
               { text: "Message Compression", link: "/guide/message-compression" },
+              { text: "Schema Libraries", link: "/guide/schema-libraries" },
+              { text: "Performance Tuning", link: "/guide/performance" },
               { text: "AsyncAPI Generation", link: "/guide/asyncapi-generation" },
               { text: "OpenTelemetry Observability", link: "/guide/opentelemetry-observability" },
             ],
