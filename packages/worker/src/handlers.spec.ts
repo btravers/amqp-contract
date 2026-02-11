@@ -98,8 +98,8 @@ describe("handlers", () => {
 
       // WHEN/THEN
       expect(() => {
-        // oxlint-disable-next-line no-explicit-any
-        (defineHandler as any)(testContract, "nonExistentConsumer", handler);
+        // @ts-expect-error Testing runtime validation with invalid consumer name
+        defineHandler(testContract, "nonExistentConsumer", handler);
       }).toThrow(
         'Consumer "nonExistentConsumer" not found in contract. Available consumers: testConsumer, anotherConsumer',
       );
@@ -142,8 +142,8 @@ describe("handlers", () => {
 
       // WHEN/THEN
       expect(() => {
-        // oxlint-disable-next-line no-explicit-any
-        defineHandlers(testContract, handlers as any);
+        // @ts-expect-error Testing runtime validation with non-existent consumer
+        defineHandlers(testContract, handlers);
       }).toThrow(
         'Consumer "nonExistentConsumer" not found in contract. Available consumers: testConsumer, anotherConsumer',
       );

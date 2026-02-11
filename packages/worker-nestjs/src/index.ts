@@ -4,3 +4,4 @@ export { AmqpWorkerService } from "./worker.service.js";
 export type { AmqpWorkerModuleOptions } from "./worker.service.js";
 export type { WorkerInferConsumerHandlers } from "@amqp-contract/worker";
 export { defineHandler, defineHandlers } from "@amqp-contract/worker";
+export { RetryableError, NonRetryableError, MessageValidationError } from "@amqp-contract/worker";
