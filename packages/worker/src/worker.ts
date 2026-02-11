@@ -306,6 +306,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * TypeScript guarantees consumers exist (handlers require matching consumers).
    */
   private consumeAll(): Future<Result<void, TechnicalError>> {
+    // Non-null assertion safe: TypeScript guarantees consumers exist (handlers require matching consumers)
     const consumers = this.contract.consumers!;
     const consumerNames = Object.keys(consumers) as InferConsumerNames<TContract>[];
 
@@ -340,6 +341,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     // Non-null assertions safe: TypeScript guarantees these exist for valid TName
     const consumerEntry = this.contract.consumers![consumerName as string]!;
     const consumer = extractConsumer(consumerEntry);
+    // Non-null assertion safe: constructor validates handlers match consumer names
     const handler = this.actualHandlers[consumerName]!;
 
     return this.consumeSingle(
