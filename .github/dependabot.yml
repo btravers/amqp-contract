@@ -14,9 +14,6 @@ updates:
       orpc:
         patterns:
           - "@orpc/*"
-      nestjs:
-        patterns:
-          - "@nestjs/*"
       commitlint:
         patterns:
           - "@commitlint/*"

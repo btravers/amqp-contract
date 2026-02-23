@@ -276,46 +276,6 @@ const spec = await generator.generate(contract, {
 console.log(JSON.stringify(spec, null, 2));
 ```
 
-### 🎯 First-Class NestJS Support
-
-If you're using [NestJS](https://nestjs.com/), amqp-contract provides dedicated integration packages with automatic lifecycle management:
-
-```typescript
-import { Module } from "@nestjs/common";
-import { AmqpWorkerModule } from "@amqp-contract/worker-nestjs";
-import { AmqpClientModule } from "@amqp-contract/client-nestjs";
-import { contract } from "./contract";
-
-@Module({
-  imports: [
-    // Worker module for consuming messages
-    AmqpWorkerModule.forRoot({
-      contract,
-      handlers: {
-        processOrder: ({ payload }) => {
-          console.log("Processing:", payload.orderId);
-          return Future.value(Result.Ok(undefined));
-        },
-      },
-      urls: [process.env.RABBITMQ_URL],
-    }),
-    // Client module for publishing messages
-    AmqpClientModule.forRoot({
-      contract,
-      urls: [process.env.RABBITMQ_URL],
-    }),
-  ],
-})
-export class AppModule {}
-```
-
-The NestJS integration handles:
-
-- Automatic connection lifecycle management
-- Graceful shutdown
-- Dependency injection
-- Integration with NestJS error handling
-
 ## Real-World Use Cases
 
 ### E-Commerce Order Processing
@@ -418,7 +378,7 @@ Unlike other AMQP libraries, amqp-contract:
 - Uses **Standard Schema v1** — compatible with multiple validation libraries (Zod, Valibot, ArkType)
 - Generates **AsyncAPI specs** — automatic documentation
 - Provides **explicit error handling** — uses Result types instead of throwing exceptions
-- Is **framework agnostic** — works standalone or with NestJS
+- Is **framework agnostic** — works standalone with any Node.js application
 
 ## Getting Started
 
@@ -451,7 +411,6 @@ The project is under active development with several exciting features planned:
 - Enhanced dead letter queue handling
 - More schema library integrations
 - Performance optimizations
-- Additional NestJS features
 - Community-driven examples and patterns
 
 ## Try It Today!

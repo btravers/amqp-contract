@@ -15,16 +15,14 @@
 
 ## Packages
 
-| Package                        | Purpose                                                      |
-| ------------------------------ | ------------------------------------------------------------ |
-| `@amqp-contract/contract`      | Contract definition builder and types (foundation)           |
-| `@amqp-contract/core`          | AMQP connection management, topology setup, telemetry        |
-| `@amqp-contract/client`        | Type-safe publishing via `TypedAmqpClient`                   |
-| `@amqp-contract/worker`        | Type-safe consumption via `TypedAmqpWorker` with retry logic |
-| `@amqp-contract/client-nestjs` | NestJS module for client                                     |
-| `@amqp-contract/worker-nestjs` | NestJS module for worker                                     |
-| `@amqp-contract/asyncapi`      | AsyncAPI 3.0 specification generator                         |
-| `@amqp-contract/testing`       | Testcontainers setup and vitest fixtures                     |
+| Package                   | Purpose                                                      |
+| ------------------------- | ------------------------------------------------------------ |
+| `@amqp-contract/contract` | Contract definition builder and types (foundation)           |
+| `@amqp-contract/core`     | AMQP connection management, topology setup, telemetry        |
+| `@amqp-contract/client`   | Type-safe publishing via `TypedAmqpClient`                   |
+| `@amqp-contract/worker`   | Type-safe consumption via `TypedAmqpWorker` with retry logic |
+| `@amqp-contract/asyncapi` | AsyncAPI 3.0 specification generator                         |
+| `@amqp-contract/testing`  | Testcontainers setup and vitest fixtures                     |
 
 ## Monorepo Structure
 
@@ -36,8 +34,6 @@ amqp-contract/
 │   ├── core/              # Core utilities for AMQP setup and management
 │   ├── client/            # Type-safe AMQP client
 │   ├── worker/            # Type-safe AMQP worker
-│   ├── client-nestjs/     # NestJS integration for client
-│   ├── worker-nestjs/     # NestJS integration for worker
 │   ├── asyncapi/          # AsyncAPI 3.0 generator
 │   └── testing/           # Testing utilities
 ├── samples/               # Example implementations

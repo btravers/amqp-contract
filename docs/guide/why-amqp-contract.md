@@ -1,6 +1,6 @@
 ---
 title: Why amqp-contract? - Type-safe AMQP Messaging for TypeScript and Node.js
-description: Discover why amqp-contract is the best solution for building type-safe RabbitMQ and AMQP messaging applications with TypeScript, Node.js, and NestJS. Learn about contract-first development and schema validation.
+description: Discover why amqp-contract is the best solution for building type-safe RabbitMQ and AMQP messaging applications with TypeScript and Node.js. Learn about contract-first development and schema validation.
 ---
 
 # Why amqp-contract?

@@ -2,12 +2,10 @@
 // They must be kept in sync with the packages array below.
 import "@amqp-contract/asyncapi";
 import "@amqp-contract/client";
-import "@amqp-contract/client-nestjs";
 import "@amqp-contract/contract";
 import "@amqp-contract/core";
 import "@amqp-contract/testing/global-setup";
 import "@amqp-contract/worker";
-import "@amqp-contract/worker-nestjs";
 
 import { cp, mkdir, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -17,16 +15,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const docsApiDir = join(__dirname, "..", "api");
 const nodeModulesDir = join(__dirname, "..", "node_modules");
 
-const packages = [
-  "asyncapi",
-  "client",
-  "client-nestjs",
-  "contract",
-  "core",
-  "testing",
-  "worker",
-  "worker-nestjs",
-];
+const packages = ["asyncapi", "client", "contract", "core", "testing", "worker"];
 
 async function copyDocs(): Promise<void> {
   try {

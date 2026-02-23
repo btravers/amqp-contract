@@ -106,19 +106,16 @@ pnpm add @amqp-contract/contract @amqp-contract/client @amqp-contract/worker
 
 - [Get Started](https://btravers.github.io/amqp-contract/guide/getting-started) — Get running in 5 minutes
 - [Core Concepts](https://btravers.github.io/amqp-contract/guide/core-concepts) — Understand the fundamentals
-- [NestJS Integration](https://btravers.github.io/amqp-contract/guide/client-nestjs-usage) — First-class NestJS support
 - [Examples](https://btravers.github.io/amqp-contract/examples/) — Real-world usage patterns
 
 ## Packages
 
-| Package                                                  | Description                           |
-| -------------------------------------------------------- | ------------------------------------- |
-| [@amqp-contract/contract](./packages/contract)           | Contract builder and type definitions |
-| [@amqp-contract/client](./packages/client)               | Type-safe client for publishing       |
-| [@amqp-contract/worker](./packages/worker)               | Type-safe worker with retry support   |
-| [@amqp-contract/client-nestjs](./packages/client-nestjs) | NestJS client integration             |
-| [@amqp-contract/worker-nestjs](./packages/worker-nestjs) | NestJS worker integration             |
-| [@amqp-contract/asyncapi](./packages/asyncapi)           | AsyncAPI 3.0 generator                |
+| Package                                        | Description                           |
+| ---------------------------------------------- | ------------------------------------- |
+| [@amqp-contract/contract](./packages/contract) | Contract builder and type definitions |
+| [@amqp-contract/client](./packages/client)     | Type-safe client for publishing       |
+| [@amqp-contract/worker](./packages/worker)     | Type-safe worker with retry support   |
+| [@amqp-contract/asyncapi](./packages/asyncapi) | AsyncAPI 3.0 generator                |
 
 ## Contributing
 

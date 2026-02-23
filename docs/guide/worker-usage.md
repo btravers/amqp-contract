@@ -2,10 +2,6 @@
 
 Learn how to use the type-safe AMQP worker to consume messages.
 
-::: tip NestJS Users
-For NestJS applications, see the [NestJS Worker Usage](/guide/worker-nestjs-usage) guide.
-:::
-
 ## Creating a Worker
 
 Create a worker with type-safe message handlers:

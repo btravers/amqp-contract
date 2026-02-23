@@ -8,7 +8,6 @@ Unlike the integration tests in individual packages (which test each package in 
 
 - End-to-end workflows across multiple packages
 - Client and Worker interactions
-- NestJS integration with both client and worker
 - Contract validation across the full stack
 - Real AMQP messaging scenarios using RabbitMQ via testcontainers
 
@@ -30,7 +29,6 @@ Tests are organized by scenario:
 
 Planned for future implementation:
 
-- `nestjs-integration.integration.spec.ts` - Tests NestJS modules integration
 - `publisher-consumer.integration.spec.ts` - Tests full publisher-consumer workflows
 
 ## Dependencies

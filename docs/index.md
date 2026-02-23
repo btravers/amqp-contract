@@ -1,7 +1,7 @@
 ---
 layout: home
 title: amqp-contract - Type-safe AMQP/RabbitMQ messaging for TypeScript
-description: End-to-end type safety, runtime validation, and reliable retry patterns for AMQP/RabbitMQ messaging in TypeScript and NestJS
+description: End-to-end type safety, runtime validation, and reliable retry patterns for AMQP/RabbitMQ messaging in TypeScript
 
 hero:
   name: "amqp-contract"
@@ -33,10 +33,6 @@ features:
   - icon: 📄
     title: AsyncAPI Compatible
     details: Generate AsyncAPI 3.0 specs for documentation, visualization, and breaking change detection.
-
-  - icon: 🎯
-    title: NestJS Ready
-    details: First-class NestJS support with dependency injection and automatic lifecycle management.
 ---
 
 ## Quick Example
