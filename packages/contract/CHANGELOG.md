@@ -1,5 +1,11 @@
 # @amqp-contract/contract
 
+## 0.20.0
+
+### Minor Changes
+
+- Remove `@amqp-contract/client-nestjs` and `@amqp-contract/worker-nestjs` packages. The NestJS wrappers have been removed to simplify the repository — use the standalone `@amqp-contract/client` and `@amqp-contract/worker` packages directly instead.
+
 ## 0.19.0
 
 ## 0.18.0
