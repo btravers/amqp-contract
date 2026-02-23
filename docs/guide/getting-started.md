@@ -1,6 +1,6 @@
 ---
 title: Getting Started with amqp-contract - Type-safe AMQP/RabbitMQ for TypeScript
-description: Learn how to build type-safe AMQP messaging applications with amqp-contract. Step-by-step guide for Node.js and NestJS developers using TypeScript and RabbitMQ.
+description: Learn how to build type-safe AMQP messaging applications with amqp-contract. Step-by-step guide for Node.js developers using TypeScript and RabbitMQ.
 ---
 
 # Getting Started
@@ -108,26 +108,6 @@ For generating AsyncAPI 3.0 specifications:
 ```bash
 pnpm add @amqp-contract/asyncapi
 ```
-
-#### NestJS Integration
-
-For [NestJS](https://nestjs.com/) applications:
-
-::: code-group
-
-```bash [pnpm]
-pnpm add @amqp-contract/client-nestjs @amqp-contract/worker-nestjs
-```
-
-```bash [npm]
-npm install @amqp-contract/client-nestjs @amqp-contract/worker-nestjs
-```
-
-```bash [yarn]
-yarn add @amqp-contract/client-nestjs @amqp-contract/worker-nestjs
-```
-
-:::
 
 #### Alternative Schema Libraries
 
@@ -438,7 +418,6 @@ Now that you have amqp-contract working, explore more:
 - **[Core Concepts](/guide/core-concepts)** - Understand the architecture and patterns
 - **[Defining Contracts](/guide/defining-contracts)** - Learn advanced contract features
 - **[Basic Order Processing Example](/examples/basic-order-processing)** - See a complete real-world example
-- **[NestJS Integration](/guide/client-nestjs-usage)** - Use with NestJS framework
 - **[Testing](/guide/testing)** - Write tests for your AMQP code
 
 ::: tip Need Help?

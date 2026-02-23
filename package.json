@@ -34,6 +34,7 @@
   "packageManager": "pnpm@10.29.3",
   "pnpm": {
     "overrides": {
+      "minimatch": ">=10.2.1",
       "preact": ">=10.28.2"
     }
   }

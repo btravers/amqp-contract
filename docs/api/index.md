@@ -10,11 +10,6 @@ Welcome to the amqp-contract API documentation. This documentation is auto-gener
 - [@amqp-contract/worker](./worker/) - Type-safe AMQP worker
 - [@amqp-contract/asyncapi](./asyncapi/) - AsyncAPI specification generator
 
-## NestJS Integration
-
-- [@amqp-contract/client-nestjs](./client-nestjs/) - NestJS client module
-- [@amqp-contract/worker-nestjs](./worker-nestjs/) - NestJS worker module
-
 ## Testing
 
 - [@amqp-contract/testing](./testing/) - Testing utilities with testcontainers

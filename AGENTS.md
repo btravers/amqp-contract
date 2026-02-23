@@ -13,7 +13,6 @@ Type-safe contracts for AMQP/RabbitMQ messaging with automatic runtime validatio
 | [Code Style](.agents/rules/code-style.md)               | TypeScript rules, imports, anti-patterns, best practices                  |
 | [Testing](.agents/rules/testing.md)                     | Testing strategy, integration tests, fixtures, assertions                 |
 | [Dependencies](.agents/rules/dependencies.md)           | Key deps, catalog management, monorepo tooling                            |
-| [NestJS](.agents/rules/nestjs.md)                       | NestJS module integration                                                 |
 
 ## Key Constraints
 

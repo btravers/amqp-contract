@@ -2,10 +2,6 @@
 
 Learn how to use the type-safe AMQP client to publish messages.
 
-::: tip NestJS Users
-For NestJS applications, see the [NestJS Client Usage](/guide/client-nestjs-usage) guide.
-:::
-
 ## Creating a Client
 
 Create a type-safe client from your contract. The `create` method returns a `Future<Result<...>>` that must be awaited:

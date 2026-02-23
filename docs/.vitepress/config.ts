@@ -102,13 +102,6 @@ export default withMermaid(
             ],
           },
           {
-            text: "NestJS",
-            items: [
-              { text: "Client", link: "/guide/client-nestjs-usage" },
-              { text: "Worker", link: "/guide/worker-nestjs-usage" },
-            ],
-          },
-          {
             text: "Advanced",
             items: [
               { text: "Connection Sharing", link: "/guide/connection-sharing" },
@@ -144,13 +137,6 @@ export default withMermaid(
               { text: "@amqp-contract/client", link: "/api/client/" },
               { text: "@amqp-contract/worker", link: "/api/worker/" },
               { text: "@amqp-contract/asyncapi", link: "/api/asyncapi/" },
-            ],
-          },
-          {
-            text: "NestJS Integration",
-            items: [
-              { text: "@amqp-contract/client-nestjs", link: "/api/client-nestjs/" },
-              { text: "@amqp-contract/worker-nestjs", link: "/api/worker-nestjs/" },
             ],
           },
           {
@@ -230,7 +216,7 @@ export default withMermaid(
         {
           name: "keywords",
           content:
-            "AMQP, RabbitMQ, TypeScript, Node.js, NestJS, messaging, message queue, message broker, type-safe, schema validation, contract-first, AsyncAPI, amqplib, type-safe messaging, schema-based messaging, event-driven architecture, microservices, distributed systems",
+            "AMQP, RabbitMQ, TypeScript, Node.js, messaging, message queue, message broker, type-safe, schema validation, contract-first, AsyncAPI, amqplib, type-safe messaging, schema-based messaging, event-driven architecture, microservices, distributed systems",
         },
       ],
       // Open Graph meta tags for better social sharing and SEO
@@ -285,8 +271,7 @@ export default withMermaid(
             name: "TypeScript",
             url: "https://www.typescriptlang.org/",
           },
-          keywords:
-            "AMQP, RabbitMQ, TypeScript, Node.js, NestJS, messaging, type-safe, schema validation",
+          keywords: "AMQP, RabbitMQ, TypeScript, Node.js, messaging, type-safe, schema validation",
         }),
       ],
       // WebSite JSON-LD for proper site name display in Google search
