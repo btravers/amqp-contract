@@ -18,7 +18,7 @@ catalog:
   "@standard-schema/spec": 1.1.0
   "@swan-io/boxed": 3.2.1
   "@types/amqplib": 0.10.8
-  "@types/node": 25.3.0
+  "@types/node": 25.3.2
   "@vitest/coverage-v8": 4.0.18
   amqp-connection-manager: 5.0.0
   amqplib: 0.10.9
@@ -33,9 +33,9 @@ catalog:
   sort-package-json: 3.6.1
   testcontainers: 11.12.0
   ts-pattern: 5.9.0
-  tsdown: 0.20.3
+  tsdown: 0.21.0-beta.2
   tsx: 4.21.0
-  turbo: 2.8.10
+  turbo: 2.8.11
   typedoc: 0.28.17
   typedoc-plugin-markdown: 4.10.0
   typescript: 5.9.3
