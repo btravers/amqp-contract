@@ -34,8 +34,9 @@
   "packageManager": "pnpm@10.30.3",
   "pnpm": {
     "overrides": {
-      "minimatch": ">=10.2.1",
-      "preact": ">=10.28.2"
+      "minimatch": ">=10.2.3",
+      "preact": ">=10.28.2",
+      "rollup": ">=4.59.0"
     }
   }
 }
