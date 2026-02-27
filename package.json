@@ -14,7 +14,6 @@
     "lint": "oxlint .",
     "prepare": "lefthook install",
     "release": "pnpm build && changeset publish",
-    "sort-package-json": "sort-package-json '**/package.json' '!**/node_modules/**'",
     "test": "turbo run test",
     "test:integration": "turbo run test:integration",
     "typecheck": "turbo run typecheck",
@@ -28,7 +27,6 @@
     "lefthook": "catalog:",
     "oxfmt": "catalog:",
     "oxlint": "catalog:",
-    "sort-package-json": "catalog:",
     "turbo": "catalog:"
   },
   "packageManager": "pnpm@10.30.3",

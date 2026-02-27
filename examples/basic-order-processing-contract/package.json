@@ -3,14 +3,14 @@
   "private": true,
   "description": "Contract definition for order processing example",
   "type": "module",
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
   "exports": {
     ".": {
       "types": "./dist/index.d.mts",
       "import": "./dist/index.mjs"
     }
   },
-  "main": "./dist/index.mjs",
-  "types": "./dist/index.d.mts",
   "scripts": {
     "build": "tsdown src/index.ts --dts",
     "generate:asyncapi:json": "tsx scripts/generate-asyncapi-json.ts",

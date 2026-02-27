@@ -25,4 +25,4 @@ Type-safe contracts for AMQP/RabbitMQ messaging with automatic runtime validatio
 - Conventional commits required (e.g. feat, fix, docs, chore, test, refactor — full set per Conventional Commits spec)
 - Quorum queues by default — classic queues only for special cases
 - Composition pattern — define resources first, then reference
-- Git hooks: lefthook runs format, lint, sort-package-json on `pre-commit`, and commitlint on `commit-msg`
+- Git hooks: lefthook runs format, lint on `pre-commit`, and commitlint on `commit-msg`

@@ -5,15 +5,19 @@
   "keywords": [
     "amqp",
     "contract",
-    "rabbitmq",
-    "typescript",
-    "testing",
-    "testcontainers",
     "nodejs",
+    "rabbitmq",
+    "testcontainers",
+    "testing",
     "type-safe",
+    "typescript",
     "vitest"
   ],
   "license": "MIT",
+  "files": [
+    "dist",
+    "docs"
+  ],
   "type": "module",
   "exports": {
     ".": {
@@ -29,10 +33,6 @@
       "import": "./dist/extension.mjs"
     }
   },
-  "files": [
-    "dist",
-    "docs"
-  ],
   "scripts": {
     "build": "tsdown src/index.ts src/global-setup.ts src/extension.ts --format esm --dts --clean",
     "build:docs": "typedoc",

@@ -16,7 +16,6 @@ pnpm lint                 # Run oxlint (no any types, type aliases)
 pnpm lint --fix           # Auto-fix linting issues
 pnpm format               # Format with oxfmt (import sorting)
 pnpm format --check       # Check formatting only
-pnpm sort-package-json    # Sort package.json files
 ```
 
 ## Testing
@@ -47,5 +46,4 @@ Before submitting code, ensure:
 - All tests pass (`pnpm test`)
 - Code is properly formatted (`pnpm format`)
 - No linting errors (`pnpm lint`)
-- Package.json files are sorted (`pnpm sort-package-json --check`)
 - Commit message follows conventional commits format
