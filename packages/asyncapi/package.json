@@ -4,30 +4,37 @@
   "description": "AsyncAPI specification generator for amqp-contract",
   "keywords": [
     "amqp",
+    "api-specification",
     "asyncapi",
     "contract",
-    "rabbitmq",
-    "typescript",
-    "nodejs",
-    "messaging",
-    "type-safe",
-    "schema",
     "documentation",
-    "api-specification",
-    "message-broker"
+    "message-broker",
+    "messaging",
+    "nodejs",
+    "rabbitmq",
+    "schema",
+    "type-safe",
+    "typescript"
   ],
   "homepage": "https://github.com/btravers/amqp-contract#readme",
   "bugs": {
     "url": "https://github.com/btravers/amqp-contract/issues"
   },
+  "license": "MIT",
+  "author": "Benoit TRAVERS <benoit.travers.fr@gmail.com>",
   "repository": {
     "type": "git",
     "url": "https://github.com/btravers/amqp-contract.git",
     "directory": "packages/asyncapi"
   },
-  "license": "MIT",
-  "author": "Benoit TRAVERS <benoit.travers.fr@gmail.com>",
+  "files": [
+    "dist",
+    "docs"
+  ],
   "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
   "exports": {
     ".": {
       "import": {
@@ -41,13 +48,6 @@
     },
     "./package.json": "./package.json"
   },
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.mjs",
-  "types": "./dist/index.d.mts",
-  "files": [
-    "dist",
-    "docs"
-  ],
   "scripts": {
     "build": "tsdown src/index.ts --format cjs,esm --dts --clean",
     "build:docs": "typedoc",

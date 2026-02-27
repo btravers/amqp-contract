@@ -5,11 +5,11 @@
   "description": "Shared TypeScript configuration for amqp-contract packages",
   "license": "MIT",
   "author": "Benoit TRAVERS <benoit.travers.fr@gmail.com>",
+  "files": [
+    "base.json"
+  ],
   "type": "module",
   "exports": {
     "./base.json": "./base.json"
-  },
-  "files": [
-    "base.json"
-  ]
+  }
 }

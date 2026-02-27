@@ -4,31 +4,38 @@
   "description": "Worker utilities for consuming messages using amqp-contract",
   "keywords": [
     "amqp",
+    "consumer",
     "contract",
-    "rabbitmq",
-    "typescript",
-    "worker",
-    "nodejs",
-    "messaging",
-    "type-safe",
-    "schema",
-    "validation",
     "message-broker",
     "message-queue",
-    "consumer"
+    "messaging",
+    "nodejs",
+    "rabbitmq",
+    "schema",
+    "type-safe",
+    "typescript",
+    "validation",
+    "worker"
   ],
   "homepage": "https://github.com/btravers/amqp-contract#readme",
   "bugs": {
     "url": "https://github.com/btravers/amqp-contract/issues"
   },
+  "license": "MIT",
+  "author": "Benoit TRAVERS <benoit.travers.fr@gmail.com>",
   "repository": {
     "type": "git",
     "url": "https://github.com/btravers/amqp-contract.git",
     "directory": "packages/worker"
   },
-  "license": "MIT",
-  "author": "Benoit TRAVERS <benoit.travers.fr@gmail.com>",
+  "files": [
+    "dist",
+    "docs"
+  ],
   "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
   "exports": {
     ".": {
       "import": {
@@ -42,13 +49,6 @@
     },
     "./package.json": "./package.json"
   },
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.mjs",
-  "types": "./dist/index.d.mts",
-  "files": [
-    "dist",
-    "docs"
-  ],
   "scripts": {
     "build": "tsdown src/index.ts --format cjs,esm --dts --clean",
     "build:docs": "typedoc",
