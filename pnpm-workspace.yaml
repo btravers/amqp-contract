@@ -11,10 +11,10 @@ catalog:
   "@commitlint/cli": 20.4.2
   "@commitlint/config-conventional": 20.4.2
   "@opentelemetry/api": 1.9.0
-  "@orpc/arktype": 1.13.5
-  "@orpc/openapi": 1.13.5
-  "@orpc/valibot": 1.13.5
-  "@orpc/zod": 1.13.5
+  "@orpc/arktype": 1.13.6
+  "@orpc/openapi": 1.13.6
+  "@orpc/valibot": 1.13.6
+  "@orpc/zod": 1.13.6
   "@standard-schema/spec": 1.1.0
   "@swan-io/boxed": 3.2.1
   "@types/amqplib": 0.10.8
