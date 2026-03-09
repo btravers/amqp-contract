@@ -22,7 +22,7 @@ catalog:
   "@vitest/coverage-v8": 4.0.18
   amqp-connection-manager: 5.0.0
   amqplib: 0.10.9
-  arktype: 2.1.29
+  arktype: 2.2.0
   knip: 5.85.0
   lefthook: 2.1.1
   mermaid: 11.12.3
