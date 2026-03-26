@@ -16,7 +16,7 @@
 
 ## Monorepo Tooling
 
-- **Package manager**: pnpm 10.28.2
+- **Package manager**: pnpm
 - **Build**: turbo + tsdown (generates CJS/ESM with TypeScript definitions)
 - **Linting**: oxlint (Rust-based, enforces strict type rules)
 - **Formatting**: oxfmt (Rust-based)
