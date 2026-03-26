@@ -538,6 +538,7 @@ describe("AsyncAPIGenerator", () => {
                           "sms",
                           "push",
                         ],
+                        "type": "string",
                       },
                       "userId": {
                         "type": "string",
@@ -590,6 +591,7 @@ describe("AsyncAPIGenerator", () => {
                           "sms",
                           "push",
                         ],
+                        "type": "string",
                       },
                       "userId": {
                         "type": "string",
@@ -628,6 +630,7 @@ describe("AsyncAPIGenerator", () => {
                         "sms",
                         "push",
                       ],
+                      "type": "string",
                     },
                     "userId": {
                       "type": "string",
@@ -660,6 +663,7 @@ describe("AsyncAPIGenerator", () => {
                         "sms",
                         "push",
                       ],
+                      "type": "string",
                     },
                     "userId": {
                       "type": "string",
