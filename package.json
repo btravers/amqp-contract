@@ -33,6 +33,7 @@
   "pnpm": {
     "overrides": {
       "minimatch": ">=10.2.3",
+      "picomatch": ">=2.3.2",
       "preact": ">=10.28.2",
       "rollup": ">=4.59.0"
     }
