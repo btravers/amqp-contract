@@ -21,7 +21,7 @@ catalog:
   "@types/node": 24.12.0
   "@vitest/coverage-v8": 4.1.1
   amqp-connection-manager: 5.0.0
-  amqplib: 0.10.9
+  amqplib: 1.0.2
   arktype: 2.2.0
   knip: 6.0.5
   lefthook: 2.1.4
