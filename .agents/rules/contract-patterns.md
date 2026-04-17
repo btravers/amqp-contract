@@ -242,6 +242,19 @@ const queue = defineQueue("orders", {
 });
 ```
 
+### None Mode (Default)
+
+No retry attempts are made. Failed messages are sent directly to DLQ via `nack(requeue=false)` (or dropped if no DLX configured).
+
+```typescript
+const queue = defineQueue("orders", {
+  deadLetter: { exchange: dlx, routingKey: "failed" },
+  retry: { mode: "none" },
+});
+```
+
+Omitting `retry` defaults to `mode: "none"`.
+
 ### Accessing Queue Properties
 
 When retry is configured with TTL-backoff mode, `defineQueue` returns a wrapper object. Use `extractQueue()` to access the underlying queue definition:

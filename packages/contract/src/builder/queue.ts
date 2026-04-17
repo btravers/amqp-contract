@@ -299,7 +299,7 @@ export function defineQueue(
   // Build quorum queue
   if (type === "quorum") {
     const quorumOpts = opts as QuorumQueueOptions;
-    const inputRetry = quorumOpts.retry ?? { mode: "ttl-backoff" as const };
+    const inputRetry = quorumOpts.retry ?? { mode: "none" as const };
 
     // Validate quorum-native retry requirements
     if (inputRetry.mode === "quorum-native") {
@@ -311,9 +311,9 @@ export function defineQueue(
       }
     }
 
-    // Resolve retry options: apply defaults for TTL-backoff, keep quorum-native as-is
+    // Resolve retry options for quorum queues
     const retry =
-      inputRetry.mode === "quorum-native" ? inputRetry : resolveTtlBackoffOptions(inputRetry);
+      inputRetry.mode === "ttl-backoff" ? resolveTtlBackoffOptions(inputRetry) : inputRetry;
 
     const queueDefinition: QuorumQueueDefinition = {
       ...baseProps,
@@ -350,8 +350,11 @@ export function defineQueue(
     );
   }
 
-  // Resolve TTL-backoff options with defaults
-  const retry = resolveTtlBackoffOptions(classicOpts.retry);
+  // Resolve retry options for classic queues
+  const retry =
+    classicOpts.retry?.mode === "ttl-backoff"
+      ? resolveTtlBackoffOptions(classicOpts.retry)
+      : (classicOpts.retry ?? { mode: "none" as const });
 
   const queueDefinition: ClassicQueueDefinition = {
     ...baseProps,

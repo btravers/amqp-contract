@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import {
   defineCommandConsumer,
   defineCommandPublisher,
@@ -16,8 +18,6 @@ import {
   extractQueue,
   isBridgedPublisherConfig,
 } from "./builder.js";
-import { describe, expect, it } from "vitest";
-import { z } from "zod";
 
 describe("builder", () => {
   describe("defineExchange", () => {
@@ -57,14 +57,7 @@ describe("builder", () => {
         name: "test-queue",
         type: "quorum",
         durable: true,
-        retry: {
-          mode: "ttl-backoff",
-          maxRetries: 3,
-          initialDelayMs: 1000,
-          maxDelayMs: 30000,
-          backoffMultiplier: 2,
-          jitter: true,
-        },
+        retry: { mode: "none" },
       });
     });
 
@@ -76,14 +69,7 @@ describe("builder", () => {
       expect(queue).toEqual({
         name: "test-queue",
         type: "quorum",
-        retry: {
-          mode: "ttl-backoff",
-          maxRetries: 3,
-          initialDelayMs: 1000,
-          maxDelayMs: 30000,
-          backoffMultiplier: 2,
-          jitter: true,
-        },
+        retry: { mode: "none" },
       });
     });
 
@@ -96,14 +82,7 @@ describe("builder", () => {
         name: "test-queue",
         type: "classic",
         durable: true,
-        retry: {
-          mode: "ttl-backoff",
-          maxRetries: 3,
-          initialDelayMs: 1000,
-          maxDelayMs: 30000,
-          backoffMultiplier: 2,
-          jitter: true,
-        },
+        retry: { mode: "none" },
       });
     });
 
@@ -120,26 +99,16 @@ describe("builder", () => {
         },
       });
 
-      // THEN - returns QueueWithTtlBackoffInfrastructure due to default ttl-backoff retry + deadLetter
-      expect(queue).toMatchObject({
-        __brand: "QueueWithTtlBackoffInfrastructure",
-        queue: {
-          name: "test-queue",
-          type: "quorum",
-          durable: true,
-          deadLetter: {
-            exchange: dlx,
-            routingKey: "failed",
-          },
-          retry: {
-            mode: "ttl-backoff",
-            maxRetries: 3,
-            initialDelayMs: 1000,
-            maxDelayMs: 30000,
-            backoffMultiplier: 2,
-            jitter: true,
-          },
+      // THEN
+      expect(queue).toEqual({
+        name: "test-queue",
+        type: "quorum",
+        durable: true,
+        deadLetter: {
+          exchange: dlx,
+          routingKey: "failed",
         },
+        retry: { mode: "none" },
       });
     });
 
@@ -155,25 +124,15 @@ describe("builder", () => {
         },
       });
 
-      // THEN - returns QueueWithTtlBackoffInfrastructure due to default ttl-backoff retry + deadLetter
-      expect(queue).toMatchObject({
-        __brand: "QueueWithTtlBackoffInfrastructure",
-        queue: {
-          name: "test-queue",
-          type: "quorum",
-          durable: true,
-          deadLetter: {
-            exchange: dlx,
-          },
-          retry: {
-            mode: "ttl-backoff",
-            maxRetries: 3,
-            initialDelayMs: 1000,
-            maxDelayMs: 30000,
-            backoffMultiplier: 2,
-            jitter: true,
-          },
+      // THEN
+      expect(queue).toEqual({
+        name: "test-queue",
+        type: "quorum",
+        durable: true,
+        deadLetter: {
+          exchange: dlx,
         },
+        retry: { mode: "none" },
       });
     });
 
@@ -186,14 +145,7 @@ describe("builder", () => {
         name: "test-queue",
         type: "classic",
         exclusive: true,
-        retry: {
-          mode: "ttl-backoff",
-          maxRetries: 3,
-          initialDelayMs: 1000,
-          maxDelayMs: 30000,
-          backoffMultiplier: 2,
-          jitter: true,
-        },
+        retry: { mode: "none" },
       });
     });
   });
@@ -212,14 +164,7 @@ describe("builder", () => {
         name: "priority-queue",
         type: "classic",
         durable: true,
-        retry: {
-          mode: "ttl-backoff",
-          maxRetries: 3,
-          initialDelayMs: 1000,
-          maxDelayMs: 30000,
-          backoffMultiplier: 2,
-          jitter: true,
-        },
+        retry: { mode: "none" },
         arguments: {
           "x-max-priority": 10,
         },
@@ -234,14 +179,7 @@ describe("builder", () => {
       expect(queue).toEqual({
         name: "priority-queue",
         type: "classic",
-        retry: {
-          mode: "ttl-backoff",
-          maxRetries: 3,
-          initialDelayMs: 1000,
-          maxDelayMs: 30000,
-          backoffMultiplier: 2,
-          jitter: true,
-        },
+        retry: { mode: "none" },
         arguments: {
           "x-max-priority": 5,
         },
@@ -264,14 +202,7 @@ describe("builder", () => {
         name: "priority-queue",
         type: "classic",
         durable: true,
-        retry: {
-          mode: "ttl-backoff",
-          maxRetries: 3,
-          initialDelayMs: 1000,
-          maxDelayMs: 30000,
-          backoffMultiplier: 2,
-          jitter: true,
-        },
+        retry: { mode: "none" },
         arguments: {
           "x-message-ttl": 60000,
           "x-max-priority": 10,
@@ -294,28 +225,17 @@ describe("builder", () => {
         },
       });
 
-      // THEN - returns QueueWithTtlBackoffInfrastructure due to default ttl-backoff retry + deadLetter
-      expect(queue).toMatchObject({
-        __brand: "QueueWithTtlBackoffInfrastructure",
-        queue: {
-          name: "priority-queue",
-          type: "classic",
-          durable: true,
-          deadLetter: {
-            exchange: dlx,
-            routingKey: "failed",
-          },
-          retry: {
-            mode: "ttl-backoff",
-            maxRetries: 3,
-            initialDelayMs: 1000,
-            maxDelayMs: 30000,
-            backoffMultiplier: 2,
-            jitter: true,
-          },
-          arguments: {
-            "x-max-priority": 10,
-          },
+      expect(queue).toEqual({
+        name: "priority-queue",
+        type: "classic",
+        durable: true,
+        deadLetter: {
+          exchange: dlx,
+          routingKey: "failed",
+        },
+        retry: { mode: "none" },
+        arguments: {
+          "x-max-priority": 10,
         },
       });
     });
@@ -342,14 +262,7 @@ describe("builder", () => {
       expect(queue).toEqual({
         name: "priority-queue",
         type: "classic",
-        retry: {
-          mode: "ttl-backoff",
-          maxRetries: 3,
-          initialDelayMs: 1000,
-          maxDelayMs: 30000,
-          backoffMultiplier: 2,
-          jitter: true,
-        },
+        retry: { mode: "none" },
         arguments: {
           "x-max-priority": 1,
         },
@@ -364,14 +277,7 @@ describe("builder", () => {
       expect(queue).toEqual({
         name: "priority-queue",
         type: "classic",
-        retry: {
-          mode: "ttl-backoff",
-          maxRetries: 3,
-          initialDelayMs: 1000,
-          maxDelayMs: 30000,
-          backoffMultiplier: 2,
-          jitter: true,
-        },
+        retry: { mode: "none" },
         arguments: {
           "x-max-priority": 255,
         },
@@ -392,14 +298,7 @@ describe("builder", () => {
         name: "retry-queue",
         type: "quorum",
         deliveryLimit: 3,
-        retry: {
-          mode: "ttl-backoff",
-          maxRetries: 3,
-          initialDelayMs: 1000,
-          maxDelayMs: 30000,
-          backoffMultiplier: 2,
-          jitter: true,
-        },
+        retry: { mode: "none" },
       });
     });
 
@@ -415,12 +314,7 @@ describe("builder", () => {
         type: "quorum",
         deliveryLimit: 5,
         retry: {
-          mode: "ttl-backoff",
-          maxRetries: 3,
-          initialDelayMs: 1000,
-          maxDelayMs: 30000,
-          backoffMultiplier: 2,
-          jitter: true,
+          mode: "none",
         },
       });
     });
@@ -439,26 +333,16 @@ describe("builder", () => {
         },
       });
 
-      // THEN - returns QueueWithTtlBackoffInfrastructure due to default ttl-backoff retry + deadLetter
-      expect(queue).toMatchObject({
-        __brand: "QueueWithTtlBackoffInfrastructure",
-        queue: {
-          name: "retry-queue",
-          type: "quorum",
-          deliveryLimit: 3,
-          deadLetter: {
-            exchange: dlx,
-            routingKey: "failed",
-          },
-          retry: {
-            mode: "ttl-backoff",
-            maxRetries: 3,
-            initialDelayMs: 1000,
-            maxDelayMs: 30000,
-            backoffMultiplier: 2,
-            jitter: true,
-          },
+      // THEN
+      expect(queue).toEqual({
+        name: "retry-queue",
+        type: "quorum",
+        deliveryLimit: 3,
+        deadLetter: {
+          exchange: dlx,
+          routingKey: "failed",
         },
+        retry: { mode: "none" },
       });
     });
 
@@ -485,14 +369,7 @@ describe("builder", () => {
         name: "retry-queue",
         type: "quorum",
         deliveryLimit: 1,
-        retry: {
-          mode: "ttl-backoff",
-          maxRetries: 3,
-          initialDelayMs: 1000,
-          maxDelayMs: 30000,
-          backoffMultiplier: 2,
-          jitter: true,
-        },
+        retry: { mode: "none" },
       });
     });
   });
@@ -1584,7 +1461,7 @@ describe("builder", () => {
         deadLetter: { exchange: dlx },
       });
 
-      // THEN - returns QueueWithTtlBackoffInfrastructure
+      // THEN
       expect(queue).toMatchObject({
         __brand: "QueueWithTtlBackoffInfrastructure",
         queue: {

@@ -43,13 +43,6 @@ type ConsumerOptions = {
 };
 
 /**
- * Retry configuration from the contract with all values resolved.
- * This is a discriminated union on `mode` - TTL-backoff has the config fields,
- * quorum-native does not.
- */
-type ResolvedRetryConfig = ResolvedRetryOptions;
-
-/**
  * Type guard to check if a handler entry is a tuple format [handler, options].
  */
 function isHandlerTuple(entry: unknown): entry is [unknown, ConsumerOptions] {
@@ -297,7 +290,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * Get the retry configuration for a consumer's queue.
    * Defaults are applied in the contract's defineQueue, so we just return the config.
    */
-  private getRetryConfigForConsumer(consumer: ConsumerDefinition): ResolvedRetryConfig {
+  private getRetryConfigForConsumer(consumer: ConsumerDefinition): ResolvedRetryOptions {
     return consumer.queue.retry;
   }
 
@@ -556,8 +549,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * 2. If max retries exceeded -> send to DLQ
    * 3. Otherwise -> publish to wait queue with TTL for retry
    *
-   * **Legacy mode (no retry config):**
-   * 1. nack with requeue=true (immediate requeue)
+   * **none mode (no retry config):**
+   * 1. send directly to DLQ (no retry)
    */
   private handleError(
     error: Error,
@@ -578,6 +571,16 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
     // Get retry config from the queue definition in the contract
     const config = this.getRetryConfigForConsumer(consumer);
+
+    // None mode: no retry, send directly to DLQ or reject
+    if (config.mode === "none") {
+      this.logger?.warn("Retry disabled (none mode), sending to DLQ", {
+        consumerName,
+        error: error.message,
+      });
+      this.sendToDLQ(msg, consumer);
+      return Future.value(Result.Ok(undefined));
+    }
 
     // Quorum-native mode: let RabbitMQ handle retry via x-delivery-count
     if (config.mode === "quorum-native") {
