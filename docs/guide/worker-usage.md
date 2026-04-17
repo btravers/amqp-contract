@@ -504,7 +504,7 @@ handlers: {
 3. **Batch for Throughput** - Use batch processing for bulk operations (database inserts, API calls)
 4. **Graceful Shutdown** - Properly close connections to finish processing in-flight messages
 5. **Idempotency** - Handlers should be safe to retry since messages may be redelivered
-6. **Dead Letters** - Configure DLQ for failed messages to avoid infinite retry loops
+6. **Dead Letters** - Configure DLQ to collect and process failed messages
 
 ## Error Handling and Retry
 
@@ -552,8 +552,8 @@ const worker = await TypedAmqpWorker.create({
 
 - For quorum queues, messages are requeued with `nack(requeue=true)`, and the worker tracks delivery count via the native RabbitMQ `x-delivery-count` header.
 - For classic queues, messages are re-published on the same queue, and the worker tracks delivery count via a custom `x-retry-count` header.
-- When count exceeds `maxRetries`, the message is automatically dead-lettered
-- No wait queues or TTL management needed
+- When count exceeds `maxRetries`, the message is automatically dead-lettered (if DLX is configured) or dropped.
+- No wait queues or TTL management needed.
 
 **Best for:**
 
@@ -565,7 +565,7 @@ const worker = await TypedAmqpWorker.create({
 
 #### TTL-Backoff Mode
 
-This mode provides exponential backoff using RabbitMQ's TTL and Dead Letter Exchange (DLX) pattern. **Wait queues and bindings are automatically generated** when you use `defineContract`:
+This mode provides exponential backoff using RabbitMQ's TTL. **Wait queues and bindings are automatically generated** when you use `defineContract`:
 
 ```typescript
 import {
@@ -621,7 +621,7 @@ const worker = await TypedAmqpWorker.create({
 3. **Wait in queue** - Message sits in the wait queue for the calculated delay
 4. **Dead-lettered back** - After TTL expires, message is automatically routed back to the main queue
 5. **Retry processing** - Worker processes the message again
-6. **Repeat or DLQ** - Process repeats until success or max retries reached, then sent to Dead Letter Queue (DLQ)
+6. **Repeat or DLQ** - Process repeats until success or max retries reached, then sent to Dead Letter Queue (DLQ) if any configured, or dropped
 
 **Best for:** When you need configurable delays between retries to give downstream services time to recover.
 
@@ -665,9 +665,9 @@ With TTL-backoff mode, retry delays increase exponentially to give downstream se
 
 **With jitter enabled** (default), a random factor (50-100% of calculated delay) is added to prevent all retried messages from hitting the system simultaneously.
 
-### Queue Configuration for Retry
+### Dead Letter Exchange Configuration
 
-For retry to work, your queues must be configured with a Dead Letter Exchange (DLX):
+A Dead Letter Exchange (DLX) can be configured at the queue level, to which failed messages will be sent (after all retry attempts, if any configured) instead of being dropped:
 
 ```typescript
 import {
@@ -710,10 +710,6 @@ const contract = defineContract({
   // ... publishers
 });
 ```
-
-::: warning Queue DLX Required
-If a queue doesn't have `deadLetter` configured, retry will not work. Always configure DLX on your queues for proper retry functionality.
-:::
 
 ### Retry Error Classes
 
@@ -974,7 +970,7 @@ console.log("✅ Worker ready with retry enabled!");
 3. **Batch for Throughput** - Use batch processing for bulk operations (database inserts, API calls)
 4. **Graceful Shutdown** - Properly close connections to finish processing in-flight messages
 5. **Idempotency** - Handlers should be safe to retry since messages may be redelivered
-6. **Dead Letters** - Configure DLQ for failed messages to avoid infinite retry loops
+6. **Dead Letters** - Configure DLQ to collect and process failed messages
 
 ## Next Steps
 

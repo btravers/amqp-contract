@@ -157,7 +157,8 @@ export class AsyncAPIGenerator {
     if (contract.consumers) {
       for (const [consumerName, consumerEntry] of Object.entries(contract.consumers)) {
         const consumer = extractConsumer(consumerEntry);
-        const channelKey = this.getQueueName(consumer.queue, contract);
+        const queue = extractQueue(consumer.queue);
+        const channelKey = this.getQueueName(queue, contract);
         consumerMessages.set(consumerName, { message: consumer.message, channelKey });
       }
     }
@@ -254,14 +255,15 @@ export class AsyncAPIGenerator {
     if (contract.consumers) {
       for (const [consumerName, consumerEntry] of Object.entries(contract.consumers)) {
         const consumer = extractConsumer(consumerEntry);
-        const queueName = this.getQueueName(consumer.queue, contract);
+        const queue = extractQueue(consumer.queue);
+        const queueName = this.getQueueName(queue, contract);
         const messageName = `${consumerName}Message`;
 
         convertedOperations[consumerName] = {
           action: "receive",
           channel: { $ref: `#/channels/${queueName}` },
           messages: [{ $ref: `#/channels/${queueName}/messages/${messageName}` }],
-          summary: `Consume from ${consumer.queue.name}`,
+          summary: `Consume from ${queue.name}`,
           bindings: {
             amqp: {
               bindingVersion: "0.3.0",

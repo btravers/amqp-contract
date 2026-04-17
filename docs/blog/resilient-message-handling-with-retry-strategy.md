@@ -171,8 +171,8 @@ const worker = await TypedAmqpWorker.create({
 
 - For quorum queues, messages are requeued with `nack(requeue=true)`, and the worker tracks delivery count via the native RabbitMQ `x-delivery-count` header.
 - For classic queues, messages are re-published on the same queue, and the worker tracks delivery count via a custom `x-retry-count` header.
-- When count exceeds `maxRetries`, the message is automatically dead-lettered
-- No wait queues or TTL management needed
+- When count exceeds `maxRetries`, the message is automatically dead-lettered (if DLX is configured) or dropped.
+- No wait queues or TTL management needed.
 
 **Best for:**
 
@@ -236,9 +236,9 @@ With default settings, retry delays increase exponentially:
 
 With jitter enabled (default), actual delays vary between 50-100% of the calculated value, preventing all retried messages from hitting downstream services simultaneously.
 
-## Setting Up Your Queues for Retry
+## Setting Up Dead Letter Exchange
 
-For retry to work properly, your queues need Dead Letter Exchange (DLX) configuration:
+A Dead Letter Exchange (DLX) can be configured at the queue level, to which failed messages will be sent (after all retry attempts, if any configured) instead of being dropped:
 
 ```typescript
 import {
@@ -285,10 +285,6 @@ const contract = defineContract({
   },
 });
 ```
-
-::: warning Queue DLX Required
-If a queue doesn't have `deadLetter` configured, the worker will log a warning and fall back to immediate requeue. Always configure DLX on your queues for proper retry functionality.
-:::
 
 ## Explicit Error Classification
 
@@ -604,7 +600,6 @@ const orderQueue = defineQueue("order-processing", {
 
 **Configuration tips:**
 
-- Add `deadLetter` configuration to your queue definitions
 - Create DLX exchanges and queues in your contract
 - Choose `immediate-requeue` for simpler architecture (no wait queues)
 - Choose `ttl-backoff` when you need exponential backoff delays

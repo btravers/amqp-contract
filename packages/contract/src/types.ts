@@ -55,6 +55,21 @@ export type TtlBackoffRetryOptions = {
    * @default true
    */
   jitter?: boolean;
+  /**
+   * Name of the wait queue.
+   * @default '{queueName}-wait'
+   */
+  waitQueueName?: string;
+  /**
+   * Name of the wait exchange.
+   * @default 'wait-exchange'
+   */
+  waitExchangeName?: string;
+  /**
+   * Name of the retry exchange.
+   * @default 'retry-exchange'
+   */
+  retryExchangeName?: string;
 };
 
 /**
@@ -63,7 +78,7 @@ export type TtlBackoffRetryOptions = {
  * Failed messages are requeued immediately.
  * For quorum queues, messages are requeued with `nack(requeue=true)`, and the worker tracks delivery count via the native RabbitMQ `x-delivery-count` header.
  * For classic queues, messages are re-published on the same queue, and the worker tracks delivery count via a custom `x-retry-count` header.
- * When the count exceeds `maxRetries`, the message is automatically dead-lettered.
+ * When the count exceeds `maxRetries`, the message is automatically dead-lettered (if DLX is configured) or dropped.
  *
  * **Benefits:** Simpler architecture, no wait queues needed, no head-of-queue blocking.
  * **Limitation:** Immediate retries only (no exponential backoff).
@@ -119,6 +134,9 @@ export type ResolvedTtlBackoffRetryOptions = {
   maxDelayMs: number;
   backoffMultiplier: number;
   jitter: boolean;
+  waitQueueName: string;
+  waitExchangeName: string;
+  retryExchangeName: string;
 };
 
 /**
@@ -143,7 +161,7 @@ export type ResolvedImmediateRequeueRetryOptions = {
  * - `ttl-backoff`: Has all TTL-backoff retry options with defaults applied
  *
  * When using `ttl-backoff` mode, the core package will automatically create
- * a wait queue (`{queueName}-wait`) and the necessary bindings.
+ * a wait queue and the necessary exchanges and bindings.
  */
 export type ResolvedRetryOptions =
   | NoneRetryOptions
@@ -246,7 +264,7 @@ type BaseQueueOptions = {
  *
  * Quorum queues provide native retry support for immediate-requeue retry mode:
  * - RabbitMQ tracks delivery count automatically via `x-delivery-count` header
- * - When the limit is exceeded, messages are dead-lettered (if DLX is configured)
+ * - When the limit is exceeded, messages are dead-lettered (if DLX is configured) or dropped
  * - This is simpler than TTL-based retry and avoids head-of-queue blocking issues
  *
  * @example
@@ -290,7 +308,6 @@ export type QuorumQueueOptions = BaseQueueOptions & {
    * // TTL-backoff mode with custom options
    * const orderQueue = defineQueue('order-processing', {
    *   type: 'quorum',
-   *   deadLetter: { exchange: dlx },
    *   retry: {
    *     mode: 'ttl-backoff',
    *     maxRetries: 5,
@@ -302,7 +319,6 @@ export type QuorumQueueOptions = BaseQueueOptions & {
    * // Immediate-requeue mode
    * const orderQueue = defineQueue('order-processing', {
    *   type: 'quorum',
-   *   deadLetter: { exchange: dlx },
    *   retry: { mode: 'immediate-requeue', maxRetries: 5 },
    * });
    * ```
@@ -356,7 +372,6 @@ export type ClassicQueueOptions = BaseQueueOptions & {
    * const orderQueue = defineQueue('order-processing', {
    *   type: 'classic',
    *   durable: true,
-   *   deadLetter: { exchange: dlx },
    *   retry: { mode: 'none' },
    * });
    *
@@ -364,7 +379,6 @@ export type ClassicQueueOptions = BaseQueueOptions & {
    * const orderQueue = defineQueue('order-processing', {
    *   type: 'classic',
    *   durable: true,
-   *   deadLetter: { exchange: dlx },
    *   retry: {
    *     mode: 'ttl-backoff',
    *     maxRetries: 5,
@@ -443,6 +457,24 @@ export type FanoutExchangeDefinition<TName extends string = string> =
   };
 
 /**
+ * A headers exchange definition.
+ *
+ * Headers exchanges route messages based on header values rather than routing keys.
+ * This is useful for more complex routing scenarios where metadata is important.
+ *
+ * @example
+ * ```typescript
+ * const routesExchange: HeadersExchangeDefinition = defineExchange('routes', 'headers', {
+ *   durable: true
+ * });
+ * ```
+ */
+export type HeadersExchangeDefinition<TName extends string = string> =
+  BaseExchangeDefinition<TName> & {
+    type: "headers";
+  };
+
+/**
  * A direct exchange definition.
  *
  * Direct exchanges route messages to queues based on exact routing key matches.
@@ -485,10 +517,11 @@ export type TopicExchangeDefinition<TName extends string = string> =
 /**
  * Union type of all exchange definitions.
  *
- * Represents any type of AMQP exchange: fanout, direct, or topic.
+ * Represents any type of AMQP exchange: fanout, headers, direct, or topic.
  */
 export type ExchangeDefinition<TName extends string = string> =
   | FanoutExchangeDefinition<TName>
+  | HeadersExchangeDefinition<TName>
   | DirectExchangeDefinition<TName>
   | TopicExchangeDefinition<TName>;
 
@@ -627,26 +660,24 @@ export type QueueDefinition<TName extends string = string> =
 /**
  * A queue with automatically generated TTL-backoff retry infrastructure.
  *
- * This type is returned by `defineQueue` when TTL-backoff retry is configured
- * with a dead letter exchange. When passed to `defineContract`, the wait queue
- * and bindings are automatically added to the contract.
+ * This type is returned by `defineQueue` when TTL-backoff retry is configured.
+ * When passed to `defineContract`, the wait queue, exchanges, and bindings are
+ * automatically added to the contract.
  *
  * @example
  * ```typescript
- * const dlx = defineExchange('orders-dlx', 'direct', { durable: true });
  * const exchange = defineExchange('orders', 'topic', { durable: true });
  * const queue = defineQueue('order-processing', {
- *   deadLetter: { exchange: dlx },
  *   retry: { mode: 'ttl-backoff', maxRetries: 5 },
  * });
  * // queue is QueueWithTtlBackoffInfrastructure
  * const message = defineMessage(z.object({ orderId: z.string() }));
  * const orderCreated = defineEventPublisher(exchange, message, { routingKey: 'order.created' });
  *
- * // Wait queue, bindings, and DLX exchange are automatically extracted
+ * // Wait queue, exchanges, and bindings are automatically extracted
  * const contract = defineContract({
  *   publishers: { orderCreated },
- *   consumers: { processOrder: defineEventConsumer(orderCreated, extractQueue(queue)) },
+ *   consumers: { processOrder: defineEventConsumer(orderCreated, queue) },
  * });
  * ```
  */
@@ -663,12 +694,6 @@ export type QueueWithTtlBackoffInfrastructure<TName extends string = string> = {
   queue: QueueDefinition<TName>;
 
   /**
-   * Dead letter configuration from the main queue.
-   * Always present since TTL-backoff infrastructure requires a dead letter exchange.
-   */
-  deadLetter: DeadLetterConfig;
-
-  /**
    * The wait queue for holding messages during backoff delay.
    */
   waitQueue: QueueDefinition;
@@ -681,7 +706,17 @@ export type QueueWithTtlBackoffInfrastructure<TName extends string = string> = {
   /**
    * Binding that routes retried messages back to the main queue.
    */
-  mainQueueRetryBinding: QueueBindingDefinition;
+  retryQueueBinding: QueueBindingDefinition;
+
+  /**
+   * Wait exchange used to route messages to the wait queue.
+   */
+  waitExchange: HeadersExchangeDefinition;
+
+  /**
+   * Retry exchange used to route messages back to the main queue.
+   */
+  retryExchange: HeadersExchangeDefinition;
 };
 
 /**
@@ -735,7 +770,7 @@ export type MessageDefinition<
  *
  * Defines how messages from an exchange should be routed to a queue.
  * For direct and topic exchanges, a routing key is required.
- * For fanout exchanges, no routing key is needed as all messages are broadcast.
+ * For fanout and headers exchanges, no routing key is needed.
  */
 export type QueueBindingDefinition = {
   /** Discriminator indicating this is a queue-to-exchange binding */
@@ -761,9 +796,9 @@ export type QueueBindingDefinition = {
       routingKey: string;
     }
   | {
-      /** Fanout exchange (no routing key needed) */
-      exchange: FanoutExchangeDefinition;
-      /** Fanout exchanges don't use routing keys */
+      /** Fanout or headers exchange (no routing key needed) */
+      exchange: FanoutExchangeDefinition | HeadersExchangeDefinition;
+      /** Fanout and headers exchanges don't use routing keys */
       routingKey?: never;
     }
 );
@@ -807,9 +842,9 @@ export type ExchangeBindingDefinition = {
       routingKey: string;
     }
   | {
-      /** Fanout source exchange (no routing key needed) */
-      source: FanoutExchangeDefinition;
-      /** Fanout exchanges don't use routing keys */
+      /** Fanout or headers source exchange (no routing key needed) */
+      source: FanoutExchangeDefinition | HeadersExchangeDefinition;
+      /** Fanout and headers exchanges don't use routing keys */
       routingKey?: never;
     }
 );
@@ -857,9 +892,9 @@ export type PublisherDefinition<TMessage extends MessageDefinition = MessageDefi
       routingKey: string;
     }
   | {
-      /** Fanout exchange (no routing key needed) */
-      exchange: FanoutExchangeDefinition;
-      /** Fanout exchanges don't use routing keys - all bound queues receive the message */
+      /** Fanout or headers exchange (no routing key needed) */
+      exchange: FanoutExchangeDefinition | HeadersExchangeDefinition;
+      /** Fanout and headers exchanges don't use routing keys */
       routingKey?: never;
     }
 );
@@ -884,7 +919,7 @@ export type PublisherDefinition<TMessage extends MessageDefinition = MessageDefi
  */
 export type ConsumerDefinition<TMessage extends MessageDefinition = MessageDefinition> = {
   /** The queue to consume messages from */
-  queue: QueueDefinition;
+  queue: QueueEntry;
 
   /** The message definition including the payload schema */
   message: TMessage;
@@ -923,8 +958,7 @@ export type CommandConsumerConfigBase = {
   consumer: ConsumerDefinition;
   binding: QueueBindingDefinition;
   exchange: ExchangeDefinition;
-  queue: QueueDefinition;
-  deadLetterExchange: ExchangeDefinition | undefined;
+  queue: QueueEntry;
   message: MessageDefinition;
   routingKey: string | undefined;
 };
@@ -942,8 +976,7 @@ export type EventConsumerResultBase = {
   consumer: ConsumerDefinition;
   binding: QueueBindingDefinition;
   exchange: ExchangeDefinition;
-  queue: QueueDefinition;
-  deadLetterExchange: ExchangeDefinition | undefined;
+  queue: QueueEntry;
   exchangeBinding: ExchangeBindingDefinition | undefined;
   bridgeExchange: ExchangeDefinition | undefined;
 };
@@ -1009,7 +1042,7 @@ export type ContractDefinition = {
    * Each key becomes available as a named resource in the contract.
    *
    * When a queue has TTL-backoff retry configured, pass the `QueueWithTtlBackoffInfrastructure`
-   * object returned by `defineQueue`. The wait queue and bindings will be automatically added.
+   * object returned by `defineQueue`. The wait queue, exchanges, and bindings will be automatically added.
    */
   queues?: Record<string, QueueEntry>;
 
@@ -1040,6 +1073,7 @@ export type ContractDefinition = {
  * Can be either:
  * - A plain PublisherDefinition from definePublisher
  * - An EventPublisherConfig from defineEventPublisher (auto-extracted to publisher)
+ * - An BridgedPublisherConfig from defineCommandPublisher (auto-extracted to publisher)
  */
 export type PublisherEntry =
   | PublisherDefinition
@@ -1148,8 +1182,8 @@ export type ExtractDlxFromEntry<T extends QueueEntry> = T extends {
   : T extends QueueWithTtlBackoffInfrastructure
     ? T["queue"] extends { deadLetter: { exchange: infer E extends ExchangeDefinition } }
       ? E
-      : undefined
-    : undefined;
+      : never
+    : never;
 
 /**
  * Extract the queue from a consumer entry.
@@ -1219,17 +1253,7 @@ type ExtractExchangesFromConsumers<TConsumers extends Record<string, ConsumerEnt
  * Extract the dead letter exchange from a consumer entry.
  * @internal
  */
-type ExtractDeadLetterExchange<T extends ConsumerEntry> = T extends
-  | EventConsumerResultBase
-  | CommandConsumerConfigBase
-  ? T["deadLetterExchange"] extends ExchangeDefinition
-    ? T["deadLetterExchange"]
-    : never
-  : T extends ConsumerDefinition
-    ? T["queue"] extends { deadLetter: { exchange: infer E extends ExchangeDefinition } }
-      ? E
-      : never
-    : never;
+type ExtractDeadLetterExchange<T extends ConsumerEntry> = ExtractDlxFromEntry<T["queue"]>;
 
 /**
  * Extract dead letter exchanges from all consumers in a contract.
@@ -1246,9 +1270,9 @@ type ExtractDeadLetterExchangesFromConsumers<TConsumers extends Record<string, C
  * @internal
  */
 type ExtractQueuesFromConsumers<TConsumers extends Record<string, ConsumerEntry>> = {
-  [K in keyof TConsumers as ExtractConsumerQueue<TConsumers[K]>["name"]]: ExtractConsumerQueue<
-    TConsumers[K]
-  >;
+  [K in keyof TConsumers as ExtractQueueFromEntry<
+    ExtractConsumerQueue<TConsumers[K]>
+  >["name"]]: ExtractConsumerQueue<TConsumers[K]>;
 };
 
 /**
@@ -1289,7 +1313,7 @@ type ExtractPublisherDefinition<T extends PublisherEntry> = T extends BridgedPub
   ? T["publisher"]
   : T extends EventPublisherConfigBase
     ? PublisherDefinition<T["message"]> &
-        (T["exchange"] extends FanoutExchangeDefinition
+        (T["exchange"] extends FanoutExchangeDefinition | HeadersExchangeDefinition
           ? { exchange: T["exchange"]; routingKey?: never }
           : { exchange: T["exchange"]; routingKey: T["routingKey"] & string })
     : T extends PublisherDefinition

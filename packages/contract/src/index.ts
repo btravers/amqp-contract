@@ -56,6 +56,7 @@ export type {
   ExchangeBindingDefinition,
   ExchangeDefinition,
   FanoutExchangeDefinition,
+  HeadersExchangeDefinition,
   InferConsumerNames,
   InferPublisherNames,
   MessageDefinition,

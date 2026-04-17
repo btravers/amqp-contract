@@ -3,6 +3,7 @@ import type {
   DirectExchangeDefinition,
   ExchangeDefinition,
   FanoutExchangeDefinition,
+  HeadersExchangeDefinition,
   TopicExchangeDefinition,
 } from "../types.js";
 
@@ -33,6 +34,34 @@ export function defineExchange<TName extends string>(
   type: "fanout",
   options?: Omit<BaseExchangeDefinition, "name" | "type">,
 ): FanoutExchangeDefinition<TName>;
+
+/**
+ * Define a headers exchange.
+ *
+ * A headers exchange routes messages to all bound queues based on header matching.
+ * This exchange type is ideal for complex routing scenarios.
+ *
+ * @param name - The name of the exchange
+ * @param type - Must be "headers"
+ * @param options - Optional exchange configuration
+ * @param options.durable - If true, the exchange survives broker restarts (default: false)
+ * @param options.autoDelete - If true, the exchange is deleted when no queues are bound (default: false)
+ * @param options.internal - If true, the exchange cannot be directly published to (default: false)
+ * @param options.arguments - Additional AMQP arguments for the exchange
+ * @returns A headers exchange definition
+ *
+ * @example
+ * ```typescript
+ * const logsExchange = defineExchange('logs', 'headers', {
+ *   durable: true
+ * });
+ * ```
+ */
+export function defineExchange<TName extends string>(
+  name: TName,
+  type: "headers",
+  options?: Omit<BaseExchangeDefinition, "name" | "type">,
+): HeadersExchangeDefinition<TName>;
 
 /**
  * Define a direct exchange.
@@ -99,14 +128,14 @@ export function defineExchange<TName extends string>(
  * type safety.
  *
  * @param name - The name of the exchange
- * @param type - The type of exchange: "fanout", "direct", or "topic"
+ * @param type - The type of exchange: "fanout", "headers", "direct", or "topic"
  * @param options - Optional exchange configuration
  * @returns An exchange definition
  * @internal
  */
 export function defineExchange(
   name: string,
-  type: "fanout" | "direct" | "topic",
+  type: "fanout" | "headers" | "direct" | "topic",
   options?: Omit<BaseExchangeDefinition, "name" | "type">,
 ): ExchangeDefinition {
   return {
