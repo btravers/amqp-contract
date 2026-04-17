@@ -9,16 +9,21 @@
  * @packageDocumentation
  */
 
-import amqpLib, { type Channel, type ChannelModel } from "amqplib";
-import { inject, vi, it as vitestIt } from "vitest";
+import amqpLib, { Options, type Channel, type ChannelModel } from "amqplib";
 import { randomUUID } from "node:crypto";
+import { inject, vi, it as vitestIt } from "vitest";
 
 export const it = vitestIt.extend<{
   vhost: string;
   amqpConnectionUrl: string;
   amqpConnection: ChannelModel;
   amqpChannel: Channel;
-  publishMessage: (exchange: string, routingKey: string, content: unknown) => void;
+  publishMessage: (
+    exchange: string,
+    routingKey: string,
+    content: unknown,
+    options?: Options.Publish,
+  ) => void;
   initConsumer: (
     exchange: string,
     routingKey: string,
@@ -124,11 +129,17 @@ export const it = vitestIt.extend<{
    * ```
    */
   publishMessage: async ({ amqpChannel }, use) => {
-    function publishMessage(exchange: string, routingKey: string, content: unknown): void {
+    function publishMessage(
+      exchange: string,
+      routingKey: string,
+      content: unknown,
+      options?: Options.Publish,
+    ): void {
       const success = amqpChannel.publish(
         exchange,
         routingKey,
         Buffer.from(JSON.stringify(content)),
+        options,
       );
       if (!success) {
         throw new Error(

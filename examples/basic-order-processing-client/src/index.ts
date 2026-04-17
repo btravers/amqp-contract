@@ -1,5 +1,5 @@
-import { TypedAmqpClient } from "@amqp-contract/client";
 import { orderContract } from "@amqp-contract-examples/basic-order-processing-contract";
+import { PublishOptions, TypedAmqpClient } from "@amqp-contract/client";
 import pino from "pino";
 import { z } from "zod";
 
@@ -40,9 +40,10 @@ async function main() {
   const publishWithLog = async <T extends Parameters<typeof client.publish>[0]>(
     publisherName: T,
     message: Parameters<typeof client.publish<T>>[1],
+    options?: PublishOptions,
   ): Promise<void> => {
     await client
-      .publish(publisherName, message)
+      .publish(publisherName, message, options)
       .tapError((error) => logger.error({ error }, `Failed to publish: ${publisherName}`))
       .tapOk(() => logger.debug(`Successfully published to ${publisherName}`))
       .resultToPromise();
@@ -58,7 +59,6 @@ async function main() {
       { productId: "PROD-B", quantity: 1, price: 49.99 },
     ],
     totalAmount: 109.97,
-    createdAt: new Date().toISOString(),
   };
   await publishWithLog("orderCreated", newOrder);
   logger.info(`   ✓ Published order ${newOrder.orderId}`);
@@ -70,7 +70,6 @@ async function main() {
   const orderUpdate = {
     orderId: "ORD-001",
     status: "processing" as const,
-    updatedAt: new Date().toISOString(),
   };
   await publishWithLog("orderUpdated", orderUpdate);
   logger.info(`   ✓ Published update for ${orderUpdate.orderId}`);
@@ -82,7 +81,6 @@ async function main() {
   const shippedOrder = {
     orderId: "ORD-001",
     status: "shipped" as const,
-    updatedAt: new Date().toISOString(),
   };
   await publishWithLog("orderShipped", shippedOrder);
   logger.info(`   ✓ Published shipment for ${shippedOrder.orderId}`);
@@ -96,9 +94,12 @@ async function main() {
     customerId: "CUST-456",
     items: [{ productId: "PROD-C", quantity: 3, price: 15.99 }],
     totalAmount: 47.97,
-    createdAt: new Date().toISOString(),
   };
-  await publishWithLog("orderCreated", newOrder2);
+  const newOrderHeaders2 = {
+    eventSource: "new-order-service",
+    eventVersion: 2,
+  };
+  await publishWithLog("orderCreated", newOrder2, { headers: newOrderHeaders2 });
   logger.info(`   ✓ Published order ${newOrder2.orderId}`);
   logger.info(`   → Will be received by: processing & notifications queues`);
   await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -108,7 +109,6 @@ async function main() {
   const urgentUpdate = {
     orderId: "ORD-002",
     status: "cancelled" as const,
-    updatedAt: new Date().toISOString(),
   };
   await publishWithLog("orderUrgentUpdate", urgentUpdate);
   logger.info(`   ✓ Published urgent update for ${urgentUpdate.orderId}`);

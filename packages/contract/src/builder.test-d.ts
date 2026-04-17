@@ -3,14 +3,9 @@
  * These tests ensure that the type system correctly validates routing keys and patterns
  */
 
+import { describe, expectTypeOf, test } from "vitest";
+import { z } from "zod";
 import type { BindingPattern, MatchingRoutingKey, RoutingKey } from "./builder.js";
-import type {
-  ConsumerDefinition,
-  DirectExchangeDefinition,
-  FanoutExchangeDefinition,
-  PublisherDefinition,
-  TopicExchangeDefinition,
-} from "./types.js";
 import {
   defineCommandConsumer,
   defineCommandPublisher,
@@ -23,8 +18,14 @@ import {
   definePublisher,
   defineQueue,
 } from "./builder.js";
-import { describe, expectTypeOf, test } from "vitest";
-import { z } from "zod";
+import type {
+  ConsumerDefinition,
+  DirectExchangeDefinition,
+  FanoutExchangeDefinition,
+  HeadersExchangeDefinition,
+  PublisherDefinition,
+  TopicExchangeDefinition,
+} from "./types.js";
 
 describe("RoutingKey type validation", () => {
   test("should accept valid routing keys", () => {
@@ -195,13 +196,16 @@ describe("ContractOutput type inference", () => {
   const ordersExchange = defineExchange("orders");
   const dlx = defineExchange("orders-dlx", { type: "direct" });
   const fanoutExchange = defineExchange("notifications", { type: "fanout" });
+  const headersExchange = defineExchange("logs", { type: "headers" });
   const orderQueue = defineQueue("order-processing", {
     deadLetter: { exchange: dlx },
     retry: { mode: "immediate-requeue", maxRetries: 3 },
   });
   const notificationQueue = defineQueue("notifications");
+  const logQueue = defineQueue("logs");
   const orderMessage = defineMessage(z.object({ orderId: z.string() }));
   const notificationMessage = defineMessage(z.object({ text: z.string() }));
+  const logMessage = defineMessage(z.object({ level: z.string() }));
 
   test("should extract exchanges from EventPublisherConfig in publishers", () => {
     const orderCreated = defineEventPublisher(ordersExchange, orderMessage, {
@@ -340,6 +344,20 @@ describe("ContractOutput type inference", () => {
     expectTypeOf(contract.queues).toHaveProperty("notifications");
     expectTypeOf(contract.bindings).toHaveProperty("receiveNotifBinding");
   });
+
+  test("should handle headers exchange without routing key", () => {
+    const logEvent = defineEventPublisher(headersExchange, logMessage);
+    const contract = defineContract({
+      publishers: { logEvent },
+      consumers: {
+        receiveLog: defineEventConsumer(logEvent, logQueue),
+      },
+    });
+
+    expectTypeOf(contract.exchanges).toHaveProperty("logs");
+    expectTypeOf(contract.queues).toHaveProperty("logs");
+    expectTypeOf(contract.bindings).toHaveProperty("receiveLogBinding");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -429,5 +447,21 @@ describe("ContractOutput strict literal keys", () => {
 
     expectTypeOf(contract.exchanges.notifications).toMatchTypeOf<FanoutExchangeDefinition>();
     expectTypeOf<keyof typeof contract.queues>().toEqualTypeOf<"notifications">();
+  });
+
+  test("headers exchange should preserve literal name", () => {
+    const headersExchange = defineExchange("logs", { type: "headers" });
+    const logMessage = defineMessage(z.object({ level: z.string() }));
+    const logQueue = defineQueue("logs");
+    const logEvent = defineEventPublisher(headersExchange, logMessage);
+    const contract = defineContract({
+      publishers: { logEvent },
+      consumers: {
+        receiveLog: defineEventConsumer(logEvent, logQueue),
+      },
+    });
+
+    expectTypeOf(contract.exchanges.logs).toMatchTypeOf<HeadersExchangeDefinition>();
+    expectTypeOf<keyof typeof contract.queues>().toEqualTypeOf<"logs">();
   });
 });

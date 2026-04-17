@@ -1067,6 +1067,34 @@ describe("builder", () => {
       });
     });
 
+    it("should create an event publisher with headers exchange", () => {
+      // GIVEN
+      const message = defineMessage(z.object({ id: z.string() }));
+      const exchange = defineExchange("test-exchange", { type: "headers" });
+      const queue = defineQueue("test-queue");
+
+      // WHEN
+      const eventPublisher = defineEventPublisher(exchange, message);
+      const { consumer, binding } = defineEventConsumer(eventPublisher, queue);
+
+      // THEN
+      expect(eventPublisher).toMatchObject({
+        __brand: "EventPublisherConfig",
+        exchange,
+        message,
+        routingKey: undefined,
+      });
+      expect(binding).toEqual({
+        type: "queue",
+        queue,
+        exchange,
+      });
+      expect(consumer).toEqual({
+        queue,
+        message,
+      });
+    });
+
     it("should create an event publisher with topic exchange", () => {
       // GIVEN
       const message = defineMessage(
@@ -1318,6 +1346,31 @@ describe("builder", () => {
       const message = defineMessage(z.object({ id: z.string() }));
       const queue = defineQueue("test-queue");
       const exchange = defineExchange("test-exchange", { type: "fanout" });
+
+      // WHEN
+      const command = defineCommandConsumer(queue, exchange, message);
+      const publisher = defineCommandPublisher(command);
+
+      // THEN
+      expect(command).toMatchObject({
+        __brand: "CommandConsumerConfig",
+        consumer: { queue, message },
+        binding: { type: "queue", queue, exchange },
+        exchange,
+        message,
+        routingKey: undefined,
+      });
+      expect(publisher).toEqual({
+        exchange,
+        message,
+      });
+    });
+
+    it("should create a command consumer with headers exchange", () => {
+      // GIVEN
+      const message = defineMessage(z.object({ id: z.string() }));
+      const queue = defineQueue("test-queue");
+      const exchange = defineExchange("test-exchange", { type: "headers" });
 
       // WHEN
       const command = defineCommandConsumer(queue, exchange, message);
@@ -1781,6 +1834,35 @@ describe("builder", () => {
       // GIVEN
       const logsExchange = defineExchange("logs", { type: "fanout" });
       const analyticsExchange = defineExchange("analytics", { type: "fanout" });
+      const message = defineMessage(z.object({ level: z.string() }));
+      const analyticsQueue = defineQueue("analytics-logs");
+
+      // WHEN
+      const logEvent = defineEventPublisher(logsExchange, message);
+      const result = defineEventConsumer(logEvent, analyticsQueue, {
+        bridgeExchange: analyticsExchange,
+      });
+
+      // THEN
+      expect(result).toMatchObject({
+        bridgeExchange: analyticsExchange,
+        binding: {
+          type: "queue",
+          queue: analyticsQueue,
+          exchange: analyticsExchange,
+        },
+        exchangeBinding: {
+          type: "exchange",
+          source: logsExchange,
+          destination: analyticsExchange,
+        },
+      });
+    });
+
+    it("should create a bridged event consumer with headers exchange", () => {
+      // GIVEN
+      const logsExchange = defineExchange("logs", { type: "headers" });
+      const analyticsExchange = defineExchange("analytics", { type: "headers" });
       const message = defineMessage(z.object({ level: z.string() }));
       const analyticsQueue = defineQueue("analytics-logs");
 
