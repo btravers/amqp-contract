@@ -1,24 +1,37 @@
 import type {
-  ClassicQueueDefinition,
-  ClassicQueueOptions,
   DeadLetterConfig,
   DefineQueueOptions,
   ExchangeDefinition,
   ExtractQueueFromEntry,
+  ImmediateRequeueRetryOptions,
   QueueBindingDefinition,
   QueueDefinition,
   QueueEntry,
   QueueWithTtlBackoffInfrastructure,
   QuorumQueueDefinition,
   QuorumQueueOptions,
+  ResolvedImmediateRequeueRetryOptions,
   ResolvedTtlBackoffRetryOptions,
   TtlBackoffRetryOptions,
 } from "../types.js";
 import { defineQueueBindingInternal } from "./binding.js";
 import {
-  isQueueWithTtlBackoffInfrastructure as isQueueWithTtlBackoffInfrastructureImpl,
   extractQueueFromEntry,
+  isQueueWithTtlBackoffInfrastructure as isQueueWithTtlBackoffInfrastructureImpl,
 } from "./queue-utils.js";
+
+/**
+ * Resolve immediate-requeue retry options with defaults.
+ * @internal
+ */
+function resolveImmediateRequeueOptions(
+  options: ImmediateRequeueRetryOptions | undefined,
+): ResolvedImmediateRequeueRetryOptions {
+  return {
+    mode: "immediate-requeue",
+    maxRetries: options?.maxRetries ?? 3,
+  };
+}
 
 /**
  * Resolve TTL-backoff retry options with defaults applied.
@@ -111,7 +124,7 @@ export function isQueueWithTtlBackoffInfrastructure(
  * const queueName = extractQueue(orderQueue).name; // 'orders'
  *
  * // Also works safely on plain queues
- * const plainQueue = defineQueue('simple', { type: 'quorum', retry: { mode: 'quorum-native' } });
+ * const plainQueue = defineQueue('simple', { type: 'quorum', retry: { mode: 'immediate-requeue' } });
  * const plainName = extractQueue(plainQueue).name; // 'simple'
  *
  * // Access other properties
@@ -296,88 +309,51 @@ export function defineQueue(
     baseProps.arguments = opts.arguments;
   }
 
-  // Build quorum queue
-  if (type === "quorum") {
-    const quorumOpts = opts as QuorumQueueOptions;
-    const inputRetry = quorumOpts.retry ?? { mode: "none" as const };
+  const inputRetry = opts.retry ?? { mode: "none" as const };
 
-    // Validate quorum-native retry requirements
-    if (inputRetry.mode === "quorum-native") {
-      if (quorumOpts.deliveryLimit === undefined) {
+  // Validate retry requirements
+  if (inputRetry.mode === "immediate-requeue" || inputRetry.mode === "ttl-backoff") {
+    if (inputRetry.maxRetries !== undefined) {
+      if (inputRetry.maxRetries < 1 || !Number.isInteger(inputRetry.maxRetries)) {
         throw new Error(
-          `Queue "${name}" uses quorum-native retry mode but deliveryLimit is not configured. ` +
-            `Quorum-native retry requires deliveryLimit to be set.`,
+          `Queue "${name}" uses ${inputRetry.mode} retry mode with invalid maxRetries: ${inputRetry.maxRetries}. Must be a positive integer.`,
         );
       }
     }
-
-    // Resolve retry options for quorum queues
-    const retry =
-      inputRetry.mode === "ttl-backoff" ? resolveTtlBackoffOptions(inputRetry) : inputRetry;
-
-    const queueDefinition: QuorumQueueDefinition = {
-      ...baseProps,
-      type: "quorum",
-      retry,
-    };
-
-    // Validate and add deliveryLimit
-    if (quorumOpts.deliveryLimit !== undefined) {
-      if (quorumOpts.deliveryLimit < 1 || !Number.isInteger(quorumOpts.deliveryLimit)) {
-        throw new Error(
-          `Invalid deliveryLimit: ${quorumOpts.deliveryLimit}. Must be a positive integer.`,
-        );
-      }
-      queueDefinition.deliveryLimit = quorumOpts.deliveryLimit;
-    }
-
-    // If TTL-backoff retry with dead letter exchange, wrap with infrastructure
-    if (retry.mode === "ttl-backoff" && queueDefinition.deadLetter) {
-      return wrapWithTtlBackoffInfrastructure(queueDefinition);
-    }
-
-    return queueDefinition;
   }
 
-  // Build classic queue
-  const classicOpts = opts as ClassicQueueOptions;
-
-  // Classic queues cannot use quorum-native retry mode
-  if ((classicOpts.retry as { mode?: string } | undefined)?.mode === "quorum-native") {
-    throw new Error(
-      `Queue "${name}" uses quorum-native retry mode but is a classic queue. ` +
-        `Quorum-native retry requires quorum queues (type: "quorum").`,
-    );
-  }
-
-  // Resolve retry options for classic queues
+  // Resolve retry options with defaults
   const retry =
-    classicOpts.retry?.mode === "ttl-backoff"
-      ? resolveTtlBackoffOptions(classicOpts.retry)
-      : (classicOpts.retry ?? { mode: "none" as const });
+    inputRetry.mode === "immediate-requeue"
+      ? resolveImmediateRequeueOptions(inputRetry)
+      : inputRetry.mode === "ttl-backoff"
+        ? resolveTtlBackoffOptions(inputRetry)
+        : inputRetry;
 
-  const queueDefinition: ClassicQueueDefinition = {
+  const queueDefinition: QueueDefinition = {
     ...baseProps,
-    type: "classic",
+    type,
     retry,
   };
 
-  // Add exclusive
-  if (classicOpts.exclusive !== undefined) {
-    queueDefinition.exclusive = classicOpts.exclusive;
-  }
-
-  // Validate and add maxPriority argument
-  if (classicOpts.maxPriority !== undefined) {
-    if (classicOpts.maxPriority < 1 || classicOpts.maxPriority > 255) {
-      throw new Error(
-        `Invalid maxPriority: ${classicOpts.maxPriority}. Must be between 1 and 255. Recommended range: 1-10.`,
-      );
+  if (type === "classic") {
+    // Add exclusive
+    if (opts.exclusive !== undefined) {
+      queueDefinition.exclusive = opts.exclusive;
     }
-    queueDefinition.arguments = {
-      ...queueDefinition.arguments,
-      "x-max-priority": classicOpts.maxPriority,
-    };
+
+    // Validate and add maxPriority argument
+    if (opts.maxPriority !== undefined) {
+      if (opts.maxPriority < 1 || opts.maxPriority > 255) {
+        throw new Error(
+          `Invalid maxPriority: ${opts.maxPriority}. Must be between 1 and 255. Recommended range: 1-10.`,
+        );
+      }
+      queueDefinition.arguments = {
+        ...queueDefinition.arguments,
+        "x-max-priority": opts.maxPriority,
+      };
+    }
   }
 
   // If TTL-backoff retry with dead letter exchange, wrap with infrastructure
@@ -393,11 +369,11 @@ export function defineQueue(
 // =============================================================================
 
 /**
- * Options for creating a quorum queue with quorum-native retry.
+ * Options for creating a quorum queue with immediate-requeue retry.
  *
- * This simplified helper enforces the required configuration for quorum-native retry:
+ * This simplified helper enforces the required configuration for immediate-requeue retry:
  * - Dead letter exchange is required (for failed messages)
- * - Delivery limit is required (for retry count)
+ * - Max retries is configurable (for retry count)
  */
 export type DefineQuorumQueueOptions = {
   /**
@@ -407,10 +383,11 @@ export type DefineQuorumQueueOptions = {
   deadLetter: DeadLetterConfig;
 
   /**
-   * Maximum number of delivery attempts before dead-lettering.
+   * Maximum retry attempts before sending to DLQ.
    * @minimum 1
+   * @default 3
    */
-  deliveryLimit: number;
+  maxRetries?: number;
 
   /**
    * If true, the queue is deleted when the last consumer unsubscribes.
@@ -425,12 +402,12 @@ export type DefineQuorumQueueOptions = {
 };
 
 /**
- * Create a quorum queue with quorum-native retry.
+ * Create a quorum queue with immediate-requeue retry.
  *
  * This is a simplified helper that enforces best practices:
  * - Uses quorum queues (recommended for most use cases)
  * - Requires dead letter exchange for failed message handling
- * - Uses quorum-native retry mode (simpler than TTL-backoff)
+ * - Uses immediate-requeue retry mode (simpler than TTL-backoff)
  *
  * **When to use:**
  * - You want simple, immediate retries without exponential backoff
@@ -439,7 +416,7 @@ export type DefineQuorumQueueOptions = {
  *
  * @param name - The queue name
  * @param options - Configuration options
- * @returns A quorum queue definition with quorum-native retry
+ * @returns A quorum queue definition with immediate-requeue retry
  *
  * @example
  * ```typescript
@@ -447,7 +424,7 @@ export type DefineQuorumQueueOptions = {
  *
  * const orderQueue = defineQuorumQueue('order-processing', {
  *   deadLetter: { exchange: dlx },
- *   deliveryLimit: 3, // Retry up to 3 times
+ *   retry: { mode: 'immediate-requeue', maxRetries: 3 }, // Retry up to 3 times
  * });
  *
  * // Use in a contract — exchanges, queues, and bindings are auto-extracted
@@ -464,13 +441,17 @@ export function defineQuorumQueue<TName extends string>(
   name: TName,
   options: DefineQuorumQueueOptions,
 ): QuorumQueueDefinition<TName> {
-  const { deadLetter, deliveryLimit, autoDelete, arguments: args } = options;
+  const { deadLetter, maxRetries, autoDelete, arguments: args } = options;
+
+  // Build retry options, only including defined values
+  const retryOptions: ImmediateRequeueRetryOptions = { mode: "immediate-requeue" };
+  if (maxRetries !== undefined) retryOptions.maxRetries = maxRetries;
 
   const queueOptions: QuorumQueueOptions = {
     type: "quorum",
     deadLetter,
-    deliveryLimit,
-    retry: { mode: "quorum-native" },
+
+    retry: retryOptions,
   };
 
   if (autoDelete !== undefined) queueOptions.autoDelete = autoDelete;
@@ -495,6 +476,7 @@ export type DefineTtlBackoffQueueOptions = {
 
   /**
    * Maximum retry attempts before sending to DLQ.
+   * @minimum 1
    * @default 3
    */
   maxRetries?: number;
@@ -580,7 +562,7 @@ export type DefineTtlBackoffQueueOptions = {
  * ```
  *
  * @see defineQueue - For full queue configuration options
- * @see defineQuorumQueue - For queues with quorum-native retry (simpler, immediate retries)
+ * @see defineQuorumQueue - For queues with immediate-requeue retry (simpler, immediate retries)
  * @see extractQueue - To access the underlying queue definition
  */
 export function defineTtlBackoffQueue<TName extends string>(

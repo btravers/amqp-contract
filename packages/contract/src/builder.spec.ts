@@ -285,48 +285,47 @@ describe("builder", () => {
     });
   });
 
-  describe("defineQueue with deliveryLimit", () => {
-    it("should create a quorum queue with delivery limit", () => {
+  describe("defineQueue with immediate-requeue retry", () => {
+    it("should create a quorum queue with immediate-requeue retry", () => {
       // WHEN
       const queue = defineQueue("retry-queue", {
         type: "quorum",
-        deliveryLimit: 3,
+        retry: { mode: "immediate-requeue", maxRetries: 3 },
       });
 
       // THEN
       expect(queue).toEqual({
         name: "retry-queue",
         type: "quorum",
-        deliveryLimit: 3,
-        retry: { mode: "none" },
+        retry: { mode: "immediate-requeue", maxRetries: 3 },
       });
     });
 
-    it("should create a default quorum queue with delivery limit", () => {
+    it("should create a default quorum queue with immediate-requeue retry", () => {
       // WHEN (type defaults to "quorum")
       const queue = defineQueue("retry-queue", {
-        deliveryLimit: 5,
+        retry: { mode: "immediate-requeue", maxRetries: 5 },
       });
 
       // THEN
       expect(queue).toEqual({
         name: "retry-queue",
         type: "quorum",
-        deliveryLimit: 5,
         retry: {
-          mode: "none",
+          mode: "immediate-requeue",
+          maxRetries: 5,
         },
       });
     });
 
-    it("should create a quorum queue with delivery limit and dead letter exchange", () => {
+    it("should create a quorum queue with immediate-requeue retry and dead letter exchange", () => {
       // GIVEN
       const dlx = defineExchange("test-dlx", "topic", { durable: true });
 
       // WHEN
       const queue = defineQueue("retry-queue", {
         type: "quorum",
-        deliveryLimit: 3,
+        retry: { mode: "immediate-requeue", maxRetries: 3 },
         deadLetter: {
           exchange: dlx,
           routingKey: "failed",
@@ -337,40 +336,143 @@ describe("builder", () => {
       expect(queue).toEqual({
         name: "retry-queue",
         type: "quorum",
-        deliveryLimit: 3,
         deadLetter: {
           exchange: dlx,
           routingKey: "failed",
         },
-        retry: { mode: "none" },
+        retry: { mode: "immediate-requeue", maxRetries: 3 },
       });
     });
 
-    it("should throw error for deliveryLimit less than 1", () => {
+    it("should throw error for maxRetries less than 1", () => {
       // WHEN/THEN
-      expect(() => defineQueue("retry-queue", { deliveryLimit: 0 })).toThrow(
-        "Invalid deliveryLimit: 0. Must be a positive integer.",
+      expect(() =>
+        defineQueue("retry-queue", {
+          retry: { mode: "immediate-requeue", maxRetries: 0 },
+        }),
+      ).toThrow(
+        'Queue "retry-queue" uses immediate-requeue retry mode with invalid maxRetries: 0. Must be a positive integer.',
       );
     });
 
-    it("should throw error for non-integer deliveryLimit", () => {
+    it("should throw error for non-integer maxRetries", () => {
       // WHEN/THEN
-      expect(() => defineQueue("retry-queue", { deliveryLimit: 2.5 })).toThrow(
-        "Invalid deliveryLimit: 2.5. Must be a positive integer.",
+      expect(() =>
+        defineQueue("retry-queue", {
+          retry: { mode: "immediate-requeue", maxRetries: 2.5 },
+        }),
+      ).toThrow(
+        'Queue "retry-queue" uses immediate-requeue retry mode with invalid maxRetries: 2.5. Must be a positive integer.',
       );
     });
 
-    it("should accept deliveryLimit of 1", () => {
+    it("should accept maxRetries of 1", () => {
       // WHEN
-      const queue = defineQueue("retry-queue", { deliveryLimit: 1 });
+      const queue = defineQueue("retry-queue", {
+        retry: { mode: "immediate-requeue", maxRetries: 1 },
+      });
 
       // THEN
       expect(queue).toEqual({
         name: "retry-queue",
         type: "quorum",
-        deliveryLimit: 1,
-        retry: { mode: "none" },
+        retry: { mode: "immediate-requeue", maxRetries: 1 },
       });
+    });
+  });
+
+  describe("defineQueue with classic queue immediate-requeue retry", () => {
+    it("should create a classic queue with immediate-requeue retry", () => {
+      // WHEN
+      const queue = defineQueue("retry-queue", {
+        type: "classic",
+        retry: { mode: "immediate-requeue", maxRetries: 3 },
+      });
+
+      // THEN
+      expect(queue).toEqual({
+        name: "retry-queue",
+        type: "classic",
+        retry: { mode: "immediate-requeue", maxRetries: 3 },
+      });
+    });
+
+    it("should create a classic queue with immediate-requeue and dead letter exchange", () => {
+      // GIVEN
+      const dlx = defineExchange("retry-dlx", "topic", { durable: true });
+
+      // WHEN
+      const queue = defineQueue("retry-queue", {
+        type: "classic",
+        durable: true,
+        deadLetter: { exchange: dlx, routingKey: "retry.failed" },
+        retry: { mode: "immediate-requeue", maxRetries: 5 },
+      });
+
+      // THEN
+      expect(queue).toEqual({
+        name: "retry-queue",
+        type: "classic",
+        durable: true,
+        deadLetter: { exchange: dlx, routingKey: "retry.failed" },
+        retry: { mode: "immediate-requeue", maxRetries: 5 },
+      });
+    });
+
+    it("should create a classic queue with immediate-requeue and exclusive", () => {
+      // WHEN
+      const queue = defineQueue("retry-queue", {
+        type: "classic",
+        exclusive: true,
+        retry: { mode: "immediate-requeue", maxRetries: 2 },
+      });
+
+      // THEN
+      expect(queue).toEqual({
+        name: "retry-queue",
+        type: "classic",
+        exclusive: true,
+        retry: { mode: "immediate-requeue", maxRetries: 2 },
+      });
+    });
+
+    it("should apply default maxRetries of 3 for classic queue with immediate-requeue", () => {
+      // WHEN
+      const queue = defineQueue("retry-queue", {
+        type: "classic",
+        retry: { mode: "immediate-requeue" },
+      });
+
+      // THEN
+      expect(queue).toEqual({
+        name: "retry-queue",
+        type: "classic",
+        retry: { mode: "immediate-requeue", maxRetries: 3 },
+      });
+    });
+
+    it("should throw error for non-integer maxRetries on classic queue", () => {
+      // WHEN/THEN
+      expect(() =>
+        defineQueue("retry-queue", {
+          type: "classic",
+          retry: { mode: "immediate-requeue", maxRetries: 2.5 },
+        }),
+      ).toThrow(
+        'Queue "retry-queue" uses immediate-requeue retry mode with invalid maxRetries: 2.5. Must be a positive integer.',
+      );
+    });
+
+    it("should throw error for negative maxRetries on classic queue", () => {
+      // WHEN/THEN
+      expect(() =>
+        defineQueue("retry-queue", {
+          type: "classic",
+          retry: { mode: "immediate-requeue", maxRetries: -1 },
+        }),
+      ).toThrow(
+        'Queue "retry-queue" uses immediate-requeue retry mode with invalid maxRetries: -1. Must be a positive integer.',
+      );
     });
   });
 
@@ -1342,14 +1444,14 @@ describe("builder", () => {
   });
 
   describe("defineQuorumQueue", () => {
-    it("should create a quorum queue with quorum-native retry", () => {
+    it("should create a quorum queue with immediate-requeue retry", () => {
       // GIVEN
       const dlx = defineExchange("orders-dlx", "direct", { durable: true });
 
       // WHEN
       const queue = defineQuorumQueue("order-processing", {
         deadLetter: { exchange: dlx },
-        deliveryLimit: 3,
+        maxRetries: 3,
       });
 
       // THEN
@@ -1357,8 +1459,7 @@ describe("builder", () => {
         name: "order-processing",
         type: "quorum",
         deadLetter: { exchange: dlx },
-        deliveryLimit: 3,
-        retry: { mode: "quorum-native" },
+        retry: { mode: "immediate-requeue", maxRetries: 3 },
       });
     });
 
@@ -1369,7 +1470,7 @@ describe("builder", () => {
       // WHEN
       const queue = defineQuorumQueue("order-processing", {
         deadLetter: { exchange: dlx, routingKey: "failed.orders" },
-        deliveryLimit: 5,
+        maxRetries: 5,
       });
 
       // THEN
@@ -1377,8 +1478,7 @@ describe("builder", () => {
         name: "order-processing",
         type: "quorum",
         deadLetter: { exchange: dlx, routingKey: "failed.orders" },
-        deliveryLimit: 5,
-        retry: { mode: "quorum-native" },
+        retry: { mode: "immediate-requeue", maxRetries: 5 },
       });
     });
 
@@ -1389,7 +1489,7 @@ describe("builder", () => {
       // WHEN
       const queue = defineQuorumQueue("order-processing", {
         deadLetter: { exchange: dlx },
-        deliveryLimit: 3,
+        maxRetries: 3,
         autoDelete: true,
       });
 
@@ -1398,9 +1498,8 @@ describe("builder", () => {
         name: "order-processing",
         type: "quorum",
         deadLetter: { exchange: dlx },
-        deliveryLimit: 3,
         autoDelete: true,
-        retry: { mode: "quorum-native" },
+        retry: { mode: "immediate-requeue", maxRetries: 3 },
       });
     });
 
@@ -1411,7 +1510,7 @@ describe("builder", () => {
       // WHEN
       const queue = defineQuorumQueue("order-processing", {
         deadLetter: { exchange: dlx },
-        deliveryLimit: 3,
+        maxRetries: 3,
         arguments: { "x-message-ttl": 86400000 },
       });
 
@@ -1420,8 +1519,7 @@ describe("builder", () => {
         name: "order-processing",
         type: "quorum",
         deadLetter: { exchange: dlx },
-        deliveryLimit: 3,
-        retry: { mode: "quorum-native" },
+        retry: { mode: "immediate-requeue", maxRetries: 3 },
         arguments: { "x-message-ttl": 86400000 },
       });
     });
@@ -1433,7 +1531,7 @@ describe("builder", () => {
       // WHEN
       const queue = defineQuorumQueue("order-processing", {
         deadLetter: { exchange: dlx, routingKey: "failed" },
-        deliveryLimit: 10,
+        maxRetries: 10,
         autoDelete: false,
         arguments: { "x-message-ttl": 3600000 },
       });
@@ -1443,9 +1541,8 @@ describe("builder", () => {
         name: "order-processing",
         type: "quorum",
         deadLetter: { exchange: dlx, routingKey: "failed" },
-        deliveryLimit: 10,
         autoDelete: false,
-        retry: { mode: "quorum-native" },
+        retry: { mode: "immediate-requeue", maxRetries: 10 },
         arguments: { "x-message-ttl": 3600000 },
       });
     });

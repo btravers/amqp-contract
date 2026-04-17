@@ -170,13 +170,13 @@ client.publish("orderCreated", payload); // Don't await
 
 ### Quorum vs Classic Queues
 
-| Feature        | Quorum Queue   | Classic Queue          |
-| -------------- | -------------- | ---------------------- |
-| Durability     | Always durable | Configurable           |
-| Replication    | Raft-based     | Mirroring (deprecated) |
-| Performance    | Slightly lower | Higher                 |
-| Memory         | Higher         | Lower                  |
-| Delivery limit | Native support | Requires TTL pattern   |
+| Feature        | Quorum Queue   | Classic Queue                    |
+| -------------- | -------------- | -------------------------------- |
+| Durability     | Always durable | Configurable                     |
+| Replication    | Raft-based     | Mirroring (deprecated)           |
+| Performance    | Slightly lower | Higher                           |
+| Memory         | Higher         | Lower                            |
+| Delivery limit | Native support | Requires custom headers tracking |
 
 **Recommendation:** Use quorum queues for production workloads.
 

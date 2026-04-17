@@ -31,6 +31,7 @@ export type TtlBackoffRetryOptions = {
   mode: "ttl-backoff";
   /**
    * Maximum retry attempts before sending to DLQ.
+   * @minimum 1 - Must be a positive integer (1 or greater)
    * @default 3
    */
   maxRetries?: number;
@@ -57,24 +58,29 @@ export type TtlBackoffRetryOptions = {
 };
 
 /**
- * Quorum-Native retry options using RabbitMQ's native delivery limit feature.
+ * Immediate-Requeue retry options.
  *
- * Uses quorum queue's `x-delivery-limit` feature. Messages are requeued immediately
- * with `nack(requeue=true)`, and RabbitMQ tracks delivery count via `x-delivery-count`
- * header. When the count exceeds the queue's `deliveryLimit`, the message is
- * automatically dead-lettered.
+ * Failed messages are requeued immediately.
+ * For quorum queues, messages are requeued with `nack(requeue=true)`, and the worker tracks delivery count via the native RabbitMQ `x-delivery-count` header.
+ * For classic queues, messages are re-published on the same queue, and the worker tracks delivery count via a custom `x-retry-count` header.
+ * When the count exceeds `maxRetries`, the message is automatically dead-lettered.
  *
  * **Benefits:** Simpler architecture, no wait queues needed, no head-of-queue blocking.
  * **Limitation:** Immediate retries only (no exponential backoff).
  *
  * @see https://www.rabbitmq.com/docs/quorum-queues#poison-message-handling
  */
-export type QuorumNativeRetryOptions = {
+export type ImmediateRequeueRetryOptions = {
   /**
-   * Quorum-Native mode uses RabbitMQ's native delivery limit feature.
-   * Requires the queue to be a quorum queue with `deliveryLimit` configured.
+   * Immediate-Requeue mode.
    */
-  mode: "quorum-native";
+  mode: "immediate-requeue";
+  /**
+   * Maximum retry attempts before sending to DLQ.
+   * @minimum 1 - Must be a positive integer (1 or greater)
+   * @default 3
+   */
+  maxRetries?: number;
 };
 
 /**
@@ -87,6 +93,16 @@ export type NoneRetryOptions = {
    */
   mode: "none";
 };
+
+/**
+ * Retry configuration options.
+ *
+ * This is a discriminated union based on the `mode` field:
+ * - `none` (default): No retry attempts are made; failed messages are handled by DLQ/reject
+ * - `immediate-requeue`: Requeues failed messages immediately
+ * - `ttl-backoff`: Uses wait queues with exponential backoff
+ */
+export type RetryOptions = NoneRetryOptions | ImmediateRequeueRetryOptions | TtlBackoffRetryOptions;
 
 /**
  * Resolved TTL-Backoff retry options with all defaults applied.
@@ -106,17 +122,33 @@ export type ResolvedTtlBackoffRetryOptions = {
 };
 
 /**
+ * Resolved Immediate-Requeue retry options with all defaults applied.
+ *
+ * This type is used internally in queue definitions after `defineQueue` has applied
+ * default values. All fields are required.
+ *
+ * @internal
+ */
+export type ResolvedImmediateRequeueRetryOptions = {
+  mode: "immediate-requeue";
+  maxRetries: number;
+};
+
+/**
  * Resolved retry configuration stored in queue definitions.
  *
  * This is a discriminated union based on the `mode` field:
- * - `none`: No retry attempts
- * - `ttl-backoff`: Has all TTL-backoff options with defaults applied
- * - `quorum-native`: No additional options (uses RabbitMQ native retry)
+ * - `none`: No retry attempts are made; failed messages are handled by DLQ/reject
+ * - `immediate-requeue`: Has all immediate-requeue retry options with default applied
+ * - `ttl-backoff`: Has all TTL-backoff retry options with defaults applied
+ *
+ * When using `ttl-backoff` mode, the core package will automatically create
+ * a wait queue (`{queueName}-wait`) and the necessary bindings.
  */
 export type ResolvedRetryOptions =
   | NoneRetryOptions
-  | ResolvedTtlBackoffRetryOptions
-  | QuorumNativeRetryOptions;
+  | ResolvedImmediateRequeueRetryOptions
+  | ResolvedTtlBackoffRetryOptions;
 
 /**
  * Supported compression algorithms for message payloads.
@@ -212,7 +244,7 @@ type BaseQueueOptions = {
  * - `exclusive` - Use classic queues for exclusive access
  * - `maxPriority` - Use classic queues for priority queues
  *
- * Quorum queues provide native retry support via `deliveryLimit`:
+ * Quorum queues provide native retry support for immediate-requeue retry mode:
  * - RabbitMQ tracks delivery count automatically via `x-delivery-count` header
  * - When the limit is exceeded, messages are dead-lettered (if DLX is configured)
  * - This is simpler than TTL-based retry and avoids head-of-queue blocking issues
@@ -222,7 +254,7 @@ type BaseQueueOptions = {
  * const orderQueue = defineQueue('orders', {
  *   type: 'quorum',
  *   deadLetter: { exchange: dlx },
- *   deliveryLimit: 3, // Message dead-lettered after 3 delivery attempts
+ *   retry: { mode: 'immediate-requeue', maxRetries: 3 } // Message dead-lettered after 3 retry attempts
  * });
  * ```
  */
@@ -245,48 +277,7 @@ export type QuorumQueueOptions = BaseQueueOptions & {
   maxPriority?: never;
 
   /**
-   * Maximum number of delivery attempts before the message is dead-lettered.
-   *
-   * When a message is rejected (nacked) and requeued, RabbitMQ increments
-   * the `x-delivery-count` header. When this count reaches the delivery limit,
-   * the message is automatically dead-lettered (if DLX is configured) or dropped.
-   *
-   * This is a quorum queue-specific feature that provides native retry handling
-   * without the complexity of TTL-based wait queues.
-   *
-   * **Benefits over TTL-based retry:**
-   * - Simpler architecture (no wait queues needed)
-   * - No head-of-queue blocking issues (TTL only works at queue head)
-   * - Native RabbitMQ feature with atomic guarantees
-   *
-   * @minimum 1 - Must be a positive integer (1 or greater)
-   *
-   * @see https://www.rabbitmq.com/docs/quorum-queues#poison-message-handling
-   *
-   * @example
-   * ```typescript
-   * const orderQueue = defineQueue('order-processing', {
-   *   type: 'quorum',
-   *   deliveryLimit: 5, // Allow up to 5 delivery attempts
-   *   deadLetter: {
-   *     exchange: dlx,
-   *     routingKey: 'order.failed',
-   *   },
-   * });
-   * ```
-   */
-  deliveryLimit?: number;
-
-  /**
    * Retry configuration for handling failed message processing.
-   *
-   * Determines how the worker handles retries for consumers using this queue:
-   * - `"none"` (default): No retry attempts are made; failed messages are handled by DLQ/reject.
-   * - `"ttl-backoff"`: Uses wait queues with exponential backoff.
-   * - `"quorum-native"`: Uses RabbitMQ's native delivery limit feature.
-   *
-   * When using `"ttl-backoff"` mode, the core package will automatically create
-   * a wait queue (`{queueName}-wait`) and the necessary bindings.
    *
    * @example
    * ```typescript
@@ -308,16 +299,15 @@ export type QuorumQueueOptions = BaseQueueOptions & {
    *   },
    * });
    *
-   * // Quorum-native mode
+   * // Immediate-requeue mode
    * const orderQueue = defineQueue('order-processing', {
    *   type: 'quorum',
-   *   deliveryLimit: 5,
    *   deadLetter: { exchange: dlx },
-   *   retry: { mode: 'quorum-native' },
+   *   retry: { mode: 'immediate-requeue', maxRetries: 5 },
    * });
    * ```
    */
-  retry?: NoneRetryOptions | TtlBackoffRetryOptions | QuorumNativeRetryOptions;
+  retry?: RetryOptions;
 };
 
 /**
@@ -360,12 +350,6 @@ export type ClassicQueueOptions = BaseQueueOptions & {
   /**
    * Retry configuration for handling failed message processing.
    *
-   * Classic queues support:
-   * - `"none"` (default): No retry attempts.
-   * - `"ttl-backoff"`: Wait queues with exponential backoff.
-   *
-   * Quorum-native retry is not supported for classic queues.
-   *
    * @example
    * ```typescript
    * // No retry
@@ -390,7 +374,7 @@ export type ClassicQueueOptions = BaseQueueOptions & {
    * });
    * ```
    */
-  retry?: NoneRetryOptions | TtlBackoffRetryOptions;
+  retry?: RetryOptions;
 };
 
 /**
@@ -575,7 +559,6 @@ type BaseQueueDefinition<TName extends string = string> = {
  * Definition of a quorum queue.
  *
  * Quorum queues provide better durability and high-availability using the Raft consensus algorithm.
- * They support native retry handling via `deliveryLimit` and both TTL-backoff and quorum-native retry modes.
  */
 export type QuorumQueueDefinition<TName extends string = string> = BaseQueueDefinition<TName> & {
   /**
@@ -596,27 +579,7 @@ export type QuorumQueueDefinition<TName extends string = string> = BaseQueueDefi
   maxPriority?: never;
 
   /**
-   * Maximum number of delivery attempts before the message is dead-lettered.
-   *
-   * This is a quorum queue-specific feature. When a message is rejected (nacked)
-   * and requeued, RabbitMQ increments the `x-delivery-count` header. When this
-   * count reaches the delivery limit, the message is automatically dead-lettered
-   * (if DLX is configured) or dropped.
-   *
-   * @minimum 1 - Must be a positive integer (1 or greater)
-   *
-   * @see https://www.rabbitmq.com/docs/quorum-queues#poison-message-handling
-   */
-  deliveryLimit?: number;
-
-  /**
    * Retry configuration for handling failed message processing.
-   *
-   * Quorum queues support:
-   * - `none`: No retry attempts (default)
-   * - `ttl-backoff`: Uses wait queues with exponential backoff
-   * - `quorum-native`: Uses RabbitMQ's native delivery limit feature
-   *
    * When the queue is created, defaults are applied.
    */
   retry: ResolvedRetryOptions;
@@ -635,12 +598,6 @@ export type ClassicQueueDefinition<TName extends string = string> = BaseQueueDef
   type: "classic";
 
   /**
-   * Classic queues do not support delivery limits.
-   * Use type: 'quorum' if you need native retry with delivery limits.
-   */
-  deliveryLimit?: never;
-
-  /**
    * If true, the queue can only be used by the declaring connection and is deleted when
    * that connection closes. Exclusive queues are private to the connection.
    * @default false
@@ -649,11 +606,6 @@ export type ClassicQueueDefinition<TName extends string = string> = BaseQueueDef
 
   /**
    * Retry configuration for handling failed message processing.
-   *
-   * Classic queues support:
-   * - `none`: No retry attempts (default)
-   * - `ttl-backoff`: Uses wait queues with exponential backoff
-   *
    * When the queue is created, defaults are applied.
    */
   retry: ResolvedRetryOptions;

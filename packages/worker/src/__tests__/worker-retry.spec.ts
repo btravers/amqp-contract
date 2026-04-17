@@ -473,136 +473,437 @@ describe("Worker Retry Mechanism", () => {
     });
   });
 
-  describe("Quorum Native Retry Mode", () => {
-    it("should use RabbitMQ's native delivery limit for retry handling", async ({
-      workerFactory,
-      publishMessage,
-    }) => {
-      // GIVEN a quorum queue with delivery limit configured
-      const TestMessage = z.object({ id: z.string() });
+  describe("Immediate Requeue Retry Mode", () => {
+    describe("For quorum queues", () => {
+      it("should requeue message immediately on failure", async ({
+        workerFactory,
+        publishMessage,
+      }) => {
+        // GIVEN a quorum queue with immediate-requeue retry configured
+        const TestMessage = z.object({ id: z.string() });
 
-      const exchange = defineExchange("quorum-native-exchange", "topic", { durable: true });
-      const dlx = defineExchange("quorum-native-dlx", "topic", { durable: true });
+        const exchange = defineExchange("quorum-exchange", "topic", { durable: true });
+        const dlx = defineExchange("quorum-dlx", "topic", { durable: true });
 
-      // Quorum queue with deliveryLimit - RabbitMQ tracks x-delivery-count automatically
-      const queue = defineQueue("quorum-native-queue", {
-        type: "quorum",
-        deliveryLimit: 3, // Allow up to 3 delivery attempts before dead-lettering
-        deadLetter: {
-          exchange: dlx,
-          routingKey: "quorum-native-queue.dlq",
-        },
-        // Retry config is now at the queue level
-        retry: {
-          mode: "quorum-native", // Use quorum queue's native delivery limit
-        },
+        const queue = defineQueue("quorum-queue", {
+          type: "quorum",
+          deadLetter: {
+            exchange: dlx,
+            routingKey: "quorum-queue.dlq",
+          },
+          // Retry config with immediate-requeue mode
+          retry: {
+            mode: "immediate-requeue",
+            maxRetries: 3, // Allow up to 3 retry attempts before dead-lettering
+          },
+        });
+
+        const testMessage = defineMessage(TestMessage);
+        const testEvent = defineEventPublisher(exchange, testMessage, {
+          routingKey: "test.message",
+        });
+
+        const contract = defineContract({
+          publishers: { testPublisher: testEvent },
+          consumers: {
+            testConsumer: defineEventConsumer(testEvent, queue, { routingKey: "test.#" }),
+          },
+        });
+
+        let attemptCount = 0;
+        await workerFactory(contract, {
+          testConsumer: () => {
+            attemptCount++;
+            if (attemptCount < 2) {
+              // This triggers a requeue in immediate-requeue mode
+              return Future.value(Result.Error(new RetryableError("Simulated failure")));
+            }
+            return Future.value(Result.Ok(undefined));
+          },
+        });
+
+        // WHEN publishing a message that fails on first attempt
+        publishMessage(exchange.name, "test.message", { id: "quorum-1" });
+
+        // THEN message should be requeued immediately and succeed on second attempt
+        await vi.waitFor(
+          () => {
+            if (attemptCount < 2) {
+              throw new Error("Message not yet processed twice");
+            }
+          },
+          { timeout: 5000 },
+        );
+
+        expect(attemptCount).toBe(2);
       });
 
-      const testMessage = defineMessage(TestMessage);
-      const testEvent = defineEventPublisher(exchange, testMessage, { routingKey: "test.message" });
+      it("should send message to DLQ after exceeding maxRetries", async ({
+        workerFactory,
+        publishMessage,
+        amqpChannel,
+      }) => {
+        // GIVEN a quorum queue with immediate-requeue retry configured
+        const TestMessage = z.object({ id: z.string() });
 
-      const contract = defineContract({
-        publishers: { testPublisher: testEvent },
-        consumers: {
-          testConsumer: defineEventConsumer(testEvent, queue, { routingKey: "test.#" }),
-        },
+        const exchange = defineExchange("quorum-dlq-exchange", "topic", { durable: true });
+        const dlx = defineExchange("quorum-dlq-dlx", "topic", { durable: true });
+
+        const queue = defineQueue("quorum-dlq-queue", {
+          type: "quorum",
+          deadLetter: {
+            exchange: dlx,
+            routingKey: "quorum-dlq-queue.dlq",
+          },
+          // Retry config with immediate-requeue mode
+          retry: {
+            mode: "immediate-requeue",
+            maxRetries: 2, // Message dead-lettered after 2 retry attempts
+          },
+        });
+
+        const testMessage = defineMessage(TestMessage);
+        const testEvent = defineEventPublisher(exchange, testMessage, {
+          routingKey: "test.message",
+        });
+
+        const contract = defineContract({
+          publishers: { testPublisher: testEvent },
+          consumers: {
+            testConsumer: defineEventConsumer(testEvent, queue, { routingKey: "test.#" }),
+          },
+        });
+
+        let attemptCount = 0;
+        await workerFactory(contract, {
+          testConsumer: () => {
+            attemptCount++;
+            // Always fail - message should be dead-lettered after exceeding maxRetries
+            return Future.value(Result.Error(new RetryableError("Always fails")));
+          },
+        });
+
+        // Set up DLQ manually for verification (after worker creates the DLX exchange)
+        await amqpChannel.assertQueue("quorum-dlq-dlq", { durable: true });
+        await amqpChannel.bindQueue("quorum-dlq-dlq", dlx.name, "quorum-dlq-queue.dlq");
+
+        // WHEN publishing a message that always fails
+        publishMessage(exchange.name, "test.message", { id: "quorum-dlq-1" });
+
+        // THEN message should be dead-lettered after exceeding maxRetries
+        // Wait for the message to appear in DLQ
+        await vi.waitFor(
+          async () => {
+            const dlqMsg = await amqpChannel.get("quorum-dlq-dlq", { noAck: false });
+            if (!dlqMsg) {
+              throw new Error("Message not in DLQ yet");
+            }
+            const content = JSON.parse(dlqMsg.content.toString());
+            expect(content).toEqual({ id: "quorum-dlq-1" });
+            amqpChannel.ack(dlqMsg);
+          },
+          { timeout: 10000 },
+        );
+
+        // Message should retry exactly maxRetries times (initial attempt + 2 retries = 3 total)
+        expect(attemptCount).toBe(3);
       });
-
-      let attemptCount = 0;
-      await workerFactory(contract, {
-        testConsumer: () => {
-          attemptCount++;
-          if (attemptCount < 2) {
-            // This triggers a nack with requeue=true in quorum-native mode
-            return Future.value(Result.Error(new RetryableError("Simulated failure")));
-          }
-          return Future.value(Result.Ok(undefined));
-        },
-      });
-
-      // WHEN publishing a message that fails on first attempt
-      publishMessage(exchange.name, "test.message", { id: "quorum-native-1" });
-
-      // THEN message should be requeued immediately (via nack) and succeed on second attempt
-      await vi.waitFor(
-        () => {
-          if (attemptCount < 2) {
-            throw new Error("Message not yet processed twice");
-          }
-        },
-        { timeout: 5000 },
-      );
-
-      expect(attemptCount).toBe(2);
     });
 
-    it("should send message to DLQ after exceeding deliveryLimit", async ({
-      workerFactory,
-      publishMessage,
-      amqpChannel,
-    }) => {
-      // GIVEN a quorum queue with delivery limit of 2
-      const TestMessage = z.object({ id: z.string() });
+    describe("For classic queues", () => {
+      it("should requeue message immediately on failure", async ({
+        workerFactory,
+        publishMessage,
+      }) => {
+        // GIVEN a classic queue with immediate-requeue retry configured
+        const TestMessage = z.object({ id: z.string() });
 
-      const exchange = defineExchange("quorum-dlq-exchange", "topic", { durable: true });
-      const dlx = defineExchange("quorum-dlq-dlx", "topic", { durable: true });
+        const exchange = defineExchange("classic-exchange", "topic", { durable: false });
+        const dlx = defineExchange("classic-dlx", "topic", { durable: false });
 
-      const queue = defineQueue("quorum-dlq-queue", {
-        type: "quorum",
-        deliveryLimit: 2, // Message dead-lettered after 2 delivery attempts
-        deadLetter: {
-          exchange: dlx,
-          routingKey: "quorum-dlq-queue.dlq",
-        },
-        // Retry config is now at the queue level
-        retry: {
-          mode: "quorum-native",
-        },
+        const queue = defineQueue("classic-queue", {
+          type: "classic",
+          durable: false,
+          deadLetter: {
+            exchange: dlx,
+            routingKey: "classic-queue.dlq",
+          },
+          // Retry config with immediate-requeue mode
+          retry: {
+            mode: "immediate-requeue",
+            maxRetries: 3, // Allow up to 3 retry attempts before dead-lettering
+          },
+        });
+
+        const testMessage = defineMessage(TestMessage);
+        const testEvent = defineEventPublisher(exchange, testMessage, {
+          routingKey: "test.message",
+        });
+
+        const contract = defineContract({
+          publishers: { testPublisher: testEvent },
+          consumers: {
+            testConsumer: defineEventConsumer(testEvent, queue, { routingKey: "test.#" }),
+          },
+        });
+
+        let attemptCount = 0;
+        await workerFactory(contract, {
+          testConsumer: () => {
+            attemptCount++;
+            if (attemptCount < 2) {
+              // This triggers a requeue in immediate-requeue mode
+              return Future.value(Result.Error(new RetryableError("Simulated failure")));
+            }
+            return Future.value(Result.Ok(undefined));
+          },
+        });
+
+        // WHEN publishing a message that fails on first attempt
+        publishMessage(exchange.name, "test.message", { id: "classic-1" });
+
+        // THEN message should be requeued immediately and succeed on second attempt
+        await vi.waitFor(
+          () => {
+            if (attemptCount < 2) {
+              throw new Error("Message not yet processed twice");
+            }
+          },
+          { timeout: 5000 },
+        );
+
+        expect(attemptCount).toBe(2);
       });
 
-      const testMessage = defineMessage(TestMessage);
-      const testEvent = defineEventPublisher(exchange, testMessage, { routingKey: "test.message" });
+      it("should send message to DLQ after exceeding maxRetries", async ({
+        workerFactory,
+        publishMessage,
+        amqpChannel,
+      }) => {
+        // GIVEN a classic queue with immediate-requeue retry configured
+        const TestMessage = z.object({ id: z.string() });
 
-      const contract = defineContract({
-        publishers: { testPublisher: testEvent },
-        consumers: {
-          testConsumer: defineEventConsumer(testEvent, queue, { routingKey: "test.#" }),
-        },
+        const exchange = defineExchange("classic-dlq-exchange", "topic", { durable: false });
+        const dlx = defineExchange("classic-dlq-dlx", "topic", { durable: false });
+
+        const queue = defineQueue("classic-dlq-queue", {
+          type: "classic",
+          durable: false,
+          deadLetter: {
+            exchange: dlx,
+            routingKey: "classic-dlq-queue.dlq",
+          },
+          // Retry config with immediate-requeue mode
+          retry: {
+            mode: "immediate-requeue",
+            maxRetries: 2, // Message dead-lettered after 2 retry attempts
+          },
+        });
+
+        const testMessage = defineMessage(TestMessage);
+        const testEvent = defineEventPublisher(exchange, testMessage, {
+          routingKey: "test.message",
+        });
+
+        const contract = defineContract({
+          publishers: { testPublisher: testEvent },
+          consumers: {
+            testConsumer: defineEventConsumer(testEvent, queue, { routingKey: "test.#" }),
+          },
+        });
+
+        let attemptCount = 0;
+        await workerFactory(contract, {
+          testConsumer: () => {
+            attemptCount++;
+            // Always fail - message should be dead-lettered after exceeding maxRetries
+            return Future.value(Result.Error(new RetryableError("Always fails")));
+          },
+        });
+
+        // Set up DLQ manually for verification (after worker creates the DLX exchange)
+        await amqpChannel.assertQueue("classic-dlq-dlq", { durable: false });
+        await amqpChannel.bindQueue("classic-dlq-dlq", dlx.name, "classic-dlq-queue.dlq");
+
+        // WHEN publishing a message that always fails
+        publishMessage(exchange.name, "test.message", { id: "classic-dlq-1" });
+
+        // THEN message should be dead-lettered after exceeding maxRetries
+        // Wait for the message to appear in DLQ
+        await vi.waitFor(
+          async () => {
+            const dlqMsg = await amqpChannel.get("classic-dlq-dlq", { noAck: false });
+            if (!dlqMsg) {
+              throw new Error("Message not in DLQ yet");
+            }
+            const content = JSON.parse(dlqMsg.content.toString());
+            expect(content).toEqual({ id: "classic-dlq-1" });
+            amqpChannel.ack(dlqMsg);
+          },
+          { timeout: 10000 },
+        );
+
+        // Message should retry exactly maxRetries times (initial attempt + 2 retries = 3 total)
+        expect(attemptCount).toBe(3);
       });
 
-      let attemptCount = 0;
-      await workerFactory(contract, {
-        testConsumer: () => {
-          attemptCount++;
-          // Always fail - message should be dead-lettered after deliveryLimit
-          return Future.value(Result.Error(new RetryableError("Always fails")));
-        },
+      it("should handle classic queue exclusive mode with immediate-requeue", async ({
+        workerFactory,
+        publishMessage,
+      }) => {
+        // GIVEN an exclusive classic queue with immediate-requeue retry
+        const TestMessage = z.object({ id: z.string() });
+
+        const exchange = defineExchange("exclusive-exchange", "topic", { durable: false });
+        const dlx = defineExchange("exclusive-dlx", "topic", { durable: false });
+
+        const queue = defineQueue("exclusive-queue", {
+          type: "classic",
+          exclusive: true,
+          durable: false,
+          deadLetter: {
+            exchange: dlx,
+            routingKey: "exclusive-queue.dlq",
+          },
+          retry: {
+            mode: "immediate-requeue",
+            maxRetries: 2,
+          },
+        });
+
+        const testMessage = defineMessage(TestMessage);
+        const testEvent = defineEventPublisher(exchange, testMessage, {
+          routingKey: "test.message",
+        });
+
+        const contract = defineContract({
+          publishers: { testPublisher: testEvent },
+          consumers: {
+            testConsumer: defineEventConsumer(testEvent, queue, { routingKey: "test.#" }),
+          },
+        });
+
+        let attemptCount = 0;
+        await workerFactory(contract, {
+          testConsumer: () => {
+            attemptCount++;
+            if (attemptCount < 2) {
+              return Future.value(Result.Error(new RetryableError("Fail once")));
+            }
+            return Future.value(Result.Ok(undefined));
+          },
+        });
+
+        // WHEN publishing a message to exclusive queue
+        publishMessage(exchange.name, "test.message", { id: "exclusive-1" });
+
+        // THEN should process with immediate-requeue retry
+        await vi.waitFor(
+          () => {
+            if (attemptCount < 2) {
+              throw new Error("Message not yet processed twice");
+            }
+          },
+          { timeout: 5000 },
+        );
+
+        expect(attemptCount).toBe(2);
       });
 
-      // Set up DLQ manually for verification (after worker creates the DLX exchange)
-      await amqpChannel.assertQueue("quorum-dlq-dlq", { durable: true });
-      await amqpChannel.bindQueue("quorum-dlq-dlq", dlx.name, "quorum-dlq-queue.dlq");
+      it("should track retry count, last error, and first failure timestamp", async ({
+        workerFactory,
+        publishMessage,
+      }) => {
+        // GIVEN a classic queue with immediate-requeue retry
+        const TestMessage = z.object({ id: z.string() });
 
-      // WHEN publishing a message that always fails
-      publishMessage(exchange.name, "test.message", { id: "quorum-dlq-1" });
+        const exchange = defineExchange("headers-exchange", "topic", { durable: false });
+        const dlx = defineExchange("headers-dlx", "topic", { durable: false });
 
-      // THEN message should be dead-lettered after exceeding delivery limit
-      // Wait for the message to appear in DLQ
-      await vi.waitFor(
-        async () => {
-          const dlqMsg = await amqpChannel.get("quorum-dlq-dlq", { noAck: false });
-          if (!dlqMsg) {
-            throw new Error("Message not in DLQ yet");
-          }
-          const content = JSON.parse(dlqMsg.content.toString());
-          expect(content).toEqual({ id: "quorum-dlq-1" });
-          amqpChannel.ack(dlqMsg);
-        },
-        { timeout: 10000 },
-      );
+        const queue = defineQueue("headers-queue", {
+          type: "classic",
+          durable: false,
+          deadLetter: {
+            exchange: dlx,
+            routingKey: "headers-queue.dlq",
+          },
+          retry: {
+            mode: "immediate-requeue",
+            maxRetries: 2,
+          },
+        });
 
-      // Message should have been processed deliveryLimit times
-      expect(attemptCount).toBeGreaterThanOrEqual(2);
+        const testMessage = defineMessage(TestMessage);
+        const testEvent = defineEventPublisher(exchange, testMessage, {
+          routingKey: "test.message",
+        });
+
+        const contract = defineContract({
+          publishers: { testPublisher: testEvent },
+          consumers: {
+            testConsumer: defineEventConsumer(testEvent, queue, { routingKey: "test.#" }),
+          },
+        });
+
+        let attemptCount = 0;
+        const retryCountHeaders: Array<number> = [];
+        const lastErrorHeaders: string[] = [];
+        const firstFailureTimestampHeaders: number[] = [];
+
+        await workerFactory(contract, {
+          testConsumer: (_, msg) => {
+            attemptCount++;
+            const retryCount = (msg.properties.headers?.["x-retry-count"] as number) ?? 0;
+            const lastError = msg.properties.headers?.["x-last-error"] as string | undefined;
+            const firstFailureTimestamp = msg.properties.headers?.[
+              "x-first-failure-timestamp"
+            ] as number;
+            retryCountHeaders.push(retryCount);
+            if (lastError) {
+              lastErrorHeaders.push(lastError);
+            }
+            if (firstFailureTimestamp) {
+              firstFailureTimestampHeaders.push(firstFailureTimestamp);
+            }
+
+            // Fail first two attempts to trigger retries
+            if (attemptCount === 1) {
+              return Future.value(Result.Error(new RetryableError("First failure")));
+            } else if (attemptCount === 2) {
+              return Future.value(Result.Error(new RetryableError("Second failure")));
+            }
+
+            // Succeed on third attempt
+            return Future.value(Result.Ok(undefined));
+          },
+        });
+
+        // WHEN publishing a message that will be retried
+        const startTime = Date.now();
+        publishMessage(exchange.name, "test.message", { id: "headers-1" });
+
+        // THEN should track retry headers
+        await vi.waitFor(
+          () => {
+            if (attemptCount < 3) {
+              throw new Error("Not all processing attempts completed");
+            }
+          },
+          { timeout: 5000 },
+        );
+
+        // Verify retry count progression: 0 (initial) -> 1 (first retry) -> 2 (second retry)
+        expect(retryCountHeaders).toEqual([0, 1, 2]);
+
+        // Verify last error messages are captured correctly in headers for each retry attempt
+        expect(lastErrorHeaders).toEqual(["First failure", "Second failure"]);
+
+        // Verify first failure timestamp is set on first retry and remains the same for subsequent retries
+        expect(firstFailureTimestampHeaders.length).toBe(2);
+        expect(firstFailureTimestampHeaders[0]).toBe(firstFailureTimestampHeaders[1]);
+        expect(firstFailureTimestampHeaders[0]).toBeGreaterThanOrEqual(startTime);
+        expect(firstFailureTimestampHeaders[0]).toBeLessThanOrEqual(Date.now());
+      });
     });
   });
 });

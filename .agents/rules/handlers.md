@@ -163,6 +163,6 @@ export type {
 } from "@amqp-contract/worker";
 
 // Retry types and helpers (from contract package)
-export type { TtlBackoffRetryOptions, QuorumNativeRetryOptions } from "@amqp-contract/contract";
+export type { TtlBackoffRetryOptions, ImmediateRequeueRetryOptions } from "@amqp-contract/contract";
 export { extractQueue, defineQuorumQueue, defineTtlBackoffQueue } from "@amqp-contract/contract";
 ```

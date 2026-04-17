@@ -46,8 +46,7 @@ import { createTtlBackoffInfrastructure } from "./queue.js";
  * const dlx = defineExchange('orders-dlx', 'direct', { durable: true });
  * const orderQueue = defineQueue('order-processing', {
  *   deadLetter: { exchange: dlx },
- *   retry: { mode: 'quorum-native' },
- *   deliveryLimit: 3,
+ *   retry: { mode: 'immediate-requeue', maxRetries: 3 },
  * });
  * const orderMessage = defineMessage(
  *   z.object({

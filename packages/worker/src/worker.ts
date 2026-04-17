@@ -15,6 +15,7 @@ import {
   type ConsumerDefinition,
   type ContractDefinition,
   type InferConsumerNames,
+  ResolvedImmediateRequeueRetryOptions,
   type ResolvedRetryOptions,
   type ResolvedTtlBackoffRetryOptions,
   extractConsumer,
@@ -540,9 +541,10 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    *
    * Flow depends on retry mode:
    *
-   * **quorum-native mode:**
+   * **immediate-requeue mode:**
    * 1. If NonRetryableError -> send directly to DLQ (no retry)
-   * 2. Otherwise -> nack with requeue=true (RabbitMQ handles delivery count)
+   * 2. If max retries exceeded -> send to DLQ
+   * 3. Otherwise -> requeue immediately for retry
    *
    * **ttl-backoff mode:**
    * 1. If NonRetryableError -> send directly to DLQ (no retry)
@@ -572,83 +574,107 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     // Get retry config from the queue definition in the contract
     const config = this.getRetryConfigForConsumer(consumer);
 
+    // Immediate-requeue mode: requeue the message immediately
+    if (config.mode === "immediate-requeue") {
+      return this.handleErrorImmediateRequeue(error, msg, consumerName, consumer, config);
+    }
+
+    // TTL-backoff mode: use wait queue with exponential backoff
+    if (config.mode === "ttl-backoff") {
+      return this.handleErrorTtlBackoff(error, msg, consumerName, consumer, config);
+    }
+
     // None mode: no retry, send directly to DLQ or reject
-    if (config.mode === "none") {
-      this.logger?.warn("Retry disabled (none mode), sending to DLQ", {
+    this.logger?.warn("Retry disabled (none mode), sending to DLQ", {
+      consumerName,
+      error: error.message,
+    });
+    this.sendToDLQ(msg, consumer);
+    return Future.value(Result.Ok(undefined));
+  }
+
+  /**
+   * Handle error by requeuing immediately.
+   *
+   * For quorum queues, messages are requeued with `nack(requeue=true)`, and the worker tracks delivery count via the native RabbitMQ `x-delivery-count` header.
+   * For classic queues, messages are re-published on the same queue, and the worker tracks delivery count via a custom `x-retry-count` header.
+   * When the count exceeds `maxRetries`, the message is automatically dead-lettered.
+   *
+   * This is simpler than TTL-based retry but provides immediate retries only.
+   */
+  private handleErrorImmediateRequeue(
+    error: Error,
+    msg: ConsumeMessage,
+    consumerName: string,
+    consumer: ConsumerDefinition,
+    config: ResolvedImmediateRequeueRetryOptions,
+  ): Future<Result<void, TechnicalError>> {
+    const queue = consumer.queue;
+    const queueName = queue.name;
+
+    // Get retry count from headers
+    // For quorum queues, the header x-delivery-count is automatically incremented on each delivery attempt
+    // For classic queues, the header x-retry-count is manually incremented by the worker when re-publishing messages
+    const retryCount =
+      queue.type === "quorum"
+        ? ((msg.properties.headers?.["x-delivery-count"] as number) ?? 0)
+        : ((msg.properties.headers?.["x-retry-count"] as number) ?? 0);
+
+    // Max retries exceeded -> DLQ
+    if (retryCount >= config.maxRetries) {
+      this.logger?.error("Max retries exceeded, sending to DLQ", {
         consumerName,
+        queueName,
+        retryCount,
+        maxRetries: config.maxRetries,
         error: error.message,
       });
       this.sendToDLQ(msg, consumer);
       return Future.value(Result.Ok(undefined));
     }
 
-    // Quorum-native mode: let RabbitMQ handle retry via x-delivery-count
-    if (config.mode === "quorum-native") {
-      return this.handleErrorQuorumNative(error, msg, consumerName, consumer);
-    }
+    this.logger?.warn("Retrying message (immediate-requeue mode)", {
+      consumerName,
+      queueName,
+      retryCount,
+      maxRetries: config.maxRetries,
+      error: error.message,
+    });
 
-    // TTL-backoff mode: use wait queue with exponential backoff
-    return this.handleErrorTtlBackoff(error, msg, consumerName, consumer, config);
-  }
-
-  /**
-   * Handle error using quorum queue's native delivery limit feature.
-   *
-   * Simply requeues the message with nack(requeue=true). RabbitMQ automatically:
-   * - Increments x-delivery-count header
-   * - Dead-letters the message when count exceeds x-delivery-limit
-   *
-   * This is simpler than TTL-based retry but provides immediate retries only.
-   */
-  private handleErrorQuorumNative(
-    error: Error,
-    msg: ConsumeMessage,
-    consumerName: string,
-    consumer: ConsumerDefinition,
-  ): Future<Result<void, TechnicalError>> {
-    const queue = consumer.queue;
-    const queueName = queue.name;
-    // x-delivery-count is incremented on each delivery attempt
-    // When x-delivery-count equals x-delivery-limit, message is dead-lettered on next attempt
-    const deliveryCount = (msg.properties.headers?.["x-delivery-count"] as number) ?? 0;
-    // This function is only called for quorum-native mode, which requires quorum queues
-    const deliveryLimit = queue.type === "quorum" ? queue.deliveryLimit : undefined;
-
-    // After this requeue, RabbitMQ will increment deliveryCount
-    // Message is dead-lettered when deliveryCount reaches deliveryLimit
-    // So if deliveryCount == deliveryLimit - 1, the next failure will dead-letter the message
-    const attemptsBeforeDeadLetter =
-      deliveryLimit !== undefined ? Math.max(0, deliveryLimit - deliveryCount - 1) : "unknown";
-
-    // Log warning if this is the last attempt before dead-lettering
-    if (deliveryLimit !== undefined && deliveryCount >= deliveryLimit - 1) {
-      this.logger?.warn("Message at final delivery attempt (quorum-native mode)", {
-        consumerName,
-        queueName,
-        deliveryCount,
-        deliveryLimit,
-        willDeadLetterOnNextFailure: deliveryCount === deliveryLimit - 1,
-        alreadyExceededLimit: deliveryCount >= deliveryLimit,
-        error: error.message,
-      });
+    if (queue.type === "quorum") {
+      // For quorum queues, nack with requeue=true to trigger native retry mechanism
+      this.amqpClient.nack(msg, false, true);
+      return Future.value(Result.Ok(undefined));
     } else {
-      this.logger?.warn("Retrying message (quorum-native mode)", {
-        consumerName,
-        queueName,
-        deliveryCount,
-        deliveryLimit,
-        attemptsBeforeDeadLetter,
-        error: error.message,
-      });
+      // For classic queues, re-publish the message to the queue immediately with an incremented x-retry-count header
+      return this.publishForRetry(msg, queueName, undefined, error);
     }
-
-    // Requeue the message - RabbitMQ tracks delivery count and handles dead-lettering
-    this.amqpClient.nack(msg, false, true);
-    return Future.value(Result.Ok(undefined));
   }
 
   /**
    * Handle error using TTL + wait queue pattern for exponential backoff.
+   *
+   * ┌─────────────────────────────────────────────────────────────────┐
+   * │ Retry Flow (Native RabbitMQ TTL + DLX Pattern)                   │
+   * ├─────────────────────────────────────────────────────────────────┤
+   * │                                                                   │
+   * │ 1. Handler throws any Error                                      │
+   * │    ↓                                                              │
+   * │ 2. Worker publishes to DLX with routing key: {queue}-wait        │
+   * │    ↓                                                              │
+   * │ 3. DLX routes to wait queue: {queue}-wait                        │
+   * │    (with expiration: calculated backoff delay)                   │
+   * │    ↓                                                              │
+   * │ 4. Message waits in queue until TTL expires                      │
+   * │    ↓                                                              │
+   * │ 5. Expired message dead-lettered to DLX                          │
+   * │    (with routing key: {queue})                                   │
+   * │    ↓                                                              │
+   * │ 6. DLX routes back to main queue → RETRY                         │
+   * │    ↓                                                              │
+   * │ 7. If retries exhausted: nack without requeue → DLQ              │
+   * │                                                                   │
+   * └─────────────────────────────────────────────────────────────────┘
    */
   private handleErrorTtlBackoff(
     error: Error,
@@ -657,6 +683,9 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     consumer: ConsumerDefinition,
     config: ResolvedTtlBackoffRetryOptions,
   ): Future<Result<void, TechnicalError>> {
+    const queueName = consumer.queue.name;
+    const waitQueueName = `${queueName}-wait`;
+
     // Get retry count from headers
     const retryCount = (msg.properties.headers?.["x-retry-count"] as number) ?? 0;
 
@@ -664,6 +693,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     if (retryCount >= config.maxRetries) {
       this.logger?.error("Max retries exceeded, sending to DLQ", {
         consumerName,
+        queueName,
         retryCount,
         maxRetries: config.maxRetries,
         error: error.message,
@@ -676,12 +706,15 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     const delayMs = this.calculateRetryDelay(retryCount, config);
     this.logger?.warn("Retrying message (ttl-backoff mode)", {
       consumerName,
+      queueName,
       retryCount: retryCount + 1,
+      maxRetries: config.maxRetries,
       delayMs,
       error: error.message,
     });
 
-    return this.publishForRetry(msg, consumer, retryCount + 1, delayMs, error);
+    // Re-publish the message to the wait queue with TTL and incremented x-retry-count header
+    return this.publishForRetry(msg, waitQueueName, delayMs, error);
   }
 
   /**
@@ -723,64 +756,28 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   }
 
   /**
-   * Publish message to wait queue for retry after TTL expires.
-   *
-   * ┌─────────────────────────────────────────────────────────────────┐
-   * │ Retry Flow (Native RabbitMQ TTL + DLX Pattern)                   │
-   * ├─────────────────────────────────────────────────────────────────┤
-   * │                                                                   │
-   * │ 1. Handler throws any Error                                      │
-   * │    ↓                                                              │
-   * │ 2. Worker publishes to DLX with routing key: {queue}-wait        │
-   * │    ↓                                                              │
-   * │ 3. DLX routes to wait queue: {queue}-wait                        │
-   * │    (with expiration: calculated backoff delay)                   │
-   * │    ↓                                                              │
-   * │ 4. Message waits in queue until TTL expires                      │
-   * │    ↓                                                              │
-   * │ 5. Expired message dead-lettered to DLX                          │
-   * │    (with routing key: {queue})                                   │
-   * │    ↓                                                              │
-   * │ 6. DLX routes back to main queue → RETRY                         │
-   * │    ↓                                                              │
-   * │ 7. If retries exhausted: nack without requeue → DLQ              │
-   * │                                                                   │
-   * └─────────────────────────────────────────────────────────────────┘
+   * Publish message to given queue with an incremented x-retry-count header and optional TTL.
    */
   private publishForRetry(
     msg: ConsumeMessage,
-    consumer: ConsumerDefinition,
-    newRetryCount: number,
-    delayMs: number,
+    queueName: string,
+    delayMs: number | undefined,
     error: Error,
   ): Future<Result<void, TechnicalError>> {
-    const queueName = consumer.queue.name;
-    const deadLetter = consumer.queue.deadLetter;
-
-    if (!deadLetter) {
-      this.logger?.warn(
-        "Cannot retry: queue does not have DLX configured, falling back to nack with requeue",
-        {
-          queueName,
-        },
-      );
-      this.amqpClient.nack(msg, false, true);
-      return Future.value(Result.Ok(undefined));
-    }
-
-    const dlxName = deadLetter.exchange.name;
-    const waitRoutingKey = `${queueName}-wait`;
+    // Get retry count from headers
+    const retryCount = (msg.properties.headers?.["x-retry-count"] as number) ?? 0;
+    const newRetryCount = retryCount + 1;
 
     // Acknowledge original message
     this.amqpClient.ack(msg);
 
     const content = this.parseMessageContentForRetry(msg, queueName);
 
-    // Publish to DLX with wait routing key
+    // Publish to queue with incremented x-retry-count header and original error info
     return this.amqpClient
-      .publish(dlxName, waitRoutingKey, content, {
+      .sendToQueue(queueName, content, {
         ...msg.properties,
-        expiration: delayMs.toString(), // Per-message TTL
+        ...(delayMs !== undefined ? { expiration: delayMs.toString() } : {}), // Per-message TTL
         headers: {
           ...msg.properties.headers,
           "x-retry-count": newRetryCount,
@@ -793,8 +790,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         if (!published) {
           this.logger?.error("Failed to publish message for retry (write buffer full)", {
             queueName,
-            waitRoutingKey,
             retryCount: newRetryCount,
+            ...(delayMs !== undefined ? { delayMs } : {}),
           });
           return Result.Error(
             new TechnicalError("Failed to publish message for retry (write buffer full)"),
@@ -803,9 +800,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
         this.logger?.info("Message published for retry", {
           queueName,
-          waitRoutingKey,
           retryCount: newRetryCount,
-          delayMs,
+          ...(delayMs !== undefined ? { delayMs } : {}),
         });
         return Result.Ok(undefined);
       });

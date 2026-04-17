@@ -75,8 +75,7 @@ defineQueue("orders", { type: "classic" });
 // Good — use quorum queues with retry config
 defineQueue("orders", {
   deadLetter: { exchange: dlx },
-  retry: { mode: "quorum-native" },
-  deliveryLimit: 3,
+  retry: { mode: "immediate-requeue", maxRetries: 3 },
 });
 
 // Bad — accessing .name directly on TTL-backoff queue

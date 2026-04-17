@@ -197,8 +197,7 @@ describe("ContractOutput type inference", () => {
   const fanoutExchange = defineExchange("notifications", "fanout");
   const orderQueue = defineQueue("order-processing", {
     deadLetter: { exchange: dlx },
-    retry: { mode: "quorum-native" },
-    deliveryLimit: 3,
+    retry: { mode: "immediate-requeue", maxRetries: 3 },
   });
   const notificationQueue = defineQueue("notifications");
   const orderMessage = defineMessage(z.object({ orderId: z.string() }));
@@ -352,8 +351,7 @@ describe("ContractOutput strict literal keys", () => {
   const dlx = defineExchange("orders-dlx", "direct", { durable: true });
   const orderQueue = defineQueue("order-processing", {
     deadLetter: { exchange: dlx },
-    retry: { mode: "quorum-native" },
-    deliveryLimit: 3,
+    retry: { mode: "immediate-requeue", maxRetries: 3 },
   });
   const orderMessage = defineMessage(z.object({ orderId: z.string() }));
 

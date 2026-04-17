@@ -227,8 +227,7 @@ describe("AmqpWorker Integration", () => {
     const exchange = defineExchange("worker-error-exchange", "topic", { durable: false });
     const queue = defineQueue("worker-error-queue", {
       type: "quorum",
-      deliveryLimit: 3,
-      retry: { mode: "quorum-native" },
+      retry: { mode: "immediate-requeue", maxRetries: 3 },
     });
     const testMessage = defineMessage(TestMessage);
     const testEvent = defineEventPublisher(exchange, testMessage, { routingKey: "error.test" });

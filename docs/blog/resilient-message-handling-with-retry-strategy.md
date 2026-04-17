@@ -135,24 +135,23 @@ const ordersQueue = defineQueue("orders", {
 
 **Trade-off:** More complex architecture with wait queues (auto-created), and potential head-of-queue blocking with mixed TTLs.
 
-### Quorum-Native Mode (Recommended)
+### Immediate-Requeue Mode (Recommended)
 
-A simpler mode that leverages RabbitMQ quorum queue's native `x-delivery-limit` feature:
+A simpler mode that requeues failed messages immediately (no wait queues):
 
 ```typescript
 import { defineQueue, defineExchange, defineContract } from "@amqp-contract/contract";
 import { TypedAmqpWorker, RetryableError } from "@amqp-contract/worker";
 import { Future } from "@swan-io/boxed";
 
-// Define queue with quorum-native retry
+// Define queue with immediate-requeue retry
 const ordersQueue = defineQueue("orders", {
   type: "quorum",
-  deliveryLimit: 3, // After 3 delivery attempts, dead-letter
   deadLetter: {
     exchange: dlxExchange,
     routingKey: "orders.failed",
   },
-  retry: { mode: "quorum-native" }, // Use quorum queue's native delivery limit
+  retry: { mode: "immediate-requeue", maxRetries: 3 }, // Dead-letter after 3 retry attempts
 });
 
 // Worker automatically uses queue's retry configuration
@@ -170,10 +169,10 @@ const worker = await TypedAmqpWorker.create({
 
 **How it works:**
 
-1. When a handler fails, the message is nacked with `requeue=true`
-2. RabbitMQ automatically tracks delivery count via `x-delivery-count` header
-3. When count exceeds `deliveryLimit`, message is automatically dead-lettered
-4. No wait queues or TTL management needed
+- For quorum queues, messages are requeued with `nack(requeue=true)`, and the worker tracks delivery count via the native RabbitMQ `x-delivery-count` header.
+- For classic queues, messages are re-published on the same queue, and the worker tracks delivery count via a custom `x-retry-count` header.
+- When count exceeds `maxRetries`, the message is automatically dead-lettered
+- No wait queues or TTL management needed
 
 **Best for:**
 
@@ -183,13 +182,11 @@ const worker = await TypedAmqpWorker.create({
 
 **Trade-off:** No exponential backoff — retries are immediate.
 
-| Feature                | TTL-Backoff                      | Quorum-Native             |
-| ---------------------- | -------------------------------- | ------------------------- |
-| Retry delays           | Configurable exponential backoff | Immediate                 |
-| Architecture           | Wait queues + DLX                | Native RabbitMQ           |
-| Head-of-queue blocking | Possible with mixed TTLs         | None                      |
-| Delivery tracking      | Custom `x-retry-count` header    | Native `x-delivery-count` |
-| Queue type             | Any                              | Quorum only               |
+| Feature                | TTL-Backoff                      | Immediate-Requeue |
+| ---------------------- | -------------------------------- | ----------------- |
+| Retry delays           | Configurable exponential backoff | Immediate         |
+| Architecture           | Wait queues + DLX                | No wait queues    |
+| Head-of-queue blocking | Possible with mixed TTLs         | None              |
 
 ### How TTL-Backoff Works Under the Hood
 
@@ -594,15 +591,14 @@ const orderQueue = defineQueue("order-processing", {
 });
 ```
 
-### Quorum-Native Mode
+### Immediate-Requeue Mode
 
 ```typescript
-// Queue using quorum-native retry (simpler architecture)
+// Queue using immediate-requeue retry (simpler architecture)
 const orderQueue = defineQueue("order-processing", {
   type: "quorum",
-  deliveryLimit: 5, // Dead-letter after 5 attempts
   deadLetter: { exchange: dlx },
-  retry: { mode: "quorum-native" },
+  retry: { mode: "immediate-requeue", maxRetries: 5 }, // Dead-letter after 5 retry attempts
 });
 ```
 
@@ -610,7 +606,7 @@ const orderQueue = defineQueue("order-processing", {
 
 - Add `deadLetter` configuration to your queue definitions
 - Create DLX exchanges and queues in your contract
-- Choose `quorum-native` for simpler architecture (no wait queues)
+- Choose `immediate-requeue` for simpler architecture (no wait queues)
 - Choose `ttl-backoff` when you need exponential backoff delays
 - Consider using `NonRetryableError` for validation failures
 - Set up DLX monitoring and alerting

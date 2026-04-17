@@ -510,30 +510,29 @@ handlers: {
 
 The worker supports automatic retry with two different strategies, configured at the **queue level** in the contract:
 
-1. **Quorum-Native Mode** - Uses quorum queue's native `x-delivery-limit` feature for simpler retries
+1. **Immediate-Requeue Mode** - Requeues failed messages immediately (no wait queues)
 2. **TTL-Backoff Mode** - Uses TTL + wait queue pattern for exponential backoff
 
 ### Retry Strategies {#retry-strategies}
 
-#### Quorum-Native Mode (Recommended)
+#### Immediate-Requeue Mode (Recommended)
 
-A simpler mode that leverages RabbitMQ quorum queue's native `x-delivery-limit` feature:
+A simpler mode that requeues failed messages immediately (no wait queues):
 
 ```typescript
 import { defineQueue, defineExchange, defineContract } from "@amqp-contract/contract";
 import { TypedAmqpWorker, RetryableError } from "@amqp-contract/worker";
 import { Future } from "@swan-io/boxed";
 
-// 1. Define queue with deliveryLimit and quorum-native retry
+// 1. Define queue with immediate-requeue retry
 const dlx = defineExchange("orders-dlx", "topic", { durable: true });
 const ordersQueue = defineQueue("orders", {
   type: "quorum", // Default queue type
-  deliveryLimit: 3, // After 3 delivery attempts, dead-letter
   deadLetter: {
     exchange: dlx,
     routingKey: "orders.failed",
   },
-  retry: { mode: "quorum-native" }, // Retry configured at queue level
+  retry: { mode: "immediate-requeue", maxRetries: 3 }, // Dead-letter after 3 retry attempts
 });
 
 // 2. Worker automatically uses queue's retry configuration
@@ -549,12 +548,12 @@ const worker = await TypedAmqpWorker.create({
 }).resultToPromise();
 ```
 
-**How Quorum-Native works:**
+**How Immediate-Requeue works:**
 
-1. When a handler fails, the message is nacked with `requeue=true`
-2. RabbitMQ automatically tracks delivery count via `x-delivery-count` header
-3. When count exceeds `deliveryLimit`, message is automatically dead-lettered
-4. No wait queues or TTL management needed
+- For quorum queues, messages are requeued with `nack(requeue=true)`, and the worker tracks delivery count via the native RabbitMQ `x-delivery-count` header.
+- For classic queues, messages are re-published on the same queue, and the worker tracks delivery count via a custom `x-retry-count` header.
+- When count exceeds `maxRetries`, the message is automatically dead-lettered
+- No wait queues or TTL management needed
 
 **Best for:**
 
@@ -646,14 +645,11 @@ const queueName = extractQueue(ordersQueue).name; // "orders"
 
 #### Comparing Retry Modes
 
-| Feature                | TTL-Backoff                      | Quorum-Native             |
-| ---------------------- | -------------------------------- | ------------------------- |
-| Retry delays           | Configurable exponential backoff | Immediate                 |
-| Architecture           | Wait queues + DLX (auto-created) | Native RabbitMQ           |
-| Head-of-queue blocking | Possible with mixed TTLs         | None                      |
-| Delivery tracking      | Custom `x-retry-count` header    | Native `x-delivery-count` |
-| Queue type             | Quorum (default)                 | Quorum only               |
-| Configuration location | Queue definition                 | Queue definition          |
+| Feature                | TTL-Backoff                      | Immediate-Requeue |
+| ---------------------- | -------------------------------- | ----------------- |
+| Retry delays           | Configurable exponential backoff | Immediate         |
+| Architecture           | Wait queues + DLX                | No wait queues    |
+| Head-of-queue blocking | Possible with mixed TTLs         | None              |
 
 ### Exponential Backoff
 
@@ -703,7 +699,7 @@ const ordersQueue = defineQueue("orders", {
     exchange: dlxExchange,
     routingKey: "orders.failed",
   },
-  retry: { mode: "quorum-native" }, // Or ttl-backoff
+  retry: { mode: "immediate-requeue", maxRetries: 3 }, // Or ttl-backoff
 });
 
 // Compose the contract - exchanges, queues, bindings auto-extracted
