@@ -181,6 +181,24 @@ export class AmqpClient {
   }
 
   /**
+   * Publish a message directly to a queue.
+   *
+   * @param queue - The queue name
+   * @param content - The message content (will be JSON serialized if json: true)
+   * @param options - Optional publish options
+   * @returns A Future with `Result<boolean>` - true if message was sent, false if channel buffer is full
+   */
+  sendToQueue(
+    queue: string,
+    content: Buffer | unknown,
+    options?: Options.Publish,
+  ): Future<Result<boolean, TechnicalError>> {
+    return Future.fromPromise(this.channelWrapper.sendToQueue(queue, content, options)).mapError(
+      (error: unknown) => new TechnicalError("Failed to publish message to queue", error),
+    );
+  }
+
+  /**
    * Start consuming messages from a queue.
    *
    * @param queue - The queue name

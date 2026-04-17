@@ -9,8 +9,7 @@ const dlx = defineExchange("orders-dlx", "direct", { durable: true });
 const exchange = defineExchange("orders", "topic", { durable: true });
 const queue = defineQueue("processing", {
   deadLetter: { exchange: dlx },
-  retry: { mode: "quorum-native" },
-  deliveryLimit: 5,
+  retry: { mode: "immediate-requeue", maxRetries: 5 },
 });
 const message = defineMessage(z.object({ orderId: z.string() }));
 
@@ -85,14 +84,13 @@ const contract = defineContract({
 - Use `type: 'quorum'` (default) for reliable, replicated queues
 - Use `type: 'classic'` only for special cases (priority queues, exclusive queues)
 - Quorum queues are always durable and cannot be exclusive
-- Configure `deliveryLimit` for native retry support
 
 ```typescript
 // Quorum queue (default, recommended)
 const orderQueue = defineQueue("orders", {
   type: "quorum", // default, can be omitted
-  deliveryLimit: 3, // Native retry: dead-letter after 3 attempts
   deadLetter: { exchange: dlx },
+  retry: { mode: "immediate-requeue", maxRetries: 3 }, // Dead-letter after 3 retry attempts
 });
 
 // Classic queue for special cases only
@@ -212,15 +210,14 @@ const orderMessage = defineMessage(
 
 Retry strategy is configured at the queue level in the contract, not at the handler level.
 
-### Quorum-Native Mode (Recommended)
+### Immediate-Requeue Mode (Recommended)
 
-Uses RabbitMQ's native `x-delivery-limit` feature. Messages requeued immediately with `nack(requeue=true)`. Simpler, no wait queues needed.
+Failed messages are requeued immediately. Simpler, no wait queues needed.
 
 ```typescript
 const queue = defineQueue("orders", {
-  deliveryLimit: 5,
   deadLetter: { exchange: dlx },
-  retry: { mode: "quorum-native" },
+  retry: { mode: "immediate-requeue", maxRetries: 5 },
 });
 ```
 

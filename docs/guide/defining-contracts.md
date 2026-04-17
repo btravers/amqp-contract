@@ -290,44 +290,13 @@ const tempQueue = defineQueue("temp-queue", {
 Use quorum queues (the default) for production workloads. Only use classic queues when you need specific features not supported by quorum queues.
 :::
 
-### Quorum Queue Delivery Limit
-
-Quorum queues support a native `deliveryLimit` option for automatic retry handling. When a message is nacked and requeued, RabbitMQ tracks the delivery count. Once the count exceeds the limit, the message is automatically dead-lettered.
-
-```typescript
-import { defineQueue, defineExchange } from "@amqp-contract/contract";
-
-const dlx = defineExchange("orders-dlx", "topic", { durable: true });
-
-// Quorum queue with delivery limit for automatic retry handling
-const orderQueue = defineQueue("order-processing", {
-  type: "quorum", // Default
-  deliveryLimit: 3, // Dead-letter after 3 delivery attempts
-  deadLetter: {
-    exchange: dlx,
-    routingKey: "order.failed",
-  },
-});
-```
-
-**Benefits of `deliveryLimit`:**
-
-- **Simpler architecture** - No wait queues needed for retry handling
-- **No head-of-queue blocking** - Unlike TTL-based retry, delivery limit works correctly regardless of message order
-- **Native RabbitMQ tracking** - Delivery count tracked via `x-delivery-count` header
-- **Atomic guarantees** - RabbitMQ handles the retry logic internally
-
-::: warning Note
-The `deliveryLimit` option only works with quorum queues. For classic queues, use the `ttl-backoff` retry mode which creates wait queues with per-message TTL.
-:::
-
 ### Retry Configuration
 
 Configure automatic retry behavior at the queue level using the `retry` option. This determines how failed messages are handled by the worker.
 
-#### Quorum-Native Mode
+#### Immediate-Requeue Mode
 
-For quorum queues, use `quorum-native` mode which leverages RabbitMQ's built-in delivery tracking:
+Use `immediate-requeue` mode to requeue failed messages immediately:
 
 ```typescript
 import { defineQueue, defineExchange } from "@amqp-contract/contract";
@@ -336,17 +305,33 @@ const dlx = defineExchange("orders-dlx", "topic", { durable: true });
 
 const orderQueue = defineQueue("order-processing", {
   type: "quorum",
-  deliveryLimit: 3, // Dead-letter after 3 delivery attempts
   deadLetter: { exchange: dlx },
-  retry: { mode: "quorum-native" },
+  retry: { mode: "immediate-requeue", maxRetries: 3 }, // Dead-letter after 3 retry attempts
 });
 ```
 
 **Benefits:**
 
 - **Simpler architecture** - No wait queues needed
-- **Native tracking** - RabbitMQ tracks delivery count automatically
 - **No head-of-queue blocking** - Messages are requeued immediately
+
+::: warning Note
+Quorum queues may also limit the number of allowed requeues according to the delivery limit policy (defaults to `20` in RabbitMQ 4).
+If needed, you can configure the delivery limit in the queue arguments:
+:::
+
+```typescript
+import { defineQueue, defineExchange } from "@amqp-contract/contract";
+
+const dlx = defineExchange("orders-dlx", "topic", { durable: true });
+
+const orderQueue = defineQueue("order-processing", {
+  type: "quorum",
+  deadLetter: { exchange: dlx },
+  retry: { mode: "immediate-requeue", maxRetries: 3 },
+  arguments: { "x-delivery-limit": 20 },
+});
+```
 
 #### TTL-Backoff Mode
 
@@ -379,7 +364,6 @@ When you use `ttl-backoff` mode, `defineContract` automatically generates:
 
 - **Exponential backoff** - Give failing services time to recover
 - **Jitter support** - Prevents thundering herd problems
-- **Works with any queue type** - Classic or quorum
 
 **Default values for TTL-backoff:**
 

@@ -85,11 +85,6 @@ export async function setupAmqpTopology(
 
       // Handle type-specific properties using discriminated union
       if (queue.type === "quorum") {
-        // Set delivery limit for quorum queues (native retry support)
-        if (queue.deliveryLimit !== undefined) {
-          queueArguments["x-delivery-limit"] = queue.deliveryLimit;
-        }
-
         // Quorum queues are always durable
         return channel.assertQueue(queue.name, {
           durable: true,

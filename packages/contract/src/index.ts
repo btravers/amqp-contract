@@ -66,11 +66,12 @@ export type {
   QueueEntry,
   QueueType,
   QueueWithTtlBackoffInfrastructure,
-  QuorumNativeRetryOptions,
+  ImmediateRequeueRetryOptions,
   QuorumQueueDefinition,
   QuorumQueueOptions,
   ResolvedRetryOptions,
   ResolvedTtlBackoffRetryOptions,
+  ResolvedImmediateRequeueRetryOptions,
   TopicExchangeDefinition,
   TtlBackoffRetryOptions,
 } from "./types.js";
