@@ -99,6 +99,12 @@ const worker = await TypedAmqpWorker.create({
 | `error` | `Failed to publish message for retry (write buffer full)`                             | `queueName`, `waitRoutingKey`, `retryCount`            |
 | `info`  | `Message published for retry`                                                         | `queueName`, `waitRoutingKey`, `retryCount`, `delayMs` |
 
+#### Retry — None Mode (No retry)
+
+| Level  | Message                                      | Context                 |
+| ------ | -------------------------------------------- | ----------------------- |
+| `warn` | `Retry disabled (none mode), sending to DLQ` | `consumerName`, `error` |
+
 #### Dead-Letter Queue
 
 | Level  | Message                                                             | Context                    |

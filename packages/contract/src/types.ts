@@ -78,6 +78,17 @@ export type QuorumNativeRetryOptions = {
 };
 
 /**
+ * No retry mode. Failed messages are not retried and are sent
+ * directly to DLQ (if configured) or rejected.
+ */
+export type NoneRetryOptions = {
+  /**
+   * None mode disables retry attempts entirely.
+   */
+  mode: "none";
+};
+
+/**
  * Resolved TTL-Backoff retry options with all defaults applied.
  *
  * This type is used internally in queue definitions after `defineQueue` has applied
@@ -98,10 +109,14 @@ export type ResolvedTtlBackoffRetryOptions = {
  * Resolved retry configuration stored in queue definitions.
  *
  * This is a discriminated union based on the `mode` field:
+ * - `none`: No retry attempts
  * - `ttl-backoff`: Has all TTL-backoff options with defaults applied
  * - `quorum-native`: No additional options (uses RabbitMQ native retry)
  */
-export type ResolvedRetryOptions = ResolvedTtlBackoffRetryOptions | QuorumNativeRetryOptions;
+export type ResolvedRetryOptions =
+  | NoneRetryOptions
+  | ResolvedTtlBackoffRetryOptions
+  | QuorumNativeRetryOptions;
 
 /**
  * Supported compression algorithms for message payloads.
@@ -266,14 +281,21 @@ export type QuorumQueueOptions = BaseQueueOptions & {
    * Retry configuration for handling failed message processing.
    *
    * Determines how the worker handles retries for consumers using this queue:
-   * - `"ttl-backoff"` (default): Uses wait queues with exponential backoff
-   * - `"quorum-native"`: Uses RabbitMQ's native delivery limit feature
+   * - `"none"` (default): No retry attempts are made; failed messages are handled by DLQ/reject.
+   * - `"ttl-backoff"`: Uses wait queues with exponential backoff.
+   * - `"quorum-native"`: Uses RabbitMQ's native delivery limit feature.
    *
    * When using `"ttl-backoff"` mode, the core package will automatically create
    * a wait queue (`{queueName}-wait`) and the necessary bindings.
    *
    * @example
    * ```typescript
+   * // No retry
+   * const orderQueue = defineQueue('order-processing', {
+   *   type: 'quorum',
+   *   retry: { mode: 'none' },
+   * });
+   *
    * // TTL-backoff mode with custom options
    * const orderQueue = defineQueue('order-processing', {
    *   type: 'quorum',
@@ -295,7 +317,7 @@ export type QuorumQueueOptions = BaseQueueOptions & {
    * });
    * ```
    */
-  retry?: TtlBackoffRetryOptions | QuorumNativeRetryOptions;
+  retry?: NoneRetryOptions | TtlBackoffRetryOptions | QuorumNativeRetryOptions;
 };
 
 /**
@@ -338,16 +360,29 @@ export type ClassicQueueOptions = BaseQueueOptions & {
   /**
    * Retry configuration for handling failed message processing.
    *
-   * Classic queues only support TTL-backoff retry mode, which uses wait queues
-   * with exponential backoff. For quorum-native retry, use quorum queues instead.
+   * Classic queues support:
+   * - `"none"` (default): No retry attempts.
+   * - `"ttl-backoff"`: Wait queues with exponential backoff.
+   *
+   * Quorum-native retry is not supported for classic queues.
    *
    * @example
    * ```typescript
+   * // No retry
+   * const orderQueue = defineQueue('order-processing', {
+   *   type: 'classic',
+   *   durable: true,
+   *   deadLetter: { exchange: dlx },
+   *   retry: { mode: 'none' },
+   * });
+   *
+   * // TTL-backoff mode with custom options
    * const orderQueue = defineQueue('order-processing', {
    *   type: 'classic',
    *   durable: true,
    *   deadLetter: { exchange: dlx },
    *   retry: {
+   *     mode: 'ttl-backoff',
    *     maxRetries: 5,
    *     initialDelayMs: 1000,
    *     maxDelayMs: 30000,
@@ -355,7 +390,7 @@ export type ClassicQueueOptions = BaseQueueOptions & {
    * });
    * ```
    */
-  retry?: TtlBackoffRetryOptions;
+  retry?: NoneRetryOptions | TtlBackoffRetryOptions;
 };
 
 /**
@@ -577,11 +612,12 @@ export type QuorumQueueDefinition<TName extends string = string> = BaseQueueDefi
   /**
    * Retry configuration for handling failed message processing.
    *
-   * Quorum queues support both:
-   * - `ttl-backoff`: Uses wait queues with exponential backoff (default)
+   * Quorum queues support:
+   * - `none`: No retry attempts (default)
+   * - `ttl-backoff`: Uses wait queues with exponential backoff
    * - `quorum-native`: Uses RabbitMQ's native delivery limit feature
    *
-   * When the queue is created, defaults are applied for TTL-backoff options.
+   * When the queue is created, defaults are applied.
    */
   retry: ResolvedRetryOptions;
 };
@@ -614,10 +650,13 @@ export type ClassicQueueDefinition<TName extends string = string> = BaseQueueDef
   /**
    * Retry configuration for handling failed message processing.
    *
-   * Classic queues only support TTL-backoff retry mode (default).
+   * Classic queues support:
+   * - `none`: No retry attempts (default)
+   * - `ttl-backoff`: Uses wait queues with exponential backoff
+   *
    * When the queue is created, defaults are applied.
    */
-  retry: ResolvedTtlBackoffRetryOptions;
+  retry: ResolvedRetryOptions;
 };
 
 /**

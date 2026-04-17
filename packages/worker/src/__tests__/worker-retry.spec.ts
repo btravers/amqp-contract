@@ -355,7 +355,7 @@ describe("Worker Retry Mechanism", () => {
   });
 
   describe("Queue Without DLX", () => {
-    it("should fallback to requeue when queue has no DLX", async ({
+    it("should not retry by default when queue has no DLX (none retry mode)", async ({
       workerFactory,
       publishMessage,
     }) => {
@@ -381,30 +381,95 @@ describe("Worker Retry Mechanism", () => {
 
       let attemptCount = 0;
       await workerFactory(contract, {
-        // Retry is enabled by default, but queue has no DLX
         testConsumer: () => {
           attemptCount++;
-          if (attemptCount < 2) {
-            return Future.value(Result.Error(new RetryableError("Will fallback to requeue")));
-          }
-          return Future.value(Result.Ok(undefined));
+          return Future.value(Result.Error(new RetryableError("Will not retry")));
         },
       });
 
       // WHEN publishing a message that fails on first attempt
       publishMessage(exchange.name, "test.message", { id: "nodlx-1" });
 
-      // THEN should fallback to requeue behavior and eventually succeed
+      // THEN should process only once and not retry
       await vi.waitFor(
         () => {
-          if (attemptCount < 2) {
-            throw new Error("Message not yet retried via requeue");
+          if (attemptCount < 1) {
+            throw new Error("Message not yet processed");
           }
         },
         { timeout: 2000 },
       );
 
-      expect(attemptCount).toBe(2);
+      expect(attemptCount).toBe(1);
+    });
+  });
+
+  describe("None Retry Mode", () => {
+    it("should send failed message directly to DLQ and not retry", async ({
+      workerFactory,
+      publishMessage,
+      amqpChannel,
+    }) => {
+      const TestMessage = z.object({ id: z.string() });
+
+      const exchange = defineExchange("none-retry-exchange", "topic", { durable: false });
+      const dlx = defineExchange("none-retry-dlx", "topic", { durable: false });
+      const queue = defineQueue("none-retry-queue", {
+        type: "classic",
+        durable: false,
+        deadLetter: {
+          exchange: dlx,
+          routingKey: "none-retry-queue.dlq",
+        },
+        retry: { mode: "none" },
+      });
+
+      const testMessage = defineMessage(TestMessage);
+      const testEvent = defineEventPublisher(exchange, testMessage, { routingKey: "test.message" });
+
+      const contract = defineContract({
+        publishers: { testPublisher: testEvent },
+        consumers: {
+          testConsumer: defineEventConsumer(testEvent, queue, { routingKey: "test.#" }),
+        },
+      });
+
+      let attemptCount = 0;
+      await workerFactory(contract, {
+        testConsumer: () => {
+          attemptCount++;
+          return Future.value(Result.Error(new RetryableError("No retry")));
+        },
+      });
+
+      await amqpChannel.assertQueue("none-retry-dlq", { durable: false });
+      await amqpChannel.bindQueue("none-retry-dlq", dlx.name, "none-retry-queue.dlq");
+
+      publishMessage(exchange.name, "test.message", { id: "none-1" });
+
+      await vi.waitFor(
+        () => {
+          if (attemptCount < 1) {
+            throw new Error("Message not yet processed");
+          }
+        },
+        { timeout: 2000 },
+      );
+
+      expect(attemptCount).toBe(1);
+
+      await vi.waitFor(
+        async () => {
+          const dlqMsg = await amqpChannel.get("none-retry-dlq", { noAck: false });
+          if (!dlqMsg) {
+            throw new Error("Message not in DLQ");
+          }
+          const content = JSON.parse(dlqMsg.content.toString());
+          expect(content).toEqual({ id: "none-1" });
+          amqpChannel.ack(dlqMsg);
+        },
+        { timeout: 2000 },
+      );
     });
   });
 

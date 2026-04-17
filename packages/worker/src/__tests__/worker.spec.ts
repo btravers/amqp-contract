@@ -225,7 +225,11 @@ describe("AmqpWorker Integration", () => {
     const TestMessage = z.object({ id: z.string(), shouldFail: z.boolean() });
 
     const exchange = defineExchange("worker-error-exchange", "topic", { durable: false });
-    const queue = defineQueue("worker-error-queue", { type: "classic", durable: false });
+    const queue = defineQueue("worker-error-queue", {
+      type: "quorum",
+      deliveryLimit: 3,
+      retry: { mode: "quorum-native" },
+    });
     const testMessage = defineMessage(TestMessage);
     const testEvent = defineEventPublisher(exchange, testMessage, { routingKey: "error.test" });
 
