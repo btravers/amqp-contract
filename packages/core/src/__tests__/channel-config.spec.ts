@@ -164,11 +164,11 @@ describe("AmqpClient Channel Configuration", () => {
     await client.close().resultToPromise();
   });
 
-  it("should allow setting confirmChannel option", async ({ amqpConnectionUrl }) => {
+  it("should allow disabling confirmChannel option", async ({ amqpConnectionUrl }) => {
     // GIVEN
     const contract: ContractDefinition = {
       exchanges: {
-        test: defineExchange("test-confirm-channel", "topic", { durable: false }),
+        test: defineExchange("test-regular-channel", "topic", { durable: false }),
       },
     };
 
@@ -176,13 +176,13 @@ describe("AmqpClient Channel Configuration", () => {
     const client = new AmqpClient(contract, {
       urls: [amqpConnectionUrl],
       channelOptions: {
-        confirm: true,
+        confirm: false, // Use regular channel
       },
     });
 
     await client.waitForConnect().resultToPromise();
 
-    // THEN - Confirm channel should be created
+    // THEN - Regular channel should be created
     expect(client.getConnection()).toBeDefined();
 
     // CLEANUP

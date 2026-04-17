@@ -11,6 +11,7 @@ import {
 } from "@amqp-contract/contract";
 import {
   AmqpClient,
+  ConsumerOptions as AmqpClientConsumerOptions,
   type Logger,
   TechnicalError,
   type TelemetryProvider,
@@ -23,7 +24,7 @@ import {
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 import { Future, Result } from "@swan-io/boxed";
 import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
-import type { Channel, ConsumeMessage } from "amqplib";
+import type { ConsumeMessage } from "amqplib";
 import { decompressBuffer } from "./decompression.js";
 import type { HandlerError } from "./errors.js";
 import { MessageValidationError, NonRetryableError } from "./errors.js";
@@ -33,17 +34,7 @@ import type {
   WorkerInferConsumerHandlers,
 } from "./types.js";
 
-/**
- * Internal type for consumer options extracted from handler tuples.
- * Not exported - options are specified inline in the handler tuple types.
- *
- * Note: Retry configuration is now defined at the queue level in the contract,
- * not at the handler level. See `QueueDefinition.retry` for configuration options.
- */
-type ConsumerOptions = {
-  /** Number of messages to prefetch */
-  prefetch?: number;
-};
+export type ConsumerOptions = AmqpClientConsumerOptions;
 
 /**
  * Type guard to check if a handler entry is a tuple format [handler, options].
@@ -77,6 +68,9 @@ function isHandlerTuple(entry: unknown): entry is [unknown, ConsumerOptions] {
  *     ]
  *   },
  *   urls: ['amqp://localhost'],
+ *   defaultConsumerOptions: {
+ *     prefetch: 5,
+ *   },
  *   connectionOptions: {
  *     heartbeatIntervalInSeconds: 30
  *   },
@@ -108,6 +102,11 @@ export type CreateWorkerOptions<TContract extends ContractDefinition> = {
    * OpenTelemetry instrumentation is automatically enabled if @opentelemetry/api is installed.
    */
   telemetry?: TelemetryProvider | undefined;
+  /**
+   * Optional default consumer options applied to all consumer handlers.
+   * Handler-specific options provided in tuple form override these defaults.
+   */
+  defaultConsumerOptions?: ConsumerOptions | undefined;
 };
 
 /**
@@ -169,6 +168,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     private readonly contract: TContract,
     private readonly amqpClient: AmqpClient,
     handlers: WorkerInferConsumerHandlers<TContract>,
+    private readonly defaultConsumerOptions: ConsumerOptions,
     private readonly logger?: Logger,
     telemetry?: TelemetryProvider,
   ) {
@@ -192,13 +192,17 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           TContract,
           InferConsumerNames<TContract>
         >;
-        this.consumerOptions[typedConsumerName] = options;
+        this.consumerOptions[typedConsumerName] = {
+          ...this.defaultConsumerOptions,
+          ...options,
+        };
       } else {
         // Direct function format
         this.actualHandlers[typedConsumerName] = handlerEntry as WorkerInferConsumerHandler<
           TContract,
           InferConsumerNames<TContract>
         >;
+        this.consumerOptions[typedConsumerName] = this.defaultConsumerOptions;
       }
     }
   }
@@ -233,6 +237,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     handlers,
     urls,
     connectionOptions,
+    defaultConsumerOptions,
     logger,
     telemetry,
   }: CreateWorkerOptions<TContract>): Future<Result<TypedAmqpWorker<TContract>, TechnicalError>> {
@@ -243,6 +248,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         connectionOptions,
       }),
       handlers,
+      defaultConsumerOptions ?? {},
       logger,
       telemetry,
     );
@@ -306,18 +312,6 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     // Non-null assertion safe: TypeScript guarantees consumers exist (handlers require matching consumers)
     const consumers = this.contract.consumers!;
     const consumerNames = Object.keys(consumers) as InferConsumerNames<TContract>[];
-
-    // Calculate max prefetch (AMQP 0.9.1 prefetch is per-channel)
-    const maxPrefetch = consumerNames.reduce((max, name) => {
-      const prefetch = this.consumerOptions[name]?.prefetch;
-      return prefetch ? Math.max(max, prefetch) : max;
-    }, 0);
-
-    if (maxPrefetch > 0) {
-      this.amqpClient.addSetup(async (channel: Channel) => {
-        await channel.prefetch(maxPrefetch);
-      });
-    }
 
     return Future.all(consumerNames.map((name) => this.consume(name)))
       .map(Result.all)
@@ -456,80 +450,90 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
     // Start consuming
     return this.amqpClient
-      .consume(queueName, async (msg) => {
-        // Handle null messages (consumer cancellation)
-        if (msg === null) {
-          this.logger?.warn("Consumer cancelled by server", {
-            consumerName: String(consumerName),
-            queueName,
+      .consume(
+        queueName,
+        async (msg) => {
+          // Handle null messages (consumer cancellation)
+          if (msg === null) {
+            this.logger?.warn("Consumer cancelled by server", {
+              consumerName: String(consumerName),
+              queueName,
+            });
+            return;
+          }
+
+          const startTime = Date.now();
+          const span = startConsumeSpan(this.telemetry, queueName, String(consumerName), {
+            "messaging.rabbitmq.message.delivery_tag": msg.fields.deliveryTag,
           });
-          return;
-        }
 
-        const startTime = Date.now();
-        const span = startConsumeSpan(this.telemetry, queueName, String(consumerName), {
-          "messaging.rabbitmq.message.delivery_tag": msg.fields.deliveryTag,
-        });
+          // Parse and validate message
+          await this.parseAndValidateMessage(msg, consumer, consumerName)
+            .flatMapOk((validatedMessage) =>
+              handler(validatedMessage, msg)
+                .flatMapOk(() => {
+                  this.logger?.info("Message consumed successfully", {
+                    consumerName: String(consumerName),
+                    queueName,
+                  });
+                  // Acknowledge message on success
+                  this.amqpClient.ack(msg);
 
-        // Parse and validate message
-        await this.parseAndValidateMessage(msg, consumer, consumerName)
-          .flatMapOk((validatedMessage) =>
-            handler(validatedMessage, msg)
-              .flatMapOk(() => {
-                this.logger?.info("Message consumed successfully", {
-                  consumerName: String(consumerName),
-                  queueName,
-                });
-                // Acknowledge message on success
-                this.amqpClient.ack(msg);
+                  // Record telemetry success
+                  const durationMs = Date.now() - startTime;
+                  endSpanSuccess(span);
+                  recordConsumeMetric(
+                    this.telemetry,
+                    queueName,
+                    String(consumerName),
+                    true,
+                    durationMs,
+                  );
 
-                // Record telemetry success
-                const durationMs = Date.now() - startTime;
-                endSpanSuccess(span);
-                recordConsumeMetric(
-                  this.telemetry,
-                  queueName,
-                  String(consumerName),
-                  true,
-                  durationMs,
-                );
+                  return Future.value(Result.Ok<void, HandlerError>(undefined));
+                })
+                .flatMapError((handlerError: HandlerError) => {
+                  // Handler returned an error
+                  this.logger?.error("Error processing message", {
+                    consumerName: String(consumerName),
+                    queueName,
+                    errorType: handlerError.name,
+                    error: handlerError.message,
+                  });
 
-                return Future.value(Result.Ok<void, HandlerError>(undefined));
-              })
-              .flatMapError((handlerError: HandlerError) => {
-                // Handler returned an error
-                this.logger?.error("Error processing message", {
-                  consumerName: String(consumerName),
-                  queueName,
-                  errorType: handlerError.name,
-                  error: handlerError.message,
-                });
+                  // Record telemetry failure
+                  const durationMs = Date.now() - startTime;
+                  endSpanError(span, handlerError);
+                  recordConsumeMetric(
+                    this.telemetry,
+                    queueName,
+                    String(consumerName),
+                    false,
+                    durationMs,
+                  );
 
-                // Record telemetry failure
-                const durationMs = Date.now() - startTime;
-                endSpanError(span, handlerError);
-                recordConsumeMetric(
-                  this.telemetry,
-                  queueName,
-                  String(consumerName),
-                  false,
-                  durationMs,
-                );
-
-                // Handle the error using retry mechanism
-                return this.handleError(handlerError, msg, String(consumerName), consumer);
-              }),
-          )
-          .tapError(() => {
-            // Record telemetry failure for validation errors
-            // Note: The actual validation error is logged in parseAndValidateMessage,
-            // here we just record that validation failed for telemetry purposes
-            const durationMs = Date.now() - startTime;
-            endSpanError(span, new Error("Message validation failed"));
-            recordConsumeMetric(this.telemetry, queueName, String(consumerName), false, durationMs);
-          })
-          .toPromise();
-      })
+                  // Handle the error using retry mechanism
+                  return this.handleError(handlerError, msg, String(consumerName), consumer);
+                }),
+            )
+            .tapError(() => {
+              // Record telemetry failure for validation errors
+              // Note: The actual validation error is logged in parseAndValidateMessage,
+              // here we just record that validation failed for telemetry purposes
+              const durationMs = Date.now() - startTime;
+              endSpanError(span, new Error("Message validation failed"));
+              recordConsumeMetric(
+                this.telemetry,
+                queueName,
+                String(consumerName),
+                false,
+                durationMs,
+              );
+            })
+            .toPromise();
+        },
+        this.consumerOptions[consumerName],
+      )
       .tapOk((consumerTag) => {
         // Store consumer tag for later cancellation
         this.consumerTags.add(consumerTag);

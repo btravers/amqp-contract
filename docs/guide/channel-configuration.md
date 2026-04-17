@@ -9,15 +9,15 @@ The `@amqp-contract/core` package provides `AmqpClient`, which manages AMQP conn
 Channel configuration allows you to:
 
 - **Customize message serialization**: Override the default JSON serialization
+- **Customize publisher confirms**: Override default acknowledgments when messages are successfully routed
 - **Add custom setup logic**: Configure prefetch, quality of service (QoS), or create additional AMQP resources
-- **Enable publisher confirms**: Get acknowledgments when messages are successfully routed
 - **Debug channel behavior**: Set custom channel names for easier troubleshooting
 
 ## Basic Usage
 
 ### Default Configuration
 
-By default, `AmqpClient` creates channels with JSON serialization enabled:
+By default, `AmqpClient` creates channels with JSON serialization and publisher confirms enabled:
 
 ```typescript
 import { AmqpClient } from "@amqp-contract/core";
@@ -25,7 +25,7 @@ import { defineContract } from "@amqp-contract/contract";
 
 const contract = defineContract({});
 
-// Default: JSON serialization enabled
+// Default: JSON serialization & publisher confirms enabled
 const client = new AmqpClient(contract, {
   urls: ["amqp://localhost"],
 });
@@ -45,11 +45,11 @@ const client = new AmqpClient(contract, {
     // Override JSON serialization (default: true)
     json: false,
 
+    // Override publisher confirms (default: true)
+    confirm: false,
+
     // Set a custom channel name for debugging
     name: "my-custom-channel",
-
-    // Enable confirm channel for publisher confirms
-    confirm: true,
 
     // Add custom setup logic after contract topology is established
     setup: async (channel: Channel) => {
@@ -86,6 +86,30 @@ const client = new AmqpClient(contract, {
 
 **Note:** When using `@amqp-contract/client` or `@amqp-contract/worker`, JSON serialization is typically required for schema validation to work properly.
 
+### Publisher Confirms
+
+Control whether publisher confirms are enabled to receive acknowledgments when messages are routed:
+
+```typescript
+const client = new AmqpClient(contract, {
+  urls: ["amqp://localhost"],
+  channelOptions: {
+    confirm: false, // Disable automatic publisher confirms
+  },
+});
+```
+
+**Publisher confirms guarantee:**
+
+- Messages have been accepted by the broker
+- Messages have been routed to at least one queue (if mandatory)
+- Persistent messages have been written to disk (if durable)
+
+**When to disable publisher confirms:**
+
+- You don't need strong delivery guarantees
+- You want minimum latency
+
 ### Channel Names
 
 Set custom channel names for easier debugging:
@@ -104,27 +128,6 @@ const client = new AmqpClient(contract, {
 - Identify channels in RabbitMQ management console
 - Easier troubleshooting in production
 - Clear correlation between code and runtime behavior
-
-### Publisher Confirms
-
-Enable publisher confirms to receive acknowledgments when messages are routed:
-
-```typescript
-const client = new AmqpClient(contract, {
-  urls: ["amqp://localhost"],
-  channelOptions: {
-    confirm: true, // Enable publisher confirms
-  },
-});
-```
-
-**Publisher confirms guarantee:**
-
-- Messages have been accepted by the broker
-- Messages have been routed to at least one queue (if mandatory)
-- Persistent messages have been written to disk (if durable)
-
-**Note:** Publisher confirms add latency but provide stronger delivery guarantees.
 
 ### Custom Setup Function
 
@@ -210,7 +213,6 @@ Use environment-specific configurations:
 const channelOptions =
   process.env.NODE_ENV === "production"
     ? {
-        confirm: true, // Publisher confirms in production
         name: `${process.env.SERVICE_NAME}-channel`,
         setup: async (channel: Channel) => {
           await channel.prefetch(50); // Higher throughput
@@ -405,7 +407,7 @@ const client = new AmqpClient(contract, {
     heartbeatIntervalInSeconds: 30, // Connection-level
   },
   channelOptions: {
-    confirm: true, // Channel-level
+    confirm: false, // Channel-level
   },
 });
 ```

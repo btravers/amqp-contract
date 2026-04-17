@@ -172,6 +172,107 @@ describe("AmqpClient Integration", () => {
         }),
       ]);
     });
+
+    it("should apply default publish options", async ({ amqpConnectionUrl, initConsumer }) => {
+      // GIVEN
+      const TestMessage = z.object({ content: z.string() });
+      const exchange = defineExchange("test-default-options-exchange", "topic", { durable: false });
+
+      const contract = defineContract({
+        publishers: {
+          testPublisher: definePublisher(exchange, defineMessage(TestMessage), {
+            routingKey: "test.default",
+          }),
+        },
+      });
+
+      const client = await TypedAmqpClient.create({
+        contract,
+        urls: [amqpConnectionUrl],
+        defaultPublishOptions: {
+          headers: { default: "value" },
+        },
+      }).resultToPromise();
+
+      const pendingMessages = await initConsumer(
+        contract.publishers.testPublisher.exchange.name,
+        contract.publishers.testPublisher.routingKey,
+      );
+
+      // WHEN
+      const result = await client.publish("testPublisher", { content: "default publish" });
+
+      // THEN
+      expect(result).toEqual(Result.Ok(undefined));
+
+      await expect(pendingMessages()).resolves.toEqual([
+        expect.objectContaining({
+          content: Buffer.from(JSON.stringify({ content: "default publish" })),
+          properties: expect.objectContaining({
+            headers: { default: "value" },
+            deliveryMode: 2,
+          }),
+        }),
+      ]);
+
+      await client.close().resultToPromise();
+    });
+
+    it("should override default publish options with publish-specific options", async ({
+      amqpConnectionUrl,
+      initConsumer,
+    }) => {
+      // GIVEN
+      const TestMessage = z.object({ content: z.string() });
+      const exchange = defineExchange("test-overridden-options-exchange", "topic", {
+        durable: false,
+      });
+
+      const contract = defineContract({
+        publishers: {
+          testPublisher: definePublisher(exchange, defineMessage(TestMessage), {
+            routingKey: "test.override",
+          }),
+        },
+      });
+
+      const client = await TypedAmqpClient.create({
+        contract,
+        urls: [amqpConnectionUrl],
+        defaultPublishOptions: {
+          headers: { default: "value" },
+          priority: 1,
+        },
+      }).resultToPromise();
+
+      const pendingMessages = await initConsumer(
+        contract.publishers.testPublisher.exchange.name,
+        contract.publishers.testPublisher.routingKey,
+      );
+
+      // WHEN
+      const result = await client.publish(
+        "testPublisher",
+        { content: "override publish" },
+        { headers: { override: "value" }, priority: 5 },
+      );
+
+      // THEN
+      expect(result).toEqual(Result.Ok(undefined));
+
+      await expect(pendingMessages()).resolves.toEqual([
+        expect.objectContaining({
+          content: Buffer.from(JSON.stringify({ content: "override publish" })),
+          properties: expect.objectContaining({
+            headers: { override: "value" },
+            priority: 5,
+            deliveryMode: 2,
+          }),
+        }),
+      ]);
+
+      await client.close().resultToPromise();
+    });
   });
 
   describe("topology setup", () => {

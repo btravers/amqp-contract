@@ -1,6 +1,6 @@
 ---
 title: "Resilient Message Handling with Automatic Retry Strategy"
-description: "Learn how amqp-contract's automatic retry mechanism with exponential backoff helps you build fault-tolerant AMQP applications using RabbitMQ's native TTL and Dead Letter Exchange patterns"
+description: "Learn how amqp-contract's automatic retry mechanisms help you build fault-tolerant AMQP applications"
 date: 2026-01-10
 author: Benoit TRAVERS
 tags:
@@ -109,32 +109,6 @@ const worker = await TypedAmqpWorker.create({
 
 amqp-contract provides two retry modes to handle different requirements, both configured at the queue level:
 
-### TTL-Backoff Mode
-
-This mode uses TTL (Time To Live) + wait queue pattern for **exponential backoff**. Wait queues and bindings are **automatically generated** by `defineContract`:
-
-```typescript
-const ordersQueue = defineQueue("orders", {
-  deadLetter: { exchange: dlx },
-  retry: {
-    mode: "ttl-backoff",
-    maxRetries: 3,
-    initialDelayMs: 1000,
-    maxDelayMs: 30000,
-    backoffMultiplier: 2,
-    jitter: true,
-  },
-});
-```
-
-**Best for:**
-
-- When you need configurable delays between retries
-- Preventing thundering herd problems
-- Giving downstream services time to recover
-
-**Trade-off:** More complex architecture with wait queues (auto-created), and potential head-of-queue blocking with mixed TTLs.
-
 ### Immediate-Requeue Mode (Recommended)
 
 A simpler mode that requeues failed messages immediately (no wait queues):
@@ -182,10 +156,36 @@ const worker = await TypedAmqpWorker.create({
 
 **Trade-off:** No exponential backoff — retries are immediate.
 
+### TTL-Backoff Mode
+
+This mode uses TTL (Time To Live) + wait queue pattern for **exponential backoff**. Wait queues and bindings are **automatically generated** by `defineContract`:
+
+```typescript
+const ordersQueue = defineQueue("orders", {
+  deadLetter: { exchange: dlx },
+  retry: {
+    mode: "ttl-backoff",
+    maxRetries: 3,
+    initialDelayMs: 1000,
+    maxDelayMs: 30000,
+    backoffMultiplier: 2,
+    jitter: true,
+  },
+});
+```
+
+**Best for:**
+
+- When you need configurable delays between retries
+- Preventing thundering herd problems
+- Giving downstream services time to recover
+
+**Trade-off:** More complex architecture with wait queues (auto-created), and potential head-of-queue blocking with mixed TTLs.
+
 | Feature                | TTL-Backoff                      | Immediate-Requeue |
 | ---------------------- | -------------------------------- | ----------------- |
 | Retry delays           | Configurable exponential backoff | Immediate         |
-| Architecture           | Wait queues + DLX                | No wait queues    |
+| Architecture           | Wait queues + Headers exchanges  | No wait queues    |
 | Head-of-queue blocking | Possible with mixed TTLs         | None              |
 
 ### How TTL-Backoff Works Under the Hood
@@ -219,8 +219,8 @@ sequenceDiagram
 **Key advantages of this approach:**
 
 1. **Non-blocking** - Messages wait in a separate queue, not blocking the consumer
-2. **Native RabbitMQ features** - Uses TTL and DLX, no external dependencies needed
-3. **Durable** - Wait queues are persisted like any other RabbitMQ queue
+2. **Native RabbitMQ features** - Uses TTL and wait queues, no external dependencies needed
+3. **Durable** - Wait queues are as durable as their main queue
 4. **Scalable** - Works across multiple worker instances
 
 ### Exponential Backoff in Action
@@ -363,7 +363,7 @@ const worker = await TypedAmqpWorker.create({
 | Error Type          | Use Case                                            | Behavior                                   |
 | ------------------- | --------------------------------------------------- | ------------------------------------------ |
 | `RetryableError`    | Transient failures (network, rate limits, timeouts) | Retry based on queue's retry configuration |
-| `NonRetryableError` | Permanent failures (validation, business rules)     | Immediate DLQ                              |
+| `NonRetryableError` | Permanent failures (validation, business rules)     | Send to DLQ (if configured) or drop        |
 | Any other error     | Unexpected failures                                 | Retry based on queue's retry configuration |
 
 ## Safe Handlers for Maximum Control
@@ -418,41 +418,6 @@ The worker automatically adds headers to track retry information:
 | `x-first-failure-timestamp` | Timestamp of the first failure                |
 
 These headers are invaluable for monitoring and debugging failed messages in your DLQ.
-
-## Retry with Batch Processing
-
-Retry works seamlessly with batch processing. If a batch handler fails, all messages in the batch are retried together:
-
-```typescript
-import { TypedAmqpWorker, RetryableError } from "@amqp-contract/worker";
-import { Future } from "@swan-io/boxed";
-
-const worker = await TypedAmqpWorker.create({
-  contract,
-  handlers: {
-    processOrders: [
-      ({ payload: messages }) =>
-        // Batch insert to database
-        Future.fromPromise(db.orders.insertMany(messages))
-          .mapOk(() => undefined)
-          .mapError(
-            // All messages in batch will be retried together
-            (error) => new RetryableError("Batch insert failed", error),
-          ),
-      {
-        batchSize: 10,
-        batchTimeout: 1000,
-        // Retry is configured at the queue level, not here
-      },
-    ],
-  },
-  urls: ["amqp://localhost"],
-}).resultToPromise();
-```
-
-::: warning Batch Retry Behavior
-All messages in a failed batch receive the same retry count and delay. For partial batch success handling, consider processing messages individually instead.
-:::
 
 ## Best Practices for Production
 
@@ -614,7 +579,7 @@ Building resilient message-driven applications requires thoughtful error handlin
 - **Jitter** - Prevents thundering herd problems
 - **Explicit error classification** - Control which errors should be retried
 - **Header tracking** - Full visibility into retry history
-- **Native RabbitMQ patterns** - No external dependencies, just TTL and DLX
+- **Native RabbitMQ patterns** - No external dependencies, just TTL and wait queues
 - **Type safety** - Full TypeScript support throughout
 
 Stop fighting transient failures. Let amqp-contract handle retries automatically while you focus on your business logic.

@@ -127,7 +127,6 @@ class OrderPublisher {
     await this.client
       .publish("orderCreated", order, {
         compression: shouldCompress ? "gzip" : undefined,
-        persistent: true,
       })
       .resultToPromise();
   }
