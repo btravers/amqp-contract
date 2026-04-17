@@ -223,7 +223,7 @@ const queue = defineQueue("orders", {
 
 ### TTL-Backoff Mode
 
-Uses wait queues with exponential backoff. Infrastructure is **automatically generated** when `defineQueue` is called with TTL-backoff retry and a dead letter exchange.
+Uses wait queues with exponential backoff. Infrastructure is **automatically generated** when `defineQueue` is called with TTL-backoff retry.
 
 ```typescript
 const queue = defineQueue("orders", {

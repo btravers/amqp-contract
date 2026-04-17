@@ -254,6 +254,7 @@ const notificationsExchange = defineExchange("notifications", "fanout", {
 - `direct` - Routes by exact routing key match
 - `topic` - Routes by routing key patterns (wildcards `*` and `#`)
 - `fanout` - Routes to all bound queues (ignores routing keys)
+- `headers` - Routes based on message headers (ignores routing keys)
 
 ## Defining Queues
 
@@ -357,8 +358,10 @@ const orderQueue = defineQueue("order-processing", {
 
 When you use `ttl-backoff` mode, `defineContract` automatically generates:
 
-- A wait queue (`{queueName}-wait`) with per-message TTL
-- Bindings to route messages through the DLX for retry
+- A wait queue (`{queueName}-wait`) with per-message TTL, holding messages during backoff delay
+- A wait headers exchange (`wait-exchange`) used to route messages to the wait queue
+- A retry headers exchange (`retry-exchange`) used to route messages back to the main queue
+- Bindings to route messages through the headers exchanges for retry
 
 **Benefits:**
 
@@ -367,13 +370,16 @@ When you use `ttl-backoff` mode, `defineContract` automatically generates:
 
 **Default values for TTL-backoff:**
 
-| Option              | Default | Description                        |
-| ------------------- | ------- | ---------------------------------- |
-| `maxRetries`        | 3       | Maximum retry attempts             |
-| `initialDelayMs`    | 1000    | Initial delay in milliseconds      |
-| `maxDelayMs`        | 30000   | Maximum delay cap in milliseconds  |
-| `backoffMultiplier` | 2       | Multiplier for exponential backoff |
-| `jitter`            | true    | Add randomness to delays           |
+| Option              | Default            | Description                        |
+| ------------------- | ------------------ | ---------------------------------- |
+| `maxRetries`        | 3                  | Maximum retry attempts             |
+| `initialDelayMs`    | 1000               | Initial delay in milliseconds      |
+| `maxDelayMs`        | 30000              | Maximum delay cap in milliseconds  |
+| `backoffMultiplier` | 2                  | Multiplier for exponential backoff |
+| `jitter`            | true               | Add randomness to delays           |
+| `waitQueueName`     | `{queueName}-wait` | Name of the wait queue             |
+| `waitExchangeName`  | `wait-exchange`    | Name of the wait exchange          |
+| `retryExchangeName` | `retry-exchange`   | Name of the retry exchange         |
 
 See the [Worker Usage Guide](/guide/worker-usage#retry-strategies) for more details on retry behavior.
 
@@ -486,7 +492,7 @@ const contract = defineContract({
 
 **Routing Key Requirements:**
 
-- **Fanout**: Routing key is optional (fanout ignores it)
+- **Fanout/Headers**: Routing key is optional (fanout ignores it)
 - **Direct/Topic**: Routing key is required
 
 TypeScript enforces these rules at compile time!
@@ -533,7 +539,7 @@ const contract = defineContract({
 
 **Routing Key Requirements:**
 
-- **Fanout**: Optional
+- **Fanout/Headers**: Optional
 - **Direct/Topic**: Required
 
 ## Defining Consumers
@@ -922,7 +928,7 @@ export const contract = defineContract({
 //   - processOrderExchangeBinding: ordersExchange → billingExchange (exchange-to-exchange)
 ```
 
-This also works with **fanout exchanges** — the bridge exchange must match the source type:
+This also works with **fanout/headers exchanges** — the bridge exchange must match the source type:
 
 ```typescript
 const logsExchange = defineExchange("logs", "fanout");

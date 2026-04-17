@@ -1,4 +1,15 @@
 import {
+  type ConsumerDefinition,
+  type ContractDefinition,
+  type InferConsumerNames,
+  type ResolvedImmediateRequeueRetryOptions,
+  type ResolvedRetryOptions,
+  type ResolvedTtlBackoffRetryOptions,
+  extractConsumer,
+  extractQueue,
+  isQueueWithTtlBackoffInfrastructure,
+} from "@amqp-contract/contract";
+import {
   AmqpClient,
   type Logger,
   TechnicalError,
@@ -9,27 +20,18 @@ import {
   recordConsumeMetric,
   startConsumeSpan,
 } from "@amqp-contract/core";
+import type { StandardSchemaV1 } from "@standard-schema/spec";
+import { Future, Result } from "@swan-io/boxed";
 import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
 import type { Channel, ConsumeMessage } from "amqplib";
-import {
-  type ConsumerDefinition,
-  type ContractDefinition,
-  type InferConsumerNames,
-  ResolvedImmediateRequeueRetryOptions,
-  type ResolvedRetryOptions,
-  type ResolvedTtlBackoffRetryOptions,
-  extractConsumer,
-} from "@amqp-contract/contract";
-import { Future, Result } from "@swan-io/boxed";
+import { decompressBuffer } from "./decompression.js";
+import type { HandlerError } from "./errors.js";
 import { MessageValidationError, NonRetryableError } from "./errors.js";
 import type {
   WorkerInferConsumedMessage,
   WorkerInferConsumerHandler,
   WorkerInferConsumerHandlers,
 } from "./types.js";
-import type { HandlerError } from "./errors.js";
-import type { StandardSchemaV1 } from "@standard-schema/spec";
-import { decompressBuffer } from "./decompression.js";
 
 /**
  * Internal type for consumer options extracted from handler tuples.
@@ -292,7 +294,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * Defaults are applied in the contract's defineQueue, so we just return the config.
    */
   private getRetryConfigForConsumer(consumer: ConsumerDefinition): ResolvedRetryOptions {
-    return consumer.queue.retry;
+    const queue = extractQueue(consumer.queue);
+    return queue.retry;
   }
 
   /**
@@ -390,9 +393,10 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     consumer: ConsumerDefinition,
     consumerName: TName,
   ): Future<Result<WorkerInferConsumedMessage<TContract, TName>, TechnicalError>> {
+    const queue = extractQueue(consumer.queue);
     const context = {
       consumerName: String(consumerName),
-      queueName: consumer.queue.name,
+      queueName: queue.name,
     };
 
     const nackAndError = (message: string, error?: unknown): TechnicalError => {
@@ -447,7 +451,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       rawMessage: ConsumeMessage,
     ) => Future<Result<void, HandlerError>>,
   ): Future<Result<void, TechnicalError>> {
-    const queueName = consumer.queue.name;
+    const queue = extractQueue(consumer.queue);
+    const queueName = queue.name;
 
     // Start consuming
     return this.amqpClient
@@ -598,7 +603,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    *
    * For quorum queues, messages are requeued with `nack(requeue=true)`, and the worker tracks delivery count via the native RabbitMQ `x-delivery-count` header.
    * For classic queues, messages are re-published on the same queue, and the worker tracks delivery count via a custom `x-retry-count` header.
-   * When the count exceeds `maxRetries`, the message is automatically dead-lettered.
+   * When the count exceeds `maxRetries`, the message is automatically dead-lettered (if DLX is configured) or dropped.
    *
    * This is simpler than TTL-based retry but provides immediate retries only.
    */
@@ -609,7 +614,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     consumer: ConsumerDefinition,
     config: ResolvedImmediateRequeueRetryOptions,
   ): Future<Result<void, TechnicalError>> {
-    const queue = consumer.queue;
+    const queue = extractQueue(consumer.queue);
     const queueName = queue.name;
 
     // Get retry count from headers
@@ -622,7 +627,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
     // Max retries exceeded -> DLQ
     if (retryCount >= config.maxRetries) {
-      this.logger?.error("Max retries exceeded, sending to DLQ", {
+      this.logger?.error("Max retries exceeded, sending to DLQ (immediate-requeue mode)", {
         consumerName,
         queueName,
         retryCount,
@@ -646,8 +651,14 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       this.amqpClient.nack(msg, false, true);
       return Future.value(Result.Ok(undefined));
     } else {
-      // For classic queues, re-publish the message to the queue immediately with an incremented x-retry-count header
-      return this.publishForRetry(msg, queueName, undefined, error);
+      // For classic queues, re-publish the message to the same exchange / routing key immediately with an incremented x-retry-count header
+      return this.publishForRetry({
+        msg,
+        exchange: msg.fields.exchange,
+        routingKey: msg.fields.routingKey,
+        queueName,
+        error,
+      });
     }
   }
 
@@ -655,25 +666,26 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * Handle error using TTL + wait queue pattern for exponential backoff.
    *
    * ┌─────────────────────────────────────────────────────────────────┐
-   * │ Retry Flow (Native RabbitMQ TTL + DLX Pattern)                   │
+   * │ Retry Flow (Native RabbitMQ TTL + Wait queue pattern)           │
    * ├─────────────────────────────────────────────────────────────────┤
-   * │                                                                   │
-   * │ 1. Handler throws any Error                                      │
-   * │    ↓                                                              │
-   * │ 2. Worker publishes to DLX with routing key: {queue}-wait        │
-   * │    ↓                                                              │
-   * │ 3. DLX routes to wait queue: {queue}-wait                        │
-   * │    (with expiration: calculated backoff delay)                   │
-   * │    ↓                                                              │
-   * │ 4. Message waits in queue until TTL expires                      │
-   * │    ↓                                                              │
-   * │ 5. Expired message dead-lettered to DLX                          │
-   * │    (with routing key: {queue})                                   │
-   * │    ↓                                                              │
-   * │ 6. DLX routes back to main queue → RETRY                         │
-   * │    ↓                                                              │
-   * │ 7. If retries exhausted: nack without requeue → DLQ              │
-   * │                                                                   │
+   * │                                                                 │
+   * │ 1. Handler throws any Error                                     │
+   * │    ↓                                                            │
+   * │ 2. Worker publishes to wait exchange                            |
+   * |    (with header `x-wait-queue` set to the wait queue name)      │
+   * │    ↓                                                            │
+   * │ 3. Wait exchange routes to wait queue                           │
+   * │    (with expiration: calculated backoff delay)                  │
+   * │    ↓                                                            │
+   * │ 4. Message waits in queue until TTL expires                     │
+   * │    ↓                                                            │
+   * │ 5. Expired message dead-lettered to retry exchange              |
+   * |    (with header `x-retry-queue` set to the main queue name)     │
+   * │    ↓                                                            │
+   * │ 6. Retry exchange routes back to main queue → RETRY             │
+   * │    ↓                                                            │
+   * │ 7. If retries exhausted: nack without requeue → DLQ             │
+   * │                                                                 │
    * └─────────────────────────────────────────────────────────────────┘
    */
   private handleErrorTtlBackoff(
@@ -683,15 +695,26 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     consumer: ConsumerDefinition,
     config: ResolvedTtlBackoffRetryOptions,
   ): Future<Result<void, TechnicalError>> {
-    const queueName = consumer.queue.name;
-    const waitQueueName = `${queueName}-wait`;
+    if (!isQueueWithTtlBackoffInfrastructure(consumer.queue)) {
+      this.logger?.error("Queue does not have TTL-backoff infrastructure", {
+        consumerName,
+        queueName: consumer.queue.name,
+      });
+      return Future.value(
+        Result.Error(new TechnicalError("Queue does not have TTL-backoff infrastructure")),
+      );
+    }
+
+    const queueEntry = consumer.queue;
+    const queue = extractQueue(queueEntry);
+    const queueName = queue.name;
 
     // Get retry count from headers
     const retryCount = (msg.properties.headers?.["x-retry-count"] as number) ?? 0;
 
     // Max retries exceeded -> DLQ
     if (retryCount >= config.maxRetries) {
-      this.logger?.error("Max retries exceeded, sending to DLQ", {
+      this.logger?.error("Max retries exceeded, sending to DLQ (ttl-backoff mode)", {
         consumerName,
         queueName,
         retryCount,
@@ -713,8 +736,16 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       error: error.message,
     });
 
-    // Re-publish the message to the wait queue with TTL and incremented x-retry-count header
-    return this.publishForRetry(msg, waitQueueName, delayMs, error);
+    // Re-publish the message to the wait exchange with TTL and incremented x-retry-count header
+    return this.publishForRetry({
+      msg,
+      exchange: queueEntry.waitExchange.name,
+      routingKey: msg.fields.routingKey, // Preserve original routing key
+      waitQueueName: queueEntry.waitQueue.name,
+      queueName,
+      delayMs,
+      error,
+    });
   }
 
   /**
@@ -756,14 +787,25 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   }
 
   /**
-   * Publish message to given queue with an incremented x-retry-count header and optional TTL.
+   * Publish message with an incremented x-retry-count header and optional TTL.
    */
-  private publishForRetry(
-    msg: ConsumeMessage,
-    queueName: string,
-    delayMs: number | undefined,
-    error: Error,
-  ): Future<Result<void, TechnicalError>> {
+  private publishForRetry({
+    msg,
+    exchange,
+    routingKey,
+    queueName,
+    waitQueueName,
+    delayMs,
+    error,
+  }: {
+    msg: ConsumeMessage;
+    exchange: string;
+    routingKey: string;
+    queueName: string;
+    waitQueueName?: string;
+    delayMs?: number;
+    error: Error;
+  }): Future<Result<void, TechnicalError>> {
     // Get retry count from headers
     const retryCount = (msg.properties.headers?.["x-retry-count"] as number) ?? 0;
     const newRetryCount = retryCount + 1;
@@ -773,9 +815,9 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
     const content = this.parseMessageContentForRetry(msg, queueName);
 
-    // Publish to queue with incremented x-retry-count header and original error info
+    // Publish message with incremented x-retry-count header and original error info
     return this.amqpClient
-      .sendToQueue(queueName, content, {
+      .publish(exchange, routingKey, content, {
         ...msg.properties,
         ...(delayMs !== undefined ? { expiration: delayMs.toString() } : {}), // Per-message TTL
         headers: {
@@ -784,6 +826,12 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           "x-last-error": error.message,
           "x-first-failure-timestamp":
             msg.properties.headers?.["x-first-failure-timestamp"] ?? Date.now(),
+          ...(waitQueueName !== undefined
+            ? {
+                "x-wait-queue": waitQueueName, // For wait exchange routing
+                "x-retry-queue": queueName, // For retry exchange routing
+              }
+            : {}),
         },
       })
       .mapOkToResult((published) => {
@@ -812,8 +860,9 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * Nacks the message without requeue, relying on DLX configuration.
    */
   private sendToDLQ(msg: ConsumeMessage, consumer: ConsumerDefinition): void {
-    const queueName = consumer.queue.name;
-    const hasDeadLetter = consumer.queue.deadLetter !== undefined;
+    const queue = extractQueue(consumer.queue);
+    const queueName = queue.name;
+    const hasDeadLetter = queue.deadLetter !== undefined;
 
     if (!hasDeadLetter) {
       this.logger?.warn("Queue does not have DLX configured - message will be lost on nack", {

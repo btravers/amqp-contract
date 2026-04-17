@@ -1,4 +1,3 @@
-import { Future, Result } from "@swan-io/boxed";
 import {
   defineContract,
   defineEventConsumer,
@@ -7,10 +6,11 @@ import {
   defineMessage,
   defineQueue,
 } from "@amqp-contract/contract";
+import { Future, Result } from "@swan-io/boxed";
 import { describe, expect, vi } from "vitest";
+import { z } from "zod";
 import { RetryableError } from "../errors.js";
 import { it } from "./fixture.js";
-import { z } from "zod";
 
 describe("Worker Retry Mechanism", () => {
   describe("Retry with Exponential Backoff", () => {
@@ -904,6 +904,315 @@ describe("Worker Retry Mechanism", () => {
         expect(firstFailureTimestampHeaders[0]).toBeGreaterThanOrEqual(startTime);
         expect(firstFailureTimestampHeaders[0]).toBeLessThanOrEqual(Date.now());
       });
+    });
+  });
+
+  describe("TTL-Backoff Retry without Dead Letter Exchange", () => {
+    it("should retry using headers exchanges", async ({
+      workerFactory,
+      publishMessage,
+      amqpChannel,
+    }) => {
+      // GIVEN a worker with TTL-backoff retry configured without DLX
+      const TestMessage = z.object({ id: z.string() });
+
+      const exchange = defineExchange("headers-retry-exchange", "topic", { durable: false });
+      const queue = defineQueue("headers-retry-queue", {
+        type: "classic",
+        durable: false,
+        // No deadLetter configuration
+        retry: {
+          mode: "ttl-backoff",
+          maxRetries: 2,
+          initialDelayMs: 200,
+          maxDelayMs: 1000,
+          backoffMultiplier: 2,
+          jitter: false,
+        },
+      });
+
+      const testMessage = defineMessage(TestMessage);
+      const testEvent = defineEventPublisher(exchange, testMessage, {
+        routingKey: "test.message",
+      });
+
+      const contract = defineContract({
+        publishers: { testPublisher: testEvent },
+        consumers: {
+          testConsumer: defineEventConsumer(testEvent, queue, { routingKey: "test.#" }),
+        },
+      });
+
+      let attemptCount = 0;
+      await workerFactory(contract, {
+        testConsumer: () => {
+          attemptCount++;
+          if (attemptCount === 1) {
+            return Future.value(Result.Error(new RetryableError("First attempt failed")));
+          }
+          return Future.value(Result.Ok(undefined));
+        },
+      });
+
+      // WHEN publishing a message that fails on first attempt
+      publishMessage(exchange.name, "test.message", { id: "headers-retry-1" });
+
+      // THEN wait for first processing attempt
+      await vi.waitFor(
+        () => {
+          if (attemptCount < 1) {
+            throw new Error("Message not yet processed");
+          }
+        },
+        { timeout: 2000 },
+      );
+
+      expect(attemptCount).toBe(1);
+
+      // AND message should appear in wait queue with correct headers and TTL
+      await vi.waitFor(
+        async () => {
+          const waitMsg = await amqpChannel.get("headers-retry-queue-wait", { noAck: false });
+          if (!waitMsg) {
+            throw new Error("Message not in wait queue");
+          }
+
+          expect(waitMsg.properties).toMatchObject({
+            expiration: "200", // initialDelayMs
+            headers: expect.objectContaining({
+              "x-retry-count": 1,
+              "x-last-error": "First attempt failed",
+              "x-wait-queue": "headers-retry-queue-wait",
+              "x-retry-queue": "headers-retry-queue",
+            }),
+          });
+          expect(waitMsg.properties.headers?.["x-first-failure-timestamp"]).toBeDefined();
+
+          // Nack to return message for retry
+          amqpChannel.nack(waitMsg, false, true);
+        },
+        { timeout: 2000 },
+      );
+
+      // AND after TTL expires, message should be retried successfully
+      await vi.waitFor(
+        () => {
+          if (attemptCount < 2) {
+            throw new Error("Message not yet retried");
+          }
+        },
+        { timeout: 3000 },
+      );
+
+      expect(attemptCount).toBe(2);
+    });
+
+    it("should use configurable infrastructure names", async ({
+      workerFactory,
+      publishMessage,
+      amqpChannel,
+    }) => {
+      // GIVEN a worker with custom infrastructure names
+      const TestMessage = z.object({ id: z.string() });
+
+      const exchange = defineExchange("custom-names-exchange", "topic", { durable: false });
+      const queue = defineQueue("custom-names-queue", {
+        type: "classic",
+        durable: false,
+        retry: {
+          mode: "ttl-backoff",
+          maxRetries: 1,
+          initialDelayMs: 100,
+          waitQueueName: "my-custom-wait-queue",
+          waitExchangeName: "my-custom-wait-exchange",
+          retryExchangeName: "my-custom-retry-exchange",
+          jitter: false,
+        },
+      });
+
+      const testMessage = defineMessage(TestMessage);
+      const testEvent = defineEventPublisher(exchange, testMessage, {
+        routingKey: "test.message",
+      });
+
+      const contract = defineContract({
+        publishers: { testPublisher: testEvent },
+        consumers: {
+          testConsumer: defineEventConsumer(testEvent, queue, { routingKey: "test.#" }),
+        },
+      });
+
+      let attemptCount = 0;
+      await workerFactory(contract, {
+        testConsumer: () => {
+          attemptCount++;
+          if (attemptCount === 1) {
+            return Future.value(Result.Error(new RetryableError("First attempt failed")));
+          }
+          return Future.value(Result.Ok(undefined));
+        },
+      });
+
+      // WHEN publishing a message that fails on first attempt
+      publishMessage(exchange.name, "test.message", { id: "custom-names-1" });
+
+      // THEN message should appear in custom wait queue
+      await vi.waitFor(
+        async () => {
+          const waitMsg = await amqpChannel.get("my-custom-wait-queue", { noAck: false });
+          if (!waitMsg) {
+            throw new Error("Message not in custom wait queue");
+          }
+
+          expect(waitMsg.properties).toMatchObject({
+            expiration: "100",
+            headers: expect.objectContaining({
+              "x-retry-count": 1,
+              "x-wait-queue": "my-custom-wait-queue",
+              "x-retry-queue": "custom-names-queue",
+            }),
+          });
+
+          // Nack to return message for retry
+          amqpChannel.nack(waitMsg, false, true);
+        },
+        { timeout: 2000 },
+      );
+
+      // AND after TTL expires, message should be retried successfully
+      await vi.waitFor(
+        () => {
+          if (attemptCount < 2) {
+            throw new Error("Message not yet retried");
+          }
+        },
+        { timeout: 2000 },
+      );
+
+      expect(attemptCount).toBe(2);
+    });
+
+    it("should preserve original routing key through retry flow", async ({
+      workerFactory,
+      publishMessage,
+    }) => {
+      // GIVEN a worker with TTL-backoff retry
+      const TestMessage = z.object({ id: z.string() });
+
+      const exchange = defineExchange("routing-key-exchange", "topic", { durable: false });
+      const queue = defineQueue("routing-key-queue", {
+        type: "classic",
+        durable: false,
+        retry: {
+          mode: "ttl-backoff",
+          maxRetries: 1,
+          initialDelayMs: 100,
+          jitter: false,
+        },
+      });
+
+      const testMessage = defineMessage(TestMessage);
+      const testEvent = defineEventPublisher(exchange, testMessage, {
+        routingKey: "orders.created",
+      });
+
+      const contract = defineContract({
+        publishers: { testPublisher: testEvent },
+        consumers: {
+          testConsumer: defineEventConsumer(testEvent, queue, { routingKey: "orders.#" }),
+        },
+      });
+
+      let attemptCount = 0;
+      let capturedRoutingKeys: string[] = [];
+
+      await workerFactory(contract, {
+        testConsumer: (_, msg) => {
+          attemptCount++;
+          // Capture the routing key from the message
+          capturedRoutingKeys.push(msg.fields.routingKey);
+          if (attemptCount === 1) {
+            return Future.value(Result.Error(new RetryableError("First attempt failed")));
+          }
+          return Future.value(Result.Ok(undefined));
+        },
+      });
+
+      // WHEN publishing a message with specific routing key that fails on first attempt
+      publishMessage(exchange.name, "orders.created", { id: "routing-key-1" });
+
+      // THEN wait for both attempts to complete
+      await vi.waitFor(
+        () => {
+          if (attemptCount < 2) {
+            throw new Error("Message not yet retried");
+          }
+        },
+        { timeout: 3000 },
+      );
+
+      // AND routing key should be preserved through the retry flow
+      expect(capturedRoutingKeys).toEqual(["orders.created", "orders.created"]);
+      expect(attemptCount).toBe(2);
+    });
+
+    it("should handle max retries exceeded with headers-based routing", async ({
+      workerFactory,
+      publishMessage,
+    }) => {
+      // GIVEN a worker with TTL-backoff retry and low maxRetries
+      const TestMessage = z.object({ id: z.string() });
+
+      const exchange = defineExchange("max-retries-exchange", "topic", { durable: false });
+      const queue = defineQueue("max-retries-queue", {
+        type: "classic",
+        durable: false,
+        retry: {
+          mode: "ttl-backoff",
+          maxRetries: 1, // Only allow 1 retry
+          initialDelayMs: 100,
+          jitter: false,
+        },
+      });
+
+      const testMessage = defineMessage(TestMessage);
+      const testEvent = defineEventPublisher(exchange, testMessage, {
+        routingKey: "test.message",
+      });
+
+      const contract = defineContract({
+        publishers: { testPublisher: testEvent },
+        consumers: {
+          testConsumer: defineEventConsumer(testEvent, queue, { routingKey: "test.#" }),
+        },
+      });
+
+      let attemptCount = 0;
+      await workerFactory(contract, {
+        testConsumer: () => {
+          attemptCount++;
+          // Always fail
+          return Future.value(Result.Error(new RetryableError("Always fails")));
+        },
+      });
+
+      // WHEN publishing a message that always fails
+      publishMessage(exchange.name, "test.message", { id: "max-retries-1" });
+
+      // THEN should attempt exactly maxRetries + 1 times (initial + retries)
+      await vi.waitFor(
+        () => {
+          if (attemptCount < 2) {
+            throw new Error("Not all retry attempts completed");
+          }
+        },
+        { timeout: 3000 },
+      );
+
+      expect(attemptCount).toBe(2);
+
+      // AND since no DLX is configured, the message should be lost (nacked without requeue)
+      // This is expected behavior when no DLX is configured and max retries exceeded
     });
   });
 });

@@ -83,13 +83,13 @@ const worker = await TypedAmqpWorker.create({
 
 #### Retry — Immediate-Requeue Mode
 
-| Level   | Message                                                    | Context                                                          |
-| ------- | ---------------------------------------------------------- | ---------------------------------------------------------------- |
-| `info`  | `Message published for retry`                              | `queueName`, `retryCount`                                        |
-| `warn`  | `Failed to parse message for retry, using original buffer` | `queueName`, `error`                                             |
-| `warn`  | `Retrying message (immediate-requeue mode)`                | `consumerName`, `queueName`, `retryCount`, `maxRetries`, `error` |
-| `error` | `Max retries exceeded, sending to DLQ`                     | `consumerName`, `queueName`, `retryCount`, `maxRetries`, `error` |
-| `error` | `Failed to publish message for retry (write buffer full)`  | `queueName`, `retryCount`                                        |
+| Level   | Message                                                         | Context                                                          |
+| ------- | --------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `info`  | `Message published for retry`                                   | `queueName`, `retryCount`                                        |
+| `warn`  | `Failed to parse message for retry, using original buffer`      | `queueName`, `error`                                             |
+| `warn`  | `Retrying message (immediate-requeue mode)`                     | `consumerName`, `queueName`, `retryCount`, `maxRetries`, `error` |
+| `error` | `Max retries exceeded, sending to DLQ (immediate-requeue mode)` | `consumerName`, `queueName`, `retryCount`, `maxRetries`, `error` |
+| `error` | `Failed to publish message for retry (write buffer full)`       | `queueName`, `retryCount`                                        |
 
 #### Retry — TTL-Backoff Mode
 
@@ -98,8 +98,9 @@ const worker = await TypedAmqpWorker.create({
 | `info`  | `Message published for retry`                              | `queueName`, `retryCount`, `delayMs`                                        |
 | `warn`  | `Failed to parse message for retry, using original buffer` | `queueName`, `error`                                                        |
 | `warn`  | `Retrying message (ttl-backoff mode)`                      | `consumerName`, `queueName`, `retryCount`, `maxRetries`, `delayMs`, `error` |
-| `error` | `Max retries exceeded, sending to DLQ`                     | `consumerName`, `queueName`, `retryCount`, `maxRetries`, `error`            |
+| `error` | `Max retries exceeded, sending to DLQ (ttl-backoff mode)`  | `consumerName`, `queueName`, `retryCount`, `maxRetries`, `error`            |
 | `error` | `Failed to publish message for retry (write buffer full)`  | `queueName`, `retryCount`, `delayMs`                                        |
+| `error` | `Queue does not have TTL-backoff infrastructure`           | `consumerName`, `queueName`                                                 |
 
 #### Retry — None Mode (No retry)
 
