@@ -41,7 +41,7 @@ const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
 });
 
 // 3. Define queue for processing
-const orderProcessingQueue = defineQueue("order-processing", { durable: true });
+const orderProcessingQueue = defineQueue("order-processing");
 
 // 4. Compose contract - only publishers and consumers needed
 //    Exchanges, queues, and bindings are automatically extracted
@@ -171,8 +171,8 @@ const tempQueue = defineQueue("temp-queue", {
 
 **Queue Types:**
 
-- `quorum` (default) - Better durability and high-availability via Raft consensus
-- `classic` - Traditional queues for non-durable, exclusive, or priority queue use cases
+- `quorum` (default) - Better durability and high-availability via Raft consensus (always durable, do not support exclusive, auto-deleting, or priority queues)
+- `classic` - Traditional queues for non-durable, exclusive, auto-deleting, or priority queue use cases
 
 ### Messages
 

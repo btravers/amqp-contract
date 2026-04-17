@@ -8,7 +8,7 @@ import type {
   QueueEntry,
   TopicExchangeDefinition,
 } from "../types.js";
-import { extractQueueFromEntry } from "./queue-utils.js";
+import { extractQueue } from "./queue-utils.js";
 
 /**
  * Define a binding between a queue and a fanout or headers exchange.
@@ -24,7 +24,7 @@ import { extractQueueFromEntry } from "./queue-utils.js";
  *
  * @example
  * ```typescript
- * const logsQueue = defineQueue('logs-queue', { durable: true });
+ * const logsQueue = defineQueue('logs-queue');
  * const logsExchange = defineExchange('logs', { type: 'fanout' });
  *
  * const binding = defineQueueBinding(logsQueue, logsExchange);
@@ -65,7 +65,7 @@ export function defineQueueBinding(
  *
  * @example
  * ```typescript
- * const orderQueue = defineQueue('order-processing', { durable: true });
+ * const orderQueue = defineQueue('order-processing');
  * const ordersExchange = defineExchange('orders');
  *
  * // Bind with exact routing key
@@ -114,7 +114,7 @@ export function defineQueueBinding(
   },
 ): QueueBindingDefinition {
   // Extract the plain queue definition from QueueEntry
-  const queueDef = extractQueueFromEntry(queue);
+  const queueDef = extractQueue(queue);
 
   if (exchange.type === "fanout" || exchange.type === "headers") {
     return {

@@ -43,7 +43,6 @@ const ordersDlx = defineExchange("orders-dlx");
 
 // Define queues
 const orderProcessingQueue = defineQueue("order-processing", {
-  durable: true,
   deadLetter: {
     exchange: ordersDlx,
     routingKey: "order.failed",
@@ -52,12 +51,12 @@ const orderProcessingQueue = defineQueue("order-processing", {
     "x-message-ttl": 86400000, // 24 hours
   },
 });
-const orderNotificationsQueue = defineQueue("order-notifications", { durable: true });
-const orderShippingQueue = defineQueue("order-shipping", { durable: true });
-const orderUrgentQueue = defineQueue("order-urgent", { durable: true });
+const orderNotificationsQueue = defineQueue("order-notifications");
+const orderShippingQueue = defineQueue("order-shipping");
+const orderUrgentQueue = defineQueue("order-urgent");
 
 // Dead letter queue to collect failed messages
-const ordersDlxQueue = defineQueue("orders-dlx-queue", { durable: true });
+const ordersDlxQueue = defineQueue("orders-dlx-queue");
 
 // Define messages with metadata
 const orderMessage = defineMessage(orderSchema, {

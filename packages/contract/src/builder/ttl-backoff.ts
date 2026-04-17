@@ -1,48 +1,75 @@
 import type {
-  HeadersExchangeDefinition,
-  QueueBindingDefinition,
+  BaseQueueDefinition,
   QueueDefinition,
   QueueEntry,
+  QueueWithTtlBackoffInfrastructure,
+  TtlBackoffRetryInfrastructure,
 } from "../types.js";
-import { extractQueueFromEntry } from "./queue-utils.js";
-import { createTtlBackoffInfrastructure } from "./queue.js";
+import { defineQueueBindingInternal } from "./binding.js";
+import { defineExchange } from "./exchange.js";
 
 /**
- * Result type for TTL-backoff retry infrastructure builder.
+ * Type guard to check if a queue entry is a QueueWithTtlBackoffInfrastructure.
  *
- * Contains the wait queue and bindings needed for TTL-backoff retry.
+ * When you configure a queue with TTL-backoff retry,
+ * `defineQueue` returns a `QueueWithTtlBackoffInfrastructure` instead of a plain
+ * `QueueDefinition`. This type guard helps you distinguish between the two.
+ *
+ * **When to use:**
+ * - When you need to check the type of a queue entry at runtime
+ * - When writing generic code that handles both plain queues and infrastructure wrappers
+ *
+ * **Related functions:**
+ * - `extractQueue()` - Use this to get the underlying queue definition from either type
+ *
+ * @param entry - The queue entry to check
+ * @returns True if the entry is a QueueWithTtlBackoffInfrastructure, false otherwise
+ *
+ * @example
+ * ```typescript
+ * const queue = defineQueue('orders', {
+ *   retry: { mode: 'ttl-backoff' },
+ * });
+ *
+ * if (isQueueWithTtlBackoffInfrastructure(queue)) {
+ *   // queue has .queue, .waitQueue, .waitQueueBinding, .retryQueueBinding, .waitExchange, .retryExchange
+ *   console.log('Wait queue:', queue.waitQueue.name);
+ * } else {
+ *   // queue is a plain QueueDefinition
+ *   console.log('Queue:', queue.name);
+ * }
+ * ```
  */
-export type TtlBackoffRetryInfrastructure = {
-  /**
-   * The wait queue for holding messages during backoff delay.
-   */
-  waitQueue: QueueDefinition;
-  /**
-   * Binding that routes failed messages to the wait queue.
-   */
-  waitQueueBinding: QueueBindingDefinition;
-  /**
-   * Binding that routes retried messages back to the main queue.
-   */
-  retryQueueBinding: QueueBindingDefinition;
-  /**
-   * The wait exchange used to route messages to the wait queue.
-   * This is an headers exchange, allowing to use headers for routing, while preserving original message routing key.
-   * Bindings to this exchange will use a `x-wait-queue` header to specify the wait queue to which messages should be routed.
-   */
-  waitExchange: HeadersExchangeDefinition;
-  /**
-   * The retry exchange used to route messages back to the main queue.
-   * This is an headers exchange, allowing to use headers for routing, while preserving original message routing key.
-   * Bindings to this exchange will use a `x-retry-queue` header to specify the retry queue to which messages should be routed.
-   */
-  retryExchange: HeadersExchangeDefinition;
-};
+export function isQueueWithTtlBackoffInfrastructure(
+  entry: QueueEntry,
+): entry is QueueWithTtlBackoffInfrastructure {
+  return (
+    typeof entry === "object" &&
+    entry !== null &&
+    "__brand" in entry &&
+    entry.__brand === "QueueWithTtlBackoffInfrastructure"
+  );
+}
+
+/**
+ * Wrap a queue definition with TTL-backoff retry infrastructure.
+ */
+export function wrapWithTtlBackoffInfrastructure(
+  queue: QueueDefinition,
+): QueueWithTtlBackoffInfrastructure {
+  const infra = createTtlBackoffInfrastructure(queue);
+
+  return {
+    __brand: "QueueWithTtlBackoffInfrastructure",
+    queue,
+    ...infra,
+  };
+}
 
 /**
  * Create TTL-backoff retry infrastructure for a queue.
  *
- * This builder helper generates the wait queue and bindings needed for TTL-backoff retry.
+ * This builder helper generates the wait queue, exchanges, and bindings needed for TTL-backoff retry.
  * The generated infrastructure can be spread into a contract definition.
  *
  * TTL-backoff retry works by:
@@ -72,17 +99,72 @@ export type TtlBackoffRetryInfrastructure = {
  *   publishers: { ... },
  *   consumers: { processOrder: defineEventConsumer(event, orderQueue) },
  * });
- * // contract.queues includes the wait queue, contract.bindings includes retry bindings
- *
- * // Or generate manually for advanced use cases:
- * const retryInfra = defineTtlBackoffRetryInfrastructure(orderQueue);
+ * // contract.queues includes the wait queue, contract.exchanges includes retry exchanges, contract.bindings includes retry bindings
  * ```
  */
-export function defineTtlBackoffRetryInfrastructure(
-  queueEntry: QueueEntry,
+export function createTtlBackoffInfrastructure(
+  queue: QueueDefinition,
 ): TtlBackoffRetryInfrastructure {
-  const queue = extractQueueFromEntry(queueEntry);
-  const infra = createTtlBackoffInfrastructure(queue);
+  // Ensure queue retry mode is ttl-backoff
+  if (queue.retry.mode !== "ttl-backoff") {
+    throw new Error(
+      `Queue ${queue.name} does not have ttl-backoff retry mode. Infrastructure can only be created for queues with ttl-backoff retry.`,
+    );
+  }
 
-  return infra;
+  // Create wait exchange (headers exchange) for routing failed messages to the wait queue
+  const waitExchange = defineExchange(queue.retry.waitExchangeName, {
+    type: "headers",
+  });
+
+  // Create retry exchange (headers exchange) for routing messages to retry back to main queue
+  const retryExchange = defineExchange(queue.retry.retryExchangeName, {
+    type: "headers",
+  });
+
+  // Create the wait queue (of same type as main queue)
+  const baseWaitQueue: BaseQueueDefinition = {
+    name: queue.retry.waitQueueName,
+    deadLetter: {
+      exchange: retryExchange, // Routes back to retry exchange after TTL (will preserve original message routing key)
+    },
+    retry: { mode: "none" }, // No retry for wait queue itself
+  };
+
+  const waitQueue: QueueDefinition =
+    queue.type === "quorum"
+      ? {
+          ...baseWaitQueue,
+          type: queue.type,
+          durable: true, // Quorum queues are always durable
+        }
+      : {
+          ...baseWaitQueue,
+          type: queue.type,
+          durable: queue.durable,
+        };
+
+  // Create binding for wait queue to receive failed messages
+  const waitQueueBinding = defineQueueBindingInternal(waitQueue, waitExchange, {
+    arguments: {
+      "x-match": "all",
+      "x-wait-queue": waitQueue.name, // Custom header to specify the wait queue to which messages should be routed
+    },
+  });
+
+  // Create binding for main queue to receive messages to retry
+  const retryQueueBinding = defineQueueBindingInternal(queue, retryExchange, {
+    arguments: {
+      "x-match": "all",
+      "x-retry-queue": queue.name, // Custom header to specify the retry queue to which messages should be routed
+    },
+  });
+
+  return {
+    waitQueue,
+    waitExchange,
+    retryExchange,
+    waitQueueBinding,
+    retryQueueBinding,
+  };
 }

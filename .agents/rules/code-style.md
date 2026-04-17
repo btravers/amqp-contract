@@ -32,7 +32,7 @@ const contract = defineContract({
 
 // Good — define resources first, then reference
 const ordersExchange = defineExchange("orders");
-const orderProcessingQueue = defineQueue("order-processing", { durable: true });
+const orderProcessingQueue = defineQueue("order-processing");
 const orderMessage = defineMessage(z.object({ orderId: z.string() }));
 
 const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {

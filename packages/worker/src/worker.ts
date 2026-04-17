@@ -123,7 +123,7 @@ export type CreateWorkerOptions<TContract extends ContractDefinition> = {
  * import { defineQueue, defineMessage, defineContract, defineConsumer } from '@amqp-contract/contract';
  * import { z } from 'zod';
  *
- * const orderQueue = defineQueue('order-processing', { durable: true });
+ * const orderQueue = defineQueue('order-processing');
  * const orderMessage = defineMessage(z.object({
  *   orderId: z.string(),
  *   amount: z.number()

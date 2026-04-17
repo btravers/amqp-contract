@@ -90,7 +90,7 @@ export function extractConsumer(entry: ConsumerEntry): ConsumerDefinition {
  * ```typescript
  * import { z } from 'zod';
  *
- * const orderQueue = defineQueue('order-processing', { durable: true });
+ * const orderQueue = defineQueue('order-processing');
  * const orderMessage = defineMessage(
  *   z.object({
  *     orderId: z.string().uuid(),

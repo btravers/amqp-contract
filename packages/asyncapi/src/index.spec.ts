@@ -1,4 +1,3 @@
-import * as v from "valibot";
 import {
   type ContractDefinition,
   defineConsumer,
@@ -8,21 +7,22 @@ import {
   definePublisher,
   defineQueue,
 } from "@amqp-contract/contract";
-import { describe, expect, it } from "vitest";
-import { AsyncAPIGenerator } from "./index.js";
 import { Parser } from "@asyncapi/parser";
-import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { experimental_ArkTypeToJsonSchemaConverter } from "@orpc/arktype";
 import { experimental_ValibotToJsonSchemaConverter } from "@orpc/valibot";
+import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { type } from "arktype";
+import * as v from "valibot";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import { AsyncAPIGenerator } from "./index.js";
 
 describe("AsyncAPIGenerator", () => {
   describe("with Zod schemas", () => {
     it("should generate valid AsyncAPI 3.0 document with Zod schemas", async () => {
       // GIVEN
       const orderExchange = defineExchange("orders");
-      const orderQueue = defineQueue("order-processing", { durable: true });
+      const orderQueue = defineQueue("order-processing");
 
       const orderSchema = z.object({
         orderId: z.string(),
@@ -79,10 +79,9 @@ describe("AsyncAPIGenerator", () => {
                   "bindingVersion": "0.3.0",
                   "is": "queue",
                   "queue": {
-                    "autoDelete": false,
                     "durable": true,
-                    "exclusive": false,
                     "name": "order-processing",
+                    "type": "quorum",
                     "vhost": "/",
                   },
                 },
@@ -128,7 +127,6 @@ describe("AsyncAPIGenerator", () => {
                 "amqp": {
                   "bindingVersion": "0.3.0",
                   "exchange": {
-                    "autoDelete": false,
                     "durable": true,
                     "name": "orders",
                     "type": "topic",
@@ -344,7 +342,6 @@ describe("AsyncAPIGenerator", () => {
                 "amqp": {
                   "bindingVersion": "0.3.0",
                   "exchange": {
-                    "autoDelete": false,
                     "durable": true,
                     "name": "events",
                     "type": "fanout",
@@ -465,7 +462,7 @@ describe("AsyncAPIGenerator", () => {
       const notificationExchange = defineExchange("notifications", {
         type: "direct",
       });
-      const notificationQueue = defineQueue("notification-queue", { durable: true });
+      const notificationQueue = defineQueue("notification-queue");
 
       const notificationSchema = v.object({
         notificationId: v.string(),
@@ -513,10 +510,9 @@ describe("AsyncAPIGenerator", () => {
                   "bindingVersion": "0.3.0",
                   "is": "queue",
                   "queue": {
-                    "autoDelete": false,
                     "durable": true,
-                    "exclusive": false,
                     "name": "notification-queue",
+                    "type": "quorum",
                     "vhost": "/",
                   },
                 },
@@ -565,7 +561,6 @@ describe("AsyncAPIGenerator", () => {
                 "amqp": {
                   "bindingVersion": "0.3.0",
                   "exchange": {
-                    "autoDelete": false,
                     "durable": true,
                     "name": "notifications",
                     "type": "direct",
@@ -792,10 +787,9 @@ describe("AsyncAPIGenerator", () => {
                   "bindingVersion": "0.3.0",
                   "is": "queue",
                   "queue": {
-                    "autoDelete": false,
-                    "durable": false,
-                    "exclusive": false,
+                    "durable": true,
                     "name": "payment-processing",
+                    "type": "quorum",
                     "vhost": "/",
                   },
                 },
@@ -852,7 +846,6 @@ describe("AsyncAPIGenerator", () => {
                 "amqp": {
                   "bindingVersion": "0.3.0",
                   "exchange": {
-                    "autoDelete": false,
                     "durable": true,
                     "name": "payments",
                     "type": "topic",
@@ -1104,7 +1097,6 @@ describe("AsyncAPIGenerator", () => {
                 "amqp": {
                   "bindingVersion": "0.3.0",
                   "exchange": {
-                    "autoDelete": false,
                     "durable": true,
                     "name": "mixed",
                     "type": "topic",
@@ -1295,7 +1287,6 @@ describe("AsyncAPIGenerator", () => {
                 "amqp": {
                   "bindingVersion": "0.3.0",
                   "exchange": {
-                    "autoDelete": false,
                     "durable": true,
                     "name": "generic",
                     "type": "fanout",
@@ -1359,9 +1350,10 @@ describe("AsyncAPIGenerator", () => {
       // GIVEN - Use classic queue to test all explicit options
       const queue = defineQueue("test-queue", {
         type: "classic",
-        durable: true,
-        exclusive: false,
-        autoDelete: false,
+        durable: false,
+        exclusive: true,
+        autoDelete: true,
+        maxPriority: 10,
       });
 
       const contract: ContractDefinition = {
@@ -1387,10 +1379,12 @@ describe("AsyncAPIGenerator", () => {
                   "bindingVersion": "0.3.0",
                   "is": "queue",
                   "queue": {
-                    "autoDelete": false,
-                    "durable": true,
-                    "exclusive": false,
+                    "autoDelete": true,
+                    "durable": false,
+                    "exclusive": true,
+                    "maxPriority": 10,
                     "name": "test-queue",
+                    "type": "classic",
                     "vhost": "/",
                   },
                 },
@@ -1442,7 +1436,6 @@ describe("AsyncAPIGenerator", () => {
                 "amqp": {
                   "bindingVersion": "0.3.0",
                   "exchange": {
-                    "autoDelete": false,
                     "durable": true,
                     "name": "test-exchange",
                     "type": "topic",
@@ -1506,7 +1499,6 @@ describe("AsyncAPIGenerator", () => {
                 "amqp": {
                   "bindingVersion": "0.3.0",
                   "exchange": {
-                    "autoDelete": false,
                     "durable": true,
                     "name": "orders",
                     "type": "topic",
@@ -1657,7 +1649,6 @@ describe("AsyncAPIGenerator", () => {
                 "amqp": {
                   "bindingVersion": "0.3.0",
                   "exchange": {
-                    "autoDelete": false,
                     "durable": true,
                     "name": "fanout-exchange",
                     "type": "fanout",

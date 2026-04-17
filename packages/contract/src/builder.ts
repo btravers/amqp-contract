@@ -15,10 +15,7 @@ export {
   defineMessage,
   // Queue
   defineQueue,
-  defineQuorumQueue,
-  defineTtlBackoffQueue,
   extractQueue,
-  isQueueWithTtlBackoffInfrastructure,
   // Bindings
   defineQueueBinding,
   defineExchangeBinding,
@@ -40,7 +37,7 @@ export {
   isBridgedPublisherConfig,
   isCommandConsumerConfig,
   // TTL-backoff infrastructure
-  defineTtlBackoffRetryInfrastructure,
+  isQueueWithTtlBackoffInfrastructure,
 } from "./builder/index.js";
 
 // Re-export types
@@ -55,9 +52,4 @@ export type {
   // Command pattern types
   BridgedPublisherConfig,
   CommandConsumerConfig,
-  // TTL-backoff types
-  TtlBackoffRetryInfrastructure,
-  // Queue helper types
-  DefineQuorumQueueOptions,
-  DefineTtlBackoffQueueOptions,
 } from "./builder/index.js";

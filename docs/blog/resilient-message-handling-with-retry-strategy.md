@@ -259,7 +259,6 @@ const dlxExchange = defineExchange("orders-dlx");
 
 // Define your main queue with deadLetter configuration
 const ordersQueue = defineQueue("orders", {
-  durable: true,
   deadLetter: {
     exchange: dlxExchange,
     routingKey: "orders.failed",
