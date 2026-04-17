@@ -1,6 +1,6 @@
 ---
 title: "Resilient Message Handling with Automatic Retry Strategy"
-description: "Learn how amqp-contract's automatic retry mechanism with exponential backoff helps you build fault-tolerant AMQP applications using RabbitMQ's native TTL and Dead Letter Exchange patterns"
+description: "Learn how amqp-contract's automatic retry mechanisms help you build fault-tolerant AMQP applications"
 date: 2026-01-10
 author: Benoit TRAVERS
 tags:
@@ -68,7 +68,7 @@ import { TypedAmqpWorker, RetryableError } from "@amqp-contract/worker";
 import { Future } from "@swan-io/boxed";
 import { z } from "zod";
 
-const dlx = defineExchange("orders-dlx", "topic", { durable: true });
+const dlx = defineExchange("orders-dlx");
 const orderMessage = defineMessage(z.object({ orderId: z.string(), amount: z.number() }));
 
 // Define queue with retry configuration
@@ -109,6 +109,53 @@ const worker = await TypedAmqpWorker.create({
 
 amqp-contract provides two retry modes to handle different requirements, both configured at the queue level:
 
+### Immediate-Requeue Mode (Recommended)
+
+A simpler mode that requeues failed messages immediately (no wait queues):
+
+```typescript
+import { defineQueue, defineExchange, defineContract } from "@amqp-contract/contract";
+import { TypedAmqpWorker, RetryableError } from "@amqp-contract/worker";
+import { Future } from "@swan-io/boxed";
+
+// Define queue with immediate-requeue retry
+const ordersQueue = defineQueue("orders", {
+  type: "quorum",
+  deadLetter: {
+    exchange: dlxExchange,
+    routingKey: "orders.failed",
+  },
+  retry: { mode: "immediate-requeue", maxRetries: 3 }, // Dead-letter after 3 retry attempts
+});
+
+// Worker automatically uses queue's retry configuration
+const worker = await TypedAmqpWorker.create({
+  contract,
+  handlers: {
+    processOrder: ({ payload }) =>
+      Future.fromPromise(paymentService.charge(payload))
+        .mapOk(() => undefined)
+        .mapError((error) => new RetryableError("Payment failed", error)),
+  },
+  urls: ["amqp://localhost"],
+}).resultToPromise();
+```
+
+**How it works:**
+
+- For quorum queues, messages are requeued with `nack(requeue=true)`, and the worker tracks delivery count via the native RabbitMQ `x-delivery-count` header.
+- For classic queues, messages are re-published on the same queue, and the worker tracks delivery count via a custom `x-retry-count` header.
+- When count exceeds `maxRetries`, the message is automatically dead-lettered (if DLX is configured) or dropped.
+- No wait queues or TTL management needed.
+
+**Best for:**
+
+- Simpler architecture requirements
+- When immediate retries are acceptable
+- Avoiding head-of-queue blocking issues
+
+**Trade-off:** No exponential backoff — retries are immediate.
+
 ### TTL-Backoff Mode
 
 This mode uses TTL (Time To Live) + wait queue pattern for **exponential backoff**. Wait queues and bindings are **automatically generated** by `defineContract`:
@@ -135,61 +182,11 @@ const ordersQueue = defineQueue("orders", {
 
 **Trade-off:** More complex architecture with wait queues (auto-created), and potential head-of-queue blocking with mixed TTLs.
 
-### Quorum-Native Mode (Recommended)
-
-A simpler mode that leverages RabbitMQ quorum queue's native `x-delivery-limit` feature:
-
-```typescript
-import { defineQueue, defineExchange, defineContract } from "@amqp-contract/contract";
-import { TypedAmqpWorker, RetryableError } from "@amqp-contract/worker";
-import { Future } from "@swan-io/boxed";
-
-// Define queue with quorum-native retry
-const ordersQueue = defineQueue("orders", {
-  type: "quorum",
-  deliveryLimit: 3, // After 3 delivery attempts, dead-letter
-  deadLetter: {
-    exchange: dlxExchange,
-    routingKey: "orders.failed",
-  },
-  retry: { mode: "quorum-native" }, // Use quorum queue's native delivery limit
-});
-
-// Worker automatically uses queue's retry configuration
-const worker = await TypedAmqpWorker.create({
-  contract,
-  handlers: {
-    processOrder: ({ payload }) =>
-      Future.fromPromise(paymentService.charge(payload))
-        .mapOk(() => undefined)
-        .mapError((error) => new RetryableError("Payment failed", error)),
-  },
-  urls: ["amqp://localhost"],
-}).resultToPromise();
-```
-
-**How it works:**
-
-1. When a handler fails, the message is nacked with `requeue=true`
-2. RabbitMQ automatically tracks delivery count via `x-delivery-count` header
-3. When count exceeds `deliveryLimit`, message is automatically dead-lettered
-4. No wait queues or TTL management needed
-
-**Best for:**
-
-- Simpler architecture requirements
-- When immediate retries are acceptable
-- Avoiding head-of-queue blocking issues
-
-**Trade-off:** No exponential backoff — retries are immediate.
-
-| Feature                | TTL-Backoff                      | Quorum-Native             |
-| ---------------------- | -------------------------------- | ------------------------- |
-| Retry delays           | Configurable exponential backoff | Immediate                 |
-| Architecture           | Wait queues + DLX                | Native RabbitMQ           |
-| Head-of-queue blocking | Possible with mixed TTLs         | None                      |
-| Delivery tracking      | Custom `x-retry-count` header    | Native `x-delivery-count` |
-| Queue type             | Any                              | Quorum only               |
+| Feature                | TTL-Backoff                      | Immediate-Requeue |
+| ---------------------- | -------------------------------- | ----------------- |
+| Retry delays           | Configurable exponential backoff | Immediate         |
+| Architecture           | Wait queues + Headers exchanges  | No wait queues    |
+| Head-of-queue blocking | Possible with mixed TTLs         | None              |
 
 ### How TTL-Backoff Works Under the Hood
 
@@ -222,8 +219,8 @@ sequenceDiagram
 **Key advantages of this approach:**
 
 1. **Non-blocking** - Messages wait in a separate queue, not blocking the consumer
-2. **Native RabbitMQ features** - Uses TTL and DLX, no external dependencies needed
-3. **Durable** - Wait queues are persisted like any other RabbitMQ queue
+2. **Native RabbitMQ features** - Uses TTL and wait queues, no external dependencies needed
+3. **Durable** - Wait queues are as durable as their main queue
 4. **Scalable** - Works across multiple worker instances
 
 ### Exponential Backoff in Action
@@ -239,9 +236,9 @@ With default settings, retry delays increase exponentially:
 
 With jitter enabled (default), actual delays vary between 50-100% of the calculated value, preventing all retried messages from hitting downstream services simultaneously.
 
-## Setting Up Your Queues for Retry
+## Setting Up Dead Letter Exchange
 
-For retry to work properly, your queues need Dead Letter Exchange (DLX) configuration:
+A Dead Letter Exchange (DLX) can be configured at the queue level, to which failed messages will be sent (after all retry attempts, if any configured) instead of being dropped:
 
 ```typescript
 import {
@@ -255,14 +252,13 @@ import {
 import { z } from "zod";
 
 // Define the main exchange
-const mainExchange = defineExchange("orders", "topic", { durable: true });
+const mainExchange = defineExchange("orders");
 
 // Define the Dead Letter Exchange
-const dlxExchange = defineExchange("orders-dlx", "topic", { durable: true });
+const dlxExchange = defineExchange("orders-dlx");
 
 // Define your main queue with deadLetter configuration
 const ordersQueue = defineQueue("orders", {
-  durable: true,
   deadLetter: {
     exchange: dlxExchange,
     routingKey: "orders.failed",
@@ -288,10 +284,6 @@ const contract = defineContract({
   },
 });
 ```
-
-::: warning Queue DLX Required
-If a queue doesn't have `deadLetter` configured, the worker will log a warning and fall back to immediate requeue. Always configure DLX on your queues for proper retry functionality.
-:::
 
 ## Explicit Error Classification
 
@@ -370,7 +362,7 @@ const worker = await TypedAmqpWorker.create({
 | Error Type          | Use Case                                            | Behavior                                   |
 | ------------------- | --------------------------------------------------- | ------------------------------------------ |
 | `RetryableError`    | Transient failures (network, rate limits, timeouts) | Retry based on queue's retry configuration |
-| `NonRetryableError` | Permanent failures (validation, business rules)     | Immediate DLQ                              |
+| `NonRetryableError` | Permanent failures (validation, business rules)     | Send to DLQ (if configured) or drop        |
 | Any other error     | Unexpected failures                                 | Retry based on queue's retry configuration |
 
 ## Safe Handlers for Maximum Control
@@ -425,41 +417,6 @@ The worker automatically adds headers to track retry information:
 | `x-first-failure-timestamp` | Timestamp of the first failure                |
 
 These headers are invaluable for monitoring and debugging failed messages in your DLQ.
-
-## Retry with Batch Processing
-
-Retry works seamlessly with batch processing. If a batch handler fails, all messages in the batch are retried together:
-
-```typescript
-import { TypedAmqpWorker, RetryableError } from "@amqp-contract/worker";
-import { Future } from "@swan-io/boxed";
-
-const worker = await TypedAmqpWorker.create({
-  contract,
-  handlers: {
-    processOrders: [
-      ({ payload: messages }) =>
-        // Batch insert to database
-        Future.fromPromise(db.orders.insertMany(messages))
-          .mapOk(() => undefined)
-          .mapError(
-            // All messages in batch will be retried together
-            (error) => new RetryableError("Batch insert failed", error),
-          ),
-      {
-        batchSize: 10,
-        batchTimeout: 1000,
-        // Retry is configured at the queue level, not here
-      },
-    ],
-  },
-  urls: ["amqp://localhost"],
-}).resultToPromise();
-```
-
-::: warning Batch Retry Behavior
-All messages in a failed batch receive the same retry count and delay. For partial batch success handling, consider processing messages individually instead.
-:::
 
 ## Best Practices for Production
 
@@ -568,7 +525,7 @@ Retry is configured at the queue level in your contract definition. This allows 
 ```typescript
 import { defineQueue, defineExchange } from "@amqp-contract/contract";
 
-const dlx = defineExchange("orders-dlx", "topic", { durable: true });
+const dlx = defineExchange("orders-dlx");
 
 // Queue with default TTL-backoff retry settings
 const orderQueue = defineQueue("order-processing", {
@@ -594,23 +551,21 @@ const orderQueue = defineQueue("order-processing", {
 });
 ```
 
-### Quorum-Native Mode
+### Immediate-Requeue Mode
 
 ```typescript
-// Queue using quorum-native retry (simpler architecture)
+// Queue using immediate-requeue retry (simpler architecture)
 const orderQueue = defineQueue("order-processing", {
   type: "quorum",
-  deliveryLimit: 5, // Dead-letter after 5 attempts
   deadLetter: { exchange: dlx },
-  retry: { mode: "quorum-native" },
+  retry: { mode: "immediate-requeue", maxRetries: 5 }, // Dead-letter after 5 retry attempts
 });
 ```
 
 **Configuration tips:**
 
-- Add `deadLetter` configuration to your queue definitions
 - Create DLX exchanges and queues in your contract
-- Choose `quorum-native` for simpler architecture (no wait queues)
+- Choose `immediate-requeue` for simpler architecture (no wait queues)
 - Choose `ttl-backoff` when you need exponential backoff delays
 - Consider using `NonRetryableError` for validation failures
 - Set up DLX monitoring and alerting
@@ -623,7 +578,7 @@ Building resilient message-driven applications requires thoughtful error handlin
 - **Jitter** - Prevents thundering herd problems
 - **Explicit error classification** - Control which errors should be retried
 - **Header tracking** - Full visibility into retry history
-- **Native RabbitMQ patterns** - No external dependencies, just TTL and DLX
+- **Native RabbitMQ patterns** - No external dependencies, just TTL and wait queues
 - **Type safety** - Full TypeScript support throughout
 
 Stop fighting transient failures. Let amqp-contract handle retries automatically while you focus on your business logic.

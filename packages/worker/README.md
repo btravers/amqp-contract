@@ -20,9 +20,8 @@ pnpm add @amqp-contract/worker
 
 - ✅ **Type-safe message consumption** — Handlers are fully typed based on your contract
 - ✅ **Automatic validation** — Messages are validated before reaching your handlers
-- ✅ **Automatic retry with exponential backoff** — Built-in retry mechanism using RabbitMQ TTL+DLX pattern
+- ✅ **Automatic retry mechanism** — Built-in immediate or exponential backoff retry mechanisms
 - ✅ **Prefetch configuration** — Control message flow with per-consumer prefetch settings
-- ✅ **Batch processing** — Process multiple messages at once for better throughput
 - ✅ **Automatic reconnection** — Built-in connection management with failover support
 
 ## Usage
@@ -68,16 +67,16 @@ const worker = await TypedAmqpWorker.create({
 
 ### Advanced Features
 
-For advanced features like prefetch configuration, batch processing, and **automatic retry with exponential backoff**, see the [Worker Usage Guide](https://btravers.github.io/amqp-contract/guide/worker-usage).
+For advanced features like prefetch configuration and **automatic retry**, see the [Worker Usage Guide](https://btravers.github.io/amqp-contract/guide/worker-usage).
 
-#### Retry with Exponential Backoff
+#### Retry configuration
 
 Retry is configured at the queue level in your contract definition. Add `retry` to your queue definition:
 
 ```typescript
 import { defineQueue, defineExchange, defineContract } from "@amqp-contract/contract";
 
-const dlx = defineExchange("orders-dlx", "topic", { durable: true });
+const dlx = defineExchange("orders-dlx");
 
 // Configure retry at queue level
 const orderQueue = defineQueue("order-processing", {
@@ -112,7 +111,7 @@ const worker = await TypedAmqpWorker.create({
 });
 ```
 
-The retry mechanism uses RabbitMQ's native TTL and Dead Letter Exchange pattern, so it doesn't block the consumer during retry delays. See the [Error Handling and Retry](https://btravers.github.io/amqp-contract/guide/worker-usage#error-handling-and-retry) section in the guide for complete details.
+See the [Error Handling and Retry](https://btravers.github.io/amqp-contract/guide/worker-usage#error-handling-and-retry) section in the guide for complete details.
 
 ## Defining Handlers Externally
 
@@ -148,7 +147,7 @@ Worker defines error classes:
 - `TechnicalError` - Runtime failures (parsing, processing)
 - `MessageValidationError` - Message fails schema validation
 - `RetryableError` - Signals that the error is transient and should be retried
-- `NonRetryableError` - Signals permanent failure, message goes to DLQ
+- `NonRetryableError` - Signals permanent failure, message is sent to DLQ (if configured) or dropped
 
 ## API
 

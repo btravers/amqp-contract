@@ -41,7 +41,7 @@ import {
 import { z } from "zod";
 
 // Event pattern: publisher broadcasts, consumers subscribe
-const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const ordersExchange = defineExchange("orders");
 const orderMessage = defineMessage(
   z.object({
     orderId: z.string(),
@@ -55,8 +55,8 @@ const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
 });
 
 // Multiple queues can consume the same event
-const orderQueue = defineQueue("order-processing", { durable: true });
-const analyticsQueue = defineQueue("analytics", { durable: true });
+const orderQueue = defineQueue("order-processing");
+const analyticsQueue = defineQueue("analytics");
 
 // Compose contract - exchanges, queues, bindings auto-extracted
 const contract = defineContract({

@@ -28,7 +28,7 @@ features:
 
   - icon: 🔄
     title: Reliable Retry
-    details: Built-in exponential backoff using RabbitMQ's native TTL and Dead Letter Exchange pattern.
+    details: Built-in immediate or exponential backoff retry mechanisms.
 
   - icon: 📄
     title: AsyncAPI Compatible
@@ -52,8 +52,8 @@ import {
 } from "@amqp-contract/contract";
 import { z } from "zod";
 
-const ordersExchange = defineExchange("orders", "topic", { durable: true });
-const ordersDlx = defineExchange("orders-dlx", "topic", { durable: true });
+const ordersExchange = defineExchange("orders");
+const ordersDlx = defineExchange("orders-dlx");
 const orderProcessingQueue = defineQueue("order-processing", {
   deadLetter: { exchange: ordersDlx },
   retry: { mode: "ttl-backoff" }, // Automatic retry with exponential backoff

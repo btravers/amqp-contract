@@ -6,7 +6,6 @@ import type {
   MessageDefinition,
   QueueEntry,
 } from "../types.js";
-import { extractQueue } from "./queue.js";
 
 /**
  * Type guard to check if an entry is an EventConsumerResult.
@@ -91,7 +90,7 @@ export function extractConsumer(entry: ConsumerEntry): ConsumerDefinition {
  * ```typescript
  * import { z } from 'zod';
  *
- * const orderQueue = defineQueue('order-processing', { durable: true });
+ * const orderQueue = defineQueue('order-processing');
  * const orderMessage = defineMessage(
  *   z.object({
  *     orderId: z.string().uuid(),
@@ -124,7 +123,7 @@ export function defineConsumer<TMessage extends MessageDefinition>(
   options?: Omit<ConsumerDefinition<TMessage>, "queue" | "message">,
 ): ConsumerDefinition<TMessage> {
   return {
-    queue: extractQueue(queue),
+    queue,
     message,
     ...options,
   };

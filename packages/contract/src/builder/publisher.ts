@@ -2,16 +2,18 @@ import type {
   DirectExchangeDefinition,
   ExchangeDefinition,
   FanoutExchangeDefinition,
+  HeadersExchangeDefinition,
   MessageDefinition,
   PublisherDefinition,
   TopicExchangeDefinition,
 } from "../types.js";
 
 /**
- * Define a message publisher for a fanout exchange.
+ * Define a message publisher for a fanout or headers exchange.
  *
  * A publisher sends messages to an exchange. For fanout exchanges, messages are broadcast
- * to all bound queues regardless of routing key, so no routing key is required.
+ * to all bound queues regardless of routing key, so no routing key is required. For headers exchanges,
+ * routing is based on message headers rather than routing keys, so no routing key is required either.
  *
  * The message schema is validated when publishing to ensure type safety.
  *
@@ -28,7 +30,7 @@ import type {
  * - You want automatic schema consistency between publisher and consumers
  * - You're building event-driven architectures
  *
- * @param exchange - The fanout exchange definition to publish to
+ * @param exchange - The fanout or headers exchange definition to publish to
  * @param message - The message definition with payload schema
  * @param options - Optional publisher configuration
  * @returns A publisher definition with inferred message types
@@ -37,7 +39,7 @@ import type {
  * ```typescript
  * import { z } from 'zod';
  *
- * const logsExchange = defineExchange('logs', 'fanout', { durable: true });
+ * const logsExchange = defineExchange('logs', { type: 'fanout' });
  * const logMessage = defineMessage(
  *   z.object({
  *     level: z.enum(['info', 'warn', 'error']),
@@ -53,13 +55,19 @@ import type {
  * @see defineCommandConsumer - For task queue patterns with automatic schema consistency
  */
 export function definePublisher<TMessage extends MessageDefinition>(
-  exchange: FanoutExchangeDefinition,
+  exchange: FanoutExchangeDefinition | HeadersExchangeDefinition,
   message: TMessage,
   options?: Omit<
-    Extract<PublisherDefinition<TMessage>, { exchange: FanoutExchangeDefinition }>,
+    Extract<
+      PublisherDefinition<TMessage>,
+      { exchange: FanoutExchangeDefinition | HeadersExchangeDefinition }
+    >,
     "exchange" | "message" | "routingKey"
   >,
-): Extract<PublisherDefinition<TMessage>, { exchange: FanoutExchangeDefinition }>;
+): Extract<
+  PublisherDefinition<TMessage>,
+  { exchange: FanoutExchangeDefinition | HeadersExchangeDefinition }
+>;
 
 /**
  * Define a message publisher for a direct or topic exchange.
@@ -92,7 +100,7 @@ export function definePublisher<TMessage extends MessageDefinition>(
  * ```typescript
  * import { z } from 'zod';
  *
- * const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+ * const ordersExchange = defineExchange('orders');
  * const orderMessage = defineMessage(
  *   z.object({
  *     orderId: z.string().uuid(),
@@ -143,7 +151,7 @@ export function definePublisher<TMessage extends MessageDefinition>(
   message: TMessage,
   options?: { routingKey?: string },
 ): PublisherDefinition<TMessage> {
-  if (exchange.type === "fanout") {
+  if (exchange.type === "fanout" || exchange.type === "headers") {
     return {
       exchange,
       message,
@@ -171,7 +179,7 @@ export function definePublisherInternal<TMessage extends MessageDefinition>(
   },
 ): PublisherDefinition<TMessage> {
   // Type assertion is safe because overloaded signatures enforce routingKey requirement
-  if (exchange.type === "fanout") {
+  if (exchange.type === "fanout" || exchange.type === "headers") {
     return definePublisher(exchange, message, options);
   }
   return definePublisher(exchange, message, options as { routingKey: string });

@@ -34,7 +34,7 @@ import {
 import { z } from "zod";
 
 // Define exchange and message
-const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const ordersExchange = defineExchange("orders");
 const orderMessage = defineMessage(
   z.object({
     orderId: z.string().uuid(),
@@ -48,8 +48,8 @@ const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
 });
 
 // Multiple queues can consume the same event
-const orderQueue = defineQueue("order-processing", { durable: true });
-const analyticsQueue = defineQueue("analytics", { durable: true });
+const orderQueue = defineQueue("order-processing");
+const analyticsQueue = defineQueue("analytics");
 
 // Compose contract - only publishers and consumers needed
 // Exchanges, queues, and bindings are automatically extracted
@@ -120,8 +120,8 @@ import {
 import { z } from "zod";
 
 // Define queue, exchange, and message
-const taskQueue = defineQueue("tasks", { durable: true });
-const tasksExchange = defineExchange("tasks", "direct", { durable: true });
+const taskQueue = defineQueue("tasks");
+const tasksExchange = defineExchange("tasks", { type: "direct" });
 const taskMessage = defineMessage(
   z.object({
     taskId: z.string(),
@@ -230,20 +230,15 @@ amqp-contract uses a **composition pattern**:
 
 ## Defining Exchanges
 
-Exchanges route messages to queues. Define them as variables and reference them in publishers and consumers:
+Exchanges route messages to queues. By default, exchanges are created as **topic exchanges** and are durable:
 
 ```typescript
 import { defineExchange } from "@amqp-contract/contract";
 
 // Define exchanges as variables
-const ordersExchange = defineExchange("orders", "topic", {
-  durable: true,
-  autoDelete: false,
-});
+const ordersExchange = defineExchange("orders");
 
-const notificationsExchange = defineExchange("notifications", "fanout", {
-  durable: true,
-});
+const notificationsExchange = defineExchange("notifications", { type: "fanout" });
 
 // Exchanges are automatically included in the contract output
 // when referenced by publishers or consumers
@@ -251,9 +246,10 @@ const notificationsExchange = defineExchange("notifications", "fanout", {
 
 **Exchange Types:**
 
+- `topic` (default) - Routes by routing key patterns (wildcards `*` and `#`)
 - `direct` - Routes by exact routing key match
-- `topic` - Routes by routing key patterns (wildcards `*` and `#`)
 - `fanout` - Routes to all bound queues (ignores routing keys)
+- `headers` - Routes based on message headers (ignores routing keys)
 
 ## Defining Queues
 
@@ -274,7 +270,7 @@ const orderProcessingQueueExplicit = defineQueue("order-processing", {
 const tempQueue = defineQueue("temp-queue", {
   type: "classic",
   durable: false, // Only supported with classic queues
-  autoDelete: true,
+  autoDelete: true, // Only supported with classic queues
 });
 
 // Queues are automatically included in the contract output
@@ -283,70 +279,55 @@ const tempQueue = defineQueue("temp-queue", {
 
 **Queue Types:**
 
-- `quorum` (default) - Quorum queues provide better durability and high-availability. They are always durable and do not support `exclusive` mode or priority queues.
-- `classic` - Traditional RabbitMQ queue type. Use when you need non-durable queues, exclusive queues, or priority queues.
+- `quorum` (default) - Quorum queues provide better durability and high-availability. They are always durable and do not support exclusive, auto-deleting, or priority queues.
+- `classic` - Traditional RabbitMQ queue type. Use when you need non-durable, exclusive, auto-deleting, or priority queues.
 
 ::: tip Best Practice
 Use quorum queues (the default) for production workloads. Only use classic queues when you need specific features not supported by quorum queues.
-:::
-
-### Quorum Queue Delivery Limit
-
-Quorum queues support a native `deliveryLimit` option for automatic retry handling. When a message is nacked and requeued, RabbitMQ tracks the delivery count. Once the count exceeds the limit, the message is automatically dead-lettered.
-
-```typescript
-import { defineQueue, defineExchange } from "@amqp-contract/contract";
-
-const dlx = defineExchange("orders-dlx", "topic", { durable: true });
-
-// Quorum queue with delivery limit for automatic retry handling
-const orderQueue = defineQueue("order-processing", {
-  type: "quorum", // Default
-  deliveryLimit: 3, // Dead-letter after 3 delivery attempts
-  deadLetter: {
-    exchange: dlx,
-    routingKey: "order.failed",
-  },
-});
-```
-
-**Benefits of `deliveryLimit`:**
-
-- **Simpler architecture** - No wait queues needed for retry handling
-- **No head-of-queue blocking** - Unlike TTL-based retry, delivery limit works correctly regardless of message order
-- **Native RabbitMQ tracking** - Delivery count tracked via `x-delivery-count` header
-- **Atomic guarantees** - RabbitMQ handles the retry logic internally
-
-::: warning Note
-The `deliveryLimit` option only works with quorum queues. For classic queues, use the `ttl-backoff` retry mode which creates wait queues with per-message TTL.
 :::
 
 ### Retry Configuration
 
 Configure automatic retry behavior at the queue level using the `retry` option. This determines how failed messages are handled by the worker.
 
-#### Quorum-Native Mode
+#### Immediate-Requeue Mode
 
-For quorum queues, use `quorum-native` mode which leverages RabbitMQ's built-in delivery tracking:
+Use `immediate-requeue` mode to requeue failed messages immediately:
 
 ```typescript
 import { defineQueue, defineExchange } from "@amqp-contract/contract";
 
-const dlx = defineExchange("orders-dlx", "topic", { durable: true });
+const dlx = defineExchange("orders-dlx");
 
 const orderQueue = defineQueue("order-processing", {
   type: "quorum",
-  deliveryLimit: 3, // Dead-letter after 3 delivery attempts
   deadLetter: { exchange: dlx },
-  retry: { mode: "quorum-native" },
+  retry: { mode: "immediate-requeue", maxRetries: 3 }, // Dead-letter after 3 retry attempts
 });
 ```
 
 **Benefits:**
 
 - **Simpler architecture** - No wait queues needed
-- **Native tracking** - RabbitMQ tracks delivery count automatically
 - **No head-of-queue blocking** - Messages are requeued immediately
+
+::: warning Note
+Quorum queues may also limit the number of allowed requeues according to the delivery limit policy (defaults to `20` in RabbitMQ 4).
+If needed, you can configure the delivery limit in the queue arguments:
+:::
+
+```typescript
+import { defineQueue, defineExchange } from "@amqp-contract/contract";
+
+const dlx = defineExchange("orders-dlx");
+
+const orderQueue = defineQueue("order-processing", {
+  type: "quorum",
+  deadLetter: { exchange: dlx },
+  retry: { mode: "immediate-requeue", maxRetries: 3 },
+  arguments: { "x-delivery-limit": 20 },
+});
+```
 
 #### TTL-Backoff Mode
 
@@ -355,7 +336,7 @@ For exponential backoff with delays between retries, use `ttl-backoff` mode:
 ```typescript
 import { defineQueue, defineExchange } from "@amqp-contract/contract";
 
-const dlx = defineExchange("orders-dlx", "topic", { durable: true });
+const dlx = defineExchange("orders-dlx");
 
 const orderQueue = defineQueue("order-processing", {
   deadLetter: { exchange: dlx },
@@ -372,24 +353,28 @@ const orderQueue = defineQueue("order-processing", {
 
 When you use `ttl-backoff` mode, `defineContract` automatically generates:
 
-- A wait queue (`{queueName}-wait`) with per-message TTL
-- Bindings to route messages through the DLX for retry
+- A wait queue (`{queueName}-wait`) with per-message TTL, holding messages during backoff delay
+- A wait headers exchange (`wait-exchange`) used to route messages to the wait queue
+- A retry headers exchange (`retry-exchange`) used to route messages back to the main queue
+- Bindings to route messages through the headers exchanges for retry
 
 **Benefits:**
 
 - **Exponential backoff** - Give failing services time to recover
 - **Jitter support** - Prevents thundering herd problems
-- **Works with any queue type** - Classic or quorum
 
 **Default values for TTL-backoff:**
 
-| Option              | Default | Description                        |
-| ------------------- | ------- | ---------------------------------- |
-| `maxRetries`        | 3       | Maximum retry attempts             |
-| `initialDelayMs`    | 1000    | Initial delay in milliseconds      |
-| `maxDelayMs`        | 30000   | Maximum delay cap in milliseconds  |
-| `backoffMultiplier` | 2       | Multiplier for exponential backoff |
-| `jitter`            | true    | Add randomness to delays           |
+| Option              | Default            | Description                        |
+| ------------------- | ------------------ | ---------------------------------- |
+| `maxRetries`        | 3                  | Maximum retry attempts             |
+| `initialDelayMs`    | 1000               | Initial delay in milliseconds      |
+| `maxDelayMs`        | 30000              | Maximum delay cap in milliseconds  |
+| `backoffMultiplier` | 2                  | Multiplier for exponential backoff |
+| `jitter`            | true               | Add randomness to delays           |
+| `waitQueueName`     | `{queueName}-wait` | Name of the wait queue             |
+| `waitExchangeName`  | `wait-exchange`    | Name of the wait exchange          |
+| `retryExchangeName` | `retry-exchange`   | Name of the retry exchange         |
 
 See the [Worker Usage Guide](/guide/worker-usage#retry-strategies) for more details on retry behavior.
 
@@ -477,9 +462,9 @@ Learn more about schema libraries:
 Bindings connect queues to exchanges. With `defineContract`, bindings are **automatically generated** from event and command consumer patterns:
 
 ```typescript
-const ordersExchange = defineExchange("orders", "topic", { durable: true });
-const orderProcessingQueue = defineQueue("order-processing", { durable: true });
-const allOrdersQueue = defineQueue("all-orders", { durable: true });
+const ordersExchange = defineExchange("orders");
+const orderProcessingQueue = defineQueue("order-processing");
+const allOrdersQueue = defineQueue("all-orders");
 
 const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
   routingKey: "order.created",
@@ -502,7 +487,7 @@ const contract = defineContract({
 
 **Routing Key Requirements:**
 
-- **Fanout**: Routing key is optional (fanout ignores it)
+- **Fanout/Headers**: Routing key is optional (and ignored)
 - **Direct/Topic**: Routing key is required
 
 TypeScript enforces these rules at compile time!
@@ -515,7 +500,7 @@ Publishers define message schemas for publishing. Use `defineEventPublisher` (re
 import { defineEventPublisher, definePublisher, defineMessage } from "@amqp-contract/contract";
 import { z } from "zod";
 
-const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const ordersExchange = defineExchange("orders");
 
 const orderMessage = defineMessage(
   z.object({
@@ -549,7 +534,7 @@ const contract = defineContract({
 
 **Routing Key Requirements:**
 
-- **Fanout**: Optional
+- **Fanout/Headers**: Optional
 - **Direct/Topic**: Required
 
 ## Defining Consumers
@@ -560,7 +545,7 @@ Consumers define message schemas for consuming. Use `defineEventConsumer` (recom
 import { defineEventConsumer, defineConsumer, defineMessage } from "@amqp-contract/contract";
 import { z } from "zod";
 
-const orderProcessingQueue = defineQueue("order-processing", { durable: true });
+const orderProcessingQueue = defineQueue("order-processing");
 
 const orderMessage = defineMessage(
   z.object({
@@ -601,11 +586,11 @@ import {
 import { z } from "zod";
 
 // 1. Define exchange
-const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const ordersExchange = defineExchange("orders");
 
 // 2. Define queues
-const orderProcessingQueue = defineQueue("order-processing", { durable: true });
-const orderNotificationsQueue = defineQueue("order-notifications", { durable: true });
+const orderProcessingQueue = defineQueue("order-processing");
+const orderNotificationsQueue = defineQueue("order-notifications");
 
 // 3. Define message
 const orderMessage = defineMessage(
@@ -642,8 +627,8 @@ For other advanced routing scenarios, you can set up exchange-to-exchange bindin
 ```typescript
 import { defineExchangeBinding } from "@amqp-contract/contract";
 
-const sourceExchange = defineExchange("source", "topic", { durable: true });
-const destExchange = defineExchange("destination", "topic", { durable: true });
+const sourceExchange = defineExchange("source");
+const destExchange = defineExchange("destination");
 
 // Exchange-to-exchange binding definition
 const crossExchangeBinding = defineExchangeBinding(destExchange, sourceExchange, {
@@ -655,8 +640,8 @@ const client = new AmqpClient(contract, {
   urls: ["amqp://localhost"],
   channelOptions: {
     setup: async (channel) => {
-      await channel.assertExchange("source", "topic", { durable: true });
-      await channel.assertExchange("destination", "topic", { durable: true });
+      await channel.assertExchange("source", "topic");
+      await channel.assertExchange("destination", "topic");
       await channel.bindExchange("destination", "source", "order.#");
     },
   },
@@ -742,11 +727,10 @@ import {
 } from "@amqp-contract/contract";
 
 // 1. Define the dead letter exchange
-const ordersDlx = defineExchange("orders-dlx", "topic", { durable: true });
+const ordersDlx = defineExchange("orders-dlx");
 
 // 2. Define the main queue with dead letter configuration
 const orderProcessingQueue = defineQueue("order-processing", {
-  durable: true,
   deadLetter: {
     exchange: ordersDlx,
     routingKey: "order.failed", // Optional: routing key for DLX
@@ -758,7 +742,7 @@ const orderProcessingQueue = defineQueue("order-processing", {
 });
 
 // 3. Define a queue to collect dead-lettered messages
-const ordersDlxQueue = defineQueue("orders-dlx-queue", { durable: true });
+const ordersDlxQueue = defineQueue("orders-dlx-queue");
 
 // 4. Define event publisher for DLX binding
 const failedOrderEvent = defineEventPublisher(ordersDlx, orderMessage, {
@@ -812,8 +796,8 @@ import {
 import { z } from "zod";
 
 // Define exchanges
-const ordersExchange = defineExchange("orders", "topic", { durable: true });
-const ordersDlx = defineExchange("orders-dlx", "topic", { durable: true });
+const ordersExchange = defineExchange("orders");
+const ordersDlx = defineExchange("orders-dlx");
 
 // Define message schema
 const orderMessage = defineMessage(
@@ -825,7 +809,6 @@ const orderMessage = defineMessage(
 
 // Define queues with DLX configuration
 const orderProcessingQueue = defineQueue("order-processing", {
-  durable: true,
   deadLetter: {
     exchange: ordersDlx,
     routingKey: "order.failed",
@@ -835,7 +818,7 @@ const orderProcessingQueue = defineQueue("order-processing", {
   },
 });
 
-const ordersDlxQueue = defineQueue("orders-dlx-queue", { durable: true });
+const ordersDlxQueue = defineQueue("orders-dlx-queue");
 
 // Define event publishers
 const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
@@ -912,7 +895,7 @@ import {
 import { z } from "zod";
 
 // Remote domain's exchange and event (defined elsewhere, referenced here)
-const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const ordersExchange = defineExchange("orders");
 const orderMessage = defineMessage(z.object({ orderId: z.string(), amount: z.number() }));
 
 const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
@@ -920,7 +903,7 @@ const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
 });
 
 // Local domain's bridge exchange and queue
-const billingExchange = defineExchange("billing", "topic", { durable: true });
+const billingExchange = defineExchange("billing");
 const billingQueue = defineQueue("billing-order-processing");
 
 // Subscribe to remote events via local bridge exchange
@@ -938,11 +921,11 @@ export const contract = defineContract({
 //   - processOrderExchangeBinding: ordersExchange → billingExchange (exchange-to-exchange)
 ```
 
-This also works with **fanout exchanges** — the bridge exchange must match the source type:
+This also works with **fanout/headers exchanges** — the bridge exchange must match the source type:
 
 ```typescript
-const logsExchange = defineExchange("logs", "fanout");
-const analyticsExchange = defineExchange("analytics", "fanout");
+const logsExchange = defineExchange("logs", { type: "fanout" });
+const analyticsExchange = defineExchange("analytics", { type: "fanout" });
 const analyticsQueue = defineQueue("analytics-logs");
 
 const logEvent = defineEventPublisher(logsExchange, logMessage);
@@ -981,7 +964,7 @@ graph LR
 
 ```typescript
 // Remote domain's command consumer (defined elsewhere, referenced here)
-const remoteExchange = defineExchange("remote-commands", "topic", { durable: true });
+const remoteExchange = defineExchange("remote-commands");
 const remoteQueue = defineQueue("remote-task-queue");
 const taskMessage = defineMessage(z.object({ taskId: z.string() }));
 
@@ -990,7 +973,7 @@ const processTask = defineCommandConsumer(remoteQueue, remoteExchange, taskMessa
 });
 
 // Local domain's bridge exchange
-const localExchange = defineExchange("local-commands", "topic", { durable: true });
+const localExchange = defineExchange("local-commands");
 
 // Publish commands via local bridge exchange
 export const contract = defineContract({

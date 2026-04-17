@@ -105,7 +105,7 @@ describe("Feature Integration", () => {
     // GIVEN
     const contract = defineContract({
       exchanges: {
-        test: defineExchange("test", "topic", { durable: false }),
+        test: defineExchange("test", { durable: false }),
       },
     });
 

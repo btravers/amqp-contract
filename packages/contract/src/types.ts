@@ -31,6 +31,7 @@ export type TtlBackoffRetryOptions = {
   mode: "ttl-backoff";
   /**
    * Maximum retry attempts before sending to DLQ.
+   * @minimum 1 - Must be a positive integer (1 or greater)
    * @default 3
    */
   maxRetries?: number;
@@ -54,28 +55,69 @@ export type TtlBackoffRetryOptions = {
    * @default true
    */
   jitter?: boolean;
+  /**
+   * Name of the wait queue.
+   * @default '{queueName}-wait'
+   */
+  waitQueueName?: string;
+  /**
+   * Name of the wait exchange.
+   * @default 'wait-exchange'
+   */
+  waitExchangeName?: string;
+  /**
+   * Name of the retry exchange.
+   * @default 'retry-exchange'
+   */
+  retryExchangeName?: string;
 };
 
 /**
- * Quorum-Native retry options using RabbitMQ's native delivery limit feature.
+ * Immediate-Requeue retry options.
  *
- * Uses quorum queue's `x-delivery-limit` feature. Messages are requeued immediately
- * with `nack(requeue=true)`, and RabbitMQ tracks delivery count via `x-delivery-count`
- * header. When the count exceeds the queue's `deliveryLimit`, the message is
- * automatically dead-lettered.
+ * Failed messages are requeued immediately.
+ * For quorum queues, messages are requeued with `nack(requeue=true)`, and the worker tracks delivery count via the native RabbitMQ `x-delivery-count` header.
+ * For classic queues, messages are re-published on the same queue, and the worker tracks delivery count via a custom `x-retry-count` header.
+ * When the count exceeds `maxRetries`, the message is automatically dead-lettered (if DLX is configured) or dropped.
  *
  * **Benefits:** Simpler architecture, no wait queues needed, no head-of-queue blocking.
  * **Limitation:** Immediate retries only (no exponential backoff).
  *
  * @see https://www.rabbitmq.com/docs/quorum-queues#poison-message-handling
  */
-export type QuorumNativeRetryOptions = {
+export type ImmediateRequeueRetryOptions = {
   /**
-   * Quorum-Native mode uses RabbitMQ's native delivery limit feature.
-   * Requires the queue to be a quorum queue with `deliveryLimit` configured.
+   * Immediate-Requeue mode.
    */
-  mode: "quorum-native";
+  mode: "immediate-requeue";
+  /**
+   * Maximum retry attempts before sending to DLQ.
+   * @minimum 1 - Must be a positive integer (1 or greater)
+   * @default 3
+   */
+  maxRetries?: number;
 };
+
+/**
+ * No retry mode. Failed messages are not retried and are sent
+ * directly to DLQ (if configured) or rejected.
+ */
+export type NoneRetryOptions = {
+  /**
+   * None mode disables retry attempts entirely.
+   */
+  mode: "none";
+};
+
+/**
+ * Retry configuration options.
+ *
+ * This is a discriminated union based on the `mode` field:
+ * - `none` (default): No retry attempts are made; failed messages are handled by DLQ/reject
+ * - `immediate-requeue`: Requeues failed messages immediately
+ * - `ttl-backoff`: Uses wait queues with exponential backoff
+ */
+export type RetryOptions = NoneRetryOptions | ImmediateRequeueRetryOptions | TtlBackoffRetryOptions;
 
 /**
  * Resolved TTL-Backoff retry options with all defaults applied.
@@ -92,16 +134,39 @@ export type ResolvedTtlBackoffRetryOptions = {
   maxDelayMs: number;
   backoffMultiplier: number;
   jitter: boolean;
+  waitQueueName: string;
+  waitExchangeName: string;
+  retryExchangeName: string;
+};
+
+/**
+ * Resolved Immediate-Requeue retry options with all defaults applied.
+ *
+ * This type is used internally in queue definitions after `defineQueue` has applied
+ * default values. All fields are required.
+ *
+ * @internal
+ */
+export type ResolvedImmediateRequeueRetryOptions = {
+  mode: "immediate-requeue";
+  maxRetries: number;
 };
 
 /**
  * Resolved retry configuration stored in queue definitions.
  *
  * This is a discriminated union based on the `mode` field:
- * - `ttl-backoff`: Has all TTL-backoff options with defaults applied
- * - `quorum-native`: No additional options (uses RabbitMQ native retry)
+ * - `none`: No retry attempts are made; failed messages are handled by DLQ/reject
+ * - `immediate-requeue`: Has all immediate-requeue retry options with default applied
+ * - `ttl-backoff`: Has all TTL-backoff retry options with defaults applied
+ *
+ * When using `ttl-backoff` mode, the core package will automatically create
+ * a wait queue and the necessary exchanges and bindings.
  */
-export type ResolvedRetryOptions = ResolvedTtlBackoffRetryOptions | QuorumNativeRetryOptions;
+export type ResolvedRetryOptions =
+  | NoneRetryOptions
+  | ResolvedImmediateRequeueRetryOptions
+  | ResolvedTtlBackoffRetryOptions;
 
 /**
  * Supported compression algorithms for message payloads.
@@ -141,8 +206,7 @@ export type CompressionAlgorithm = "gzip" | "deflate";
  * - `classic`: Classic queues - The traditional RabbitMQ queue type. Use only when you need
  *   specific features not supported by quorum queues (e.g., non-durable queues, priority queues).
  *
- * Note: Quorum queues require `durable: true` and do not support `exclusive: true`.
- * When using quorum queues, `durable` is automatically set to `true`.
+ * Note: Quorum queues only support durable queues, and do not support exclusive, auto-deleting, or priority queues.
  *
  * @see https://www.rabbitmq.com/docs/quorum-queues
  *
@@ -167,22 +231,37 @@ export type QueueType = "quorum" | "classic";
  */
 type BaseQueueOptions = {
   /**
-   * If true, the queue survives broker restarts. Durable queues are persisted to disk.
-   * Note: Quorum queues are always durable regardless of this setting.
-   * @default false (but forced to true for quorum queues during setup)
-   */
-  durable?: boolean;
-
-  /**
-   * If true, the queue is deleted when the last consumer unsubscribes.
-   * @default false
-   */
-  autoDelete?: boolean;
-
-  /**
    * Dead letter configuration for handling failed or rejected messages.
    */
   deadLetter?: DeadLetterConfig;
+
+  /**
+   * Retry configuration for handling failed message processing.
+   *
+   * @example
+   * ```typescript
+   * // No retry
+   * const orderQueue = defineQueue('order-processing', {
+   *   retry: { mode: 'none' },
+   * });
+   *
+   * // Immediate-requeue mode
+   * const orderQueue = defineQueue('order-processing', {
+   *   retry: { mode: 'immediate-requeue', maxRetries: 5 },
+   * });
+   *
+   * // TTL-backoff mode with custom options
+   * const orderQueue = defineQueue('order-processing', {
+   *   retry: {
+   *     mode: 'ttl-backoff',
+   *     maxRetries: 5,
+   *     initialDelayMs: 1000,
+   *     maxDelayMs: 30000,
+   *   },
+   * });
+   * ```
+   */
+  retry?: RetryOptions;
 
   /**
    * Additional AMQP arguments for advanced configuration.
@@ -194,12 +273,14 @@ type BaseQueueOptions = {
  * Options for creating a quorum queue.
  *
  * Quorum queues do not support:
- * - `exclusive` - Use classic queues for exclusive access
+ * - `exclusive` - Use classic queues for connection-scoped queues
+ * - `autoDelete` - Use classic queues for auto-deleting queues when consumers disconnect
  * - `maxPriority` - Use classic queues for priority queues
+ * - `durable: false` - Use classic queues for non-durable queues
  *
- * Quorum queues provide native retry support via `deliveryLimit`:
+ * Quorum queues provide native retry support for immediate-requeue retry mode:
  * - RabbitMQ tracks delivery count automatically via `x-delivery-count` header
- * - When the limit is exceeded, messages are dead-lettered (if DLX is configured)
+ * - When the limit is exceeded, messages are dead-lettered (if DLX is configured) or dropped
  * - This is simpler than TTL-based retry and avoids head-of-queue blocking issues
  *
  * @example
@@ -207,7 +288,7 @@ type BaseQueueOptions = {
  * const orderQueue = defineQueue('orders', {
  *   type: 'quorum',
  *   deadLetter: { exchange: dlx },
- *   deliveryLimit: 3, // Message dead-lettered after 3 delivery attempts
+ *   retry: { mode: 'immediate-requeue', maxRetries: 3 } // Message dead-lettered after 3 retry attempts
  * });
  * ```
  */
@@ -218,91 +299,35 @@ export type QuorumQueueOptions = BaseQueueOptions & {
   type?: "quorum";
 
   /**
+   * Quorum queues only support durable queues.
+   */
+  durable?: true;
+
+  /**
    * Quorum queues do not support exclusive mode.
    * Use type: 'classic' if you need exclusive queues.
    */
   exclusive?: never;
 
   /**
+   * Quorum queues do not support auto-delete mode.
+   * Use type: 'classic' if you need auto-deleting queues.
+   */
+  autoDelete?: never;
+
+  /**
    * Quorum queues do not support priority queues.
    * Use type: 'classic' if you need priority queues.
    */
   maxPriority?: never;
-
-  /**
-   * Maximum number of delivery attempts before the message is dead-lettered.
-   *
-   * When a message is rejected (nacked) and requeued, RabbitMQ increments
-   * the `x-delivery-count` header. When this count reaches the delivery limit,
-   * the message is automatically dead-lettered (if DLX is configured) or dropped.
-   *
-   * This is a quorum queue-specific feature that provides native retry handling
-   * without the complexity of TTL-based wait queues.
-   *
-   * **Benefits over TTL-based retry:**
-   * - Simpler architecture (no wait queues needed)
-   * - No head-of-queue blocking issues (TTL only works at queue head)
-   * - Native RabbitMQ feature with atomic guarantees
-   *
-   * @minimum 1 - Must be a positive integer (1 or greater)
-   *
-   * @see https://www.rabbitmq.com/docs/quorum-queues#poison-message-handling
-   *
-   * @example
-   * ```typescript
-   * const orderQueue = defineQueue('order-processing', {
-   *   type: 'quorum',
-   *   deliveryLimit: 5, // Allow up to 5 delivery attempts
-   *   deadLetter: {
-   *     exchange: dlx,
-   *     routingKey: 'order.failed',
-   *   },
-   * });
-   * ```
-   */
-  deliveryLimit?: number;
-
-  /**
-   * Retry configuration for handling failed message processing.
-   *
-   * Determines how the worker handles retries for consumers using this queue:
-   * - `"ttl-backoff"` (default): Uses wait queues with exponential backoff
-   * - `"quorum-native"`: Uses RabbitMQ's native delivery limit feature
-   *
-   * When using `"ttl-backoff"` mode, the core package will automatically create
-   * a wait queue (`{queueName}-wait`) and the necessary bindings.
-   *
-   * @example
-   * ```typescript
-   * // TTL-backoff mode with custom options
-   * const orderQueue = defineQueue('order-processing', {
-   *   type: 'quorum',
-   *   deadLetter: { exchange: dlx },
-   *   retry: {
-   *     mode: 'ttl-backoff',
-   *     maxRetries: 5,
-   *     initialDelayMs: 1000,
-   *     maxDelayMs: 30000,
-   *   },
-   * });
-   *
-   * // Quorum-native mode
-   * const orderQueue = defineQueue('order-processing', {
-   *   type: 'quorum',
-   *   deliveryLimit: 5,
-   *   deadLetter: { exchange: dlx },
-   *   retry: { mode: 'quorum-native' },
-   * });
-   * ```
-   */
-  retry?: TtlBackoffRetryOptions | QuorumNativeRetryOptions;
 };
 
 /**
  * Options for creating a classic queue.
  *
  * Classic queues support all traditional RabbitMQ features including:
- * - `exclusive: true` - For connection-scoped queues
+ * - `exclusive` - For connection-scoped queues
+ * - `autoDelete` - For auto-deleting queues when consumers disconnect
  * - `maxPriority` - For priority queues
  * - `durable: false` - For non-durable queues
  *
@@ -310,7 +335,6 @@ export type QuorumQueueOptions = BaseQueueOptions & {
  * ```typescript
  * const priorityQueue = defineQueue('tasks', {
  *   type: 'classic',
- *   durable: true,
  *   maxPriority: 10,
  * });
  * ```
@@ -322,50 +346,44 @@ export type ClassicQueueOptions = BaseQueueOptions & {
   type: "classic";
 
   /**
+   * If true, the queue survives broker restarts. Durable queues are persisted to disk.
+   * @default true
+   */
+  durable?: boolean;
+
+  /**
    * If true, the queue can only be used by the declaring connection and is deleted when
    * that connection closes. Exclusive queues are private to the connection.
-   * @default false
    */
   exclusive?: boolean;
 
   /**
-   * Maximum priority level for priority queue (1-255, recommended: 1-10).
-   * Sets x-max-priority argument.
-   * Only supported with classic queues.
+   * If true, the queue is deleted when the last consumer unsubscribes.
    */
-  maxPriority?: number;
+  autoDelete?: boolean;
 
   /**
-   * Retry configuration for handling failed message processing.
-   *
-   * Classic queues only support TTL-backoff retry mode, which uses wait queues
-   * with exponential backoff. For quorum-native retry, use quorum queues instead.
-   *
-   * @example
-   * ```typescript
-   * const orderQueue = defineQueue('order-processing', {
-   *   type: 'classic',
-   *   durable: true,
-   *   deadLetter: { exchange: dlx },
-   *   retry: {
-   *     maxRetries: 5,
-   *     initialDelayMs: 1000,
-   *     maxDelayMs: 30000,
-   *   },
-   * });
-   * ```
+   * Maximum priority level for priority queue (1-255, recommended: 1-10).
+   * Sets x-max-priority argument.
    */
-  retry?: TtlBackoffRetryOptions;
+  maxPriority?: number;
 };
 
 /**
  * Options for defining a queue. Uses a discriminated union based on the `type` property
  * to enforce quorum queue constraints at compile time.
  *
- * - Quorum queues (default): Do not support `exclusive` or `maxPriority`
- * - Classic queues: Support all options including `exclusive` and `maxPriority`
+ * - Quorum queues (default): Do not support `exclusive`, `autoDelete`, or `maxPriority`
+ * - Classic queues: Support all options including `exclusive`, `autoDelete`, and `maxPriority`
  */
 export type DefineQueueOptions = QuorumQueueOptions | ClassicQueueOptions;
+
+/**
+ * Options for defining a queue with a dead letter exchange.
+ */
+export type DefineQueueOptionsWithDeadLetterExchange<
+  TDlx extends ExchangeDefinition = ExchangeDefinition,
+> = DefineQueueOptions & { deadLetter: { exchange: TDlx } };
 
 /**
  * Base definition of an AMQP exchange.
@@ -381,20 +399,18 @@ export type BaseExchangeDefinition<TName extends string = string> = {
 
   /**
    * If true, the exchange survives broker restarts. Durable exchanges are persisted to disk.
-   * @default false
+   * @default true
    */
   durable?: boolean;
 
   /**
    * If true, the exchange is deleted when all queues have finished using it.
-   * @default false
    */
   autoDelete?: boolean;
 
   /**
    * If true, the exchange cannot be directly published to by clients.
    * It can only receive messages from other exchanges via exchange-to-exchange bindings.
-   * @default false
    */
   internal?: boolean;
 
@@ -404,42 +420,6 @@ export type BaseExchangeDefinition<TName extends string = string> = {
    */
   arguments?: Record<string, unknown>;
 };
-
-/**
- * A fanout exchange definition.
- *
- * Fanout exchanges broadcast all messages to all bound queues, ignoring routing keys.
- * This is the simplest exchange type for pub/sub messaging patterns.
- *
- * @example
- * ```typescript
- * const logsExchange: FanoutExchangeDefinition = defineExchange('logs', 'fanout', {
- *   durable: true
- * });
- * ```
- */
-export type FanoutExchangeDefinition<TName extends string = string> =
-  BaseExchangeDefinition<TName> & {
-    type: "fanout";
-  };
-
-/**
- * A direct exchange definition.
- *
- * Direct exchanges route messages to queues based on exact routing key matches.
- * This is ideal for point-to-point messaging where each message should go to specific queues.
- *
- * @example
- * ```typescript
- * const tasksExchange: DirectExchangeDefinition = defineExchange('tasks', 'direct', {
- *   durable: true
- * });
- * ```
- */
-export type DirectExchangeDefinition<TName extends string = string> =
-  BaseExchangeDefinition<TName> & {
-    type: "direct";
-  };
 
 /**
  * A topic exchange definition.
@@ -452,8 +432,8 @@ export type DirectExchangeDefinition<TName extends string = string> =
  *
  * @example
  * ```typescript
- * const ordersExchange: TopicExchangeDefinition = defineExchange('orders', 'topic', {
- *   durable: true
+ * const ordersExchange: TopicExchangeDefinition = defineExchange('orders', {
+ *   type: 'topic', // This is the default type, so it can be omitted
  * });
  * // Can be bound with patterns like 'order.*' or 'order.#'
  * ```
@@ -464,14 +444,69 @@ export type TopicExchangeDefinition<TName extends string = string> =
   };
 
 /**
+ * A direct exchange definition.
+ *
+ * Direct exchanges route messages to queues based on exact routing key matches.
+ * This is ideal for point-to-point messaging where each message should go to specific queues.
+ *
+ * @example
+ * ```typescript
+ * const tasksExchange: DirectExchangeDefinition = defineExchange('tasks', {
+ *   type: 'direct',
+ * });
+ * ```
+ */
+export type DirectExchangeDefinition<TName extends string = string> =
+  BaseExchangeDefinition<TName> & {
+    type: "direct";
+  };
+
+/**
+ * A fanout exchange definition.
+ *
+ * Fanout exchanges broadcast all messages to all bound queues, ignoring routing keys.
+ * This is the simplest exchange type for pub/sub messaging patterns.
+ *
+ * @example
+ * ```typescript
+ * const logsExchange: FanoutExchangeDefinition = defineExchange('logs', {
+ *   type: 'fanout',
+ * });
+ * ```
+ */
+export type FanoutExchangeDefinition<TName extends string = string> =
+  BaseExchangeDefinition<TName> & {
+    type: "fanout";
+  };
+
+/**
+ * A headers exchange definition.
+ *
+ * Headers exchanges route messages based on header values rather than routing keys.
+ * This is useful for more complex routing scenarios where metadata is important.
+ *
+ * @example
+ * ```typescript
+ * const routesExchange: HeadersExchangeDefinition = defineExchange('routes', {
+ *   type: 'headers',
+ * });
+ * ```
+ */
+export type HeadersExchangeDefinition<TName extends string = string> =
+  BaseExchangeDefinition<TName> & {
+    type: "headers";
+  };
+
+/**
  * Union type of all exchange definitions.
  *
- * Represents any type of AMQP exchange: fanout, direct, or topic.
+ * Represents any type of AMQP exchange: topic, direct, fanout, headers.
  */
 export type ExchangeDefinition<TName extends string = string> =
-  | FanoutExchangeDefinition<TName>
+  | TopicExchangeDefinition<TName>
   | DirectExchangeDefinition<TName>
-  | TopicExchangeDefinition<TName>;
+  | FanoutExchangeDefinition<TName>
+  | HeadersExchangeDefinition<TName>;
 
 /**
  * Configuration for dead letter exchange (DLX) on a queue.
@@ -497,24 +532,11 @@ export type DeadLetterConfig = {
 /**
  * Common properties shared by all queue definitions.
  */
-type BaseQueueDefinition<TName extends string = string> = {
+export type BaseQueueDefinition<TName extends string = string> = {
   /**
    * The name of the queue. Must be unique within the RabbitMQ virtual host.
    */
   name: TName;
-
-  /**
-   * If true, the queue survives broker restarts. Durable queues are persisted to disk.
-   * Note: Quorum queues are always durable regardless of this setting.
-   * @default false (but forced to true for quorum queues during setup)
-   */
-  durable?: boolean;
-
-  /**
-   * If true, the queue is deleted when the last consumer unsubscribes.
-   * @default false
-   */
-  autoDelete?: boolean;
 
   /**
    * Dead letter configuration for handling failed or rejected messages.
@@ -523,6 +545,12 @@ type BaseQueueDefinition<TName extends string = string> = {
    * will be automatically forwarded to the specified dead letter exchange.
    */
   deadLetter?: DeadLetterConfig;
+
+  /**
+   * Retry configuration for handling failed message processing.
+   * When the queue is created, defaults are applied.
+   */
+  retry: ResolvedRetryOptions;
 
   /**
    * Additional AMQP arguments for advanced configuration.
@@ -540,7 +568,6 @@ type BaseQueueDefinition<TName extends string = string> = {
  * Definition of a quorum queue.
  *
  * Quorum queues provide better durability and high-availability using the Raft consensus algorithm.
- * They support native retry handling via `deliveryLimit` and both TTL-backoff and quorum-native retry modes.
  */
 export type QuorumQueueDefinition<TName extends string = string> = BaseQueueDefinition<TName> & {
   /**
@@ -549,48 +576,34 @@ export type QuorumQueueDefinition<TName extends string = string> = BaseQueueDefi
   type: "quorum";
 
   /**
+   * Quorum queues only support durable queues.
+   */
+  durable: true;
+
+  /**
    * Quorum queues do not support exclusive mode.
    * Use type: 'classic' if you need exclusive queues.
    */
   exclusive?: never;
 
   /**
+   * Quorum queues do not support auto-delete mode.
+   * Use type: 'classic' if you need auto-deleting queues.
+   */
+  autoDelete?: never;
+
+  /**
    * Quorum queues do not support priority queues.
    * Use type: 'classic' if you need priority queues.
    */
   maxPriority?: never;
-
-  /**
-   * Maximum number of delivery attempts before the message is dead-lettered.
-   *
-   * This is a quorum queue-specific feature. When a message is rejected (nacked)
-   * and requeued, RabbitMQ increments the `x-delivery-count` header. When this
-   * count reaches the delivery limit, the message is automatically dead-lettered
-   * (if DLX is configured) or dropped.
-   *
-   * @minimum 1 - Must be a positive integer (1 or greater)
-   *
-   * @see https://www.rabbitmq.com/docs/quorum-queues#poison-message-handling
-   */
-  deliveryLimit?: number;
-
-  /**
-   * Retry configuration for handling failed message processing.
-   *
-   * Quorum queues support both:
-   * - `ttl-backoff`: Uses wait queues with exponential backoff (default)
-   * - `quorum-native`: Uses RabbitMQ's native delivery limit feature
-   *
-   * When the queue is created, defaults are applied for TTL-backoff options.
-   */
-  retry: ResolvedRetryOptions;
 };
 
 /**
  * Definition of a classic queue.
  *
  * Classic queues are the traditional RabbitMQ queue type. Use them when you need
- * specific features not supported by quorum queues (e.g., exclusive queues, priority queues).
+ * specific features not supported by quorum queues (e.g., exclusive queues, auto-deleting queues, priority queues).
  */
 export type ClassicQueueDefinition<TName extends string = string> = BaseQueueDefinition<TName> & {
   /**
@@ -599,25 +612,26 @@ export type ClassicQueueDefinition<TName extends string = string> = BaseQueueDef
   type: "classic";
 
   /**
-   * Classic queues do not support delivery limits.
-   * Use type: 'quorum' if you need native retry with delivery limits.
+   * If true, the queue survives broker restarts. Durable queues are persisted to disk.
    */
-  deliveryLimit?: never;
+  durable: boolean;
 
   /**
    * If true, the queue can only be used by the declaring connection and is deleted when
    * that connection closes. Exclusive queues are private to the connection.
-   * @default false
    */
   exclusive?: boolean;
 
   /**
-   * Retry configuration for handling failed message processing.
-   *
-   * Classic queues only support TTL-backoff retry mode (default).
-   * When the queue is created, defaults are applied.
+   * If true, the queue is deleted when the last consumer unsubscribes.
    */
-  retry: ResolvedTtlBackoffRetryOptions;
+  autoDelete?: boolean;
+
+  /**
+   * Maximum priority level for priority queue (1-255, recommended: 1-10).
+   * Sets x-max-priority argument.
+   */
+  maxPriority?: number;
 };
 
 /**
@@ -634,28 +648,58 @@ export type QueueDefinition<TName extends string = string> =
   | ClassicQueueDefinition<TName>;
 
 /**
+ * Result type for TTL-backoff retry infrastructure builder.
+ *
+ * Contains the wait queue, exchanges, and bindings needed for TTL-backoff retry.
+ */
+export type TtlBackoffRetryInfrastructure = {
+  /**
+   * The wait queue for holding messages during backoff delay.
+   */
+  waitQueue: QueueDefinition;
+  /**
+   * The wait exchange used to route failed messages to the wait queue.
+   * This is an headers exchange, allowing to use headers for routing, while preserving original message routing key.
+   * Bindings to this exchange will use a `x-wait-queue` header to specify the wait queue to which messages should be routed.
+   */
+  waitExchange: HeadersExchangeDefinition;
+  /**
+   * The retry exchange used to route messages to retry back to the main queue.
+   * This is an headers exchange, allowing to use headers for routing, while preserving original message routing key.
+   * Bindings to this exchange will use a `x-retry-queue` header to specify the retry queue to which messages should be routed.
+   */
+  retryExchange: HeadersExchangeDefinition;
+  /**
+   * Binding that routes failed messages to the wait queue.
+   */
+  waitQueueBinding: QueueBindingDefinition;
+  /**
+   * Binding that routes messages to retry back to the main queue.
+   */
+  retryQueueBinding: QueueBindingDefinition;
+};
+
+/**
  * A queue with automatically generated TTL-backoff retry infrastructure.
  *
- * This type is returned by `defineQueue` when TTL-backoff retry is configured
- * with a dead letter exchange. When passed to `defineContract`, the wait queue
- * and bindings are automatically added to the contract.
+ * This type is returned by `defineQueue` when TTL-backoff retry is configured.
+ * When passed to `defineContract`, the wait queue, exchanges, and bindings are
+ * automatically added to the contract.
  *
  * @example
  * ```typescript
- * const dlx = defineExchange('orders-dlx', 'direct', { durable: true });
- * const exchange = defineExchange('orders', 'topic', { durable: true });
+ * const exchange = defineExchange('orders');
  * const queue = defineQueue('order-processing', {
- *   deadLetter: { exchange: dlx },
  *   retry: { mode: 'ttl-backoff', maxRetries: 5 },
  * });
  * // queue is QueueWithTtlBackoffInfrastructure
  * const message = defineMessage(z.object({ orderId: z.string() }));
  * const orderCreated = defineEventPublisher(exchange, message, { routingKey: 'order.created' });
  *
- * // Wait queue, bindings, and DLX exchange are automatically extracted
+ * // Wait queue, exchanges, and bindings are automatically extracted
  * const contract = defineContract({
  *   publishers: { orderCreated },
- *   consumers: { processOrder: defineEventConsumer(orderCreated, extractQueue(queue)) },
+ *   consumers: { processOrder: defineEventConsumer(orderCreated, queue) },
  * });
  * ```
  */
@@ -672,15 +716,19 @@ export type QueueWithTtlBackoffInfrastructure<TName extends string = string> = {
   queue: QueueDefinition<TName>;
 
   /**
-   * Dead letter configuration from the main queue.
-   * Always present since TTL-backoff infrastructure requires a dead letter exchange.
-   */
-  deadLetter: DeadLetterConfig;
-
-  /**
    * The wait queue for holding messages during backoff delay.
    */
   waitQueue: QueueDefinition;
+
+  /**
+   * Wait exchange used to route failed messages to the wait queue.
+   */
+  waitExchange: HeadersExchangeDefinition;
+
+  /**
+   * Retry exchange used to route messages to retry back to the main queue.
+   */
+  retryExchange: HeadersExchangeDefinition;
 
   /**
    * Binding that routes failed messages to the wait queue.
@@ -688,9 +736,9 @@ export type QueueWithTtlBackoffInfrastructure<TName extends string = string> = {
   waitQueueBinding: QueueBindingDefinition;
 
   /**
-   * Binding that routes retried messages back to the main queue.
+   * Binding that routes messages to retry back to the main queue.
    */
-  mainQueueRetryBinding: QueueBindingDefinition;
+  retryQueueBinding: QueueBindingDefinition;
 };
 
 /**
@@ -701,6 +749,16 @@ export type QueueWithTtlBackoffInfrastructure<TName extends string = string> = {
 export type QueueEntry<TName extends string = string> =
   | QueueDefinition<TName>
   | QueueWithTtlBackoffInfrastructure<TName>;
+
+/**
+ * A queue entry with a dead letter exchange.
+ */
+export type QueueEntryWithDeadLetterExchange<
+  TName extends string = string,
+  TDlx extends ExchangeDefinition = ExchangeDefinition,
+> = QueueEntry<TName> & {
+  deadLetter: { exchange: TDlx };
+};
 
 /**
  * Definition of a message with typed payload and optional headers.
@@ -744,7 +802,7 @@ export type MessageDefinition<
  *
  * Defines how messages from an exchange should be routed to a queue.
  * For direct and topic exchanges, a routing key is required.
- * For fanout exchanges, no routing key is needed as all messages are broadcast.
+ * For fanout and headers exchanges, no routing key is needed.
  */
 export type QueueBindingDefinition = {
   /** Discriminator indicating this is a queue-to-exchange binding */
@@ -770,9 +828,9 @@ export type QueueBindingDefinition = {
       routingKey: string;
     }
   | {
-      /** Fanout exchange (no routing key needed) */
-      exchange: FanoutExchangeDefinition;
-      /** Fanout exchanges don't use routing keys */
+      /** Fanout or headers exchange (no routing key needed) */
+      exchange: FanoutExchangeDefinition | HeadersExchangeDefinition;
+      /** Fanout and headers exchanges don't use routing keys */
       routingKey?: never;
     }
 );
@@ -816,9 +874,9 @@ export type ExchangeBindingDefinition = {
       routingKey: string;
     }
   | {
-      /** Fanout source exchange (no routing key needed) */
-      source: FanoutExchangeDefinition;
-      /** Fanout exchanges don't use routing keys */
+      /** Fanout or headers source exchange (no routing key needed) */
+      source: FanoutExchangeDefinition | HeadersExchangeDefinition;
+      /** Fanout and headers exchanges don't use routing keys */
       routingKey?: never;
     }
 );
@@ -866,9 +924,9 @@ export type PublisherDefinition<TMessage extends MessageDefinition = MessageDefi
       routingKey: string;
     }
   | {
-      /** Fanout exchange (no routing key needed) */
-      exchange: FanoutExchangeDefinition;
-      /** Fanout exchanges don't use routing keys - all bound queues receive the message */
+      /** Fanout or headers exchange (no routing key needed) */
+      exchange: FanoutExchangeDefinition | HeadersExchangeDefinition;
+      /** Fanout and headers exchanges don't use routing keys */
       routingKey?: never;
     }
 );
@@ -893,7 +951,7 @@ export type PublisherDefinition<TMessage extends MessageDefinition = MessageDefi
  */
 export type ConsumerDefinition<TMessage extends MessageDefinition = MessageDefinition> = {
   /** The queue to consume messages from */
-  queue: QueueDefinition;
+  queue: QueueEntry;
 
   /** The message definition including the payload schema */
   message: TMessage;
@@ -932,8 +990,7 @@ export type CommandConsumerConfigBase = {
   consumer: ConsumerDefinition;
   binding: QueueBindingDefinition;
   exchange: ExchangeDefinition;
-  queue: QueueDefinition;
-  deadLetterExchange: ExchangeDefinition | undefined;
+  queue: QueueEntry;
   message: MessageDefinition;
   routingKey: string | undefined;
 };
@@ -951,8 +1008,7 @@ export type EventConsumerResultBase = {
   consumer: ConsumerDefinition;
   binding: QueueBindingDefinition;
   exchange: ExchangeDefinition;
-  queue: QueueDefinition;
-  deadLetterExchange: ExchangeDefinition | undefined;
+  queue: QueueEntry;
   exchangeBinding: ExchangeBindingDefinition | undefined;
   bridgeExchange: ExchangeDefinition | undefined;
 };
@@ -1018,7 +1074,7 @@ export type ContractDefinition = {
    * Each key becomes available as a named resource in the contract.
    *
    * When a queue has TTL-backoff retry configured, pass the `QueueWithTtlBackoffInfrastructure`
-   * object returned by `defineQueue`. The wait queue and bindings will be automatically added.
+   * object returned by `defineQueue`. The wait queue, exchanges, and bindings will be automatically added.
    */
   queues?: Record<string, QueueEntry>;
 
@@ -1049,6 +1105,7 @@ export type ContractDefinition = {
  * Can be either:
  * - A plain PublisherDefinition from definePublisher
  * - An EventPublisherConfig from defineEventPublisher (auto-extracted to publisher)
+ * - An BridgedPublisherConfig from defineCommandPublisher (auto-extracted to publisher)
  */
 export type PublisherEntry =
   | PublisherDefinition
@@ -1157,8 +1214,8 @@ export type ExtractDlxFromEntry<T extends QueueEntry> = T extends {
   : T extends QueueWithTtlBackoffInfrastructure
     ? T["queue"] extends { deadLetter: { exchange: infer E extends ExchangeDefinition } }
       ? E
-      : undefined
-    : undefined;
+      : never
+    : never;
 
 /**
  * Extract the queue from a consumer entry.
@@ -1228,17 +1285,7 @@ type ExtractExchangesFromConsumers<TConsumers extends Record<string, ConsumerEnt
  * Extract the dead letter exchange from a consumer entry.
  * @internal
  */
-type ExtractDeadLetterExchange<T extends ConsumerEntry> = T extends
-  | EventConsumerResultBase
-  | CommandConsumerConfigBase
-  ? T["deadLetterExchange"] extends ExchangeDefinition
-    ? T["deadLetterExchange"]
-    : never
-  : T extends ConsumerDefinition
-    ? T["queue"] extends { deadLetter: { exchange: infer E extends ExchangeDefinition } }
-      ? E
-      : never
-    : never;
+type ExtractDeadLetterExchange<T extends ConsumerEntry> = ExtractDlxFromEntry<T["queue"]>;
 
 /**
  * Extract dead letter exchanges from all consumers in a contract.
@@ -1255,9 +1302,9 @@ type ExtractDeadLetterExchangesFromConsumers<TConsumers extends Record<string, C
  * @internal
  */
 type ExtractQueuesFromConsumers<TConsumers extends Record<string, ConsumerEntry>> = {
-  [K in keyof TConsumers as ExtractConsumerQueue<TConsumers[K]>["name"]]: ExtractConsumerQueue<
-    TConsumers[K]
-  >;
+  [K in keyof TConsumers as ExtractQueueFromEntry<
+    ExtractConsumerQueue<TConsumers[K]>
+  >["name"]]: ExtractConsumerQueue<TConsumers[K]>;
 };
 
 /**
@@ -1298,9 +1345,9 @@ type ExtractPublisherDefinition<T extends PublisherEntry> = T extends BridgedPub
   ? T["publisher"]
   : T extends EventPublisherConfigBase
     ? PublisherDefinition<T["message"]> &
-        (T["exchange"] extends FanoutExchangeDefinition
-          ? { exchange: T["exchange"]; routingKey?: never }
-          : { exchange: T["exchange"]; routingKey: T["routingKey"] & string })
+        (T["exchange"] extends DirectExchangeDefinition | TopicExchangeDefinition
+          ? { exchange: T["exchange"]; routingKey: T["routingKey"] & string }
+          : { exchange: T["exchange"]; routingKey?: never })
     : T extends PublisherDefinition
       ? T
       : never;

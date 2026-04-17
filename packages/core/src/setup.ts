@@ -1,6 +1,6 @@
-import type { Channel } from "amqplib";
 import type { ContractDefinition } from "@amqp-contract/contract";
 import { extractQueue } from "@amqp-contract/contract";
+import type { Channel } from "amqplib";
 import { TechnicalError } from "./errors.js";
 
 /**
@@ -85,17 +85,14 @@ export async function setupAmqpTopology(
 
       // Handle type-specific properties using discriminated union
       if (queue.type === "quorum") {
-        // Set delivery limit for quorum queues (native retry support)
-        if (queue.deliveryLimit !== undefined) {
-          queueArguments["x-delivery-limit"] = queue.deliveryLimit;
-        }
-
-        // Quorum queues are always durable
         return channel.assertQueue(queue.name, {
-          durable: true,
-          autoDelete: queue.autoDelete,
+          durable: true, // Quorum queues are always durable
           arguments: queueArguments,
         });
+      }
+
+      if (queue.maxPriority !== undefined) {
+        queueArguments["x-max-priority"] = queue.maxPriority;
       }
 
       // Classic queue

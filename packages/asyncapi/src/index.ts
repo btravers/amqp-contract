@@ -58,7 +58,7 @@ export type AsyncAPIGeneratorGenerateOptions = Pick<AsyncAPIObject, "info"> &
  * import { zodToJsonSchema } from '@orpc/zod';
  * import { z } from 'zod';
  *
- * const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+ * const ordersExchange = defineExchange('orders');
  * const orderMessage = defineMessage(z.object({
  *   orderId: z.string(),
  *   amount: z.number()
@@ -157,7 +157,8 @@ export class AsyncAPIGenerator {
     if (contract.consumers) {
       for (const [consumerName, consumerEntry] of Object.entries(contract.consumers)) {
         const consumer = extractConsumer(consumerEntry);
-        const channelKey = this.getQueueName(consumer.queue, contract);
+        const queue = extractQueue(consumer.queue);
+        const channelKey = this.getQueueName(queue, contract);
         consumerMessages.set(consumerName, { message: consumer.message, channelKey });
       }
     }
@@ -254,14 +255,15 @@ export class AsyncAPIGenerator {
     if (contract.consumers) {
       for (const [consumerName, consumerEntry] of Object.entries(contract.consumers)) {
         const consumer = extractConsumer(consumerEntry);
-        const queueName = this.getQueueName(consumer.queue, contract);
+        const queue = extractQueue(consumer.queue);
+        const queueName = this.getQueueName(queue, contract);
         const messageName = `${consumerName}Message`;
 
         convertedOperations[consumerName] = {
           action: "receive",
           channel: { $ref: `#/channels/${queueName}` },
           messages: [{ $ref: `#/channels/${queueName}/messages/${messageName}` }],
-          summary: `Consume from ${consumer.queue.name}`,
+          summary: `Consume from ${queue.name}`,
           bindings: {
             amqp: {
               bindingVersion: "0.3.0",
@@ -347,9 +349,12 @@ export class AsyncAPIGenerator {
           is: "queue",
           queue: {
             name: queue.name,
-            durable: queue.durable ?? false,
-            exclusive: queue.type === "classic" ? (queue.exclusive ?? false) : false,
-            autoDelete: queue.autoDelete ?? false,
+            type: queue.type,
+            durable: queue.durable,
+            ...(queue.exclusive !== undefined && { exclusive: queue.exclusive }),
+            ...(queue.autoDelete !== undefined && { autoDelete: queue.autoDelete }),
+            ...(queue.maxPriority !== undefined && { maxPriority: queue.maxPriority }),
+            ...(queue.arguments !== undefined && { arguments: queue.arguments }),
             vhost: "/",
           },
           bindingVersion: "0.3.0",
@@ -374,8 +379,10 @@ export class AsyncAPIGenerator {
           exchange: {
             name: exchange.name,
             type: exchange.type,
-            durable: exchange.durable ?? false,
-            autoDelete: exchange.autoDelete ?? false,
+            durable: exchange.durable,
+            ...(exchange.autoDelete !== undefined && { autoDelete: exchange.autoDelete }),
+            ...(exchange.internal !== undefined && { internal: exchange.internal }),
+            ...(exchange.arguments !== undefined && { arguments: exchange.arguments }),
             vhost: "/",
           },
           bindingVersion: "0.3.0",

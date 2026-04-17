@@ -23,7 +23,7 @@ import amqp from "amqplib";
 const connection = await amqp.connect("amqp://localhost");
 const channel = await connection.createChannel();
 
-await channel.assertExchange("orders", "topic", { durable: true });
+await channel.assertExchange("orders", "topic");
 
 // What fields should this have? What types?
 channel.publish(
@@ -81,8 +81,8 @@ import {
 import { z } from "zod";
 
 // Define your AMQP resources
-const ordersExchange = defineExchange("orders", "topic", { durable: true });
-const orderProcessingQueue = defineQueue("order-processing", { durable: true });
+const ordersExchange = defineExchange("orders");
+const orderProcessingQueue = defineQueue("order-processing");
 
 // Define your message schema
 const orderMessage = defineMessage(
@@ -316,9 +316,9 @@ const orderCompletedMessage = defineMessage(
 
 ```typescript
 // Type-safe notification routing
-const emailQueue = defineQueue("notifications.email", { durable: true });
-const smsQueue = defineQueue("notifications.sms", { durable: true });
-const pushQueue = defineQueue("notifications.push", { durable: true });
+const emailQueue = defineQueue("notifications.email");
+const smsQueue = defineQueue("notifications.sms");
+const pushQueue = defineQueue("notifications.push");
 
 const notificationMessage = defineMessage(
   z.object({

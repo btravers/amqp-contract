@@ -1,4 +1,3 @@
-import * as v from "valibot";
 import {
   type ContractDefinition,
   defineConsumer,
@@ -8,21 +7,22 @@ import {
   definePublisher,
   defineQueue,
 } from "@amqp-contract/contract";
-import { describe, expect, it } from "vitest";
-import { AsyncAPIGenerator } from "./index.js";
 import { Parser } from "@asyncapi/parser";
-import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { experimental_ArkTypeToJsonSchemaConverter } from "@orpc/arktype";
 import { experimental_ValibotToJsonSchemaConverter } from "@orpc/valibot";
+import { ZodToJsonSchemaConverter } from "@orpc/zod/zod4";
 import { type } from "arktype";
+import * as v from "valibot";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import { AsyncAPIGenerator } from "./index.js";
 
 describe("AsyncAPIGenerator", () => {
   describe("with Zod schemas", () => {
     it("should generate valid AsyncAPI 3.0 document with Zod schemas", async () => {
       // GIVEN
-      const orderExchange = defineExchange("orders", "topic", { durable: true });
-      const orderQueue = defineQueue("order-processing", { durable: true });
+      const orderExchange = defineExchange("orders");
+      const orderQueue = defineQueue("order-processing");
 
       const orderSchema = z.object({
         orderId: z.string(),
@@ -79,10 +79,9 @@ describe("AsyncAPIGenerator", () => {
                   "bindingVersion": "0.3.0",
                   "is": "queue",
                   "queue": {
-                    "autoDelete": false,
                     "durable": true,
-                    "exclusive": false,
                     "name": "order-processing",
+                    "type": "quorum",
                     "vhost": "/",
                   },
                 },
@@ -128,7 +127,6 @@ describe("AsyncAPIGenerator", () => {
                 "amqp": {
                   "bindingVersion": "0.3.0",
                   "exchange": {
-                    "autoDelete": false,
                     "durable": true,
                     "name": "orders",
                     "type": "topic",
@@ -301,7 +299,7 @@ describe("AsyncAPIGenerator", () => {
 
     it("should handle message with headers", async () => {
       // GIVEN
-      const exchange = defineExchange("events", "fanout");
+      const exchange = defineExchange("events", { type: "fanout" });
 
       const payloadSchema = z.object({
         eventId: z.string(),
@@ -344,8 +342,7 @@ describe("AsyncAPIGenerator", () => {
                 "amqp": {
                   "bindingVersion": "0.3.0",
                   "exchange": {
-                    "autoDelete": false,
-                    "durable": false,
+                    "durable": true,
                     "name": "events",
                     "type": "fanout",
                     "vhost": "/",
@@ -462,8 +459,10 @@ describe("AsyncAPIGenerator", () => {
   describe("with Valibot schemas", () => {
     it("should generate valid AsyncAPI 3.0 document with Valibot schemas", async () => {
       // GIVEN
-      const notificationExchange = defineExchange("notifications", "direct", { durable: true });
-      const notificationQueue = defineQueue("notification-queue", { durable: true });
+      const notificationExchange = defineExchange("notifications", {
+        type: "direct",
+      });
+      const notificationQueue = defineQueue("notification-queue");
 
       const notificationSchema = v.object({
         notificationId: v.string(),
@@ -511,10 +510,9 @@ describe("AsyncAPIGenerator", () => {
                   "bindingVersion": "0.3.0",
                   "is": "queue",
                   "queue": {
-                    "autoDelete": false,
                     "durable": true,
-                    "exclusive": false,
                     "name": "notification-queue",
+                    "type": "quorum",
                     "vhost": "/",
                   },
                 },
@@ -563,7 +561,6 @@ describe("AsyncAPIGenerator", () => {
                 "amqp": {
                   "bindingVersion": "0.3.0",
                   "exchange": {
-                    "autoDelete": false,
                     "durable": true,
                     "name": "notifications",
                     "type": "direct",
@@ -739,7 +736,7 @@ describe("AsyncAPIGenerator", () => {
   describe("with ArkType schemas", () => {
     it("should generate valid AsyncAPI 3.0 document with ArkType schemas", async () => {
       // GIVEN
-      const paymentExchange = defineExchange("payments", "topic");
+      const paymentExchange = defineExchange("payments");
       const paymentQueue = defineQueue("payment-processing");
 
       const paymentSchema = type({
@@ -790,10 +787,9 @@ describe("AsyncAPIGenerator", () => {
                   "bindingVersion": "0.3.0",
                   "is": "queue",
                   "queue": {
-                    "autoDelete": false,
-                    "durable": false,
-                    "exclusive": false,
+                    "durable": true,
                     "name": "payment-processing",
+                    "type": "quorum",
                     "vhost": "/",
                   },
                 },
@@ -850,8 +846,7 @@ describe("AsyncAPIGenerator", () => {
                 "amqp": {
                   "bindingVersion": "0.3.0",
                   "exchange": {
-                    "autoDelete": false,
-                    "durable": false,
+                    "durable": true,
                     "name": "payments",
                     "type": "topic",
                     "vhost": "/",
@@ -1050,7 +1045,7 @@ describe("AsyncAPIGenerator", () => {
   describe("with multiple schema libraries", () => {
     it("should handle contract with mixed schema types", async () => {
       // GIVEN
-      const exchange = defineExchange("mixed", "topic");
+      const exchange = defineExchange("mixed");
 
       const zodSchema = z.object({
         id: z.string(),
@@ -1102,8 +1097,7 @@ describe("AsyncAPIGenerator", () => {
                 "amqp": {
                   "bindingVersion": "0.3.0",
                   "exchange": {
-                    "autoDelete": false,
-                    "durable": false,
+                    "durable": true,
                     "name": "mixed",
                     "type": "topic",
                     "vhost": "/",
@@ -1258,7 +1252,7 @@ describe("AsyncAPIGenerator", () => {
   describe("without schema converters", () => {
     it("should generate document with generic object schemas", async () => {
       // GIVEN
-      const exchange = defineExchange("generic", "fanout");
+      const exchange = defineExchange("generic", { type: "fanout" });
 
       const schema = z.object({
         id: z.string(),
@@ -1293,8 +1287,7 @@ describe("AsyncAPIGenerator", () => {
                 "amqp": {
                   "bindingVersion": "0.3.0",
                   "exchange": {
-                    "autoDelete": false,
-                    "durable": false,
+                    "durable": true,
                     "name": "generic",
                     "type": "fanout",
                     "vhost": "/",
@@ -1357,9 +1350,10 @@ describe("AsyncAPIGenerator", () => {
       // GIVEN - Use classic queue to test all explicit options
       const queue = defineQueue("test-queue", {
         type: "classic",
-        durable: true,
-        exclusive: false,
-        autoDelete: false,
+        durable: false,
+        exclusive: true,
+        autoDelete: true,
+        maxPriority: 10,
       });
 
       const contract: ContractDefinition = {
@@ -1385,10 +1379,12 @@ describe("AsyncAPIGenerator", () => {
                   "bindingVersion": "0.3.0",
                   "is": "queue",
                   "queue": {
-                    "autoDelete": false,
-                    "durable": true,
-                    "exclusive": false,
+                    "autoDelete": true,
+                    "durable": false,
+                    "exclusive": true,
+                    "maxPriority": 10,
                     "name": "test-queue",
+                    "type": "classic",
                     "vhost": "/",
                   },
                 },
@@ -1416,10 +1412,7 @@ describe("AsyncAPIGenerator", () => {
 
     it("should generate correct AMQP bindings for exchanges", async () => {
       // GIVEN
-      const exchange = defineExchange("test-exchange", "topic", {
-        durable: true,
-        autoDelete: false,
-      });
+      const exchange = defineExchange("test-exchange");
 
       const contract: ContractDefinition = {
         exchanges: { testExchange: exchange },
@@ -1443,7 +1436,6 @@ describe("AsyncAPIGenerator", () => {
                 "amqp": {
                   "bindingVersion": "0.3.0",
                   "exchange": {
-                    "autoDelete": false,
                     "durable": true,
                     "name": "test-exchange",
                     "type": "topic",
@@ -1475,7 +1467,7 @@ describe("AsyncAPIGenerator", () => {
 
     it("should include routing keys in operation descriptions", async () => {
       // GIVEN
-      const exchange = defineExchange("orders", "topic");
+      const exchange = defineExchange("orders");
       const schema = z.object({ id: z.string() });
       const message = defineMessage(schema);
 
@@ -1507,8 +1499,7 @@ describe("AsyncAPIGenerator", () => {
                 "amqp": {
                   "bindingVersion": "0.3.0",
                   "exchange": {
-                    "autoDelete": false,
-                    "durable": false,
+                    "durable": true,
                     "name": "orders",
                     "type": "topic",
                     "vhost": "/",
@@ -1628,7 +1619,7 @@ describe("AsyncAPIGenerator", () => {
 
     it("should handle fanout exchanges without routing keys", async () => {
       // GIVEN
-      const exchange = defineExchange("fanout-exchange", "fanout");
+      const exchange = defineExchange("fanout-exchange", { type: "fanout" });
       const schema = z.object({ id: z.string() });
       const message = defineMessage(schema);
 
@@ -1658,8 +1649,7 @@ describe("AsyncAPIGenerator", () => {
                 "amqp": {
                   "bindingVersion": "0.3.0",
                   "exchange": {
-                    "autoDelete": false,
-                    "durable": false,
+                    "durable": true,
                     "name": "fanout-exchange",
                     "type": "fanout",
                     "vhost": "/",

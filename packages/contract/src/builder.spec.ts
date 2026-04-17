@@ -1,3 +1,5 @@
+import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import {
   defineCommandConsumer,
   defineCommandPublisher,
@@ -11,21 +13,15 @@ import {
   definePublisher,
   defineQueue,
   defineQueueBinding,
-  defineQuorumQueue,
-  defineTtlBackoffQueue,
   extractQueue,
   isBridgedPublisherConfig,
 } from "./builder.js";
-import { describe, expect, it } from "vitest";
-import { z } from "zod";
 
 describe("builder", () => {
   describe("defineExchange", () => {
     it("should create an exchange definition", () => {
       // WHEN
-      const exchange = defineExchange("test-exchange", "topic", {
-        durable: true,
-      });
+      const exchange = defineExchange("test-exchange");
 
       // THEN
       expect(exchange).toEqual({
@@ -37,12 +33,13 @@ describe("builder", () => {
 
     it("should create an exchange with minimal options", () => {
       // WHEN
-      const exchange = defineExchange("test-exchange", "fanout");
+      const exchange = defineExchange("test-exchange", { type: "fanout" });
 
       // THEN
       expect(exchange).toEqual({
         name: "test-exchange",
         type: "fanout",
+        durable: true,
       });
     });
   });
@@ -50,21 +47,14 @@ describe("builder", () => {
   describe("defineQueue", () => {
     it("should create a queue definition with quorum type by default", () => {
       // WHEN
-      const queue = defineQueue("test-queue", { durable: true });
+      const queue = defineQueue("test-queue");
 
       // THEN
       expect(queue).toEqual({
         name: "test-queue",
         type: "quorum",
         durable: true,
-        retry: {
-          mode: "ttl-backoff",
-          maxRetries: 3,
-          initialDelayMs: 1000,
-          maxDelayMs: 30000,
-          backoffMultiplier: 2,
-          jitter: true,
-        },
+        retry: { mode: "none" },
       });
     });
 
@@ -76,104 +66,69 @@ describe("builder", () => {
       expect(queue).toEqual({
         name: "test-queue",
         type: "quorum",
-        retry: {
-          mode: "ttl-backoff",
-          maxRetries: 3,
-          initialDelayMs: 1000,
-          maxDelayMs: 30000,
-          backoffMultiplier: 2,
-          jitter: true,
-        },
+        durable: true,
+        retry: { mode: "none" },
       });
     });
 
     it("should create a classic queue when explicitly specified", () => {
       // WHEN
-      const queue = defineQueue("test-queue", { type: "classic", durable: true });
+      const queue = defineQueue("test-queue", { type: "classic" });
 
       // THEN
       expect(queue).toEqual({
         name: "test-queue",
         type: "classic",
         durable: true,
-        retry: {
-          mode: "ttl-backoff",
-          maxRetries: 3,
-          initialDelayMs: 1000,
-          maxDelayMs: 30000,
-          backoffMultiplier: 2,
-          jitter: true,
-        },
+        retry: { mode: "none" },
       });
     });
 
     it("should create a queue with dead letter exchange", () => {
       // GIVEN
-      const dlx = defineExchange("test-dlx", "topic", { durable: true });
+      const dlx = defineExchange("test-dlx");
 
       // WHEN
       const queue = defineQueue("test-queue", {
-        durable: true,
         deadLetter: {
           exchange: dlx,
           routingKey: "failed",
         },
       });
 
-      // THEN - returns QueueWithTtlBackoffInfrastructure due to default ttl-backoff retry + deadLetter
-      expect(queue).toMatchObject({
-        __brand: "QueueWithTtlBackoffInfrastructure",
-        queue: {
-          name: "test-queue",
-          type: "quorum",
-          durable: true,
-          deadLetter: {
-            exchange: dlx,
-            routingKey: "failed",
-          },
-          retry: {
-            mode: "ttl-backoff",
-            maxRetries: 3,
-            initialDelayMs: 1000,
-            maxDelayMs: 30000,
-            backoffMultiplier: 2,
-            jitter: true,
-          },
+      // THEN
+      expect(queue).toEqual({
+        name: "test-queue",
+        type: "quorum",
+        durable: true,
+        deadLetter: {
+          exchange: dlx,
+          routingKey: "failed",
         },
+        retry: { mode: "none" },
       });
     });
 
     it("should create a queue with dead letter exchange without routing key", () => {
       // GIVEN
-      const dlx = defineExchange("test-dlx", "fanout", { durable: true });
+      const dlx = defineExchange("test-dlx", { type: "fanout" });
 
       // WHEN
       const queue = defineQueue("test-queue", {
-        durable: true,
         deadLetter: {
           exchange: dlx,
         },
       });
 
-      // THEN - returns QueueWithTtlBackoffInfrastructure due to default ttl-backoff retry + deadLetter
-      expect(queue).toMatchObject({
-        __brand: "QueueWithTtlBackoffInfrastructure",
-        queue: {
-          name: "test-queue",
-          type: "quorum",
-          durable: true,
-          deadLetter: {
-            exchange: dlx,
-          },
-          retry: {
-            mode: "ttl-backoff",
-            maxRetries: 3,
-            initialDelayMs: 1000,
-            maxDelayMs: 30000,
-            backoffMultiplier: 2,
-            jitter: true,
-          },
+      // THEN
+      expect(queue).toEqual({
+        name: "test-queue",
+        type: "quorum",
+        durable: true,
+        deadLetter: {
+          exchange: dlx,
         },
+        retry: { mode: "none" },
       });
     });
 
@@ -185,25 +140,32 @@ describe("builder", () => {
       expect(queue).toEqual({
         name: "test-queue",
         type: "classic",
+        durable: true,
         exclusive: true,
-        retry: {
-          mode: "ttl-backoff",
-          maxRetries: 3,
-          initialDelayMs: 1000,
-          maxDelayMs: 30000,
-          backoffMultiplier: 2,
-          jitter: true,
-        },
+        retry: { mode: "none" },
+      });
+    });
+
+    it("should allow autoDelete with classic queue", () => {
+      // WHEN
+      const queue = defineQueue("test-queue", { type: "classic", autoDelete: true });
+
+      // THEN
+      expect(queue).toEqual({
+        name: "test-queue",
+        type: "classic",
+        durable: true,
+        autoDelete: true,
+        retry: { mode: "none" },
       });
     });
   });
 
   describe("defineQueue with maxPriority", () => {
-    it("should create a priority queue with x-max-priority argument using classic type", () => {
+    it("should create a priority queue with maxPriority using classic type", () => {
       // WHEN
       const queue = defineQueue("priority-queue", {
         type: "classic",
-        durable: true,
         maxPriority: 10,
       });
 
@@ -212,17 +174,8 @@ describe("builder", () => {
         name: "priority-queue",
         type: "classic",
         durable: true,
-        retry: {
-          mode: "ttl-backoff",
-          maxRetries: 3,
-          initialDelayMs: 1000,
-          maxDelayMs: 30000,
-          backoffMultiplier: 2,
-          jitter: true,
-        },
-        arguments: {
-          "x-max-priority": 10,
-        },
+        maxPriority: 10,
+        retry: { mode: "none" },
       });
     });
 
@@ -234,25 +187,16 @@ describe("builder", () => {
       expect(queue).toEqual({
         name: "priority-queue",
         type: "classic",
-        retry: {
-          mode: "ttl-backoff",
-          maxRetries: 3,
-          initialDelayMs: 1000,
-          maxDelayMs: 30000,
-          backoffMultiplier: 2,
-          jitter: true,
-        },
-        arguments: {
-          "x-max-priority": 5,
-        },
+        durable: true,
+        maxPriority: 5,
+        retry: { mode: "none" },
       });
     });
 
-    it("should merge additional arguments with x-max-priority", () => {
+    it("should merge additional arguments with maxPriority", () => {
       // WHEN
       const queue = defineQueue("priority-queue", {
         type: "classic",
-        durable: true,
         maxPriority: 10,
         arguments: {
           "x-message-ttl": 60000,
@@ -264,29 +208,21 @@ describe("builder", () => {
         name: "priority-queue",
         type: "classic",
         durable: true,
-        retry: {
-          mode: "ttl-backoff",
-          maxRetries: 3,
-          initialDelayMs: 1000,
-          maxDelayMs: 30000,
-          backoffMultiplier: 2,
-          jitter: true,
-        },
+        maxPriority: 10,
+        retry: { mode: "none" },
         arguments: {
           "x-message-ttl": 60000,
-          "x-max-priority": 10,
         },
       });
     });
 
     it("should create a priority queue with dead letter exchange", () => {
       // GIVEN
-      const dlx = defineExchange("test-dlx", "topic", { durable: true });
+      const dlx = defineExchange("test-dlx");
 
       // WHEN
       const queue = defineQueue("priority-queue", {
         type: "classic",
-        durable: true,
         maxPriority: 10,
         deadLetter: {
           exchange: dlx,
@@ -294,29 +230,16 @@ describe("builder", () => {
         },
       });
 
-      // THEN - returns QueueWithTtlBackoffInfrastructure due to default ttl-backoff retry + deadLetter
-      expect(queue).toMatchObject({
-        __brand: "QueueWithTtlBackoffInfrastructure",
-        queue: {
-          name: "priority-queue",
-          type: "classic",
-          durable: true,
-          deadLetter: {
-            exchange: dlx,
-            routingKey: "failed",
-          },
-          retry: {
-            mode: "ttl-backoff",
-            maxRetries: 3,
-            initialDelayMs: 1000,
-            maxDelayMs: 30000,
-            backoffMultiplier: 2,
-            jitter: true,
-          },
-          arguments: {
-            "x-max-priority": 10,
-          },
+      expect(queue).toEqual({
+        name: "priority-queue",
+        type: "classic",
+        durable: true,
+        maxPriority: 10,
+        deadLetter: {
+          exchange: dlx,
+          routingKey: "failed",
         },
+        retry: { mode: "none" },
       });
     });
 
@@ -342,17 +265,9 @@ describe("builder", () => {
       expect(queue).toEqual({
         name: "priority-queue",
         type: "classic",
-        retry: {
-          mode: "ttl-backoff",
-          maxRetries: 3,
-          initialDelayMs: 1000,
-          maxDelayMs: 30000,
-          backoffMultiplier: 2,
-          jitter: true,
-        },
-        arguments: {
-          "x-max-priority": 1,
-        },
+        durable: true,
+        maxPriority: 1,
+        retry: { mode: "none" },
       });
     });
 
@@ -364,92 +279,224 @@ describe("builder", () => {
       expect(queue).toEqual({
         name: "priority-queue",
         type: "classic",
-        retry: {
-          mode: "ttl-backoff",
-          maxRetries: 3,
-          initialDelayMs: 1000,
-          maxDelayMs: 30000,
-          backoffMultiplier: 2,
-          jitter: true,
-        },
-        arguments: {
-          "x-max-priority": 255,
-        },
+        durable: true,
+        maxPriority: 255,
+        retry: { mode: "none" },
       });
     });
   });
 
-  describe("defineQueue with deliveryLimit", () => {
-    it("should create a quorum queue with delivery limit", () => {
+  describe("defineQueue with immediate-requeue retry", () => {
+    it("should create a quorum queue with immediate-requeue retry", () => {
       // WHEN
       const queue = defineQueue("retry-queue", {
         type: "quorum",
-        deliveryLimit: 3,
+        retry: { mode: "immediate-requeue", maxRetries: 3 },
       });
 
       // THEN
       expect(queue).toEqual({
         name: "retry-queue",
         type: "quorum",
-        deliveryLimit: 3,
-        retry: {
-          mode: "ttl-backoff",
-          maxRetries: 3,
-          initialDelayMs: 1000,
-          maxDelayMs: 30000,
-          backoffMultiplier: 2,
-          jitter: true,
-        },
+        durable: true,
+        retry: { mode: "immediate-requeue", maxRetries: 3 },
       });
     });
 
-    it("should create a default quorum queue with delivery limit", () => {
+    it("should create a default quorum queue with immediate-requeue retry", () => {
       // WHEN (type defaults to "quorum")
       const queue = defineQueue("retry-queue", {
-        deliveryLimit: 5,
+        retry: { mode: "immediate-requeue", maxRetries: 5 },
       });
 
       // THEN
       expect(queue).toEqual({
         name: "retry-queue",
         type: "quorum",
-        deliveryLimit: 5,
+        durable: true,
         retry: {
-          mode: "ttl-backoff",
-          maxRetries: 3,
-          initialDelayMs: 1000,
-          maxDelayMs: 30000,
-          backoffMultiplier: 2,
-          jitter: true,
+          mode: "immediate-requeue",
+          maxRetries: 5,
         },
       });
     });
 
-    it("should create a quorum queue with delivery limit and dead letter exchange", () => {
+    it("should create a quorum queue with immediate-requeue retry and dead letter exchange", () => {
       // GIVEN
-      const dlx = defineExchange("test-dlx", "topic", { durable: true });
+      const dlx = defineExchange("test-dlx");
 
       // WHEN
       const queue = defineQueue("retry-queue", {
         type: "quorum",
-        deliveryLimit: 3,
+        retry: { mode: "immediate-requeue", maxRetries: 3 },
         deadLetter: {
           exchange: dlx,
           routingKey: "failed",
         },
       });
 
-      // THEN - returns QueueWithTtlBackoffInfrastructure due to default ttl-backoff retry + deadLetter
+      // THEN
+      expect(queue).toEqual({
+        name: "retry-queue",
+        type: "quorum",
+        durable: true,
+        deadLetter: {
+          exchange: dlx,
+          routingKey: "failed",
+        },
+        retry: { mode: "immediate-requeue", maxRetries: 3 },
+      });
+    });
+
+    it("should throw error for maxRetries less than 1", () => {
+      // WHEN/THEN
+      expect(() =>
+        defineQueue("retry-queue", {
+          retry: { mode: "immediate-requeue", maxRetries: 0 },
+        }),
+      ).toThrow(
+        'Queue "retry-queue" uses immediate-requeue retry mode with invalid maxRetries: 0. Must be a positive integer.',
+      );
+    });
+
+    it("should throw error for non-integer maxRetries", () => {
+      // WHEN/THEN
+      expect(() =>
+        defineQueue("retry-queue", {
+          retry: { mode: "immediate-requeue", maxRetries: 2.5 },
+        }),
+      ).toThrow(
+        'Queue "retry-queue" uses immediate-requeue retry mode with invalid maxRetries: 2.5. Must be a positive integer.',
+      );
+    });
+
+    it("should accept maxRetries of 1", () => {
+      // WHEN
+      const queue = defineQueue("retry-queue", {
+        retry: { mode: "immediate-requeue", maxRetries: 1 },
+      });
+
+      // THEN
+      expect(queue).toEqual({
+        name: "retry-queue",
+        type: "quorum",
+        durable: true,
+        retry: { mode: "immediate-requeue", maxRetries: 1 },
+      });
+    });
+  });
+
+  describe("defineQueue with classic queue immediate-requeue retry", () => {
+    it("should create a classic queue with immediate-requeue retry", () => {
+      // WHEN
+      const queue = defineQueue("retry-queue", {
+        type: "classic",
+        retry: { mode: "immediate-requeue", maxRetries: 3 },
+      });
+
+      // THEN
+      expect(queue).toEqual({
+        name: "retry-queue",
+        type: "classic",
+        durable: true,
+        retry: { mode: "immediate-requeue", maxRetries: 3 },
+      });
+    });
+
+    it("should create a classic queue with immediate-requeue and dead letter exchange", () => {
+      // GIVEN
+      const dlx = defineExchange("retry-dlx");
+
+      // WHEN
+      const queue = defineQueue("retry-queue", {
+        type: "classic",
+        deadLetter: { exchange: dlx, routingKey: "retry.failed" },
+        retry: { mode: "immediate-requeue", maxRetries: 5 },
+      });
+
+      // THEN
+      expect(queue).toEqual({
+        name: "retry-queue",
+        type: "classic",
+        durable: true,
+        deadLetter: { exchange: dlx, routingKey: "retry.failed" },
+        retry: { mode: "immediate-requeue", maxRetries: 5 },
+      });
+    });
+
+    it("should create a classic queue with immediate-requeue and exclusive", () => {
+      // WHEN
+      const queue = defineQueue("retry-queue", {
+        type: "classic",
+        exclusive: true,
+        retry: { mode: "immediate-requeue", maxRetries: 2 },
+      });
+
+      // THEN
+      expect(queue).toEqual({
+        name: "retry-queue",
+        type: "classic",
+        durable: true,
+        exclusive: true,
+        retry: { mode: "immediate-requeue", maxRetries: 2 },
+      });
+    });
+
+    it("should apply default maxRetries of 3 for classic queue with immediate-requeue", () => {
+      // WHEN
+      const queue = defineQueue("retry-queue", {
+        type: "classic",
+        retry: { mode: "immediate-requeue" },
+      });
+
+      // THEN
+      expect(queue).toEqual({
+        name: "retry-queue",
+        type: "classic",
+        durable: true,
+        retry: { mode: "immediate-requeue", maxRetries: 3 },
+      });
+    });
+
+    it("should throw error for non-integer maxRetries on classic queue", () => {
+      // WHEN/THEN
+      expect(() =>
+        defineQueue("retry-queue", {
+          type: "classic",
+          retry: { mode: "immediate-requeue", maxRetries: 2.5 },
+        }),
+      ).toThrow(
+        'Queue "retry-queue" uses immediate-requeue retry mode with invalid maxRetries: 2.5. Must be a positive integer.',
+      );
+    });
+
+    it("should throw error for negative maxRetries on classic queue", () => {
+      // WHEN/THEN
+      expect(() =>
+        defineQueue("retry-queue", {
+          type: "classic",
+          retry: { mode: "immediate-requeue", maxRetries: -1 },
+        }),
+      ).toThrow(
+        'Queue "retry-queue" uses immediate-requeue retry mode with invalid maxRetries: -1. Must be a positive integer.',
+      );
+    });
+  });
+
+  describe("defineQueue with TTL-backoff retry", () => {
+    it("should create a quorum queue with TTL-backoff retry", () => {
+      // WHEN
+      const queue = defineQueue("retry-queue", {
+        type: "quorum",
+        retry: { mode: "ttl-backoff", maxRetries: 3 },
+      });
+
+      // THEN
       expect(queue).toMatchObject({
         __brand: "QueueWithTtlBackoffInfrastructure",
         queue: {
           name: "retry-queue",
           type: "quorum",
-          deliveryLimit: 3,
-          deadLetter: {
-            exchange: dlx,
-            routingKey: "failed",
-          },
           retry: {
             mode: "ttl-backoff",
             maxRetries: 3,
@@ -457,41 +504,192 @@ describe("builder", () => {
             maxDelayMs: 30000,
             backoffMultiplier: 2,
             jitter: true,
+            waitQueueName: "retry-queue-wait",
+            waitExchangeName: "wait-exchange",
+            retryExchangeName: "retry-exchange",
+          },
+        },
+        waitQueue: {
+          name: "retry-queue-wait",
+        },
+        waitExchange: {
+          name: "wait-exchange",
+          type: "headers",
+        },
+        retryExchange: {
+          name: "retry-exchange",
+          type: "headers",
+        },
+        waitQueueBinding: {
+          type: "queue",
+          queue: {
+            name: "retry-queue-wait",
+          },
+          exchange: {
+            name: "wait-exchange",
+            type: "headers",
+          },
+          arguments: {
+            "x-match": "all",
+            "x-wait-queue": "retry-queue-wait",
+          },
+        },
+        retryQueueBinding: {
+          type: "queue",
+          queue: {
+            name: "retry-queue",
+          },
+          exchange: {
+            name: "retry-exchange",
+            type: "headers",
+          },
+          arguments: {
+            "x-match": "all",
+            "x-retry-queue": "retry-queue",
           },
         },
       });
     });
 
-    it("should throw error for deliveryLimit less than 1", () => {
-      // WHEN/THEN
-      expect(() => defineQueue("retry-queue", { deliveryLimit: 0 })).toThrow(
-        "Invalid deliveryLimit: 0. Must be a positive integer.",
-      );
-    });
-
-    it("should throw error for non-integer deliveryLimit", () => {
-      // WHEN/THEN
-      expect(() => defineQueue("retry-queue", { deliveryLimit: 2.5 })).toThrow(
-        "Invalid deliveryLimit: 2.5. Must be a positive integer.",
-      );
-    });
-
-    it("should accept deliveryLimit of 1", () => {
+    it("should create a quorum queue with TTL-backoff retry and custom options", () => {
       // WHEN
-      const queue = defineQueue("retry-queue", { deliveryLimit: 1 });
-
-      // THEN
-      expect(queue).toEqual({
-        name: "retry-queue",
+      const queue = defineQueue("retry-queue", {
         type: "quorum",
-        deliveryLimit: 1,
         retry: {
           mode: "ttl-backoff",
-          maxRetries: 3,
-          initialDelayMs: 1000,
-          maxDelayMs: 30000,
-          backoffMultiplier: 2,
-          jitter: true,
+          maxRetries: 5,
+          initialDelayMs: 2000,
+          maxDelayMs: 60000,
+          backoffMultiplier: 3,
+          jitter: false,
+          waitQueueName: "custom-wait",
+          waitExchangeName: "custom-wait-ex",
+          retryExchangeName: "custom-retry-ex",
+        },
+      });
+
+      // THEN
+      expect(queue).toMatchObject({
+        __brand: "QueueWithTtlBackoffInfrastructure",
+        queue: {
+          name: "retry-queue",
+          type: "quorum",
+          retry: {
+            mode: "ttl-backoff",
+            maxRetries: 5,
+            initialDelayMs: 2000,
+            maxDelayMs: 60000,
+            backoffMultiplier: 3,
+            jitter: false,
+            waitQueueName: "custom-wait",
+            waitExchangeName: "custom-wait-ex",
+            retryExchangeName: "custom-retry-ex",
+          },
+        },
+        waitQueue: {
+          name: "custom-wait",
+        },
+        waitExchange: {
+          name: "custom-wait-ex",
+          type: "headers",
+        },
+        retryExchange: {
+          name: "custom-retry-ex",
+          type: "headers",
+        },
+        waitQueueBinding: {
+          type: "queue",
+          queue: {
+            name: "custom-wait",
+          },
+          exchange: {
+            name: "custom-wait-ex",
+            type: "headers",
+          },
+          arguments: {
+            "x-match": "all",
+            "x-wait-queue": "custom-wait",
+          },
+        },
+        retryQueueBinding: {
+          type: "queue",
+          queue: {
+            name: "retry-queue",
+          },
+          exchange: {
+            name: "custom-retry-ex",
+            type: "headers",
+          },
+          arguments: {
+            "x-match": "all",
+            "x-retry-queue": "retry-queue",
+          },
+        },
+      });
+    });
+
+    it("should create a quorum queue with TTL-backoff retry and dead letter exchange", () => {
+      // GIVEN
+      const dlx = defineExchange("test-dlx");
+
+      // WHEN
+      const queue = defineQueue("retry-queue", {
+        type: "quorum",
+        retry: { mode: "ttl-backoff", maxRetries: 3 },
+        deadLetter: {
+          exchange: dlx,
+          routingKey: "failed",
+        },
+      });
+
+      // THEN
+      expect(queue).toMatchObject({
+        __brand: "QueueWithTtlBackoffInfrastructure",
+        queue: {
+          name: "retry-queue",
+          type: "quorum",
+          deadLetter: {
+            exchange: dlx,
+            routingKey: "failed",
+          },
+          retry: { mode: "ttl-backoff", maxRetries: 3 },
+        },
+      });
+    });
+
+    it("should throw error for maxRetries less than 1", () => {
+      // WHEN/THEN
+      expect(() =>
+        defineQueue("retry-queue", {
+          retry: { mode: "ttl-backoff", maxRetries: 0 },
+        }),
+      ).toThrow(
+        'Queue "retry-queue" uses ttl-backoff retry mode with invalid maxRetries: 0. Must be a positive integer.',
+      );
+    });
+
+    it("should throw error for non-integer maxRetries", () => {
+      // WHEN/THEN
+      expect(() =>
+        defineQueue("retry-queue", {
+          retry: { mode: "ttl-backoff", maxRetries: 2.5 },
+        }),
+      ).toThrow(
+        'Queue "retry-queue" uses ttl-backoff retry mode with invalid maxRetries: 2.5. Must be a positive integer.',
+      );
+    });
+
+    it("should accept maxRetries of 1", () => {
+      // WHEN
+      const queue = defineQueue("retry-queue", {
+        retry: { mode: "ttl-backoff", maxRetries: 1 },
+      });
+
+      // THEN
+      expect(queue).toMatchObject({
+        __brand: "QueueWithTtlBackoffInfrastructure",
+        queue: {
+          retry: { mode: "ttl-backoff", maxRetries: 1 },
         },
       });
     });
@@ -501,7 +699,7 @@ describe("builder", () => {
     it("should create a queue binding definition", () => {
       // GIVEN
       const queue = defineQueue("test-queue");
-      const exchange = defineExchange("test-exchange", "topic");
+      const exchange = defineExchange("test-exchange");
 
       // WHEN
       const binding = defineQueueBinding(queue, exchange, {
@@ -520,7 +718,7 @@ describe("builder", () => {
     it("should create a queue binding with minimal options", () => {
       // GIVEN
       const queue = defineQueue("test-queue");
-      const exchange = defineExchange("test-exchange", "fanout");
+      const exchange = defineExchange("test-exchange", { type: "fanout" });
 
       // WHEN
       const binding = defineQueueBinding(queue, exchange);
@@ -537,8 +735,8 @@ describe("builder", () => {
   describe("defineExchangeBinding", () => {
     it("should create an exchange binding definition", () => {
       // GIVEN
-      const destination = defineExchange("destination-exchange", "topic");
-      const source = defineExchange("source-exchange", "topic");
+      const destination = defineExchange("destination-exchange");
+      const source = defineExchange("source-exchange");
 
       // WHEN
       const binding = defineExchangeBinding(destination, source, {
@@ -556,8 +754,8 @@ describe("builder", () => {
 
     it("should create an exchange binding with minimal options", () => {
       // GIVEN
-      const destination = defineExchange("destination-exchange", "fanout");
-      const source = defineExchange("source-exchange", "fanout");
+      const destination = defineExchange("destination-exchange", { type: "fanout" });
+      const source = defineExchange("source-exchange", { type: "fanout" });
 
       // WHEN
       const binding = defineExchangeBinding(destination, source);
@@ -572,8 +770,8 @@ describe("builder", () => {
 
     it("should create an exchange binding with arguments", () => {
       // GIVEN
-      const destination = defineExchange("destination-exchange", "topic");
-      const source = defineExchange("source-exchange", "topic");
+      const destination = defineExchange("destination-exchange");
+      const source = defineExchange("source-exchange");
 
       // WHEN
       const binding = defineExchangeBinding(destination, source, {
@@ -678,7 +876,7 @@ describe("builder", () => {
     it("should create a publisher definition", () => {
       // GIVEN
       const message = defineMessage(z.object({ id: z.string() }));
-      const exchange = defineExchange("test-exchange", "topic");
+      const exchange = defineExchange("test-exchange");
 
       // WHEN
       const publisher = definePublisher(exchange, message, {
@@ -696,7 +894,7 @@ describe("builder", () => {
     it("should create a publisher with minimal options", () => {
       // GIVEN
       const message = defineMessage(z.object({ id: z.string() }));
-      const exchange = defineExchange("test-exchange", "fanout");
+      const exchange = defineExchange("test-exchange", { type: "fanout" });
 
       // WHEN
       const publisher = definePublisher(exchange, message);
@@ -750,8 +948,8 @@ describe("builder", () => {
           amount: z.number(),
         }),
       );
-      const ordersExchange = defineExchange("orders", "topic", { durable: true });
-      const orderProcessingQueue = defineQueue("order-processing", { durable: true });
+      const ordersExchange = defineExchange("orders");
+      const orderProcessingQueue = defineQueue("order-processing");
 
       // WHEN
       const contract = defineContract({
@@ -812,8 +1010,8 @@ describe("builder", () => {
           amount: z.number(),
         }),
       );
-      const sourceExchange = defineExchange("source-exchange", "topic", { durable: true });
-      const finalQueue = defineQueue("final-queue", { durable: true });
+      const sourceExchange = defineExchange("source-exchange");
+      const finalQueue = defineQueue("final-queue");
 
       // WHEN - exchanges and queues are auto-extracted from publishers/consumers
       const contract = defineContract({
@@ -844,7 +1042,35 @@ describe("builder", () => {
     it("should create an event publisher with fanout exchange", () => {
       // GIVEN
       const message = defineMessage(z.object({ id: z.string() }));
-      const exchange = defineExchange("test-exchange", "fanout");
+      const exchange = defineExchange("test-exchange", { type: "fanout" });
+      const queue = defineQueue("test-queue");
+
+      // WHEN
+      const eventPublisher = defineEventPublisher(exchange, message);
+      const { consumer, binding } = defineEventConsumer(eventPublisher, queue);
+
+      // THEN
+      expect(eventPublisher).toMatchObject({
+        __brand: "EventPublisherConfig",
+        exchange,
+        message,
+        routingKey: undefined,
+      });
+      expect(binding).toEqual({
+        type: "queue",
+        queue,
+        exchange,
+      });
+      expect(consumer).toEqual({
+        queue,
+        message,
+      });
+    });
+
+    it("should create an event publisher with headers exchange", () => {
+      // GIVEN
+      const message = defineMessage(z.object({ id: z.string() }));
+      const exchange = defineExchange("test-exchange", { type: "headers" });
       const queue = defineQueue("test-queue");
 
       // WHEN
@@ -877,8 +1103,8 @@ describe("builder", () => {
           amount: z.number(),
         }),
       );
-      const exchange = defineExchange("orders", "topic", { durable: true });
-      const queue = defineQueue("order-processing", { durable: true });
+      const exchange = defineExchange("orders");
+      const queue = defineQueue("order-processing");
 
       // WHEN
       const eventPublisher = defineEventPublisher(exchange, message, {
@@ -908,7 +1134,7 @@ describe("builder", () => {
     it("should create an event publisher with direct exchange", () => {
       // GIVEN
       const message = defineMessage(z.object({ taskId: z.string() }));
-      const exchange = defineExchange("tasks", "direct");
+      const exchange = defineExchange("tasks", { type: "direct" });
       const queue = defineQueue("task-queue");
 
       // WHEN
@@ -937,9 +1163,9 @@ describe("builder", () => {
     it("should allow consumer to override routing key for topic exchange", () => {
       // GIVEN
       const message = defineMessage(z.object({ orderId: z.string() }));
-      const exchange = defineExchange("orders", "topic", { durable: true });
-      const queue1 = defineQueue("order-processing", { durable: true });
-      const queue2 = defineQueue("all-orders", { durable: true });
+      const exchange = defineExchange("orders");
+      const queue1 = defineQueue("order-processing");
+      const queue2 = defineQueue("all-orders");
 
       // WHEN
       const eventPublisher = defineEventPublisher(exchange, message, {
@@ -967,8 +1193,8 @@ describe("builder", () => {
           amount: z.number(),
         }),
       );
-      const ordersExchange = defineExchange("orders", "topic", { durable: true });
-      const orderQueue = defineQueue("order-processing", { durable: true });
+      const ordersExchange = defineExchange("orders");
+      const orderQueue = defineQueue("order-processing");
 
       // WHEN - EventPublisherConfig goes directly in publishers
       const orderCreated = defineEventPublisher(ordersExchange, message, {
@@ -1026,9 +1252,9 @@ describe("builder", () => {
           amount: z.number(),
         }),
       );
-      const ordersExchange = defineExchange("orders", "topic", { durable: true });
-      const orderQueue = defineQueue("order-processing", { durable: true });
-      const notificationQueue = defineQueue("notifications", { durable: true });
+      const ordersExchange = defineExchange("orders");
+      const orderQueue = defineQueue("order-processing");
+      const notificationQueue = defineQueue("notifications");
 
       // WHEN - No manual destructuring needed!
       const orderCreated = defineEventPublisher(ordersExchange, message, {
@@ -1079,7 +1305,7 @@ describe("builder", () => {
     it("should support mixing plain ConsumerDefinition and EventConsumerResult in consumers", () => {
       // GIVEN
       const message = defineMessage(z.object({ id: z.string() }));
-      const exchange = defineExchange("events", "fanout");
+      const exchange = defineExchange("events", { type: "fanout" });
       const queue1 = defineQueue("queue-1");
       const queue2 = defineQueue("queue-2");
 
@@ -1119,7 +1345,32 @@ describe("builder", () => {
       // GIVEN
       const message = defineMessage(z.object({ id: z.string() }));
       const queue = defineQueue("test-queue");
-      const exchange = defineExchange("test-exchange", "fanout");
+      const exchange = defineExchange("test-exchange", { type: "fanout" });
+
+      // WHEN
+      const command = defineCommandConsumer(queue, exchange, message);
+      const publisher = defineCommandPublisher(command);
+
+      // THEN
+      expect(command).toMatchObject({
+        __brand: "CommandConsumerConfig",
+        consumer: { queue, message },
+        binding: { type: "queue", queue, exchange },
+        exchange,
+        message,
+        routingKey: undefined,
+      });
+      expect(publisher).toEqual({
+        exchange,
+        message,
+      });
+    });
+
+    it("should create a command consumer with headers exchange", () => {
+      // GIVEN
+      const message = defineMessage(z.object({ id: z.string() }));
+      const queue = defineQueue("test-queue");
+      const exchange = defineExchange("test-exchange", { type: "headers" });
 
       // WHEN
       const command = defineCommandConsumer(queue, exchange, message);
@@ -1148,8 +1399,8 @@ describe("builder", () => {
           payload: z.record(z.string(), z.unknown()),
         }),
       );
-      const queue = defineQueue("tasks", { durable: true });
-      const exchange = defineExchange("tasks", "direct", { durable: true });
+      const queue = defineQueue("tasks");
+      const exchange = defineExchange("tasks", { type: "direct" });
 
       // WHEN
       const command = defineCommandConsumer(queue, exchange, message, {
@@ -1179,7 +1430,7 @@ describe("builder", () => {
       // GIVEN
       const message = defineMessage(z.object({ eventId: z.string() }));
       const queue = defineQueue("event-queue");
-      const exchange = defineExchange("events", "topic");
+      const exchange = defineExchange("events");
 
       // WHEN
       const command = defineCommandConsumer(queue, exchange, message, {
@@ -1206,8 +1457,8 @@ describe("builder", () => {
           action: z.string(),
         }),
       );
-      const auditQueue = defineQueue("audit-log", { durable: true });
-      const auditExchange = defineExchange("audit", "topic", { durable: true });
+      const auditQueue = defineQueue("audit-log");
+      const auditExchange = defineExchange("audit");
 
       // WHEN - CommandConsumerConfig goes directly in consumers
       const processAudit = defineCommandConsumer(auditQueue, auditExchange, message, {
@@ -1265,8 +1516,8 @@ describe("builder", () => {
           amount: z.number(),
         }),
       );
-      const queue = defineQueue("order-processing", { durable: true });
-      const exchange = defineExchange("orders", "topic", { durable: true });
+      const queue = defineQueue("order-processing");
+      const exchange = defineExchange("orders");
 
       // WHEN - Consumer bound with pattern, publishers use concrete keys
       const processOrder = defineCommandConsumer(queue, exchange, message, {
@@ -1299,8 +1550,8 @@ describe("builder", () => {
   describe("event and command patterns with external resources", () => {
     it("should support using external exchange with event pattern", () => {
       // GIVEN - External exchange from another contract
-      const externalExchange = defineExchange("external-events", "topic", { durable: true });
-      const localQueue = defineQueue("local-queue", { durable: true });
+      const externalExchange = defineExchange("external-events");
+      const localQueue = defineQueue("local-queue");
       const message = defineMessage(z.object({ eventId: z.string() }));
 
       // WHEN - Use external exchange with local queue
@@ -1322,8 +1573,8 @@ describe("builder", () => {
 
     it("should support using external queue with command pattern", () => {
       // GIVEN - External queue from another contract
-      const externalQueue = defineQueue("external-queue", { durable: true });
-      const localExchange = defineExchange("local-exchange", "direct", { durable: true });
+      const externalQueue = defineQueue("external-queue");
+      const localExchange = defineExchange("local-exchange", { type: "direct" });
       const message = defineMessage(z.object({ data: z.string() }));
 
       // WHEN - Use external queue with local exchange
@@ -1340,10 +1591,12 @@ describe("builder", () => {
 
     it("should support mixed EventPublisherConfig and CommandConsumerConfig in a contract", () => {
       // GIVEN
-      const ordersExchange = defineExchange("orders", "topic", { durable: true });
-      const notificationsExchange = defineExchange("notifications", "fanout", { durable: true });
-      const orderQueue = defineQueue("order-queue", { durable: true });
-      const notificationQueue = defineQueue("notification-queue", { durable: true });
+      const ordersExchange = defineExchange("orders");
+      const notificationsExchange = defineExchange("notifications", {
+        type: "fanout",
+      });
+      const orderQueue = defineQueue("order-queue");
+      const notificationQueue = defineQueue("notification-queue");
 
       const orderMessage = defineMessage(z.object({ orderId: z.string() }));
       const notificationMessage = defineMessage(z.object({ message: z.string() }));
@@ -1401,8 +1654,8 @@ describe("builder", () => {
 
     it("should auto-generate TTL-backoff retry infrastructure from consumer queue", () => {
       // GIVEN
-      const dlx = defineExchange("orders-dlx", "direct", { durable: true });
-      const ordersExchange = defineExchange("orders", "topic", { durable: true });
+      const dlx = defineExchange("orders-dlx", { type: "direct" });
+      const ordersExchange = defineExchange("orders");
       const orderMessage = defineMessage(z.object({ orderId: z.string() }));
       const orderQueue = defineQueue("order-processing", {
         deadLetter: { exchange: dlx },
@@ -1417,7 +1670,7 @@ describe("builder", () => {
       const contract = defineContract({
         publishers: { orderCreated },
         consumers: {
-          processOrder: defineEventConsumer(orderCreated, extractQueue(orderQueue)),
+          processOrder: defineEventConsumer(orderCreated, orderQueue),
         },
       });
 
@@ -1425,22 +1678,34 @@ describe("builder", () => {
       expect(contract.exchanges).toMatchObject({
         orders: ordersExchange,
         "orders-dlx": dlx,
+        "wait-exchange": {
+          name: "wait-exchange",
+          type: "headers",
+        },
+        "retry-exchange": {
+          name: "retry-exchange",
+          type: "headers",
+        },
       });
 
       // Wait queue is auto-generated
       expect(contract.queues).toMatchObject({
-        "order-processing": extractQueue(orderQueue),
+        "order-processing": orderQueue,
         "order-processing-wait": expect.objectContaining({
           name: "order-processing-wait",
           type: "quorum",
+          durable: true,
           deadLetter: {
-            exchange: dlx,
-            routingKey: "order-processing",
+            exchange: {
+              name: "retry-exchange",
+              type: "headers",
+              durable: true,
+            },
           },
         }),
       });
 
-      // Wait binding (DLX → wait queue) and retry binding (DLX → main queue)
+      // Wait binding (wait exchange → wait queue) and retry binding (retry exchange → main queue)
       expect(contract.bindings).toMatchObject({
         processOrderBinding: expect.objectContaining({
           type: "queue",
@@ -1451,330 +1716,80 @@ describe("builder", () => {
         "order-processingWaitBinding": expect.objectContaining({
           type: "queue",
           queue: expect.objectContaining({ name: "order-processing-wait" }),
-          exchange: dlx,
-          routingKey: "order-processing-wait",
+          exchange: {
+            name: "wait-exchange",
+            type: "headers",
+            durable: true,
+          },
+          arguments: {
+            "x-match": "all",
+            "x-wait-queue": "order-processing-wait",
+          },
         }),
         "order-processingRetryBinding": expect.objectContaining({
           type: "queue",
           queue: extractQueue(orderQueue),
-          exchange: dlx,
-          routingKey: "order-processing",
+          exchange: {
+            name: "retry-exchange",
+            type: "headers",
+            durable: true,
+          },
+          arguments: {
+            "x-match": "all",
+            "x-retry-queue": "order-processing",
+          },
         }),
       });
     });
-  });
 
-  describe("defineQuorumQueue", () => {
-    it("should create a quorum queue with quorum-native retry", () => {
+    it("should auto-generate TTL-backoff retry infrastructure without dead letter exchange", () => {
       // GIVEN
-      const dlx = defineExchange("orders-dlx", "direct", { durable: true });
+      const ordersExchange = defineExchange("orders");
+      const orderMessage = defineMessage(z.object({ orderId: z.string() }));
+      const orderQueue = defineQueue("order-processing", {
+        retry: { mode: "ttl-backoff", maxRetries: 3 },
+      });
+
+      const orderCreated = defineEventPublisher(ordersExchange, orderMessage, {
+        routingKey: "order.created",
+      });
 
       // WHEN
-      const queue = defineQuorumQueue("order-processing", {
-        deadLetter: { exchange: dlx },
-        deliveryLimit: 3,
-      });
-
-      // THEN
-      expect(queue).toEqual({
-        name: "order-processing",
-        type: "quorum",
-        deadLetter: { exchange: dlx },
-        deliveryLimit: 3,
-        retry: { mode: "quorum-native" },
-      });
-    });
-
-    it("should create a quorum queue with dead letter routing key", () => {
-      // GIVEN
-      const dlx = defineExchange("orders-dlx", "topic", { durable: true });
-
-      // WHEN
-      const queue = defineQuorumQueue("order-processing", {
-        deadLetter: { exchange: dlx, routingKey: "failed.orders" },
-        deliveryLimit: 5,
-      });
-
-      // THEN
-      expect(queue).toEqual({
-        name: "order-processing",
-        type: "quorum",
-        deadLetter: { exchange: dlx, routingKey: "failed.orders" },
-        deliveryLimit: 5,
-        retry: { mode: "quorum-native" },
-      });
-    });
-
-    it("should create a quorum queue with autoDelete option", () => {
-      // GIVEN
-      const dlx = defineExchange("orders-dlx", "direct", { durable: true });
-
-      // WHEN
-      const queue = defineQuorumQueue("order-processing", {
-        deadLetter: { exchange: dlx },
-        deliveryLimit: 3,
-        autoDelete: true,
-      });
-
-      // THEN
-      expect(queue).toEqual({
-        name: "order-processing",
-        type: "quorum",
-        deadLetter: { exchange: dlx },
-        deliveryLimit: 3,
-        autoDelete: true,
-        retry: { mode: "quorum-native" },
-      });
-    });
-
-    it("should create a quorum queue with additional arguments", () => {
-      // GIVEN
-      const dlx = defineExchange("orders-dlx", "direct", { durable: true });
-
-      // WHEN
-      const queue = defineQuorumQueue("order-processing", {
-        deadLetter: { exchange: dlx },
-        deliveryLimit: 3,
-        arguments: { "x-message-ttl": 86400000 },
-      });
-
-      // THEN
-      expect(queue).toEqual({
-        name: "order-processing",
-        type: "quorum",
-        deadLetter: { exchange: dlx },
-        deliveryLimit: 3,
-        retry: { mode: "quorum-native" },
-        arguments: { "x-message-ttl": 86400000 },
-      });
-    });
-
-    it("should create a quorum queue with all options combined", () => {
-      // GIVEN
-      const dlx = defineExchange("orders-dlx", "topic", { durable: true });
-
-      // WHEN
-      const queue = defineQuorumQueue("order-processing", {
-        deadLetter: { exchange: dlx, routingKey: "failed" },
-        deliveryLimit: 10,
-        autoDelete: false,
-        arguments: { "x-message-ttl": 3600000 },
-      });
-
-      // THEN
-      expect(queue).toEqual({
-        name: "order-processing",
-        type: "quorum",
-        deadLetter: { exchange: dlx, routingKey: "failed" },
-        deliveryLimit: 10,
-        autoDelete: false,
-        retry: { mode: "quorum-native" },
-        arguments: { "x-message-ttl": 3600000 },
-      });
-    });
-  });
-
-  describe("defineTtlBackoffQueue", () => {
-    it("should create a TTL-backoff queue with default retry options", () => {
-      // GIVEN
-      const dlx = defineExchange("orders-dlx", "direct", { durable: true });
-
-      // WHEN
-      const queue = defineTtlBackoffQueue("order-processing", {
-        deadLetter: { exchange: dlx },
-      });
-
-      // THEN - returns QueueWithTtlBackoffInfrastructure
-      expect(queue).toMatchObject({
-        __brand: "QueueWithTtlBackoffInfrastructure",
-        queue: {
-          name: "order-processing",
-          type: "quorum",
-          deadLetter: { exchange: dlx },
-          retry: {
-            mode: "ttl-backoff",
-            maxRetries: 3,
-            initialDelayMs: 1000,
-            maxDelayMs: 30000,
-            backoffMultiplier: 2,
-            jitter: true,
-          },
+      const contract = defineContract({
+        publishers: { orderCreated },
+        consumers: {
+          processOrder: defineEventConsumer(orderCreated, orderQueue),
         },
-        waitQueue: {
+      });
+
+      // THEN - Only TTL-backoff exchanges are auto-extracted (no DLX)
+      expect(contract.exchanges).toMatchObject({
+        orders: ordersExchange,
+        "wait-exchange": {
+          name: "wait-exchange",
+          type: "headers",
+        },
+        "retry-exchange": {
+          name: "retry-exchange",
+          type: "headers",
+        },
+      });
+
+      // Wait queue is auto-generated
+      expect(contract.queues).toMatchObject({
+        "order-processing": orderQueue,
+        "order-processing-wait": expect.objectContaining({
           name: "order-processing-wait",
           type: "quorum",
-        },
-      });
-    });
-
-    it("should create a TTL-backoff queue with custom retry options", () => {
-      // GIVEN
-      const dlx = defineExchange("orders-dlx", "direct", { durable: true });
-
-      // WHEN
-      const queue = defineTtlBackoffQueue("order-processing", {
-        deadLetter: { exchange: dlx },
-        maxRetries: 5,
-        initialDelayMs: 2000,
-        maxDelayMs: 60000,
-        backoffMultiplier: 3,
-        jitter: false,
-      });
-
-      // THEN
-      expect(queue).toMatchObject({
-        __brand: "QueueWithTtlBackoffInfrastructure",
-        queue: {
-          name: "order-processing",
-          type: "quorum",
-          deadLetter: { exchange: dlx },
-          retry: {
-            mode: "ttl-backoff",
-            maxRetries: 5,
-            initialDelayMs: 2000,
-            maxDelayMs: 60000,
-            backoffMultiplier: 3,
-            jitter: false,
+          durable: true,
+          deadLetter: {
+            exchange: {
+              name: "retry-exchange",
+              type: "headers",
+              durable: true,
+            },
           },
-        },
-      });
-    });
-
-    it("should create a TTL-backoff queue with dead letter routing key", () => {
-      // GIVEN
-      const dlx = defineExchange("orders-dlx", "topic", { durable: true });
-
-      // WHEN
-      const queue = defineTtlBackoffQueue("order-processing", {
-        deadLetter: { exchange: dlx, routingKey: "failed.orders" },
-      });
-
-      // THEN
-      expect(queue).toMatchObject({
-        __brand: "QueueWithTtlBackoffInfrastructure",
-        queue: {
-          deadLetter: { exchange: dlx, routingKey: "failed.orders" },
-        },
-      });
-    });
-
-    it("should create a TTL-backoff queue with autoDelete option", () => {
-      // GIVEN
-      const dlx = defineExchange("orders-dlx", "direct", { durable: true });
-
-      // WHEN
-      const queue = defineTtlBackoffQueue("order-processing", {
-        deadLetter: { exchange: dlx },
-        autoDelete: true,
-      });
-
-      // THEN
-      expect(queue).toMatchObject({
-        __brand: "QueueWithTtlBackoffInfrastructure",
-        queue: {
-          autoDelete: true,
-        },
-      });
-    });
-
-    it("should create a TTL-backoff queue with additional arguments", () => {
-      // GIVEN
-      const dlx = defineExchange("orders-dlx", "direct", { durable: true });
-
-      // WHEN
-      const queue = defineTtlBackoffQueue("order-processing", {
-        deadLetter: { exchange: dlx },
-        arguments: { "x-message-ttl": 86400000 },
-      });
-
-      // THEN
-      expect(queue).toMatchObject({
-        __brand: "QueueWithTtlBackoffInfrastructure",
-        queue: {
-          arguments: { "x-message-ttl": 86400000 },
-        },
-      });
-    });
-
-    it("should allow extractQueue to access underlying queue definition", () => {
-      // GIVEN
-      const dlx = defineExchange("orders-dlx", "direct", { durable: true });
-      const queue = defineTtlBackoffQueue("order-processing", {
-        deadLetter: { exchange: dlx },
-        maxRetries: 5,
-      });
-
-      // WHEN
-      const queueDef = extractQueue(queue);
-
-      // THEN
-      expect(queueDef.name).toBe("order-processing");
-      expect(queueDef.type).toBe("quorum");
-      expect(queueDef.deadLetter).toEqual({ exchange: dlx });
-    });
-
-    it("should include wait queue bindings in infrastructure", () => {
-      // GIVEN
-      const dlx = defineExchange("orders-dlx", "direct", { durable: true });
-
-      // WHEN
-      const queue = defineTtlBackoffQueue("order-processing", {
-        deadLetter: { exchange: dlx },
-      });
-
-      // THEN - verify bindings are created
-      expect(queue.waitQueueBinding).toMatchObject({
-        type: "queue",
-        queue: queue.waitQueue,
-        exchange: dlx,
-        routingKey: "order-processing-wait",
-      });
-      expect(queue.mainQueueRetryBinding).toMatchObject({
-        type: "queue",
-        queue: queue.queue,
-        exchange: dlx,
-        routingKey: "order-processing",
-      });
-    });
-
-    it("should create a TTL-backoff queue with all options combined", () => {
-      // GIVEN
-      const dlx = defineExchange("orders-dlx", "topic", { durable: true });
-
-      // WHEN
-      const queue = defineTtlBackoffQueue("order-processing", {
-        deadLetter: { exchange: dlx, routingKey: "failed" },
-        maxRetries: 10,
-        initialDelayMs: 500,
-        maxDelayMs: 120000,
-        backoffMultiplier: 1.5,
-        jitter: true,
-        autoDelete: false,
-        arguments: { "x-message-ttl": 3600000 },
-      });
-
-      // THEN
-      expect(queue).toMatchObject({
-        __brand: "QueueWithTtlBackoffInfrastructure",
-        queue: {
-          name: "order-processing",
-          type: "quorum",
-          deadLetter: { exchange: dlx, routingKey: "failed" },
-          autoDelete: false,
-          retry: {
-            mode: "ttl-backoff",
-            maxRetries: 10,
-            initialDelayMs: 500,
-            maxDelayMs: 120000,
-            backoffMultiplier: 1.5,
-            jitter: true,
-          },
-          arguments: { "x-message-ttl": 3600000 },
-        },
-        waitQueue: {
-          name: "order-processing-wait",
-          type: "quorum",
-        },
+        }),
       });
     });
   });
@@ -1782,8 +1797,8 @@ describe("builder", () => {
   describe("bridgeExchange support", () => {
     it("should create a bridged event consumer with topic exchange", () => {
       // GIVEN - Two domains: orders (source) and billing (local)
-      const ordersExchange = defineExchange("orders", "topic", { durable: true });
-      const billingExchange = defineExchange("billing", "topic", { durable: true });
+      const ordersExchange = defineExchange("orders");
+      const billingExchange = defineExchange("billing");
       const message = defineMessage(z.object({ orderId: z.string() }));
       const billingQueue = defineQueue("billing-order-processing");
 
@@ -1817,8 +1832,37 @@ describe("builder", () => {
 
     it("should create a bridged event consumer with fanout exchange", () => {
       // GIVEN
-      const logsExchange = defineExchange("logs", "fanout");
-      const analyticsExchange = defineExchange("analytics", "fanout");
+      const logsExchange = defineExchange("logs", { type: "fanout" });
+      const analyticsExchange = defineExchange("analytics", { type: "fanout" });
+      const message = defineMessage(z.object({ level: z.string() }));
+      const analyticsQueue = defineQueue("analytics-logs");
+
+      // WHEN
+      const logEvent = defineEventPublisher(logsExchange, message);
+      const result = defineEventConsumer(logEvent, analyticsQueue, {
+        bridgeExchange: analyticsExchange,
+      });
+
+      // THEN
+      expect(result).toMatchObject({
+        bridgeExchange: analyticsExchange,
+        binding: {
+          type: "queue",
+          queue: analyticsQueue,
+          exchange: analyticsExchange,
+        },
+        exchangeBinding: {
+          type: "exchange",
+          source: logsExchange,
+          destination: analyticsExchange,
+        },
+      });
+    });
+
+    it("should create a bridged event consumer with headers exchange", () => {
+      // GIVEN
+      const logsExchange = defineExchange("logs", { type: "headers" });
+      const analyticsExchange = defineExchange("analytics", { type: "headers" });
       const message = defineMessage(z.object({ level: z.string() }));
       const analyticsQueue = defineQueue("analytics-logs");
 
@@ -1846,8 +1890,8 @@ describe("builder", () => {
 
     it("should create a bridged command publisher with topic exchange", () => {
       // GIVEN - Remote domain owns the command consumer
-      const remoteExchange = defineExchange("remote-commands", "topic", { durable: true });
-      const localExchange = defineExchange("local-commands", "topic", { durable: true });
+      const remoteExchange = defineExchange("remote-commands");
+      const localExchange = defineExchange("local-commands");
       const message = defineMessage(z.object({ taskId: z.string() }));
       const remoteQueue = defineQueue("remote-task-queue");
 
@@ -1881,8 +1925,8 @@ describe("builder", () => {
 
     it("should extract bridged event consumer into contract", () => {
       // GIVEN
-      const ordersExchange = defineExchange("orders", "topic", { durable: true });
-      const billingExchange = defineExchange("billing", "topic", { durable: true });
+      const ordersExchange = defineExchange("orders");
+      const billingExchange = defineExchange("billing");
       const message = defineMessage(z.object({ orderId: z.string() }));
       const billingQueue = defineQueue("billing-orders");
 
@@ -1933,8 +1977,8 @@ describe("builder", () => {
 
     it("should extract bridged command publisher into contract", () => {
       // GIVEN
-      const remoteExchange = defineExchange("remote", "topic", { durable: true });
-      const localExchange = defineExchange("local", "topic", { durable: true });
+      const remoteExchange = defineExchange("remote");
+      const localExchange = defineExchange("local");
       const message = defineMessage(z.object({ id: z.string() }));
       const remoteQueue = defineQueue("remote-queue");
 
@@ -1977,9 +2021,9 @@ describe("builder", () => {
 
     it("should mix bridged and non-bridged entries in contract", () => {
       // GIVEN
-      const ordersExchange = defineExchange("orders", "topic", { durable: true });
-      const billingExchange = defineExchange("billing", "topic", { durable: true });
-      const localExchange = defineExchange("local", "topic", { durable: true });
+      const ordersExchange = defineExchange("orders");
+      const billingExchange = defineExchange("billing");
+      const localExchange = defineExchange("local");
       const orderMessage = defineMessage(z.object({ orderId: z.string() }));
       const localMessage = defineMessage(z.object({ id: z.string() }));
       const billingQueue = defineQueue("billing-orders");
@@ -2037,7 +2081,7 @@ describe("builder", () => {
 
     it("should not produce bridge fields when bridgeExchange is not provided", () => {
       // GIVEN
-      const exchange = defineExchange("test", "topic");
+      const exchange = defineExchange("test");
       const message = defineMessage(z.object({ id: z.string() }));
       const queue = defineQueue("test-queue");
 

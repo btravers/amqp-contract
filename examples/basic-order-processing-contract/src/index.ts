@@ -23,7 +23,10 @@ const orderSchema = z.object({
     }),
   ),
   totalAmount: z.number().positive(),
-  createdAt: z.string().datetime(),
+  createdAt: z
+    .string()
+    .datetime()
+    .default(() => new Date().toISOString()),
 });
 
 /**
@@ -32,18 +35,28 @@ const orderSchema = z.object({
 const orderStatusSchema = z.object({
   orderId: z.string(),
   status: z.enum(["processing", "shipped", "delivered", "cancelled"]),
-  updatedAt: z.string().datetime(),
+  updatedAt: z
+    .string()
+    .datetime()
+    .default(() => new Date().toISOString()),
+});
+
+/**
+ * Message headers schema for order events
+ */
+const orderHeadersSchema = z.object({
+  eventSource: z.string().default("order-service"),
+  eventVersion: z.number().default(1),
 });
 
 // Define exchanges
-const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const ordersExchange = defineExchange("orders");
 
 // Define dead letter exchange for failed messages
-const ordersDlx = defineExchange("orders-dlx", "topic", { durable: true });
+const ordersDlx = defineExchange("orders-dlx");
 
 // Define queues
 const orderProcessingQueue = defineQueue("order-processing", {
-  durable: true,
   deadLetter: {
     exchange: ordersDlx,
     routingKey: "order.failed",
@@ -52,15 +65,16 @@ const orderProcessingQueue = defineQueue("order-processing", {
     "x-message-ttl": 86400000, // 24 hours
   },
 });
-const orderNotificationsQueue = defineQueue("order-notifications", { durable: true });
-const orderShippingQueue = defineQueue("order-shipping", { durable: true });
-const orderUrgentQueue = defineQueue("order-urgent", { durable: true });
+const orderNotificationsQueue = defineQueue("order-notifications");
+const orderShippingQueue = defineQueue("order-shipping");
+const orderUrgentQueue = defineQueue("order-urgent");
 
 // Dead letter queue to collect failed messages
-const ordersDlxQueue = defineQueue("orders-dlx-queue", { durable: true });
+const ordersDlxQueue = defineQueue("orders-dlx-queue");
 
 // Define messages with metadata
 const orderMessage = defineMessage(orderSchema, {
+  headers: orderHeadersSchema,
   summary: "Order created event",
   description: "Emitted when a new order is created in the system",
 });

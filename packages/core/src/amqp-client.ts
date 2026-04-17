@@ -1,3 +1,5 @@
+import type { ContractDefinition } from "@amqp-contract/contract";
+import { Future, Result } from "@swan-io/boxed";
 import type {
   AmqpConnectionManager,
   AmqpConnectionManagerOptions,
@@ -6,9 +8,7 @@ import type {
   CreateChannelOpts,
 } from "amqp-connection-manager";
 import type { Channel, ConsumeMessage, Options } from "amqplib";
-import { Future, Result } from "@swan-io/boxed";
 import { ConnectionManagerSingleton } from "./connection-manager.js";
-import type { ContractDefinition } from "@amqp-contract/contract";
 import { TechnicalError } from "./errors.js";
 import { setupAmqpTopology } from "./setup.js";
 
@@ -52,6 +52,22 @@ export type AmqpClientOptions = {
  * Callback type for consuming messages.
  */
 export type ConsumeCallback = (msg: ConsumeMessage | null) => void | Promise<void>;
+
+/**
+ * Publish options that extend amqplib's Options.Publish with optional timeout support.
+ */
+export type PublishOptions = Options.Publish & {
+  /** Message will be rejected after timeout ms */
+  timeout?: number;
+};
+
+/**
+ * Consume options that extend amqplib's Options.Consume with optional prefetch support.
+ */
+export type ConsumerOptions = Options.Consume & {
+  /** Number of messages to prefetch */
+  prefetch?: number;
+};
 
 /**
  * AMQP client that manages connections and channels with automatic topology setup.
@@ -120,6 +136,7 @@ export class AmqpClient {
 
     // Merge user-provided channel options with defaults
     const channelOpts: CreateChannelOpts = {
+      confirm: true,
       json: true,
       setup: defaultSetup,
       ...otherChannelOptions,
@@ -173,11 +190,29 @@ export class AmqpClient {
     exchange: string,
     routingKey: string,
     content: Buffer | unknown,
-    options?: Options.Publish,
+    options?: PublishOptions,
   ): Future<Result<boolean, TechnicalError>> {
     return Future.fromPromise(
       this.channelWrapper.publish(exchange, routingKey, content, options),
     ).mapError((error: unknown) => new TechnicalError("Failed to publish message", error));
+  }
+
+  /**
+   * Publish a message directly to a queue.
+   *
+   * @param queue - The queue name
+   * @param content - The message content (will be JSON serialized if json: true)
+   * @param options - Optional publish options
+   * @returns A Future with `Result<boolean>` - true if message was sent, false if channel buffer is full
+   */
+  sendToQueue(
+    queue: string,
+    content: Buffer | unknown,
+    options?: PublishOptions,
+  ): Future<Result<boolean, TechnicalError>> {
+    return Future.fromPromise(this.channelWrapper.sendToQueue(queue, content, options)).mapError(
+      (error: unknown) => new TechnicalError("Failed to publish message to queue", error),
+    );
   }
 
   /**
@@ -191,7 +226,7 @@ export class AmqpClient {
   consume(
     queue: string,
     callback: ConsumeCallback,
-    options?: Options.Consume,
+    options?: ConsumerOptions,
   ): Future<Result<string, TechnicalError>> {
     return Future.fromPromise(this.channelWrapper.consume(queue, callback, options))
       .mapError((error: unknown) => new TechnicalError("Failed to start consuming messages", error))

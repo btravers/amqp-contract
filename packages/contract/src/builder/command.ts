@@ -1,22 +1,20 @@
-import type { BindingPattern, RoutingKey } from "./routing-types.js";
 import type {
   ConsumerDefinition,
   DirectExchangeDefinition,
   ExchangeBindingDefinition,
   ExchangeDefinition,
-  ExtractDlxFromEntry,
-  ExtractQueueFromEntry,
   FanoutExchangeDefinition,
+  HeadersExchangeDefinition,
   MessageDefinition,
   PublisherDefinition,
   QueueBindingDefinition,
-  QueueDefinition,
   QueueEntry,
   TopicExchangeDefinition,
 } from "../types.js";
+import { defineExchangeBinding, defineQueueBindingInternal } from "./binding.js";
 import { defineConsumer } from "./consumer.js";
 import { definePublisherInternal } from "./publisher.js";
-import { defineExchangeBinding, defineQueueBindingInternal } from "./binding.js";
+import type { BindingPattern, RoutingKey } from "./routing-types.js";
 
 /**
  * Configuration for a command consumer.
@@ -26,14 +24,13 @@ import { defineExchangeBinding, defineQueueBindingInternal } from "./binding.js"
  *
  * @template TMessage - The message definition
  * @template TExchange - The exchange definition
- * @template TRoutingKey - The routing key type (undefined for fanout)
+ * @template TRoutingKey - The routing key type (undefined for fanout and headers exchanges)
  */
 export type CommandConsumerConfig<
   TMessage extends MessageDefinition,
   TExchange extends ExchangeDefinition,
   TRoutingKey extends string | undefined = undefined,
-  TQueue extends QueueDefinition = QueueDefinition,
-  TDlxExchange extends ExchangeDefinition | undefined = ExchangeDefinition | undefined,
+  TQueue extends QueueEntry = QueueEntry,
 > = {
   /** Discriminator to identify this as a command consumer config */
   __brand: "CommandConsumerConfig";
@@ -45,8 +42,6 @@ export type CommandConsumerConfig<
   exchange: TExchange;
   /** The queue this consumer reads from */
   queue: TQueue;
-  /** The dead letter exchange from the queue, if configured */
-  deadLetterExchange: TDlxExchange;
   /** The message definition */
   message: TMessage;
   /** The routing key pattern for the binding */
@@ -89,11 +84,13 @@ export type BridgedPublisherConfig<
  * @param queue - The queue that will receive commands
  * @param exchange - The fanout exchange that routes commands
  * @param message - The message definition (schema and metadata)
+ * @param options - Optional binding configuration
+ * @param options.arguments - Additional AMQP arguments
  * @returns A command consumer configuration
  *
  * @example
  * ```typescript
- * const tasksExchange = defineExchange('tasks', 'fanout', { durable: true });
+ * const tasksExchange = defineExchange('tasks', { type: 'fanout' });
  * const taskMessage = defineMessage(z.object({ taskId: z.string() }));
  *
  * // Consumer owns the queue
@@ -111,13 +108,48 @@ export function defineCommandConsumer<
   queue: TQueueEntry,
   exchange: TExchange,
   message: TMessage,
-): CommandConsumerConfig<
-  TMessage,
-  TExchange,
-  undefined,
-  ExtractQueueFromEntry<TQueueEntry>,
-  ExtractDlxFromEntry<TQueueEntry>
->;
+  options?: {
+    arguments?: Record<string, unknown>;
+  },
+): CommandConsumerConfig<TMessage, TExchange, undefined, TQueueEntry>;
+
+/**
+ * Define a command consumer for receiving commands via headers exchange.
+ *
+ * Commands are sent by publishers to a specific queue. The consumer "owns" the
+ * queue and defines what commands it accepts.
+ *
+ * @param queue - The queue that will receive commands
+ * @param exchange - The headers exchange that routes commands
+ * @param message - The message definition (schema and metadata)
+ * @param options - Optional binding configuration
+ * @param options.arguments - Additional AMQP arguments
+ * @returns A command consumer configuration
+ *
+ * @example
+ * ```typescript
+ * const tasksExchange = defineExchange('tasks', { type: 'headers' });
+ * const taskMessage = defineMessage(z.object({ taskId: z.string() }));
+ *
+ * // Consumer owns the queue
+ * const executeTask = defineCommandConsumer(taskQueue, tasksExchange, taskMessage);
+ *
+ * // Publishers send commands to it
+ * const sendTask = defineCommandPublisher(executeTask);
+ * ```
+ */
+export function defineCommandConsumer<
+  TMessage extends MessageDefinition,
+  TQueueEntry extends QueueEntry,
+  TExchange extends HeadersExchangeDefinition,
+>(
+  queue: TQueueEntry,
+  exchange: TExchange,
+  message: TMessage,
+  options?: {
+    arguments?: Record<string, unknown>;
+  },
+): CommandConsumerConfig<TMessage, TExchange, undefined, TQueueEntry>;
 
 /**
  * Define a command consumer for receiving commands via direct exchange.
@@ -135,7 +167,7 @@ export function defineCommandConsumer<
  *
  * @example
  * ```typescript
- * const tasksExchange = defineExchange('tasks', 'direct', { durable: true });
+ * const tasksExchange = defineExchange('tasks', { type: 'direct' });
  * const taskMessage = defineMessage(z.object({ taskId: z.string() }));
  *
  * const executeTask = defineCommandConsumer(taskQueue, tasksExchange, taskMessage, {
@@ -158,13 +190,7 @@ export function defineCommandConsumer<
     routingKey: RoutingKey<TRoutingKey>;
     arguments?: Record<string, unknown>;
   },
-): CommandConsumerConfig<
-  TMessage,
-  TExchange,
-  TRoutingKey,
-  ExtractQueueFromEntry<TQueueEntry>,
-  ExtractDlxFromEntry<TQueueEntry>
->;
+): CommandConsumerConfig<TMessage, TExchange, TRoutingKey, TQueueEntry>;
 
 /**
  * Define a command consumer for receiving commands via topic exchange.
@@ -182,7 +208,7 @@ export function defineCommandConsumer<
  *
  * @example
  * ```typescript
- * const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+ * const ordersExchange = defineExchange('orders', { type: 'topic' });
  * const orderMessage = defineMessage(z.object({ orderId: z.string() }));
  *
  * // Consumer uses pattern to receive multiple command types
@@ -212,13 +238,7 @@ export function defineCommandConsumer<
     routingKey: BindingPattern<TRoutingKey>;
     arguments?: Record<string, unknown>;
   },
-): CommandConsumerConfig<
-  TMessage,
-  TExchange,
-  TRoutingKey,
-  ExtractQueueFromEntry<TQueueEntry>,
-  ExtractDlxFromEntry<TQueueEntry>
->;
+): CommandConsumerConfig<TMessage, TExchange, TRoutingKey, TQueueEntry>;
 
 /**
  * Implementation of defineCommandConsumer.
@@ -241,8 +261,7 @@ export function defineCommandConsumer<TMessage extends MessageDefinition>(
     consumer,
     binding,
     exchange,
-    queue: consumer.queue,
-    deadLetterExchange: consumer.queue.deadLetter?.exchange,
+    queue,
     message,
     routingKey: options?.routingKey,
   };
@@ -253,13 +272,32 @@ export function defineCommandConsumer<TMessage extends MessageDefinition>(
  *
  * @param commandConsumer - The command consumer configuration
  * @param options - Configuration with required bridgeExchange
- * @param options.bridgeExchange - The local domain exchange to bridge through
+ * @param options.bridgeExchange - The local domain exchange to bridge through (must be fanout to match target)
  * @returns A bridged publisher configuration
  */
 export function defineCommandPublisher<
   TMessage extends MessageDefinition,
   TExchange extends FanoutExchangeDefinition,
   TBridgeExchange extends FanoutExchangeDefinition,
+>(
+  commandConsumer: CommandConsumerConfig<TMessage, TExchange, undefined>,
+  options: {
+    bridgeExchange: TBridgeExchange;
+  },
+): BridgedPublisherConfig<TMessage, TBridgeExchange, TExchange>;
+
+/**
+ * Create a bridged publisher that sends commands to a headers exchange consumer via a bridge exchange.
+ *
+ * @param commandConsumer - The command consumer configuration
+ * @param options - Configuration with required bridgeExchange
+ * @param options.bridgeExchange - The local domain exchange to bridge through (must be headers to match target)
+ * @returns A bridged publisher configuration
+ */
+export function defineCommandPublisher<
+  TMessage extends MessageDefinition,
+  TExchange extends HeadersExchangeDefinition,
+  TBridgeExchange extends HeadersExchangeDefinition,
 >(
   commandConsumer: CommandConsumerConfig<TMessage, TExchange, undefined>,
   options: {
@@ -327,6 +365,22 @@ export function defineCommandPublisher<TMessage extends MessageDefinition>(
 ): { message: TMessage; exchange: FanoutExchangeDefinition };
 
 /**
+ * Create a publisher that sends commands to a headers exchange consumer.
+ *
+ * @param commandConsumer - The command consumer configuration
+ * @returns A publisher definition
+ *
+ * @example
+ * ```typescript
+ * const executeTask = defineCommandConsumer(taskQueue, headersExchange, taskMessage);
+ * const sendTask = defineCommandPublisher(executeTask);
+ * ```
+ */
+export function defineCommandPublisher<TMessage extends MessageDefinition>(
+  commandConsumer: CommandConsumerConfig<TMessage, HeadersExchangeDefinition, undefined>,
+): { message: TMessage; exchange: HeadersExchangeDefinition };
+
+/**
  * Create a publisher that sends commands to a direct exchange consumer.
  *
  * @param commandConsumer - The command consumer configuration
@@ -346,7 +400,7 @@ export function defineCommandPublisher<
  * optionally specify a concrete routing key that matches the pattern.
  *
  * @param commandConsumer - The command consumer configuration
- * @param options - Optional publisher configuration
+ * @param options - Optional binding configuration
  * @param options.routingKey - Override routing key (must match consumer's pattern)
  * @returns A publisher definition
  *
@@ -409,7 +463,7 @@ export function defineCommandPublisher<TMessage extends MessageDefinition>(
       e2eBindingOptions.routingKey = publisherRoutingKey;
     }
     const e2eBinding =
-      bridgeExchange.type === "fanout"
+      bridgeExchange.type === "fanout" || bridgeExchange.type === "headers"
         ? defineExchangeBinding(targetExchange, bridgeExchange)
         : defineExchangeBinding(
             targetExchange,

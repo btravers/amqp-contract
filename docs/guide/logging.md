@@ -81,23 +81,32 @@ const worker = await TypedAmqpWorker.create({
 | `error` | `Error processing message`                        | `consumerName`, `queueName`, `errorType`, `error` |
 | `error` | `Non-retryable error, sending to DLQ immediately` | `consumerName`, `errorType`, `error`              |
 
-#### Retry — Quorum-Native Mode
+#### Retry — Immediate-Requeue Mode
 
-| Level  | Message                                                  | Context                                                                |
-| ------ | -------------------------------------------------------- | ---------------------------------------------------------------------- |
-| `warn` | `Message at final delivery attempt (quorum-native mode)` | `consumerName`, `queueName`, `deliveryCount`, `deliveryLimit`, `error` |
-| `warn` | `Retrying message (quorum-native mode)`                  | `consumerName`, `queueName`, `deliveryCount`, `deliveryLimit`, `error` |
+| Level   | Message                                                         | Context                                                          |
+| ------- | --------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `info`  | `Message published for retry`                                   | `queueName`, `retryCount`                                        |
+| `warn`  | `Failed to parse message for retry, using original buffer`      | `queueName`, `error`                                             |
+| `warn`  | `Retrying message (immediate-requeue mode)`                     | `consumerName`, `queueName`, `retryCount`, `maxRetries`, `error` |
+| `error` | `Max retries exceeded, sending to DLQ (immediate-requeue mode)` | `consumerName`, `queueName`, `retryCount`, `maxRetries`, `error` |
+| `error` | `Failed to publish message for retry (write buffer full)`       | `queueName`, `retryCount`                                        |
 
 #### Retry — TTL-Backoff Mode
 
-| Level   | Message                                                                               | Context                                                |
-| ------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| `warn`  | `Retrying message (ttl-backoff mode)`                                                 | `consumerName`, `retryCount`, `delayMs`, `error`       |
-| `warn`  | `Failed to parse message for retry, using original buffer`                            | `queueName`, `error`                                   |
-| `warn`  | `Cannot retry: queue does not have DLX configured, falling back to nack with requeue` | `queueName`                                            |
-| `error` | `Max retries exceeded, sending to DLQ`                                                | `consumerName`, `retryCount`, `maxRetries`, `error`    |
-| `error` | `Failed to publish message for retry (write buffer full)`                             | `queueName`, `waitRoutingKey`, `retryCount`            |
-| `info`  | `Message published for retry`                                                         | `queueName`, `waitRoutingKey`, `retryCount`, `delayMs` |
+| Level   | Message                                                    | Context                                                                     |
+| ------- | ---------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `info`  | `Message published for retry`                              | `queueName`, `retryCount`, `delayMs`                                        |
+| `warn`  | `Failed to parse message for retry, using original buffer` | `queueName`, `error`                                                        |
+| `warn`  | `Retrying message (ttl-backoff mode)`                      | `consumerName`, `queueName`, `retryCount`, `maxRetries`, `delayMs`, `error` |
+| `error` | `Max retries exceeded, sending to DLQ (ttl-backoff mode)`  | `consumerName`, `queueName`, `retryCount`, `maxRetries`, `error`            |
+| `error` | `Failed to publish message for retry (write buffer full)`  | `queueName`, `retryCount`, `delayMs`                                        |
+| `error` | `Queue does not have TTL-backoff infrastructure`           | `consumerName`, `queueName`                                                 |
+
+#### Retry — None Mode (No retry)
+
+| Level  | Message                                      | Context                 |
+| ------ | -------------------------------------------- | ----------------------- |
+| `warn` | `Retry disabled (none mode), sending to DLQ` | `consumerName`, `error` |
 
 #### Dead-Letter Queue
 

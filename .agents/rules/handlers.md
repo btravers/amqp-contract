@@ -56,8 +56,8 @@ const validateOrderHandler = defineHandler(contract, "validateOrder", ({ payload
 
 ## Error Types
 
-- **`RetryableError`**: Transient failures — message retried with backoff
-- **`NonRetryableError`**: Permanent failures — message sent to DLQ immediately
+- **`RetryableError`**: Transient failures — message retried
+- **`NonRetryableError`**: Permanent failures — message sent to DLQ (if configured) or dropped
 - Both extend `HandlerError` base class
 - Factory functions: `retryable()`, `nonRetryable()` (shorthand)
 - Type guards: `isRetryableError()`, `isNonRetryableError()`, `isHandlerError()`
@@ -82,10 +82,6 @@ const handlers = {
   processOrder: [
     processOrderHandler,
     { prefetch: 10 }, // Process up to 10 messages concurrently
-  ],
-  processBatch: [
-    batchHandler,
-    { batchSize: 5, batchTimeout: 1000 }, // Batch 5 messages or 1s timeout
   ],
 };
 ```
@@ -163,6 +159,6 @@ export type {
 } from "@amqp-contract/worker";
 
 // Retry types and helpers (from contract package)
-export type { TtlBackoffRetryOptions, QuorumNativeRetryOptions } from "@amqp-contract/contract";
-export { extractQueue, defineQuorumQueue, defineTtlBackoffQueue } from "@amqp-contract/contract";
+export type { TtlBackoffRetryOptions, ImmediateRequeueRetryOptions } from "@amqp-contract/contract";
+export { extractQueue } from "@amqp-contract/contract";
 ```

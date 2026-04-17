@@ -39,8 +39,8 @@ const connection = await amqp.connect("amqp://localhost");
 const channel = await connection.createChannel();
 
 // Declare resources manually
-await channel.assertExchange("orders", "topic", { durable: true });
-await channel.assertQueue("order-processing", { durable: true });
+await channel.assertExchange("orders", "topic");
+await channel.assertQueue("order-processing");
 await channel.bindQueue("order-processing", "orders", "order.created");
 
 // Publish - NO type checking, NO validation!

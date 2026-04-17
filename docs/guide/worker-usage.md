@@ -218,27 +218,6 @@ const worker = await TypedAmqpWorker.create({
 console.log('Worker ready, waiting for messages...');
 ```
 
-### Manual Consumption
-
-If you need more control, you can create a worker using the `TypedAmqpWorker` class directly and call `consume()` for specific consumers:
-
-```typescript
-import { TypedAmqpWorker } from '@amqp-contract/worker';
-
-const worker = new TypedAmqpWorker(contract, {
-  processOrder: ({ payload }) => { ... },
-  notifyOrder: ({ payload }) => { ... },
-});
-
-await worker.connect(connection);
-
-// Start only the processOrder consumer
-await worker.consume('processOrder');
-
-// Start multiple consumers later
-await worker.consume('notifyOrder');
-```
-
 ## Message Acknowledgment
 
 ### Automatic Acknowledgment
@@ -289,7 +268,7 @@ const worker = await TypedAmqpWorker.create({
 
 - Handler returns `Result.Ok(undefined)` → Message is acknowledged
 - Handler returns `Result.Error(RetryableError)` → Message is nacked and retried
-- Handler returns `Result.Error(NonRetryableError)` → Message is sent to DLQ
+- Handler returns `Result.Error(NonRetryableError)` → Message is sent to DLQ (if configured) or dropped
 
 ## Graceful Shutdown
 
@@ -383,18 +362,12 @@ const worker = await TypedAmqpWorker.create({
     ],
   },
   urls: ["amqp://localhost"],
-});
+}).resultToPromise();
 ```
 
-::: warning Channel-Wide Prefetch
-In AMQP 0.9.1, prefetch is set per-channel. Since all consumers in a worker share the same channel, the worker will use the **maximum prefetch value** among all consumers.
+### Default Consumer Options
 
-For example, if you have two consumers with prefetch values of 5 and 10, the effective prefetch for the channel will be 10.
-:::
-
-### Batch Processing
-
-Process multiple messages at once for better throughput. This is especially useful for bulk database operations or API calls.
+If you want to apply a common consumer configuration across all handlers, use `defaultConsumerOptions` when creating the worker:
 
 ```typescript
 import { Future } from "@swan-io/boxed";
@@ -403,53 +376,19 @@ import { RetryableError } from "@amqp-contract/worker";
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
-    processOrders: [
-      (messages) => {
-        // Handler receives array of messages for batch processing
-        console.log(`Processing ${messages.length} orders`);
-
-        // Batch insert to database
-        return Future.fromPromise(
-          db.orders.insertMany(
-            messages.map(({ payload }) => ({
-              id: payload.orderId,
-              amount: payload.amount,
-            })),
-          ),
-        )
-          .mapOk(() => undefined) // All messages are acked together on success
-          .mapError((error) => new RetryableError("Batch insert failed", error)); // Or nacked together on error
-      },
-      {
-        batchSize: 5, // Process messages in batches of 5
-        batchTimeout: 1000, // Wait max 1 second to fill batch
-        prefetch: 10, // Optional: fetch more messages than batch size
-      },
-    ],
+    processOrder: ({ payload }) =>
+      Future.fromPromise(processOrder(payload))
+        .mapOk(() => undefined)
+        .mapError((error) => new RetryableError("Processing failed", error)),
   },
   urls: ["amqp://localhost"],
-});
+  defaultConsumerOptions: {
+    prefetch: 10,
+  },
+}).resultToPromise();
 ```
 
-**Batch Processing Behavior:**
-
-- Messages are accumulated until `batchSize` is reached
-- If `batchTimeout` is reached before batch is full, the partial batch is processed
-- All messages in a batch are acknowledged or rejected together
-- If a consumer does not set `prefetch` but sets `batchSize`, that `batchSize` is used as its effective prefetch contribution
-- The actual channel prefetch is the maximum effective prefetch across all consumers
-
-**Type Safety:**
-
-TypeScript automatically enforces the correct handler signature based on configuration:
-
-```typescript
-// Single message handler (no batchSize)
-[({ payload }) => { ... }, { prefetch: 10 }]
-
-// Batch handler (with batchSize)
-[(messages) => { ... }, { batchSize: 5 }]
-```
+`defaultConsumerOptions` are applied to every consumer handler. When a handler is defined with tuple syntax, per-handler options override these defaults.
 
 ### Handler Configuration Patterns
 
@@ -480,60 +419,41 @@ handlers: {
 }
 ```
 
-3. **Batch handler** - Process multiple messages
-
-```typescript
-handlers: {
-  processOrders: [
-    (messages) => {
-      // Batch processing - each message has { payload, headers }
-      for (const { payload } of messages) {
-        console.log(payload.orderId);
-      }
-      return Future.value(Result.Ok(undefined));
-    },
-    { batchSize: 5, batchTimeout: 1000 },
-  ];
-}
-```
-
 ## Best Practices
 
 1. **Handle Errors** - Always wrap business logic in try-catch
 2. **Use Prefetch** - Limit concurrent messages with `prefetch` option to control memory usage
-3. **Batch for Throughput** - Use batch processing for bulk operations (database inserts, API calls)
-4. **Graceful Shutdown** - Properly close connections to finish processing in-flight messages
-5. **Idempotency** - Handlers should be safe to retry since messages may be redelivered
-6. **Dead Letters** - Configure DLQ for failed messages to avoid infinite retry loops
+3. **Graceful Shutdown** - Properly close connections to finish processing in-flight messages
+4. **Idempotency** - Handlers should be safe to retry since messages may be redelivered
+5. **Dead Letters** - Configure DLQ to collect and process failed messages
 
 ## Error Handling and Retry
 
 The worker supports automatic retry with two different strategies, configured at the **queue level** in the contract:
 
-1. **Quorum-Native Mode** - Uses quorum queue's native `x-delivery-limit` feature for simpler retries
+1. **Immediate-Requeue Mode** - Requeues failed messages immediately (no wait queues)
 2. **TTL-Backoff Mode** - Uses TTL + wait queue pattern for exponential backoff
 
 ### Retry Strategies {#retry-strategies}
 
-#### Quorum-Native Mode (Recommended)
+#### Immediate-Requeue Mode (Recommended)
 
-A simpler mode that leverages RabbitMQ quorum queue's native `x-delivery-limit` feature:
+A simpler mode that requeues failed messages immediately (no wait queues):
 
 ```typescript
 import { defineQueue, defineExchange, defineContract } from "@amqp-contract/contract";
 import { TypedAmqpWorker, RetryableError } from "@amqp-contract/worker";
 import { Future } from "@swan-io/boxed";
 
-// 1. Define queue with deliveryLimit and quorum-native retry
-const dlx = defineExchange("orders-dlx", "topic", { durable: true });
+// 1. Define queue with immediate-requeue retry
+const dlx = defineExchange("orders-dlx");
 const ordersQueue = defineQueue("orders", {
   type: "quorum", // Default queue type
-  deliveryLimit: 3, // After 3 delivery attempts, dead-letter
   deadLetter: {
     exchange: dlx,
     routingKey: "orders.failed",
   },
-  retry: { mode: "quorum-native" }, // Retry configured at queue level
+  retry: { mode: "immediate-requeue", maxRetries: 3 }, // Dead-letter after 3 retry attempts
 });
 
 // 2. Worker automatically uses queue's retry configuration
@@ -549,12 +469,12 @@ const worker = await TypedAmqpWorker.create({
 }).resultToPromise();
 ```
 
-**How Quorum-Native works:**
+**How Immediate-Requeue works:**
 
-1. When a handler fails, the message is nacked with `requeue=true`
-2. RabbitMQ automatically tracks delivery count via `x-delivery-count` header
-3. When count exceeds `deliveryLimit`, message is automatically dead-lettered
-4. No wait queues or TTL management needed
+- For quorum queues, messages are requeued with `nack(requeue=true)`, and the worker tracks delivery count via the native RabbitMQ `x-delivery-count` header.
+- For classic queues, messages are re-published on the same queue, and the worker tracks delivery count via a custom `x-retry-count` header.
+- When count exceeds `maxRetries`, the message is automatically dead-lettered (if DLX is configured) or dropped.
+- No wait queues or TTL management needed.
 
 **Best for:**
 
@@ -566,7 +486,7 @@ const worker = await TypedAmqpWorker.create({
 
 #### TTL-Backoff Mode
 
-This mode provides exponential backoff using RabbitMQ's TTL and Dead Letter Exchange (DLX) pattern. **Wait queues and bindings are automatically generated** when you use `defineContract`:
+This mode provides exponential backoff using RabbitMQ's TTL. **Wait queues and bindings are automatically generated** when you use `defineContract`:
 
 ```typescript
 import {
@@ -581,7 +501,7 @@ import { Future } from "@swan-io/boxed";
 import { z } from "zod";
 
 // 1. Define queue with TTL-backoff retry - infrastructure auto-generated
-const dlx = defineExchange("orders-dlx", "topic", { durable: true });
+const dlx = defineExchange("orders-dlx");
 const ordersQueue = defineQueue("orders", {
   deadLetter: { exchange: dlx },
   retry: {
@@ -622,7 +542,7 @@ const worker = await TypedAmqpWorker.create({
 3. **Wait in queue** - Message sits in the wait queue for the calculated delay
 4. **Dead-lettered back** - After TTL expires, message is automatically routed back to the main queue
 5. **Retry processing** - Worker processes the message again
-6. **Repeat or DLQ** - Process repeats until success or max retries reached, then sent to Dead Letter Queue (DLQ)
+6. **Repeat or DLQ** - Process repeats until success or max retries reached, then sent to Dead Letter Queue (DLQ) if any configured, or dropped
 
 **Best for:** When you need configurable delays between retries to give downstream services time to recover.
 
@@ -646,14 +566,11 @@ const queueName = extractQueue(ordersQueue).name; // "orders"
 
 #### Comparing Retry Modes
 
-| Feature                | TTL-Backoff                      | Quorum-Native             |
-| ---------------------- | -------------------------------- | ------------------------- |
-| Retry delays           | Configurable exponential backoff | Immediate                 |
-| Architecture           | Wait queues + DLX (auto-created) | Native RabbitMQ           |
-| Head-of-queue blocking | Possible with mixed TTLs         | None                      |
-| Delivery tracking      | Custom `x-retry-count` header    | Native `x-delivery-count` |
-| Queue type             | Quorum (default)                 | Quorum only               |
-| Configuration location | Queue definition                 | Queue definition          |
+| Feature                | TTL-Backoff                      | Immediate-Requeue |
+| ---------------------- | -------------------------------- | ----------------- |
+| Retry delays           | Configurable exponential backoff | Immediate         |
+| Architecture           | Wait queues + Headers exchanges  | No wait queues    |
+| Head-of-queue blocking | Possible with mixed TTLs         | None              |
 
 ### Exponential Backoff
 
@@ -669,9 +586,9 @@ With TTL-backoff mode, retry delays increase exponentially to give downstream se
 
 **With jitter enabled** (default), a random factor (50-100% of calculated delay) is added to prevent all retried messages from hitting the system simultaneously.
 
-### Queue Configuration for Retry
+### Dead Letter Exchange Configuration
 
-For retry to work, your queues must be configured with a Dead Letter Exchange (DLX):
+A Dead Letter Exchange (DLX) can be configured at the queue level, to which failed messages will be sent (after all retry attempts, if any configured) instead of being dropped:
 
 ```typescript
 import {
@@ -684,7 +601,7 @@ import {
 import { z } from "zod";
 
 // Define the Dead Letter Exchange
-const dlxExchange = defineExchange("orders-dlx", "topic", { durable: true });
+const dlxExchange = defineExchange("orders-dlx");
 
 // Define the Dead Letter Queue
 const dlq = defineQueue("orders-dlq");
@@ -703,7 +620,7 @@ const ordersQueue = defineQueue("orders", {
     exchange: dlxExchange,
     routingKey: "orders.failed",
   },
-  retry: { mode: "quorum-native" }, // Or ttl-backoff
+  retry: { mode: "immediate-requeue", maxRetries: 3 }, // Or ttl-backoff
 });
 
 // Compose the contract - exchanges, queues, bindings auto-extracted
@@ -714,10 +631,6 @@ const contract = defineContract({
   // ... publishers
 });
 ```
-
-::: warning Queue DLX Required
-If a queue doesn't have `deadLetter` configured, retry will not work. Always configure DLX on your queues for proper retry functionality.
-:::
 
 ### Retry Error Classes
 
@@ -823,43 +736,13 @@ const worker = await TypedAmqpWorker.create({
 
 **When to use which error type:**
 
-| Error Type                        | Use Case                                        | Behavior           |
-| --------------------------------- | ----------------------------------------------- | ------------------ |
-| `RetryableError`                  | Transient failures (network, rate limits)       | Retry with backoff |
-| `NonRetryableError`               | Permanent failures (validation, business rules) | Immediate DLQ      |
-| Any other error (unsafe handlers) | Unexpected failures                             | Retry with backoff |
+| Error Type          | Use Case                                            | Behavior                                   |
+| ------------------- | --------------------------------------------------- | ------------------------------------------ |
+| `RetryableError`    | Transient failures (network, rate limits, timeouts) | Retry based on queue's retry configuration |
+| `NonRetryableError` | Permanent failures (validation, business rules)     | Send to DLQ (if configured) or drop        |
+| Any other error     | Unexpected failures                                 | Retry based on queue's retry configuration |
 
 **Note:** Retry is configured at the queue level. **All errors except `NonRetryableError` are retried** according to the queue's retry configuration.
-
-### Retry with Batch Processing
-
-Retry works with batch processing. If a batch handler throws an error, all messages in the batch are retried:
-
-```typescript
-import { Future } from "@swan-io/boxed";
-import { RetryableError } from "@amqp-contract/worker";
-
-const worker = await TypedAmqpWorker.create({
-  contract, // Queue's retry configuration is used automatically
-  handlers: {
-    processOrders: [
-      (messages) =>
-        Future.fromPromise(db.orders.insertMany(messages))
-          .mapOk(() => undefined)
-          .mapError((error) => new RetryableError("Batch insert failed", error)), // All messages in batch will be retried
-      {
-        batchSize: 10,
-        batchTimeout: 1000,
-      },
-    ],
-  },
-  urls: ["amqp://localhost"],
-}).resultToPromise();
-```
-
-::: warning Batch Retry Behavior
-All messages in a failed batch are treated the same way - they all get the same retry count and delay. For partial batch success handling, consider processing messages individually instead.
-:::
 
 ### Monitoring Retry Headers
 
@@ -903,8 +786,8 @@ import { Future, Result } from "@swan-io/boxed";
 import { z } from "zod";
 
 // Define exchanges
-const mainExchange = defineExchange("orders", "topic", { durable: true });
-const dlxExchange = defineExchange("orders-dlx", "topic", { durable: true });
+const mainExchange = defineExchange("orders");
+const dlxExchange = defineExchange("orders-dlx");
 
 // Define message schema
 const orderMessage = defineMessage(
@@ -975,10 +858,9 @@ console.log("✅ Worker ready with retry enabled!");
 
 1. **Handle Errors** - Always wrap business logic in try-catch
 2. **Use Prefetch** - Limit concurrent messages with `prefetch` option to control memory usage
-3. **Batch for Throughput** - Use batch processing for bulk operations (database inserts, API calls)
-4. **Graceful Shutdown** - Properly close connections to finish processing in-flight messages
-5. **Idempotency** - Handlers should be safe to retry since messages may be redelivered
-6. **Dead Letters** - Configure DLQ for failed messages to avoid infinite retry loops
+3. **Graceful Shutdown** - Properly close connections to finish processing in-flight messages
+4. **Idempotency** - Handlers should be safe to retry since messages may be redelivered
+5. **Dead Letters** - Configure DLQ to collect and process failed messages
 
 ## Next Steps
 

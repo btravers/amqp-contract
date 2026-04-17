@@ -1,5 +1,11 @@
+import type {
+  CompressionAlgorithm,
+  ContractDefinition,
+  InferPublisherNames,
+} from "@amqp-contract/contract";
 import {
   AmqpClient,
+  PublishOptions as AmqpClientPublishOptions,
   type Logger,
   MessagingSemanticConventions,
   TechnicalError,
@@ -10,22 +16,16 @@ import {
   recordPublishMetric,
   startPublishSpan,
 } from "@amqp-contract/core";
-import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
-import type {
-  CompressionAlgorithm,
-  ContractDefinition,
-  InferPublisherNames,
-} from "@amqp-contract/contract";
 import { Future, Result } from "@swan-io/boxed";
-import type { ClientInferPublisherInput } from "./types.js";
-import { MessageValidationError } from "./errors.js";
-import type { Options } from "amqplib";
+import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
 import { compressBuffer } from "./compression.js";
+import { MessageValidationError } from "./errors.js";
+import type { ClientInferPublisherInput } from "./types.js";
 
 /**
- * Publish options that extend amqplib's Options.Publish with optional compression support.
+ * Publish options that extend amqp-client's PublishOptions with optional compression support.
  */
-export type PublishOptions = Options.Publish & {
+export type PublishOptions = AmqpClientPublishOptions & {
   /**
    * Optional compression algorithm to use for the message payload.
    * When specified, the message will be compressed using the chosen algorithm
@@ -48,6 +48,12 @@ export type CreateClientOptions<TContract extends ContractDefinition> = {
    * OpenTelemetry instrumentation is automatically enabled if @opentelemetry/api is installed.
    */
   telemetry?: TelemetryProvider | undefined;
+  /**
+   * Default publish options that will be applied to all publish operations.
+   * These can be overridden by options passed to the publish method.
+   * By default, persistent is set to true for message durability.
+   */
+  defaultPublishOptions?: PublishOptions | undefined;
 };
 
 /**
@@ -57,6 +63,7 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
   private constructor(
     private readonly contract: TContract,
     private readonly amqpClient: AmqpClient,
+    private readonly defaultPublishOptions: PublishOptions,
     private readonly logger?: Logger,
     private readonly telemetry: TelemetryProvider = defaultTelemetryProvider,
   ) {}
@@ -75,12 +82,14 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     contract,
     urls,
     connectionOptions,
+    defaultPublishOptions,
     logger,
     telemetry,
   }: CreateClientOptions<TContract>): Future<Result<TypedAmqpClient<TContract>, TechnicalError>> {
     const client = new TypedAmqpClient(
       contract,
       new AmqpClient(contract, { urls, connectionOptions }),
+      { persistent: true, ...defaultPublishOptions },
       logger,
       telemetry ?? defaultTelemetryProvider,
     );
@@ -139,9 +148,12 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     };
 
     const publishMessage = (validatedMessage: unknown): Future<Result<void, TechnicalError>> => {
-      // Extract compression from options and create publish options without it
-      const { compression, ...restOptions } = options ?? {};
-      const publishOptions: Options.Publish = { ...restOptions };
+      // Merge default options with provided options
+      const mergedOptions = { ...this.defaultPublishOptions, ...options };
+
+      // Extract compression from merged options and create publish options without it
+      const { compression, ...restOptions } = mergedOptions;
+      const publishOptions: AmqpClientPublishOptions = { ...restOptions };
 
       // Prepare payload and options based on compression configuration
       const preparePayload = (): Future<Result<Buffer | unknown, TechnicalError>> => {

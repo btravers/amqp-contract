@@ -23,7 +23,7 @@ Define resources first, then reference them. Never define resources inline:
 const contract = defineContract({
   publishers: {
     orderCreated: definePublisher(
-      defineExchange("orders", "topic", { durable: true }),
+      defineExchange("orders"),
       defineMessage(z.object({ orderId: z.string() })),
       { routingKey: "order.created" },
     ),
@@ -31,8 +31,8 @@ const contract = defineContract({
 });
 
 // Good — define resources first, then reference
-const ordersExchange = defineExchange("orders", "topic", { durable: true });
-const orderProcessingQueue = defineQueue("order-processing", { durable: true });
+const ordersExchange = defineExchange("orders");
+const orderProcessingQueue = defineQueue("order-processing");
 const orderMessage = defineMessage(z.object({ orderId: z.string() }));
 
 const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
@@ -75,8 +75,7 @@ defineQueue("orders", { type: "classic" });
 // Good — use quorum queues with retry config
 defineQueue("orders", {
   deadLetter: { exchange: dlx },
-  retry: { mode: "quorum-native" },
-  deliveryLimit: 3,
+  retry: { mode: "immediate-requeue", maxRetries: 3 },
 });
 
 // Bad — accessing .name directly on TTL-backoff queue

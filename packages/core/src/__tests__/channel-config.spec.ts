@@ -15,7 +15,7 @@ describe("AmqpClient Channel Configuration", () => {
     // GIVEN
     const contract: ContractDefinition = {
       exchanges: {
-        test: defineExchange("test-json-false", "topic", { durable: false }),
+        test: defineExchange("test-json-false", { durable: false }),
       },
     };
 
@@ -41,7 +41,7 @@ describe("AmqpClient Channel Configuration", () => {
     // GIVEN
     const contract: ContractDefinition = {
       exchanges: {
-        test: defineExchange("test-json-default", "topic", { durable: false }),
+        test: defineExchange("test-json-default", { durable: false }),
       },
     };
 
@@ -66,7 +66,7 @@ describe("AmqpClient Channel Configuration", () => {
     // GIVEN
     const contract: ContractDefinition = {
       exchanges: {
-        orders: defineExchange("orders-custom-setup", "topic", { durable: false }),
+        orders: defineExchange("orders-custom-setup", { durable: false }),
       },
     };
 
@@ -104,7 +104,7 @@ describe("AmqpClient Channel Configuration", () => {
     // GIVEN
     const contract: ContractDefinition = {
       exchanges: {
-        test: defineExchange("test-callback-setup", "topic", { durable: false }),
+        test: defineExchange("test-callback-setup", { durable: false }),
       },
     };
 
@@ -141,7 +141,7 @@ describe("AmqpClient Channel Configuration", () => {
     // GIVEN
     const contract: ContractDefinition = {
       exchanges: {
-        test: defineExchange("test-channel-name", "topic", { durable: false }),
+        test: defineExchange("test-channel-name", { durable: false }),
       },
     };
 
@@ -164,11 +164,11 @@ describe("AmqpClient Channel Configuration", () => {
     await client.close().resultToPromise();
   });
 
-  it("should allow setting confirmChannel option", async ({ amqpConnectionUrl }) => {
+  it("should allow disabling confirmChannel option", async ({ amqpConnectionUrl }) => {
     // GIVEN
     const contract: ContractDefinition = {
       exchanges: {
-        test: defineExchange("test-confirm-channel", "topic", { durable: false }),
+        test: defineExchange("test-regular-channel", { durable: false }),
       },
     };
 
@@ -176,13 +176,13 @@ describe("AmqpClient Channel Configuration", () => {
     const client = new AmqpClient(contract, {
       urls: [amqpConnectionUrl],
       channelOptions: {
-        confirm: true,
+        confirm: false, // Use regular channel
       },
     });
 
     await client.waitForConnect().resultToPromise();
 
-    // THEN - Confirm channel should be created
+    // THEN - Regular channel should be created
     expect(client.getConnection()).toBeDefined();
 
     // CLEANUP
@@ -193,7 +193,7 @@ describe("AmqpClient Channel Configuration", () => {
     // GIVEN
     const contract: ContractDefinition = {
       exchanges: {
-        test: defineExchange("test-combined-options", "topic", { durable: false }),
+        test: defineExchange("test-combined-options", { durable: false }),
       },
     };
 

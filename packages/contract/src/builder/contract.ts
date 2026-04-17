@@ -6,12 +6,13 @@ import type {
   ContractOutput,
   ExchangeDefinition,
   PublisherDefinition,
-  QueueDefinition,
+  QueueEntry,
 } from "../types.js";
+import { isBridgedPublisherConfig, isCommandConsumerConfig } from "./command.js";
 import { isEventConsumerResult, isEventPublisherConfig } from "./event.js";
 import { definePublisherInternal } from "./publisher.js";
-import { isBridgedPublisherConfig, isCommandConsumerConfig } from "./command.js";
-import { createTtlBackoffInfrastructure } from "./queue.js";
+import { extractQueue } from "./queue-utils.js";
+import { isQueueWithTtlBackoffInfrastructure } from "./ttl-backoff.js";
 
 /**
  * Define an AMQP contract.
@@ -42,12 +43,11 @@ import { createTtlBackoffInfrastructure } from "./queue.js";
  * import { z } from 'zod';
  *
  * // Define resources
- * const ordersExchange = defineExchange('orders', 'topic', { durable: true });
- * const dlx = defineExchange('orders-dlx', 'direct', { durable: true });
+ * const ordersExchange = defineExchange('orders');
+ * const dlx = defineExchange('orders-dlx', { type: 'direct' });
  * const orderQueue = defineQueue('order-processing', {
  *   deadLetter: { exchange: dlx },
- *   retry: { mode: 'quorum-native' },
- *   deliveryLimit: 3,
+ *   retry: { mode: 'immediate-requeue', maxRetries: 3 },
  * });
  * const orderMessage = defineMessage(
  *   z.object({
@@ -133,7 +133,7 @@ export function defineContract<TContract extends ContractDefinitionInput>(
   if (inputConsumers && Object.keys(inputConsumers).length > 0) {
     const processedConsumers: Record<string, ConsumerDefinition> = {};
     const consumerBindings: Record<string, BindingDefinition> = {};
-    const queues: Record<string, QueueDefinition> = {};
+    const queues: Record<string, QueueEntry> = {};
     const exchanges: Record<string, ExchangeDefinition> = {};
 
     for (const [name, entry] of Object.entries(inputConsumers)) {
@@ -144,14 +144,16 @@ export function defineContract<TContract extends ContractDefinitionInput>(
 
         // Extract queue (handle TTL-backoff infrastructure)
         const queueEntry = entry.consumer.queue;
-        queues[queueEntry.name] = queueEntry;
+        // Extract the plain queue definition from QueueEntry
+        const queueDef = extractQueue(queueEntry);
+        queues[queueDef.name] = queueEntry;
 
         // Extract exchange from binding
         exchanges[entry.binding.exchange.name] = entry.binding.exchange;
 
         // Extract dead letter exchange if present
-        if (queueEntry.deadLetter?.exchange) {
-          exchanges[queueEntry.deadLetter.exchange.name] = queueEntry.deadLetter.exchange;
+        if (queueDef.deadLetter?.exchange) {
+          exchanges[queueDef.deadLetter.exchange.name] = queueDef.deadLetter.exchange;
         }
 
         // Extract bridge exchange and e2e binding if present
@@ -172,14 +174,16 @@ export function defineContract<TContract extends ContractDefinitionInput>(
 
         // Extract queue (handle TTL-backoff infrastructure)
         const queueEntry = entry.consumer.queue;
-        queues[queueEntry.name] = queueEntry;
+        // Extract the plain queue definition from QueueEntry
+        const queueDef = extractQueue(queueEntry);
+        queues[queueDef.name] = queueEntry;
 
         // Extract exchange
         exchanges[entry.exchange.name] = entry.exchange;
 
         // Extract dead letter exchange if present
-        if (queueEntry.deadLetter?.exchange) {
-          exchanges[queueEntry.deadLetter.exchange.name] = queueEntry.deadLetter.exchange;
+        if (queueDef.deadLetter?.exchange) {
+          exchanges[queueDef.deadLetter.exchange.name] = queueDef.deadLetter.exchange;
         }
       } else {
         // Plain ConsumerDefinition: extract queue
@@ -188,23 +192,25 @@ export function defineContract<TContract extends ContractDefinitionInput>(
 
         // Extract queue (handle TTL-backoff infrastructure)
         const queueEntry = consumer.queue;
-        queues[queueEntry.name] = queueEntry;
+        // Extract the plain queue definition from QueueEntry
+        const queueDef = extractQueue(queueEntry);
+        queues[queueDef.name] = queueEntry;
 
         // Extract dead letter exchange if present
-        if (queueEntry.deadLetter?.exchange) {
-          exchanges[queueEntry.deadLetter.exchange.name] = queueEntry.deadLetter.exchange;
+        if (queueDef.deadLetter?.exchange) {
+          exchanges[queueDef.deadLetter.exchange.name] = queueDef.deadLetter.exchange;
         }
       }
     }
 
-    // Auto-generate TTL-backoff retry infrastructure for queues with retry.mode === "ttl-backoff" and deadLetter
-    for (const queue of Object.values(queues) as QueueDefinition[]) {
-      if (queue.retry?.mode === "ttl-backoff" && queue.deadLetter) {
-        const infra = createTtlBackoffInfrastructure(queue);
-        queues[infra.waitQueue.name] = infra.waitQueue;
-        consumerBindings[`${queue.name}WaitBinding`] = infra.waitQueueBinding;
-        consumerBindings[`${queue.name}RetryBinding`] = infra.mainQueueRetryBinding;
-        exchanges[queue.deadLetter.exchange.name] = queue.deadLetter.exchange;
+    // Auto-generate TTL-backoff retry infrastructure for queues with TTL-backoff retry mode
+    for (const queueEntry of Object.values(queues) as QueueEntry[]) {
+      if (isQueueWithTtlBackoffInfrastructure(queueEntry)) {
+        queues[queueEntry.waitQueue.name] = queueEntry.waitQueue;
+        consumerBindings[`${queueEntry.queue.name}WaitBinding`] = queueEntry.waitQueueBinding;
+        consumerBindings[`${queueEntry.queue.name}RetryBinding`] = queueEntry.retryQueueBinding;
+        exchanges[queueEntry.waitExchange.name] = queueEntry.waitExchange;
+        exchanges[queueEntry.retryExchange.name] = queueEntry.retryExchange;
       }
     }
 

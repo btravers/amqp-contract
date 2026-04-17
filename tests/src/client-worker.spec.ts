@@ -1,3 +1,4 @@
+import { TypedAmqpClient } from "@amqp-contract/client";
 import {
   ContractDefinition,
   defineContract,
@@ -7,15 +8,14 @@ import {
   defineMessage,
   defineQueue,
 } from "@amqp-contract/contract";
-import { Future, Result } from "@swan-io/boxed";
+import { it as baseIt } from "@amqp-contract/testing/extension";
 import {
   TypedAmqpWorker,
   type WorkerInferConsumerHandlers,
   defineHandlers,
 } from "@amqp-contract/worker";
+import { Future, Result } from "@swan-io/boxed";
 import { describe, expect, vi } from "vitest";
-import { TypedAmqpClient } from "@amqp-contract/client";
-import { it as baseIt } from "@amqp-contract/testing/extension";
 import { z } from "zod";
 
 const it = baseIt.extend<{
@@ -106,15 +106,20 @@ describe("Client and Worker Integration", () => {
       workerFactory,
     }) => {
       // GIVEN
-      const exchange = defineExchange("orders", "topic", { durable: false });
+      const exchange = defineExchange("orders", { durable: false });
       const queue = defineQueue("order-processing", { type: "classic", durable: false });
       const orderMessage = defineMessage(
         z.object({
           orderId: z.string(),
           amount: z.number().positive(),
           customerId: z.string(),
+          count: z.number().default(1),
         }),
         {
+          headers: z.object({
+            "x-test-header": z.string(),
+            "x-default-header": z.string().default("default-header-value"),
+          }),
           summary: "Order created event",
           description: "Emitted when a new order is created",
         },
@@ -144,11 +149,21 @@ describe("Client and Worker Integration", () => {
       await waitForWorkerReady();
 
       // WHEN
-      const publishResult = await client.publish("orderCreated", {
-        orderId: "ORD-123",
-        amount: 99.99,
-        customerId: "CUST-456",
-      });
+      const publishResult = await client.publish(
+        "orderCreated",
+        {
+          orderId: "ORD-123",
+          amount: 99.99,
+          customerId: "CUST-456",
+          // count is omitted, should use default value of 1
+        },
+        {
+          headers: {
+            "x-test-header": "test-header-value",
+            // "x-default-header" is omitted, should use default value of "default-header-value"
+          },
+        },
+      );
 
       // THEN
       expect(publishResult).toEqual(Result.Ok(undefined));
@@ -158,13 +173,18 @@ describe("Client and Worker Integration", () => {
           expect(mockHandler).toHaveBeenCalledTimes(1);
           expect(mockHandler).toHaveBeenNthCalledWith(
             1,
-            expect.objectContaining({
-              payload: expect.objectContaining({
+            {
+              payload: {
                 orderId: "ORD-123",
                 amount: 99.99,
                 customerId: "CUST-456",
-              }),
-            }),
+                count: 1, // Default value applied
+              },
+              headers: {
+                "x-test-header": "test-header-value",
+                "x-default-header": "default-header-value", // Default value applied
+              },
+            },
             expect.anything(), // rawMessage
           );
         },
@@ -174,7 +194,7 @@ describe("Client and Worker Integration", () => {
 
     it("should handle multiple messages in sequence", async ({ clientFactory, workerFactory }) => {
       // GIVEN
-      const exchange = defineExchange("events", "topic", { durable: false });
+      const exchange = defineExchange("events", { durable: false });
       const queue = defineQueue("event-processing", { type: "classic", durable: false });
       const eventMessage = defineMessage(
         z.object({
@@ -229,19 +249,17 @@ describe("Client and Worker Integration", () => {
       await vi.waitFor(
         () => {
           expect(mockHandler).toHaveBeenCalledTimes(3);
-          expect(receivedMessages).toEqual(
-            expect.arrayContaining([
-              expect.objectContaining({
-                payload: expect.objectContaining({ eventId: "EVT-1", type: "created" }),
-              }),
-              expect.objectContaining({
-                payload: expect.objectContaining({ eventId: "EVT-2", type: "updated" }),
-              }),
-              expect.objectContaining({
-                payload: expect.objectContaining({ eventId: "EVT-3", type: "deleted" }),
-              }),
-            ]),
-          );
+          expect(receivedMessages).toEqual([
+            {
+              payload: { eventId: "EVT-1", type: "created", data: { name: "Test 1" } },
+            },
+            {
+              payload: { eventId: "EVT-2", type: "updated", data: { name: "Test 2" } },
+            },
+            {
+              payload: { eventId: "EVT-3", type: "deleted", data: { id: "123" } },
+            },
+          ]);
         },
         { timeout: 5000 },
       );
@@ -249,7 +267,7 @@ describe("Client and Worker Integration", () => {
 
     it("should handle validation errors gracefully", async ({ clientFactory, workerFactory }) => {
       // GIVEN
-      const exchange = defineExchange("strict", "topic", { durable: false });
+      const exchange = defineExchange("strict", { durable: false });
       const queue = defineQueue("strict-processing", { type: "classic", durable: false });
       const strictMessage = defineMessage(
         z.object({
@@ -313,7 +331,7 @@ describe("Client and Worker Integration", () => {
       workerFactory,
     }) => {
       // GIVEN
-      const exchange = defineExchange("notifications", "topic", { durable: false });
+      const exchange = defineExchange("notifications", { durable: false });
       const emailQueue = defineQueue("email-queue", { type: "classic", durable: false });
       const smsQueue = defineQueue("sms-queue", { type: "classic", durable: false });
 
@@ -379,23 +397,23 @@ describe("Client and Worker Integration", () => {
           expect(emailHandler).toHaveBeenCalledTimes(1);
           expect(emailHandler).toHaveBeenNthCalledWith(
             1,
-            expect.objectContaining({
-              payload: expect.objectContaining({
+            {
+              payload: {
                 recipient: "user@example.com",
                 message: "Test email",
-              }),
-            }),
+              },
+            },
             expect.anything(), // rawMessage
           );
           expect(smsHandler).toHaveBeenCalledTimes(1);
           expect(smsHandler).toHaveBeenNthCalledWith(
             1,
-            expect.objectContaining({
-              payload: expect.objectContaining({
+            {
+              payload: {
                 recipient: "+1234567890",
                 message: "Test SMS",
-              }),
-            }),
+              },
+            },
             expect.anything(), // rawMessage
           );
         },

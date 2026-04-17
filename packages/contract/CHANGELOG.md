@@ -1,5 +1,145 @@
 # @amqp-contract/contract
 
+## 0.21.0
+
+### Minor Changes
+
+- Retry system and configuration normalization
+
+  ### **Changes Overview**
+
+  #### 🔄 **Retry System Overhaul**
+  1. **None retry**
+  - Introduced new `none` retry option to represent the "no retry" mode
+  - Changed queue builder default from `ttl-backoff` retry to `none` retry
+  - Removed implicit TTL-backoff infrastructure creation when no retry config specified
+  - Worker error handler now detects `none` retry mode and rejects failed messages without retry
+  - Aligns with "explicit over implicit" configuration philosophy
+  2. **Immediate-requeue retry**
+  - Migrated from `quorum-native` (quorum-only) to `immediate-requeue` (universal)
+  - Now works with both quorum and classic queues
+  - Improved handling: quorum uses native `x-delivery-count`, classic uses custom headers
+  - Simplified API: `maxRetries` parameter replaces `deliveryLimit`
+  3. **TTL-backoff via headers exchanges**
+  - Replaced DLX routing with headers exchange infrastructure
+  - Preserves original routing keys through retry flow
+  - Eliminates dangerous infinite retry loop behavior
+  - Configurable infrastructure names (`waitQueueName`, `waitExchangeName`, `retryExchangeName`)
+
+  #### ⚙️ **Configuration Normalization**
+  4. **Exchange configuration normalization**
+  - Exchange `type` defaults to `topic` (most used)
+  - `durable` defaults to `true` (production-friendly)
+  - Added support for headers exchange types
+  - Reduced verbosity while supporting all exchange types
+  5. **Queue configuration normalization**
+  - Queue `type` defaults to `quorum` (modern choice)
+  - `durable` defaults to `true` (production-friendly)
+  - `autoDelete` mode restricted to classic queues only (like `exclusive` and `maxPriority`)
+  - Better type safety and runtime validation of queue options
+  - Removed over-specific queue definition helpers: `defineQuorumQueue()`, `defineTtlBackoffQueue()`
+  - Removed `deliveryLimit` in favor of `maxRetries`
+  - Retry config consolidated at queue level
+
+  #### 🎯 **New Features**
+  6. **Default publish/consumer options**
+  - Added `defaultPublishOptions` to `TypedAmqpClient`
+    - Set once, applies to all publishes (can be overridden per-call)
+    - `persistent` defaults to `true` (production-friendly)
+  - Added `defaultConsumerOptions` to `TypedAmqpWorker`
+    - Set once, applies to all consumers (can be overridden per-consumer handler)
+  - Removed custom prefetch implementation in favor of built-in configuration in `amqp-connection-manager`
+  - Eliminates configuration repetition across codebase
+
+  #### 🐛 **Type Safety Improvements**
+  7. **Handler type safety fix**
+  - Consumer handler payloads and headers now properly typed from schema output types
+  - Removed unnecessary type extraction utilities
+
+  ***
+
+  ### **Breaking Changes**
+
+  ⚠️ **Users upgrading will need to:**
+  1. Configure TTL-backoff explicitly, since queues now default to no retry
+  2. Migrate TTL-backoff queue names if using custom infrastructure naming
+  3. Change `mode: "quorum-native"` to `mode: "immediate-requeue"`
+  4. Replace `deliveryLimit` with `maxRetries` in retry config
+  5. Replace `type` parameter from `defineExchange()` calls with `type` options property (defaults to `topic`)
+  6. Replace `defineQuorumQueue()` and `defineTtlBackoffQueue()` helpers with generic `defineQueue()`
+
+  ***
+
+  ### **Before/After Examples**
+
+  **Exchange Definition**
+
+  ```typescript
+  // Before
+  defineExchange("orders", "topic", { durable: true });
+
+  // After
+  defineExchange("orders"); // topic + durable by default
+  ```
+
+  **Queue Definition**
+
+  ```typescript
+  // Before
+  defineQueue("orders", { durable: true });
+
+  // After
+  defineQueue("orders"); // quorum + durable by default
+  ```
+
+  **Retry Configuration**
+
+  ```typescript
+  // Before: TTL-backoff created automatically
+  defineQueue("orders"); // Had retry: ttl-backoff by default
+
+  // After: No retry by default
+  defineQueue("orders"); // Now has no retry by default
+
+  // To enable TTL-backoff retry, explicitly opt-in:
+  defineQueue("orders", {
+    retry: { mode: "ttl-backoff", maxRetries: 3 },
+  });
+
+  // Before: "quorum-native" with deliveryLimit (for quorum queues only)
+  defineQueue("orders", {
+    type: "quorum",
+    deliveryLimit: 3,
+    retry: { mode: "quorum-native" },
+  });
+
+  // After: "immediate-requeue" with maxRetries (for any queue)
+  defineQueue("orders", {
+    retry: { mode: "immediate-requeue", maxRetries: 3 },
+  });
+  ```
+
+  **Default Publish/Consumer Options**
+
+  ```typescript
+  // Default publish options in client
+  const client = await TypedAmqpClient.create({
+    contract,
+    urls: ["amqp://localhost"],
+    defaultPublishOptions: { priority: 5 },
+  });
+
+  // Default consumer options in worker
+  const worker = await TypedAmqpWorker.create({
+    contract,
+    handlers,
+    urls: ["amqp://localhost"],
+    defaultConsumerOptions: { prefetch: 10 },
+  });
+  ```
+
+  ***
+
 ## 0.20.0
 
 ### Minor Changes

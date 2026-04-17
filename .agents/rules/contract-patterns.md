@@ -5,12 +5,11 @@
 Resources are defined individually then composed into a contract. `defineContract` only accepts `publishers` and `consumers` — exchanges, queues, and bindings are automatically extracted and inferred:
 
 ```typescript
-const dlx = defineExchange("orders-dlx", "direct", { durable: true });
-const exchange = defineExchange("orders", "topic", { durable: true });
+const dlx = defineExchange("orders-dlx", { type: "direct" });
+const exchange = defineExchange("orders");
 const queue = defineQueue("processing", {
   deadLetter: { exchange: dlx },
-  retry: { mode: "quorum-native" },
-  deliveryLimit: 5,
+  retry: { mode: "immediate-requeue", maxRetries: 5 },
 });
 const message = defineMessage(z.object({ orderId: z.string() }));
 
@@ -74,31 +73,29 @@ const contract = defineContract({
 
 ## Exchange Types
 
-- Use appropriate exchange type: `direct`, `fanout`, `topic`, or `headers`
-- Topic exchanges are most flexible for routing patterns
+- Use appropriate exchange type: `topic`, `direct`, `fanout`, or `headers`
+- **Topic exchanges are the default** and are most flexible for routing patterns
 - Direct exchanges for simple point-to-point messaging
 - Fanout exchanges for broadcast messaging
+- Headers exchanges for complex routing scenarios
 
 ## Queue Types
 
 - **Quorum queues are the default** and recommended for most use cases
-- Use `type: 'quorum'` (default) for reliable, replicated queues
-- Use `type: 'classic'` only for special cases (priority queues, exclusive queues)
-- Quorum queues are always durable and cannot be exclusive
-- Configure `deliveryLimit` for native retry support
+- Use `type: 'quorum'` (default) for reliable, replicated queues (always durable, do not support exclusive, auto-deleting, or priority queues)
+- Use `type: 'classic'` only for special cases (non-durable, exclusive, auto-deleting, or priority queues)
 
 ```typescript
 // Quorum queue (default, recommended)
 const orderQueue = defineQueue("orders", {
   type: "quorum", // default, can be omitted
-  deliveryLimit: 3, // Native retry: dead-letter after 3 attempts
   deadLetter: { exchange: dlx },
+  retry: { mode: "immediate-requeue", maxRetries: 3 }, // Dead-letter after 3 retry attempts
 });
 
 // Classic queue for special cases only
 const priorityQueue = defineQueue("priority-tasks", {
   type: "classic",
-  durable: true,
   maxPriority: 10, // Only supported with classic queues
 });
 ```
@@ -137,8 +134,8 @@ Bridge exchanges enable cross-domain messaging by routing through a local exchan
 
 ```typescript
 // Consuming events from a remote domain via bridge
-const ordersExchange = defineExchange("orders", "topic", { durable: true });
-const billingExchange = defineExchange("billing", "topic", { durable: true });
+const ordersExchange = defineExchange("orders");
+const billingExchange = defineExchange("billing");
 const billingQueue = defineQueue("billing-orders");
 
 const orderCreated = defineEventPublisher(ordersExchange, orderMessage, {
@@ -156,8 +153,8 @@ const contract = defineContract({
 // contract.bindings: queue binding + exchange-to-exchange binding (both auto-generated)
 
 // Publishing commands to a remote domain via bridge
-const remoteExchange = defineExchange("remote", "topic", { durable: true });
-const localExchange = defineExchange("local", "topic", { durable: true });
+const remoteExchange = defineExchange("remote");
+const localExchange = defineExchange("local");
 
 const command = defineCommandConsumer(remoteQueue, remoteExchange, message, {
   routingKey: "cmd.run",
@@ -212,21 +209,20 @@ const orderMessage = defineMessage(
 
 Retry strategy is configured at the queue level in the contract, not at the handler level.
 
-### Quorum-Native Mode (Recommended)
+### Immediate-Requeue Mode (Recommended)
 
-Uses RabbitMQ's native `x-delivery-limit` feature. Messages requeued immediately with `nack(requeue=true)`. Simpler, no wait queues needed.
+Failed messages are requeued immediately. Simpler, no wait queues needed.
 
 ```typescript
 const queue = defineQueue("orders", {
-  deliveryLimit: 5,
   deadLetter: { exchange: dlx },
-  retry: { mode: "quorum-native" },
+  retry: { mode: "immediate-requeue", maxRetries: 5 },
 });
 ```
 
 ### TTL-Backoff Mode
 
-Uses wait queues with exponential backoff. Infrastructure is **automatically generated** when `defineQueue` is called with TTL-backoff retry and a dead letter exchange.
+Uses wait queues with exponential backoff. Infrastructure is **automatically generated** when `defineQueue` is called with TTL-backoff retry.
 
 ```typescript
 const queue = defineQueue("orders", {
@@ -241,6 +237,19 @@ const queue = defineQueue("orders", {
   },
 });
 ```
+
+### None Mode (Default)
+
+No retry attempts are made. Failed messages are sent directly to DLQ via `nack(requeue=false)` (or dropped if no DLX configured).
+
+```typescript
+const queue = defineQueue("orders", {
+  deadLetter: { exchange: dlx, routingKey: "failed" },
+  retry: { mode: "none" },
+});
+```
+
+Omitting `retry` defaults to `mode: "none"`.
 
 ### Accessing Queue Properties
 

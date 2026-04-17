@@ -3,40 +3,47 @@ import type {
   ExchangeBindingDefinition,
   ExchangeDefinition,
   FanoutExchangeDefinition,
+  HeadersExchangeDefinition,
   QueueBindingDefinition,
   QueueEntry,
   TopicExchangeDefinition,
 } from "../types.js";
-import { extractQueueFromEntry } from "./queue-utils.js";
+import { extractQueue } from "./queue-utils.js";
 
 /**
- * Define a binding between a queue and a fanout exchange.
+ * Define a binding between a queue and a fanout or headers exchange.
  *
- * Binds a queue to a fanout exchange to receive all messages published to the exchange.
- * Fanout exchanges ignore routing keys, so this overload doesn't require one.
+ * Binds a queue to a fanout or headers exchange (no routing key needed).
+ * Fanout and headers exchanges ignore routing keys, so this overload doesn't require one.
  *
  * @param queue - The queue definition or queue with infrastructure to bind
- * @param exchange - The fanout exchange definition
+ * @param exchange - The fanout or headers exchange definition
  * @param options - Optional binding configuration
  * @param options.arguments - Additional AMQP arguments for the binding
  * @returns A queue binding definition
  *
  * @example
  * ```typescript
- * const logsQueue = defineQueue('logs-queue', { durable: true });
- * const logsExchange = defineExchange('logs', 'fanout', { durable: true });
+ * const logsQueue = defineQueue('logs-queue');
+ * const logsExchange = defineExchange('logs', { type: 'fanout' });
  *
  * const binding = defineQueueBinding(logsQueue, logsExchange);
  * ```
  */
 export function defineQueueBinding(
   queue: QueueEntry,
-  exchange: FanoutExchangeDefinition,
+  exchange: FanoutExchangeDefinition | HeadersExchangeDefinition,
   options?: Omit<
-    Extract<QueueBindingDefinition, { exchange: FanoutExchangeDefinition }>,
+    Extract<
+      QueueBindingDefinition,
+      { exchange: FanoutExchangeDefinition | HeadersExchangeDefinition }
+    >,
     "type" | "queue" | "exchange" | "routingKey"
   >,
-): Extract<QueueBindingDefinition, { exchange: FanoutExchangeDefinition }>;
+): Extract<
+  QueueBindingDefinition,
+  { exchange: FanoutExchangeDefinition | HeadersExchangeDefinition }
+>;
 
 /**
  * Define a binding between a queue and a direct or topic exchange.
@@ -58,8 +65,8 @@ export function defineQueueBinding(
  *
  * @example
  * ```typescript
- * const orderQueue = defineQueue('order-processing', { durable: true });
- * const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+ * const orderQueue = defineQueue('order-processing');
+ * const ordersExchange = defineExchange('orders');
  *
  * // Bind with exact routing key
  * const binding = defineQueueBinding(orderQueue, ordersExchange, {
@@ -107,9 +114,9 @@ export function defineQueueBinding(
   },
 ): QueueBindingDefinition {
   // Extract the plain queue definition from QueueEntry
-  const queueDef = extractQueueFromEntry(queue);
+  const queueDef = extractQueue(queue);
 
-  if (exchange.type === "fanout") {
+  if (exchange.type === "fanout" || exchange.type === "headers") {
     return {
       type: "queue",
       queue: queueDef,
@@ -140,7 +147,7 @@ export function defineQueueBindingInternal(
     arguments?: Record<string, unknown>;
   },
 ): QueueBindingDefinition {
-  if (exchange.type === "fanout") {
+  if (exchange.type === "fanout" || exchange.type === "headers") {
     return defineQueueBinding(queue, exchange, options);
   }
   return defineQueueBinding(queue, exchange, options as { routingKey: string });
@@ -149,32 +156,38 @@ export function defineQueueBindingInternal(
 /**
  * Define a binding between two exchanges (exchange-to-exchange routing).
  *
- * Binds a destination exchange to a fanout source exchange.
+ * Binds a destination exchange to a fanout or headers source exchange.
  * Messages published to the source exchange will be forwarded to the destination exchange.
- * Fanout exchanges ignore routing keys, so this overload doesn't require one.
+ * Fanout and headers exchanges ignore routing keys, so this overload doesn't require one.
  *
  * @param destination - The destination exchange definition
- * @param source - The fanout source exchange definition
+ * @param source - The fanout or headers source exchange definition
  * @param options - Optional binding configuration
  * @param options.arguments - Additional AMQP arguments for the binding
  * @returns An exchange binding definition
  *
  * @example
  * ```typescript
- * const sourceExchange = defineExchange('logs', 'fanout', { durable: true });
- * const destExchange = defineExchange('all-logs', 'fanout', { durable: true });
+ * const sourceExchange = defineExchange('logs', { type: 'fanout' });
+ * const destExchange = defineExchange('all-logs', { type: 'fanout' });
  *
  * const binding = defineExchangeBinding(destExchange, sourceExchange);
  * ```
  */
 export function defineExchangeBinding(
   destination: ExchangeDefinition,
-  source: FanoutExchangeDefinition,
+  source: FanoutExchangeDefinition | HeadersExchangeDefinition,
   options?: Omit<
-    Extract<ExchangeBindingDefinition, { source: FanoutExchangeDefinition }>,
+    Extract<
+      ExchangeBindingDefinition,
+      { source: FanoutExchangeDefinition | HeadersExchangeDefinition }
+    >,
     "type" | "source" | "destination" | "routingKey"
   >,
-): Extract<ExchangeBindingDefinition, { source: FanoutExchangeDefinition }>;
+): Extract<
+  ExchangeBindingDefinition,
+  { source: FanoutExchangeDefinition | HeadersExchangeDefinition }
+>;
 
 /**
  * Define a binding between two exchanges (exchange-to-exchange routing).
@@ -191,8 +204,8 @@ export function defineExchangeBinding(
  *
  * @example
  * ```typescript
- * const ordersExchange = defineExchange('orders', 'topic', { durable: true });
- * const importantExchange = defineExchange('important-orders', 'topic', { durable: true });
+ * const ordersExchange = defineExchange('orders');
+ * const importantExchange = defineExchange('important-orders');
  *
  * // Forward only high-value orders
  * const binding = defineExchangeBinding(importantExchange, ordersExchange, {
@@ -234,7 +247,7 @@ export function defineExchangeBinding(
     arguments?: Record<string, unknown>;
   },
 ): ExchangeBindingDefinition {
-  if (source.type === "fanout") {
+  if (source.type === "fanout" || source.type === "headers") {
     return {
       type: "exchange",
       source,

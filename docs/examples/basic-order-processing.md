@@ -243,11 +243,11 @@ const orderStatusSchema = z.object({
 
 ```typescript
 // 1. Define resources first
-const ordersExchange = defineExchange("orders", "topic", { durable: true });
-const orderProcessingQueue = defineQueue("order-processing", { durable: true });
-const orderNotificationsQueue = defineQueue("order-notifications", { durable: true });
-const orderShippingQueue = defineQueue("order-shipping", { durable: true });
-const orderUrgentQueue = defineQueue("order-urgent", { durable: true });
+const ordersExchange = defineExchange("orders");
+const orderProcessingQueue = defineQueue("order-processing");
+const orderNotificationsQueue = defineQueue("order-notifications");
+const orderShippingQueue = defineQueue("order-shipping");
+const orderUrgentQueue = defineQueue("order-urgent");
 
 // 2. Define messages
 const orderMessage = defineMessage(orderSchema, {

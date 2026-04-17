@@ -1,5 +1,17 @@
 import {
+  type ConsumerDefinition,
+  type ContractDefinition,
+  type InferConsumerNames,
+  type ResolvedImmediateRequeueRetryOptions,
+  type ResolvedRetryOptions,
+  type ResolvedTtlBackoffRetryOptions,
+  extractConsumer,
+  extractQueue,
+  isQueueWithTtlBackoffInfrastructure,
+} from "@amqp-contract/contract";
+import {
   AmqpClient,
+  ConsumerOptions as AmqpClientConsumerOptions,
   type Logger,
   TechnicalError,
   type TelemetryProvider,
@@ -9,45 +21,20 @@ import {
   recordConsumeMetric,
   startConsumeSpan,
 } from "@amqp-contract/core";
-import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
-import type { Channel, ConsumeMessage } from "amqplib";
-import {
-  type ConsumerDefinition,
-  type ContractDefinition,
-  type InferConsumerNames,
-  type ResolvedRetryOptions,
-  type ResolvedTtlBackoffRetryOptions,
-  extractConsumer,
-} from "@amqp-contract/contract";
+import type { StandardSchemaV1 } from "@standard-schema/spec";
 import { Future, Result } from "@swan-io/boxed";
+import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
+import type { ConsumeMessage } from "amqplib";
+import { decompressBuffer } from "./decompression.js";
+import type { HandlerError } from "./errors.js";
 import { MessageValidationError, NonRetryableError } from "./errors.js";
 import type {
   WorkerInferConsumedMessage,
   WorkerInferConsumerHandler,
   WorkerInferConsumerHandlers,
 } from "./types.js";
-import type { HandlerError } from "./errors.js";
-import type { StandardSchemaV1 } from "@standard-schema/spec";
-import { decompressBuffer } from "./decompression.js";
 
-/**
- * Internal type for consumer options extracted from handler tuples.
- * Not exported - options are specified inline in the handler tuple types.
- *
- * Note: Retry configuration is now defined at the queue level in the contract,
- * not at the handler level. See `QueueDefinition.retry` for configuration options.
- */
-type ConsumerOptions = {
-  /** Number of messages to prefetch */
-  prefetch?: number;
-};
-
-/**
- * Retry configuration from the contract with all values resolved.
- * This is a discriminated union on `mode` - TTL-backoff has the config fields,
- * quorum-native does not.
- */
-type ResolvedRetryConfig = ResolvedRetryOptions;
+export type ConsumerOptions = AmqpClientConsumerOptions;
 
 /**
  * Type guard to check if a handler entry is a tuple format [handler, options].
@@ -81,6 +68,9 @@ function isHandlerTuple(entry: unknown): entry is [unknown, ConsumerOptions] {
  *     ]
  *   },
  *   urls: ['amqp://localhost'],
+ *   defaultConsumerOptions: {
+ *     prefetch: 5,
+ *   },
  *   connectionOptions: {
  *     heartbeatIntervalInSeconds: 30
  *   },
@@ -112,6 +102,11 @@ export type CreateWorkerOptions<TContract extends ContractDefinition> = {
    * OpenTelemetry instrumentation is automatically enabled if @opentelemetry/api is installed.
    */
   telemetry?: TelemetryProvider | undefined;
+  /**
+   * Optional default consumer options applied to all consumer handlers.
+   * Handler-specific options provided in tuple form override these defaults.
+   */
+  defaultConsumerOptions?: ConsumerOptions | undefined;
 };
 
 /**
@@ -128,7 +123,7 @@ export type CreateWorkerOptions<TContract extends ContractDefinition> = {
  * import { defineQueue, defineMessage, defineContract, defineConsumer } from '@amqp-contract/contract';
  * import { z } from 'zod';
  *
- * const orderQueue = defineQueue('order-processing', { durable: true });
+ * const orderQueue = defineQueue('order-processing');
  * const orderMessage = defineMessage(z.object({
  *   orderId: z.string(),
  *   amount: z.number()
@@ -173,6 +168,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     private readonly contract: TContract,
     private readonly amqpClient: AmqpClient,
     handlers: WorkerInferConsumerHandlers<TContract>,
+    private readonly defaultConsumerOptions: ConsumerOptions,
     private readonly logger?: Logger,
     telemetry?: TelemetryProvider,
   ) {
@@ -196,13 +192,17 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           TContract,
           InferConsumerNames<TContract>
         >;
-        this.consumerOptions[typedConsumerName] = options;
+        this.consumerOptions[typedConsumerName] = {
+          ...this.defaultConsumerOptions,
+          ...options,
+        };
       } else {
         // Direct function format
         this.actualHandlers[typedConsumerName] = handlerEntry as WorkerInferConsumerHandler<
           TContract,
           InferConsumerNames<TContract>
         >;
+        this.consumerOptions[typedConsumerName] = this.defaultConsumerOptions;
       }
     }
   }
@@ -237,6 +237,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     handlers,
     urls,
     connectionOptions,
+    defaultConsumerOptions,
     logger,
     telemetry,
   }: CreateWorkerOptions<TContract>): Future<Result<TypedAmqpWorker<TContract>, TechnicalError>> {
@@ -247,6 +248,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         connectionOptions,
       }),
       handlers,
+      defaultConsumerOptions ?? {},
       logger,
       telemetry,
     );
@@ -297,8 +299,9 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * Get the retry configuration for a consumer's queue.
    * Defaults are applied in the contract's defineQueue, so we just return the config.
    */
-  private getRetryConfigForConsumer(consumer: ConsumerDefinition): ResolvedRetryConfig {
-    return consumer.queue.retry;
+  private getRetryConfigForConsumer(consumer: ConsumerDefinition): ResolvedRetryOptions {
+    const queue = extractQueue(consumer.queue);
+    return queue.retry;
   }
 
   /**
@@ -309,18 +312,6 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     // Non-null assertion safe: TypeScript guarantees consumers exist (handlers require matching consumers)
     const consumers = this.contract.consumers!;
     const consumerNames = Object.keys(consumers) as InferConsumerNames<TContract>[];
-
-    // Calculate max prefetch (AMQP 0.9.1 prefetch is per-channel)
-    const maxPrefetch = consumerNames.reduce((max, name) => {
-      const prefetch = this.consumerOptions[name]?.prefetch;
-      return prefetch ? Math.max(max, prefetch) : max;
-    }, 0);
-
-    if (maxPrefetch > 0) {
-      this.amqpClient.addSetup(async (channel: Channel) => {
-        await channel.prefetch(maxPrefetch);
-      });
-    }
 
     return Future.all(consumerNames.map((name) => this.consume(name)))
       .map(Result.all)
@@ -396,9 +387,10 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     consumer: ConsumerDefinition,
     consumerName: TName,
   ): Future<Result<WorkerInferConsumedMessage<TContract, TName>, TechnicalError>> {
+    const queue = extractQueue(consumer.queue);
     const context = {
       consumerName: String(consumerName),
-      queueName: consumer.queue.name,
+      queueName: queue.name,
     };
 
     const nackAndError = (message: string, error?: unknown): TechnicalError => {
@@ -453,84 +445,95 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       rawMessage: ConsumeMessage,
     ) => Future<Result<void, HandlerError>>,
   ): Future<Result<void, TechnicalError>> {
-    const queueName = consumer.queue.name;
+    const queue = extractQueue(consumer.queue);
+    const queueName = queue.name;
 
     // Start consuming
     return this.amqpClient
-      .consume(queueName, async (msg) => {
-        // Handle null messages (consumer cancellation)
-        if (msg === null) {
-          this.logger?.warn("Consumer cancelled by server", {
-            consumerName: String(consumerName),
-            queueName,
+      .consume(
+        queueName,
+        async (msg) => {
+          // Handle null messages (consumer cancellation)
+          if (msg === null) {
+            this.logger?.warn("Consumer cancelled by server", {
+              consumerName: String(consumerName),
+              queueName,
+            });
+            return;
+          }
+
+          const startTime = Date.now();
+          const span = startConsumeSpan(this.telemetry, queueName, String(consumerName), {
+            "messaging.rabbitmq.message.delivery_tag": msg.fields.deliveryTag,
           });
-          return;
-        }
 
-        const startTime = Date.now();
-        const span = startConsumeSpan(this.telemetry, queueName, String(consumerName), {
-          "messaging.rabbitmq.message.delivery_tag": msg.fields.deliveryTag,
-        });
+          // Parse and validate message
+          await this.parseAndValidateMessage(msg, consumer, consumerName)
+            .flatMapOk((validatedMessage) =>
+              handler(validatedMessage, msg)
+                .flatMapOk(() => {
+                  this.logger?.info("Message consumed successfully", {
+                    consumerName: String(consumerName),
+                    queueName,
+                  });
+                  // Acknowledge message on success
+                  this.amqpClient.ack(msg);
 
-        // Parse and validate message
-        await this.parseAndValidateMessage(msg, consumer, consumerName)
-          .flatMapOk((validatedMessage) =>
-            handler(validatedMessage, msg)
-              .flatMapOk(() => {
-                this.logger?.info("Message consumed successfully", {
-                  consumerName: String(consumerName),
-                  queueName,
-                });
-                // Acknowledge message on success
-                this.amqpClient.ack(msg);
+                  // Record telemetry success
+                  const durationMs = Date.now() - startTime;
+                  endSpanSuccess(span);
+                  recordConsumeMetric(
+                    this.telemetry,
+                    queueName,
+                    String(consumerName),
+                    true,
+                    durationMs,
+                  );
 
-                // Record telemetry success
-                const durationMs = Date.now() - startTime;
-                endSpanSuccess(span);
-                recordConsumeMetric(
-                  this.telemetry,
-                  queueName,
-                  String(consumerName),
-                  true,
-                  durationMs,
-                );
+                  return Future.value(Result.Ok<void, HandlerError>(undefined));
+                })
+                .flatMapError((handlerError: HandlerError) => {
+                  // Handler returned an error
+                  this.logger?.error("Error processing message", {
+                    consumerName: String(consumerName),
+                    queueName,
+                    errorType: handlerError.name,
+                    error: handlerError.message,
+                  });
 
-                return Future.value(Result.Ok<void, HandlerError>(undefined));
-              })
-              .flatMapError((handlerError: HandlerError) => {
-                // Handler returned an error
-                this.logger?.error("Error processing message", {
-                  consumerName: String(consumerName),
-                  queueName,
-                  errorType: handlerError.name,
-                  error: handlerError.message,
-                });
+                  // Record telemetry failure
+                  const durationMs = Date.now() - startTime;
+                  endSpanError(span, handlerError);
+                  recordConsumeMetric(
+                    this.telemetry,
+                    queueName,
+                    String(consumerName),
+                    false,
+                    durationMs,
+                  );
 
-                // Record telemetry failure
-                const durationMs = Date.now() - startTime;
-                endSpanError(span, handlerError);
-                recordConsumeMetric(
-                  this.telemetry,
-                  queueName,
-                  String(consumerName),
-                  false,
-                  durationMs,
-                );
-
-                // Handle the error using retry mechanism
-                return this.handleError(handlerError, msg, String(consumerName), consumer);
-              }),
-          )
-          .tapError(() => {
-            // Record telemetry failure for validation errors
-            // Note: The actual validation error is logged in parseAndValidateMessage,
-            // here we just record that validation failed for telemetry purposes
-            const durationMs = Date.now() - startTime;
-            endSpanError(span, new Error("Message validation failed"));
-            recordConsumeMetric(this.telemetry, queueName, String(consumerName), false, durationMs);
-          })
-          .toPromise();
-      })
+                  // Handle the error using retry mechanism
+                  return this.handleError(handlerError, msg, String(consumerName), consumer);
+                }),
+            )
+            .tapError(() => {
+              // Record telemetry failure for validation errors
+              // Note: The actual validation error is logged in parseAndValidateMessage,
+              // here we just record that validation failed for telemetry purposes
+              const durationMs = Date.now() - startTime;
+              endSpanError(span, new Error("Message validation failed"));
+              recordConsumeMetric(
+                this.telemetry,
+                queueName,
+                String(consumerName),
+                false,
+                durationMs,
+              );
+            })
+            .toPromise();
+        },
+        this.consumerOptions[consumerName],
+      )
       .tapOk((consumerTag) => {
         // Store consumer tag for later cancellation
         this.consumerTags.add(consumerTag);
@@ -547,17 +550,18 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    *
    * Flow depends on retry mode:
    *
-   * **quorum-native mode:**
+   * **immediate-requeue mode:**
    * 1. If NonRetryableError -> send directly to DLQ (no retry)
-   * 2. Otherwise -> nack with requeue=true (RabbitMQ handles delivery count)
+   * 2. If max retries exceeded -> send to DLQ
+   * 3. Otherwise -> requeue immediately for retry
    *
    * **ttl-backoff mode:**
    * 1. If NonRetryableError -> send directly to DLQ (no retry)
    * 2. If max retries exceeded -> send to DLQ
    * 3. Otherwise -> publish to wait queue with TTL for retry
    *
-   * **Legacy mode (no retry config):**
-   * 1. nack with requeue=true (immediate requeue)
+   * **none mode (no retry config):**
+   * 1. send directly to DLQ (no retry)
    */
   private handleError(
     error: Error,
@@ -579,73 +583,114 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     // Get retry config from the queue definition in the contract
     const config = this.getRetryConfigForConsumer(consumer);
 
-    // Quorum-native mode: let RabbitMQ handle retry via x-delivery-count
-    if (config.mode === "quorum-native") {
-      return this.handleErrorQuorumNative(error, msg, consumerName, consumer);
+    // Immediate-requeue mode: requeue the message immediately
+    if (config.mode === "immediate-requeue") {
+      return this.handleErrorImmediateRequeue(error, msg, consumerName, consumer, config);
     }
 
     // TTL-backoff mode: use wait queue with exponential backoff
-    return this.handleErrorTtlBackoff(error, msg, consumerName, consumer, config);
-  }
-
-  /**
-   * Handle error using quorum queue's native delivery limit feature.
-   *
-   * Simply requeues the message with nack(requeue=true). RabbitMQ automatically:
-   * - Increments x-delivery-count header
-   * - Dead-letters the message when count exceeds x-delivery-limit
-   *
-   * This is simpler than TTL-based retry but provides immediate retries only.
-   */
-  private handleErrorQuorumNative(
-    error: Error,
-    msg: ConsumeMessage,
-    consumerName: string,
-    consumer: ConsumerDefinition,
-  ): Future<Result<void, TechnicalError>> {
-    const queue = consumer.queue;
-    const queueName = queue.name;
-    // x-delivery-count is incremented on each delivery attempt
-    // When x-delivery-count equals x-delivery-limit, message is dead-lettered on next attempt
-    const deliveryCount = (msg.properties.headers?.["x-delivery-count"] as number) ?? 0;
-    // This function is only called for quorum-native mode, which requires quorum queues
-    const deliveryLimit = queue.type === "quorum" ? queue.deliveryLimit : undefined;
-
-    // After this requeue, RabbitMQ will increment deliveryCount
-    // Message is dead-lettered when deliveryCount reaches deliveryLimit
-    // So if deliveryCount == deliveryLimit - 1, the next failure will dead-letter the message
-    const attemptsBeforeDeadLetter =
-      deliveryLimit !== undefined ? Math.max(0, deliveryLimit - deliveryCount - 1) : "unknown";
-
-    // Log warning if this is the last attempt before dead-lettering
-    if (deliveryLimit !== undefined && deliveryCount >= deliveryLimit - 1) {
-      this.logger?.warn("Message at final delivery attempt (quorum-native mode)", {
-        consumerName,
-        queueName,
-        deliveryCount,
-        deliveryLimit,
-        willDeadLetterOnNextFailure: deliveryCount === deliveryLimit - 1,
-        alreadyExceededLimit: deliveryCount >= deliveryLimit,
-        error: error.message,
-      });
-    } else {
-      this.logger?.warn("Retrying message (quorum-native mode)", {
-        consumerName,
-        queueName,
-        deliveryCount,
-        deliveryLimit,
-        attemptsBeforeDeadLetter,
-        error: error.message,
-      });
+    if (config.mode === "ttl-backoff") {
+      return this.handleErrorTtlBackoff(error, msg, consumerName, consumer, config);
     }
 
-    // Requeue the message - RabbitMQ tracks delivery count and handles dead-lettering
-    this.amqpClient.nack(msg, false, true);
+    // None mode: no retry, send directly to DLQ or reject
+    this.logger?.warn("Retry disabled (none mode), sending to DLQ", {
+      consumerName,
+      error: error.message,
+    });
+    this.sendToDLQ(msg, consumer);
     return Future.value(Result.Ok(undefined));
   }
 
   /**
+   * Handle error by requeuing immediately.
+   *
+   * For quorum queues, messages are requeued with `nack(requeue=true)`, and the worker tracks delivery count via the native RabbitMQ `x-delivery-count` header.
+   * For classic queues, messages are re-published on the same queue, and the worker tracks delivery count via a custom `x-retry-count` header.
+   * When the count exceeds `maxRetries`, the message is automatically dead-lettered (if DLX is configured) or dropped.
+   *
+   * This is simpler than TTL-based retry but provides immediate retries only.
+   */
+  private handleErrorImmediateRequeue(
+    error: Error,
+    msg: ConsumeMessage,
+    consumerName: string,
+    consumer: ConsumerDefinition,
+    config: ResolvedImmediateRequeueRetryOptions,
+  ): Future<Result<void, TechnicalError>> {
+    const queue = extractQueue(consumer.queue);
+    const queueName = queue.name;
+
+    // Get retry count from headers
+    // For quorum queues, the header x-delivery-count is automatically incremented on each delivery attempt
+    // For classic queues, the header x-retry-count is manually incremented by the worker when re-publishing messages
+    const retryCount =
+      queue.type === "quorum"
+        ? ((msg.properties.headers?.["x-delivery-count"] as number) ?? 0)
+        : ((msg.properties.headers?.["x-retry-count"] as number) ?? 0);
+
+    // Max retries exceeded -> DLQ
+    if (retryCount >= config.maxRetries) {
+      this.logger?.error("Max retries exceeded, sending to DLQ (immediate-requeue mode)", {
+        consumerName,
+        queueName,
+        retryCount,
+        maxRetries: config.maxRetries,
+        error: error.message,
+      });
+      this.sendToDLQ(msg, consumer);
+      return Future.value(Result.Ok(undefined));
+    }
+
+    this.logger?.warn("Retrying message (immediate-requeue mode)", {
+      consumerName,
+      queueName,
+      retryCount,
+      maxRetries: config.maxRetries,
+      error: error.message,
+    });
+
+    if (queue.type === "quorum") {
+      // For quorum queues, nack with requeue=true to trigger native retry mechanism
+      this.amqpClient.nack(msg, false, true);
+      return Future.value(Result.Ok(undefined));
+    } else {
+      // For classic queues, re-publish the message to the same exchange / routing key immediately with an incremented x-retry-count header
+      return this.publishForRetry({
+        msg,
+        exchange: msg.fields.exchange,
+        routingKey: msg.fields.routingKey,
+        queueName,
+        error,
+      });
+    }
+  }
+
+  /**
    * Handle error using TTL + wait queue pattern for exponential backoff.
+   *
+   * ┌─────────────────────────────────────────────────────────────────┐
+   * │ Retry Flow (Native RabbitMQ TTL + Wait queue pattern)           │
+   * ├─────────────────────────────────────────────────────────────────┤
+   * │                                                                 │
+   * │ 1. Handler throws any Error                                     │
+   * │    ↓                                                            │
+   * │ 2. Worker publishes to wait exchange                            |
+   * |    (with header `x-wait-queue` set to the wait queue name)      │
+   * │    ↓                                                            │
+   * │ 3. Wait exchange routes to wait queue                           │
+   * │    (with expiration: calculated backoff delay)                  │
+   * │    ↓                                                            │
+   * │ 4. Message waits in queue until TTL expires                     │
+   * │    ↓                                                            │
+   * │ 5. Expired message dead-lettered to retry exchange              |
+   * |    (with header `x-retry-queue` set to the main queue name)     │
+   * │    ↓                                                            │
+   * │ 6. Retry exchange routes back to main queue → RETRY             │
+   * │    ↓                                                            │
+   * │ 7. If retries exhausted: nack without requeue → DLQ             │
+   * │                                                                 │
+   * └─────────────────────────────────────────────────────────────────┘
    */
   private handleErrorTtlBackoff(
     error: Error,
@@ -654,13 +699,28 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     consumer: ConsumerDefinition,
     config: ResolvedTtlBackoffRetryOptions,
   ): Future<Result<void, TechnicalError>> {
+    if (!isQueueWithTtlBackoffInfrastructure(consumer.queue)) {
+      this.logger?.error("Queue does not have TTL-backoff infrastructure", {
+        consumerName,
+        queueName: consumer.queue.name,
+      });
+      return Future.value(
+        Result.Error(new TechnicalError("Queue does not have TTL-backoff infrastructure")),
+      );
+    }
+
+    const queueEntry = consumer.queue;
+    const queue = extractQueue(queueEntry);
+    const queueName = queue.name;
+
     // Get retry count from headers
     const retryCount = (msg.properties.headers?.["x-retry-count"] as number) ?? 0;
 
     // Max retries exceeded -> DLQ
     if (retryCount >= config.maxRetries) {
-      this.logger?.error("Max retries exceeded, sending to DLQ", {
+      this.logger?.error("Max retries exceeded, sending to DLQ (ttl-backoff mode)", {
         consumerName,
+        queueName,
         retryCount,
         maxRetries: config.maxRetries,
         error: error.message,
@@ -673,12 +733,23 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     const delayMs = this.calculateRetryDelay(retryCount, config);
     this.logger?.warn("Retrying message (ttl-backoff mode)", {
       consumerName,
+      queueName,
       retryCount: retryCount + 1,
+      maxRetries: config.maxRetries,
       delayMs,
       error: error.message,
     });
 
-    return this.publishForRetry(msg, consumer, retryCount + 1, delayMs, error);
+    // Re-publish the message to the wait exchange with TTL and incremented x-retry-count header
+    return this.publishForRetry({
+      msg,
+      exchange: queueEntry.waitExchange.name,
+      routingKey: msg.fields.routingKey, // Preserve original routing key
+      waitQueueName: queueEntry.waitQueue.name,
+      queueName,
+      delayMs,
+      error,
+    });
   }
 
   /**
@@ -720,78 +791,59 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   }
 
   /**
-   * Publish message to wait queue for retry after TTL expires.
-   *
-   * ┌─────────────────────────────────────────────────────────────────┐
-   * │ Retry Flow (Native RabbitMQ TTL + DLX Pattern)                   │
-   * ├─────────────────────────────────────────────────────────────────┤
-   * │                                                                   │
-   * │ 1. Handler throws any Error                                      │
-   * │    ↓                                                              │
-   * │ 2. Worker publishes to DLX with routing key: {queue}-wait        │
-   * │    ↓                                                              │
-   * │ 3. DLX routes to wait queue: {queue}-wait                        │
-   * │    (with expiration: calculated backoff delay)                   │
-   * │    ↓                                                              │
-   * │ 4. Message waits in queue until TTL expires                      │
-   * │    ↓                                                              │
-   * │ 5. Expired message dead-lettered to DLX                          │
-   * │    (with routing key: {queue})                                   │
-   * │    ↓                                                              │
-   * │ 6. DLX routes back to main queue → RETRY                         │
-   * │    ↓                                                              │
-   * │ 7. If retries exhausted: nack without requeue → DLQ              │
-   * │                                                                   │
-   * └─────────────────────────────────────────────────────────────────┘
+   * Publish message with an incremented x-retry-count header and optional TTL.
    */
-  private publishForRetry(
-    msg: ConsumeMessage,
-    consumer: ConsumerDefinition,
-    newRetryCount: number,
-    delayMs: number,
-    error: Error,
-  ): Future<Result<void, TechnicalError>> {
-    const queueName = consumer.queue.name;
-    const deadLetter = consumer.queue.deadLetter;
-
-    if (!deadLetter) {
-      this.logger?.warn(
-        "Cannot retry: queue does not have DLX configured, falling back to nack with requeue",
-        {
-          queueName,
-        },
-      );
-      this.amqpClient.nack(msg, false, true);
-      return Future.value(Result.Ok(undefined));
-    }
-
-    const dlxName = deadLetter.exchange.name;
-    const waitRoutingKey = `${queueName}-wait`;
+  private publishForRetry({
+    msg,
+    exchange,
+    routingKey,
+    queueName,
+    waitQueueName,
+    delayMs,
+    error,
+  }: {
+    msg: ConsumeMessage;
+    exchange: string;
+    routingKey: string;
+    queueName: string;
+    waitQueueName?: string;
+    delayMs?: number;
+    error: Error;
+  }): Future<Result<void, TechnicalError>> {
+    // Get retry count from headers
+    const retryCount = (msg.properties.headers?.["x-retry-count"] as number) ?? 0;
+    const newRetryCount = retryCount + 1;
 
     // Acknowledge original message
     this.amqpClient.ack(msg);
 
     const content = this.parseMessageContentForRetry(msg, queueName);
 
-    // Publish to DLX with wait routing key
+    // Publish message with incremented x-retry-count header and original error info
     return this.amqpClient
-      .publish(dlxName, waitRoutingKey, content, {
+      .publish(exchange, routingKey, content, {
         ...msg.properties,
-        expiration: delayMs.toString(), // Per-message TTL
+        ...(delayMs !== undefined ? { expiration: delayMs.toString() } : {}), // Per-message TTL
         headers: {
           ...msg.properties.headers,
           "x-retry-count": newRetryCount,
           "x-last-error": error.message,
           "x-first-failure-timestamp":
             msg.properties.headers?.["x-first-failure-timestamp"] ?? Date.now(),
+          ...(waitQueueName !== undefined
+            ? {
+                "x-wait-queue": waitQueueName, // For wait exchange routing
+                "x-retry-queue": queueName, // For retry exchange routing
+              }
+            : {}),
         },
       })
       .mapOkToResult((published) => {
         if (!published) {
           this.logger?.error("Failed to publish message for retry (write buffer full)", {
             queueName,
-            waitRoutingKey,
             retryCount: newRetryCount,
+            ...(delayMs !== undefined ? { delayMs } : {}),
           });
           return Result.Error(
             new TechnicalError("Failed to publish message for retry (write buffer full)"),
@@ -800,9 +852,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
         this.logger?.info("Message published for retry", {
           queueName,
-          waitRoutingKey,
           retryCount: newRetryCount,
-          delayMs,
+          ...(delayMs !== undefined ? { delayMs } : {}),
         });
         return Result.Ok(undefined);
       });
@@ -813,8 +864,9 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * Nacks the message without requeue, relying on DLX configuration.
    */
   private sendToDLQ(msg: ConsumeMessage, consumer: ConsumerDefinition): void {
-    const queueName = consumer.queue.name;
-    const hasDeadLetter = consumer.queue.deadLetter !== undefined;
+    const queue = extractQueue(consumer.queue);
+    const queueName = queue.name;
+    const hasDeadLetter = queue.deadLetter !== undefined;
 
     if (!hasDeadLetter) {
       this.logger?.warn("Queue does not have DLX configured - message will be lost on nack", {
