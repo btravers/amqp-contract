@@ -39,7 +39,7 @@ import type {
  * ```typescript
  * import { z } from 'zod';
  *
- * const logsExchange = defineExchange('logs', 'fanout', { durable: true });
+ * const logsExchange = defineExchange('logs', { type: 'fanout' });
  * const logMessage = defineMessage(
  *   z.object({
  *     level: z.enum(['info', 'warn', 'error']),
@@ -100,7 +100,7 @@ export function definePublisher<TMessage extends MessageDefinition>(
  * ```typescript
  * import { z } from 'zod';
  *
- * const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+ * const ordersExchange = defineExchange('orders');
  * const orderMessage = defineMessage(
  *   z.object({
  *     orderId: z.string().uuid(),

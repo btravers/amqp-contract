@@ -90,7 +90,7 @@ export type EventConsumerResult<
  *
  * @example
  * ```typescript
- * const logsExchange = defineExchange('logs', 'fanout', { durable: true });
+ * const logsExchange = defineExchange('logs', { type: 'fanout' });
  * const logMessage = defineMessage(z.object({
  *   level: z.enum(['info', 'warn', 'error']),
  *   message: z.string(),
@@ -131,7 +131,7 @@ export function defineEventPublisher<
  *
  * @example
  * ```typescript
- * const logsExchange = defineExchange('logs', 'headers', { durable: true });
+ * const logsExchange = defineExchange('logs', { type: 'headers' });
  * const logMessage = defineMessage(z.object({
  *   level: z.enum(['info', 'warn', 'error']),
  *   message: z.string(),
@@ -173,7 +173,7 @@ export function defineEventPublisher<
  *
  * @example
  * ```typescript
- * const tasksExchange = defineExchange('tasks', 'direct', { durable: true });
+ * const tasksExchange = defineExchange('tasks', { type: 'direct' });
  * const taskMessage = defineMessage(z.object({ taskId: z.string() }));
  *
  * const taskEvent = defineEventPublisher(tasksExchange, taskMessage, {
@@ -209,7 +209,7 @@ export function defineEventPublisher<
  *
  * @example
  * ```typescript
- * const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+ * const ordersExchange = defineExchange('orders', { type: 'topic' });
  * const orderMessage = defineMessage(z.object({
  *   orderId: z.string(),
  *   amount: z.number(),

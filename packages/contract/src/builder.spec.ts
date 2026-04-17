@@ -23,9 +23,7 @@ describe("builder", () => {
   describe("defineExchange", () => {
     it("should create an exchange definition", () => {
       // WHEN
-      const exchange = defineExchange("test-exchange", "topic", {
-        durable: true,
-      });
+      const exchange = defineExchange("test-exchange");
 
       // THEN
       expect(exchange).toEqual({
@@ -37,12 +35,13 @@ describe("builder", () => {
 
     it("should create an exchange with minimal options", () => {
       // WHEN
-      const exchange = defineExchange("test-exchange", "fanout");
+      const exchange = defineExchange("test-exchange", { type: "fanout" });
 
       // THEN
       expect(exchange).toEqual({
         name: "test-exchange",
         type: "fanout",
+        durable: true,
       });
     });
   });
@@ -88,7 +87,7 @@ describe("builder", () => {
 
     it("should create a queue with dead letter exchange", () => {
       // GIVEN
-      const dlx = defineExchange("test-dlx", "topic", { durable: true });
+      const dlx = defineExchange("test-dlx");
 
       // WHEN
       const queue = defineQueue("test-queue", {
@@ -114,7 +113,7 @@ describe("builder", () => {
 
     it("should create a queue with dead letter exchange without routing key", () => {
       // GIVEN
-      const dlx = defineExchange("test-dlx", "fanout", { durable: true });
+      const dlx = defineExchange("test-dlx", { type: "fanout" });
 
       // WHEN
       const queue = defineQueue("test-queue", {
@@ -212,7 +211,7 @@ describe("builder", () => {
 
     it("should create a priority queue with dead letter exchange", () => {
       // GIVEN
-      const dlx = defineExchange("test-dlx", "topic", { durable: true });
+      const dlx = defineExchange("test-dlx");
 
       // WHEN
       const queue = defineQueue("priority-queue", {
@@ -320,7 +319,7 @@ describe("builder", () => {
 
     it("should create a quorum queue with immediate-requeue retry and dead letter exchange", () => {
       // GIVEN
-      const dlx = defineExchange("test-dlx", "topic", { durable: true });
+      const dlx = defineExchange("test-dlx");
 
       // WHEN
       const queue = defineQueue("retry-queue", {
@@ -399,7 +398,7 @@ describe("builder", () => {
 
     it("should create a classic queue with immediate-requeue and dead letter exchange", () => {
       // GIVEN
-      const dlx = defineExchange("retry-dlx", "topic", { durable: true });
+      const dlx = defineExchange("retry-dlx");
 
       // WHEN
       const queue = defineQueue("retry-queue", {
@@ -623,7 +622,7 @@ describe("builder", () => {
 
     it("should create a quorum queue with TTL-backoff retry and dead letter exchange", () => {
       // GIVEN
-      const dlx = defineExchange("test-dlx", "topic", { durable: true });
+      const dlx = defineExchange("test-dlx");
 
       // WHEN
       const queue = defineQueue("retry-queue", {
@@ -692,7 +691,7 @@ describe("builder", () => {
     it("should create a queue binding definition", () => {
       // GIVEN
       const queue = defineQueue("test-queue");
-      const exchange = defineExchange("test-exchange", "topic");
+      const exchange = defineExchange("test-exchange");
 
       // WHEN
       const binding = defineQueueBinding(queue, exchange, {
@@ -711,7 +710,7 @@ describe("builder", () => {
     it("should create a queue binding with minimal options", () => {
       // GIVEN
       const queue = defineQueue("test-queue");
-      const exchange = defineExchange("test-exchange", "fanout");
+      const exchange = defineExchange("test-exchange", { type: "fanout" });
 
       // WHEN
       const binding = defineQueueBinding(queue, exchange);
@@ -728,8 +727,8 @@ describe("builder", () => {
   describe("defineExchangeBinding", () => {
     it("should create an exchange binding definition", () => {
       // GIVEN
-      const destination = defineExchange("destination-exchange", "topic");
-      const source = defineExchange("source-exchange", "topic");
+      const destination = defineExchange("destination-exchange");
+      const source = defineExchange("source-exchange");
 
       // WHEN
       const binding = defineExchangeBinding(destination, source, {
@@ -747,8 +746,8 @@ describe("builder", () => {
 
     it("should create an exchange binding with minimal options", () => {
       // GIVEN
-      const destination = defineExchange("destination-exchange", "fanout");
-      const source = defineExchange("source-exchange", "fanout");
+      const destination = defineExchange("destination-exchange", { type: "fanout" });
+      const source = defineExchange("source-exchange", { type: "fanout" });
 
       // WHEN
       const binding = defineExchangeBinding(destination, source);
@@ -763,8 +762,8 @@ describe("builder", () => {
 
     it("should create an exchange binding with arguments", () => {
       // GIVEN
-      const destination = defineExchange("destination-exchange", "topic");
-      const source = defineExchange("source-exchange", "topic");
+      const destination = defineExchange("destination-exchange");
+      const source = defineExchange("source-exchange");
 
       // WHEN
       const binding = defineExchangeBinding(destination, source, {
@@ -869,7 +868,7 @@ describe("builder", () => {
     it("should create a publisher definition", () => {
       // GIVEN
       const message = defineMessage(z.object({ id: z.string() }));
-      const exchange = defineExchange("test-exchange", "topic");
+      const exchange = defineExchange("test-exchange");
 
       // WHEN
       const publisher = definePublisher(exchange, message, {
@@ -887,7 +886,7 @@ describe("builder", () => {
     it("should create a publisher with minimal options", () => {
       // GIVEN
       const message = defineMessage(z.object({ id: z.string() }));
-      const exchange = defineExchange("test-exchange", "fanout");
+      const exchange = defineExchange("test-exchange", { type: "fanout" });
 
       // WHEN
       const publisher = definePublisher(exchange, message);
@@ -941,7 +940,7 @@ describe("builder", () => {
           amount: z.number(),
         }),
       );
-      const ordersExchange = defineExchange("orders", "topic", { durable: true });
+      const ordersExchange = defineExchange("orders");
       const orderProcessingQueue = defineQueue("order-processing", { durable: true });
 
       // WHEN
@@ -1003,7 +1002,7 @@ describe("builder", () => {
           amount: z.number(),
         }),
       );
-      const sourceExchange = defineExchange("source-exchange", "topic", { durable: true });
+      const sourceExchange = defineExchange("source-exchange");
       const finalQueue = defineQueue("final-queue", { durable: true });
 
       // WHEN - exchanges and queues are auto-extracted from publishers/consumers
@@ -1035,7 +1034,7 @@ describe("builder", () => {
     it("should create an event publisher with fanout exchange", () => {
       // GIVEN
       const message = defineMessage(z.object({ id: z.string() }));
-      const exchange = defineExchange("test-exchange", "fanout");
+      const exchange = defineExchange("test-exchange", { type: "fanout" });
       const queue = defineQueue("test-queue");
 
       // WHEN
@@ -1068,7 +1067,7 @@ describe("builder", () => {
           amount: z.number(),
         }),
       );
-      const exchange = defineExchange("orders", "topic", { durable: true });
+      const exchange = defineExchange("orders");
       const queue = defineQueue("order-processing", { durable: true });
 
       // WHEN
@@ -1099,7 +1098,7 @@ describe("builder", () => {
     it("should create an event publisher with direct exchange", () => {
       // GIVEN
       const message = defineMessage(z.object({ taskId: z.string() }));
-      const exchange = defineExchange("tasks", "direct");
+      const exchange = defineExchange("tasks", { type: "direct" });
       const queue = defineQueue("task-queue");
 
       // WHEN
@@ -1128,7 +1127,7 @@ describe("builder", () => {
     it("should allow consumer to override routing key for topic exchange", () => {
       // GIVEN
       const message = defineMessage(z.object({ orderId: z.string() }));
-      const exchange = defineExchange("orders", "topic", { durable: true });
+      const exchange = defineExchange("orders");
       const queue1 = defineQueue("order-processing", { durable: true });
       const queue2 = defineQueue("all-orders", { durable: true });
 
@@ -1158,7 +1157,7 @@ describe("builder", () => {
           amount: z.number(),
         }),
       );
-      const ordersExchange = defineExchange("orders", "topic", { durable: true });
+      const ordersExchange = defineExchange("orders");
       const orderQueue = defineQueue("order-processing", { durable: true });
 
       // WHEN - EventPublisherConfig goes directly in publishers
@@ -1217,7 +1216,7 @@ describe("builder", () => {
           amount: z.number(),
         }),
       );
-      const ordersExchange = defineExchange("orders", "topic", { durable: true });
+      const ordersExchange = defineExchange("orders");
       const orderQueue = defineQueue("order-processing", { durable: true });
       const notificationQueue = defineQueue("notifications", { durable: true });
 
@@ -1270,7 +1269,7 @@ describe("builder", () => {
     it("should support mixing plain ConsumerDefinition and EventConsumerResult in consumers", () => {
       // GIVEN
       const message = defineMessage(z.object({ id: z.string() }));
-      const exchange = defineExchange("events", "fanout");
+      const exchange = defineExchange("events", { type: "fanout" });
       const queue1 = defineQueue("queue-1");
       const queue2 = defineQueue("queue-2");
 
@@ -1310,7 +1309,7 @@ describe("builder", () => {
       // GIVEN
       const message = defineMessage(z.object({ id: z.string() }));
       const queue = defineQueue("test-queue");
-      const exchange = defineExchange("test-exchange", "fanout");
+      const exchange = defineExchange("test-exchange", { type: "fanout" });
 
       // WHEN
       const command = defineCommandConsumer(queue, exchange, message);
@@ -1340,7 +1339,7 @@ describe("builder", () => {
         }),
       );
       const queue = defineQueue("tasks", { durable: true });
-      const exchange = defineExchange("tasks", "direct", { durable: true });
+      const exchange = defineExchange("tasks", { type: "direct" });
 
       // WHEN
       const command = defineCommandConsumer(queue, exchange, message, {
@@ -1370,7 +1369,7 @@ describe("builder", () => {
       // GIVEN
       const message = defineMessage(z.object({ eventId: z.string() }));
       const queue = defineQueue("event-queue");
-      const exchange = defineExchange("events", "topic");
+      const exchange = defineExchange("events");
 
       // WHEN
       const command = defineCommandConsumer(queue, exchange, message, {
@@ -1398,7 +1397,7 @@ describe("builder", () => {
         }),
       );
       const auditQueue = defineQueue("audit-log", { durable: true });
-      const auditExchange = defineExchange("audit", "topic", { durable: true });
+      const auditExchange = defineExchange("audit");
 
       // WHEN - CommandConsumerConfig goes directly in consumers
       const processAudit = defineCommandConsumer(auditQueue, auditExchange, message, {
@@ -1457,7 +1456,7 @@ describe("builder", () => {
         }),
       );
       const queue = defineQueue("order-processing", { durable: true });
-      const exchange = defineExchange("orders", "topic", { durable: true });
+      const exchange = defineExchange("orders");
 
       // WHEN - Consumer bound with pattern, publishers use concrete keys
       const processOrder = defineCommandConsumer(queue, exchange, message, {
@@ -1490,7 +1489,7 @@ describe("builder", () => {
   describe("event and command patterns with external resources", () => {
     it("should support using external exchange with event pattern", () => {
       // GIVEN - External exchange from another contract
-      const externalExchange = defineExchange("external-events", "topic", { durable: true });
+      const externalExchange = defineExchange("external-events");
       const localQueue = defineQueue("local-queue", { durable: true });
       const message = defineMessage(z.object({ eventId: z.string() }));
 
@@ -1514,7 +1513,7 @@ describe("builder", () => {
     it("should support using external queue with command pattern", () => {
       // GIVEN - External queue from another contract
       const externalQueue = defineQueue("external-queue", { durable: true });
-      const localExchange = defineExchange("local-exchange", "direct", { durable: true });
+      const localExchange = defineExchange("local-exchange", { type: "direct" });
       const message = defineMessage(z.object({ data: z.string() }));
 
       // WHEN - Use external queue with local exchange
@@ -1531,8 +1530,10 @@ describe("builder", () => {
 
     it("should support mixed EventPublisherConfig and CommandConsumerConfig in a contract", () => {
       // GIVEN
-      const ordersExchange = defineExchange("orders", "topic", { durable: true });
-      const notificationsExchange = defineExchange("notifications", "fanout", { durable: true });
+      const ordersExchange = defineExchange("orders");
+      const notificationsExchange = defineExchange("notifications", {
+        type: "fanout",
+      });
       const orderQueue = defineQueue("order-queue", { durable: true });
       const notificationQueue = defineQueue("notification-queue", { durable: true });
 
@@ -1592,8 +1593,8 @@ describe("builder", () => {
 
     it("should auto-generate TTL-backoff retry infrastructure from consumer queue", () => {
       // GIVEN
-      const dlx = defineExchange("orders-dlx", "direct", { durable: true });
-      const ordersExchange = defineExchange("orders", "topic", { durable: true });
+      const dlx = defineExchange("orders-dlx", { type: "direct" });
+      const ordersExchange = defineExchange("orders");
       const orderMessage = defineMessage(z.object({ orderId: z.string() }));
       const orderQueue = defineQueue("order-processing", {
         deadLetter: { exchange: dlx },
@@ -1678,7 +1679,7 @@ describe("builder", () => {
 
     it("should auto-generate TTL-backoff retry infrastructure without dead letter exchange", () => {
       // GIVEN
-      const ordersExchange = defineExchange("orders", "topic", { durable: true });
+      const ordersExchange = defineExchange("orders");
       const orderMessage = defineMessage(z.object({ orderId: z.string() }));
       const orderQueue = defineQueue("order-processing", {
         retry: { mode: "ttl-backoff", maxRetries: 3 },
@@ -1743,7 +1744,7 @@ describe("builder", () => {
 
     it("should create a quorum queue with immediate-requeue retry and dead letter exchange", () => {
       // GIVEN
-      const dlx = defineExchange("orders-dlx", "direct", { durable: true });
+      const dlx = defineExchange("orders-dlx", { type: "direct" });
 
       // WHEN
       const queue = defineQuorumQueue("order-processing", {
@@ -1762,7 +1763,7 @@ describe("builder", () => {
 
     it("should create a quorum queue with dead letter routing key", () => {
       // GIVEN
-      const dlx = defineExchange("orders-dlx", "topic", { durable: true });
+      const dlx = defineExchange("orders-dlx");
 
       // WHEN
       const queue = defineQuorumQueue("order-processing", {
@@ -1781,7 +1782,7 @@ describe("builder", () => {
 
     it("should create a quorum queue with additional arguments", () => {
       // GIVEN
-      const dlx = defineExchange("orders-dlx", "direct", { durable: true });
+      const dlx = defineExchange("orders-dlx", { type: "direct" });
 
       // WHEN
       const queue = defineQuorumQueue("order-processing", {
@@ -1802,7 +1803,7 @@ describe("builder", () => {
 
     it("should create a quorum queue with all options combined", () => {
       // GIVEN
-      const dlx = defineExchange("orders-dlx", "topic", { durable: true });
+      const dlx = defineExchange("orders-dlx");
 
       // WHEN
       const queue = defineQuorumQueue("order-processing", {
@@ -1887,7 +1888,7 @@ describe("builder", () => {
 
     it("should create a TTL-backoff queue with dead letter exchange", () => {
       // GIVEN
-      const dlx = defineExchange("orders-dlx", "topic", { durable: true });
+      const dlx = defineExchange("orders-dlx");
 
       // WHEN
       const queue = defineTtlBackoffQueue("order-processing", {
@@ -2012,7 +2013,7 @@ describe("builder", () => {
 
     it("should create a TTL-backoff queue with all options combined", () => {
       // GIVEN
-      const dlx = defineExchange("orders-dlx", "topic", { durable: true });
+      const dlx = defineExchange("orders-dlx");
 
       // WHEN
       const queue = defineTtlBackoffQueue("order-processing", {
@@ -2069,8 +2070,8 @@ describe("builder", () => {
   describe("bridgeExchange support", () => {
     it("should create a bridged event consumer with topic exchange", () => {
       // GIVEN - Two domains: orders (source) and billing (local)
-      const ordersExchange = defineExchange("orders", "topic", { durable: true });
-      const billingExchange = defineExchange("billing", "topic", { durable: true });
+      const ordersExchange = defineExchange("orders");
+      const billingExchange = defineExchange("billing");
       const message = defineMessage(z.object({ orderId: z.string() }));
       const billingQueue = defineQueue("billing-order-processing");
 
@@ -2104,8 +2105,8 @@ describe("builder", () => {
 
     it("should create a bridged event consumer with fanout exchange", () => {
       // GIVEN
-      const logsExchange = defineExchange("logs", "fanout");
-      const analyticsExchange = defineExchange("analytics", "fanout");
+      const logsExchange = defineExchange("logs", { type: "fanout" });
+      const analyticsExchange = defineExchange("analytics", { type: "fanout" });
       const message = defineMessage(z.object({ level: z.string() }));
       const analyticsQueue = defineQueue("analytics-logs");
 
@@ -2133,8 +2134,8 @@ describe("builder", () => {
 
     it("should create a bridged command publisher with topic exchange", () => {
       // GIVEN - Remote domain owns the command consumer
-      const remoteExchange = defineExchange("remote-commands", "topic", { durable: true });
-      const localExchange = defineExchange("local-commands", "topic", { durable: true });
+      const remoteExchange = defineExchange("remote-commands");
+      const localExchange = defineExchange("local-commands");
       const message = defineMessage(z.object({ taskId: z.string() }));
       const remoteQueue = defineQueue("remote-task-queue");
 
@@ -2168,8 +2169,8 @@ describe("builder", () => {
 
     it("should extract bridged event consumer into contract", () => {
       // GIVEN
-      const ordersExchange = defineExchange("orders", "topic", { durable: true });
-      const billingExchange = defineExchange("billing", "topic", { durable: true });
+      const ordersExchange = defineExchange("orders");
+      const billingExchange = defineExchange("billing");
       const message = defineMessage(z.object({ orderId: z.string() }));
       const billingQueue = defineQueue("billing-orders");
 
@@ -2220,8 +2221,8 @@ describe("builder", () => {
 
     it("should extract bridged command publisher into contract", () => {
       // GIVEN
-      const remoteExchange = defineExchange("remote", "topic", { durable: true });
-      const localExchange = defineExchange("local", "topic", { durable: true });
+      const remoteExchange = defineExchange("remote");
+      const localExchange = defineExchange("local");
       const message = defineMessage(z.object({ id: z.string() }));
       const remoteQueue = defineQueue("remote-queue");
 
@@ -2264,9 +2265,9 @@ describe("builder", () => {
 
     it("should mix bridged and non-bridged entries in contract", () => {
       // GIVEN
-      const ordersExchange = defineExchange("orders", "topic", { durable: true });
-      const billingExchange = defineExchange("billing", "topic", { durable: true });
-      const localExchange = defineExchange("local", "topic", { durable: true });
+      const ordersExchange = defineExchange("orders");
+      const billingExchange = defineExchange("billing");
+      const localExchange = defineExchange("local");
       const orderMessage = defineMessage(z.object({ orderId: z.string() }));
       const localMessage = defineMessage(z.object({ id: z.string() }));
       const billingQueue = defineQueue("billing-orders");
@@ -2324,7 +2325,7 @@ describe("builder", () => {
 
     it("should not produce bridge fields when bridgeExchange is not provided", () => {
       // GIVEN
-      const exchange = defineExchange("test", "topic");
+      const exchange = defineExchange("test");
       const message = defineMessage(z.object({ id: z.string() }));
       const queue = defineQueue("test-queue");
 

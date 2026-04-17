@@ -104,7 +104,7 @@ describe("Feature Name", () => {
 ```typescript
 // Bad — multiple fragmented assertions
 it("should create exchange definition", () => {
-  const exchange = defineExchange("test", "topic", { durable: true });
+  const exchange = defineExchange("test");
   expect(exchange.name).toBe("test");
   expect(exchange.type).toBe("topic");
   expect(exchange.durable).toBe(true);
@@ -112,7 +112,7 @@ it("should create exchange definition", () => {
 
 // Good — merged into comprehensive assertion
 it("should create exchange definition", () => {
-  const exchange = defineExchange("test", "topic", { durable: true });
+  const exchange = defineExchange("test");
   expect(exchange).toEqual({
     name: "test",
     type: "topic",

@@ -58,7 +58,7 @@ export type AsyncAPIGeneratorGenerateOptions = Pick<AsyncAPIObject, "info"> &
  * import { zodToJsonSchema } from '@orpc/zod';
  * import { z } from 'zod';
  *
- * const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+ * const ordersExchange = defineExchange('orders');
  * const orderMessage = defineMessage(z.object({
  *   orderId: z.string(),
  *   amount: z.number()

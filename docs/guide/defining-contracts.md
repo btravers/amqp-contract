@@ -34,7 +34,7 @@ import {
 import { z } from "zod";
 
 // Define exchange and message
-const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const ordersExchange = defineExchange("orders");
 const orderMessage = defineMessage(
   z.object({
     orderId: z.string().uuid(),
@@ -120,8 +120,8 @@ import {
 import { z } from "zod";
 
 // Define queue, exchange, and message
-const taskQueue = defineQueue("tasks", { durable: true });
-const tasksExchange = defineExchange("tasks", "direct", { durable: true });
+const taskQueue = defineQueue("tasks");
+const tasksExchange = defineExchange("tasks", { type: "direct" });
 const taskMessage = defineMessage(
   z.object({
     taskId: z.string(),
@@ -230,20 +230,15 @@ amqp-contract uses a **composition pattern**:
 
 ## Defining Exchanges
 
-Exchanges route messages to queues. Define them as variables and reference them in publishers and consumers:
+Exchanges route messages to queues. By default, exchanges are created as **topic exchanges** and are durable:
 
 ```typescript
 import { defineExchange } from "@amqp-contract/contract";
 
 // Define exchanges as variables
-const ordersExchange = defineExchange("orders", "topic", {
-  durable: true,
-  autoDelete: false,
-});
+const ordersExchange = defineExchange("orders");
 
-const notificationsExchange = defineExchange("notifications", "fanout", {
-  durable: true,
-});
+const notificationsExchange = defineExchange("notifications", { type: "fanout" });
 
 // Exchanges are automatically included in the contract output
 // when referenced by publishers or consumers
@@ -251,8 +246,8 @@ const notificationsExchange = defineExchange("notifications", "fanout", {
 
 **Exchange Types:**
 
+- `topic` (default) - Routes by routing key patterns (wildcards `*` and `#`)
 - `direct` - Routes by exact routing key match
-- `topic` - Routes by routing key patterns (wildcards `*` and `#`)
 - `fanout` - Routes to all bound queues (ignores routing keys)
 - `headers` - Routes based on message headers (ignores routing keys)
 
@@ -302,7 +297,7 @@ Use `immediate-requeue` mode to requeue failed messages immediately:
 ```typescript
 import { defineQueue, defineExchange } from "@amqp-contract/contract";
 
-const dlx = defineExchange("orders-dlx", "topic", { durable: true });
+const dlx = defineExchange("orders-dlx");
 
 const orderQueue = defineQueue("order-processing", {
   type: "quorum",
@@ -324,7 +319,7 @@ If needed, you can configure the delivery limit in the queue arguments:
 ```typescript
 import { defineQueue, defineExchange } from "@amqp-contract/contract";
 
-const dlx = defineExchange("orders-dlx", "topic", { durable: true });
+const dlx = defineExchange("orders-dlx");
 
 const orderQueue = defineQueue("order-processing", {
   type: "quorum",
@@ -341,7 +336,7 @@ For exponential backoff with delays between retries, use `ttl-backoff` mode:
 ```typescript
 import { defineQueue, defineExchange } from "@amqp-contract/contract";
 
-const dlx = defineExchange("orders-dlx", "topic", { durable: true });
+const dlx = defineExchange("orders-dlx");
 
 const orderQueue = defineQueue("order-processing", {
   deadLetter: { exchange: dlx },
@@ -467,7 +462,7 @@ Learn more about schema libraries:
 Bindings connect queues to exchanges. With `defineContract`, bindings are **automatically generated** from event and command consumer patterns:
 
 ```typescript
-const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const ordersExchange = defineExchange("orders");
 const orderProcessingQueue = defineQueue("order-processing", { durable: true });
 const allOrdersQueue = defineQueue("all-orders", { durable: true });
 
@@ -492,7 +487,7 @@ const contract = defineContract({
 
 **Routing Key Requirements:**
 
-- **Fanout/Headers**: Routing key is optional (fanout ignores it)
+- **Fanout/Headers**: Routing key is optional (and ignored)
 - **Direct/Topic**: Routing key is required
 
 TypeScript enforces these rules at compile time!
@@ -505,7 +500,7 @@ Publishers define message schemas for publishing. Use `defineEventPublisher` (re
 import { defineEventPublisher, definePublisher, defineMessage } from "@amqp-contract/contract";
 import { z } from "zod";
 
-const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const ordersExchange = defineExchange("orders");
 
 const orderMessage = defineMessage(
   z.object({
@@ -591,7 +586,7 @@ import {
 import { z } from "zod";
 
 // 1. Define exchange
-const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const ordersExchange = defineExchange("orders");
 
 // 2. Define queues
 const orderProcessingQueue = defineQueue("order-processing", { durable: true });
@@ -632,8 +627,8 @@ For other advanced routing scenarios, you can set up exchange-to-exchange bindin
 ```typescript
 import { defineExchangeBinding } from "@amqp-contract/contract";
 
-const sourceExchange = defineExchange("source", "topic", { durable: true });
-const destExchange = defineExchange("destination", "topic", { durable: true });
+const sourceExchange = defineExchange("source");
+const destExchange = defineExchange("destination");
 
 // Exchange-to-exchange binding definition
 const crossExchangeBinding = defineExchangeBinding(destExchange, sourceExchange, {
@@ -732,7 +727,7 @@ import {
 } from "@amqp-contract/contract";
 
 // 1. Define the dead letter exchange
-const ordersDlx = defineExchange("orders-dlx", "topic", { durable: true });
+const ordersDlx = defineExchange("orders-dlx");
 
 // 2. Define the main queue with dead letter configuration
 const orderProcessingQueue = defineQueue("order-processing", {
@@ -802,8 +797,8 @@ import {
 import { z } from "zod";
 
 // Define exchanges
-const ordersExchange = defineExchange("orders", "topic", { durable: true });
-const ordersDlx = defineExchange("orders-dlx", "topic", { durable: true });
+const ordersExchange = defineExchange("orders");
+const ordersDlx = defineExchange("orders-dlx");
 
 // Define message schema
 const orderMessage = defineMessage(
@@ -902,7 +897,7 @@ import {
 import { z } from "zod";
 
 // Remote domain's exchange and event (defined elsewhere, referenced here)
-const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const ordersExchange = defineExchange("orders");
 const orderMessage = defineMessage(z.object({ orderId: z.string(), amount: z.number() }));
 
 const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
@@ -910,7 +905,7 @@ const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
 });
 
 // Local domain's bridge exchange and queue
-const billingExchange = defineExchange("billing", "topic", { durable: true });
+const billingExchange = defineExchange("billing");
 const billingQueue = defineQueue("billing-order-processing");
 
 // Subscribe to remote events via local bridge exchange
@@ -931,8 +926,8 @@ export const contract = defineContract({
 This also works with **fanout/headers exchanges** — the bridge exchange must match the source type:
 
 ```typescript
-const logsExchange = defineExchange("logs", "fanout");
-const analyticsExchange = defineExchange("analytics", "fanout");
+const logsExchange = defineExchange("logs", { type: "fanout" });
+const analyticsExchange = defineExchange("analytics", { type: "fanout" });
 const analyticsQueue = defineQueue("analytics-logs");
 
 const logEvent = defineEventPublisher(logsExchange, logMessage);
@@ -971,7 +966,7 @@ graph LR
 
 ```typescript
 // Remote domain's command consumer (defined elsewhere, referenced here)
-const remoteExchange = defineExchange("remote-commands", "topic", { durable: true });
+const remoteExchange = defineExchange("remote-commands");
 const remoteQueue = defineQueue("remote-task-queue");
 const taskMessage = defineMessage(z.object({ taskId: z.string() }));
 
@@ -980,7 +975,7 @@ const processTask = defineCommandConsumer(remoteQueue, remoteExchange, taskMessa
 });
 
 // Local domain's bridge exchange
-const localExchange = defineExchange("local-commands", "topic", { durable: true });
+const localExchange = defineExchange("local-commands");
 
 // Publish commands via local bridge exchange
 export const contract = defineContract({

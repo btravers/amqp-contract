@@ -36,10 +36,10 @@ const orderStatusSchema = z.object({
 });
 
 // Define exchanges
-const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const ordersExchange = defineExchange("orders");
 
 // Define dead letter exchange for failed messages
-const ordersDlx = defineExchange("orders-dlx", "topic", { durable: true });
+const ordersDlx = defineExchange("orders-dlx");
 
 // Define queues
 const orderProcessingQueue = defineQueue("order-processing", {

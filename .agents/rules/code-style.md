@@ -23,7 +23,7 @@ Define resources first, then reference them. Never define resources inline:
 const contract = defineContract({
   publishers: {
     orderCreated: definePublisher(
-      defineExchange("orders", "topic", { durable: true }),
+      defineExchange("orders"),
       defineMessage(z.object({ orderId: z.string() })),
       { routingKey: "order.created" },
     ),
@@ -31,7 +31,7 @@ const contract = defineContract({
 });
 
 // Good — define resources first, then reference
-const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const ordersExchange = defineExchange("orders");
 const orderProcessingQueue = defineQueue("order-processing", { durable: true });
 const orderMessage = defineMessage(z.object({ orderId: z.string() }));
 

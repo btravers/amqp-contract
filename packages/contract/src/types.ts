@@ -439,6 +439,46 @@ export type BaseExchangeDefinition<TName extends string = string> = {
 };
 
 /**
+ * A topic exchange definition.
+ *
+ * Topic exchanges route messages to queues based on routing key patterns with wildcards:
+ * - `*` (star) matches exactly one word
+ * - `#` (hash) matches zero or more words
+ *
+ * Words are separated by dots (e.g., `order.created.high-value`).
+ *
+ * @example
+ * ```typescript
+ * const ordersExchange: TopicExchangeDefinition = defineExchange('orders', {
+ *   type: 'topic', // This is the default type, so it can be omitted
+ * });
+ * // Can be bound with patterns like 'order.*' or 'order.#'
+ * ```
+ */
+export type TopicExchangeDefinition<TName extends string = string> =
+  BaseExchangeDefinition<TName> & {
+    type: "topic";
+  };
+
+/**
+ * A direct exchange definition.
+ *
+ * Direct exchanges route messages to queues based on exact routing key matches.
+ * This is ideal for point-to-point messaging where each message should go to specific queues.
+ *
+ * @example
+ * ```typescript
+ * const tasksExchange: DirectExchangeDefinition = defineExchange('tasks', {
+ *   type: 'direct',
+ * });
+ * ```
+ */
+export type DirectExchangeDefinition<TName extends string = string> =
+  BaseExchangeDefinition<TName> & {
+    type: "direct";
+  };
+
+/**
  * A fanout exchange definition.
  *
  * Fanout exchanges broadcast all messages to all bound queues, ignoring routing keys.
@@ -446,8 +486,8 @@ export type BaseExchangeDefinition<TName extends string = string> = {
  *
  * @example
  * ```typescript
- * const logsExchange: FanoutExchangeDefinition = defineExchange('logs', 'fanout', {
- *   durable: true
+ * const logsExchange: FanoutExchangeDefinition = defineExchange('logs', {
+ *   type: 'fanout',
  * });
  * ```
  */
@@ -464,8 +504,8 @@ export type FanoutExchangeDefinition<TName extends string = string> =
  *
  * @example
  * ```typescript
- * const routesExchange: HeadersExchangeDefinition = defineExchange('routes', 'headers', {
- *   durable: true
+ * const routesExchange: HeadersExchangeDefinition = defineExchange('routes', {
+ *   type: 'headers',
  * });
  * ```
  */
@@ -475,55 +515,15 @@ export type HeadersExchangeDefinition<TName extends string = string> =
   };
 
 /**
- * A direct exchange definition.
- *
- * Direct exchanges route messages to queues based on exact routing key matches.
- * This is ideal for point-to-point messaging where each message should go to specific queues.
- *
- * @example
- * ```typescript
- * const tasksExchange: DirectExchangeDefinition = defineExchange('tasks', 'direct', {
- *   durable: true
- * });
- * ```
- */
-export type DirectExchangeDefinition<TName extends string = string> =
-  BaseExchangeDefinition<TName> & {
-    type: "direct";
-  };
-
-/**
- * A topic exchange definition.
- *
- * Topic exchanges route messages to queues based on routing key patterns with wildcards:
- * - `*` (star) matches exactly one word
- * - `#` (hash) matches zero or more words
- *
- * Words are separated by dots (e.g., `order.created.high-value`).
- *
- * @example
- * ```typescript
- * const ordersExchange: TopicExchangeDefinition = defineExchange('orders', 'topic', {
- *   durable: true
- * });
- * // Can be bound with patterns like 'order.*' or 'order.#'
- * ```
- */
-export type TopicExchangeDefinition<TName extends string = string> =
-  BaseExchangeDefinition<TName> & {
-    type: "topic";
-  };
-
-/**
  * Union type of all exchange definitions.
  *
- * Represents any type of AMQP exchange: fanout, headers, direct, or topic.
+ * Represents any type of AMQP exchange: topic, direct, fanout, headers.
  */
 export type ExchangeDefinition<TName extends string = string> =
-  | FanoutExchangeDefinition<TName>
-  | HeadersExchangeDefinition<TName>
+  | TopicExchangeDefinition<TName>
   | DirectExchangeDefinition<TName>
-  | TopicExchangeDefinition<TName>;
+  | FanoutExchangeDefinition<TName>
+  | HeadersExchangeDefinition<TName>;
 
 /**
  * Configuration for dead letter exchange (DLX) on a queue.
@@ -666,7 +666,7 @@ export type QueueDefinition<TName extends string = string> =
  *
  * @example
  * ```typescript
- * const exchange = defineExchange('orders', 'topic', { durable: true });
+ * const exchange = defineExchange('orders');
  * const queue = defineQueue('order-processing', {
  *   retry: { mode: 'ttl-backoff', maxRetries: 5 },
  * });
@@ -1313,9 +1313,9 @@ type ExtractPublisherDefinition<T extends PublisherEntry> = T extends BridgedPub
   ? T["publisher"]
   : T extends EventPublisherConfigBase
     ? PublisherDefinition<T["message"]> &
-        (T["exchange"] extends FanoutExchangeDefinition | HeadersExchangeDefinition
-          ? { exchange: T["exchange"]; routingKey?: never }
-          : { exchange: T["exchange"]; routingKey: T["routingKey"] & string })
+        (T["exchange"] extends DirectExchangeDefinition | TopicExchangeDefinition
+          ? { exchange: T["exchange"]; routingKey: T["routingKey"] & string }
+          : { exchange: T["exchange"]; routingKey?: never })
     : T extends PublisherDefinition
       ? T
       : never;

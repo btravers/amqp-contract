@@ -39,8 +39,8 @@ import { Future, Result } from "@swan-io/boxed";
 import { z } from "zod";
 
 // 1. Define resources with Dead Letter Exchange and retry configuration
-const ordersExchange = defineExchange("orders", "topic", { durable: true });
-const ordersDlx = defineExchange("orders-dlx", "topic", { durable: true });
+const ordersExchange = defineExchange("orders");
+const ordersDlx = defineExchange("orders-dlx");
 const orderProcessingQueue = defineQueue("order-processing", {
   deadLetter: { exchange: ordersDlx, routingKey: "order.failed" },
   retry: { mode: "ttl-backoff", maxRetries: 3, initialDelayMs: 1000 }, // Retry configured at queue level

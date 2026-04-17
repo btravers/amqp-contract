@@ -24,8 +24,8 @@ describe("AmqpClient Integration", () => {
     // GIVEN
     const contract: ContractDefinition = {
       exchanges: {
-        orders: defineExchange("orders", "topic", { durable: false }),
-        notifications: defineExchange("notifications", "fanout", { durable: false }),
+        orders: defineExchange("orders", { durable: false }),
+        notifications: defineExchange("notifications", { type: "fanout", durable: false }),
       },
     };
 
@@ -75,7 +75,7 @@ describe("AmqpClient Integration", () => {
     initConsumer,
   }) => {
     // GIVEN
-    const ordersExchange = defineExchange("orders", "topic", { durable: false });
+    const ordersExchange = defineExchange("orders", { durable: false });
     const orderQueue = defineQueue("order-processing", { type: "classic", durable: false });
     const contract: ContractDefinition = {
       exchanges: {
@@ -120,8 +120,8 @@ describe("AmqpClient Integration", () => {
     initConsumer,
   }) => {
     // GIVEN
-    const sourceExchange = defineExchange("source", "topic", { durable: false });
-    const destExchange = defineExchange("destination", "topic", { durable: false });
+    const sourceExchange = defineExchange("source", { durable: false });
+    const destExchange = defineExchange("destination", { durable: false });
     const contract: ContractDefinition = {
       exchanges: {
         source: sourceExchange,
@@ -163,8 +163,8 @@ describe("AmqpClient Integration", () => {
     initConsumer,
   }) => {
     // GIVEN
-    const ordersExchange = defineExchange("orders", "topic", { durable: false });
-    const analyticsExchange = defineExchange("analytics", "fanout", { durable: false });
+    const ordersExchange = defineExchange("orders", { durable: false });
+    const analyticsExchange = defineExchange("analytics", { type: "fanout", durable: false });
     const orderQueue = defineQueue("order-processing", { type: "classic", durable: false });
     const analyticsQueue = defineQueue("analytics-processing", { type: "classic", durable: false });
 
@@ -242,7 +242,7 @@ describe("AmqpClient Integration", () => {
     initConsumer,
   }) => {
     // GIVEN
-    const fanoutExchange = defineExchange("fanout", "fanout", { durable: false });
+    const fanoutExchange = defineExchange("fanout", { type: "fanout", durable: false });
     const orderQueue = defineQueue("order-queue", { type: "classic", durable: false });
     const contract: ContractDefinition = {
       exchanges: {
@@ -283,7 +283,7 @@ describe("AmqpClient Integration", () => {
     // GIVEN
     const contract: ContractDefinition = {
       exchanges: {
-        orders: defineExchange("orders", "topic", {
+        orders: defineExchange("orders", {
           durable: false,
           arguments: { "x-custom": "value" },
         }),
@@ -336,8 +336,8 @@ describe("AmqpClient Integration", () => {
     initConsumer,
   }) => {
     // GIVEN - Cross-domain: source exchange → (e2e) → bridge exchange → queue
-    const sourceExchange = defineExchange("source-domain", "topic", { durable: false });
-    const bridgeExchange = defineExchange("local-domain", "topic", { durable: false });
+    const sourceExchange = defineExchange("source-domain", { durable: false });
+    const bridgeExchange = defineExchange("local-domain", { durable: false });
     const localQueue = defineQueue("local-processing", { type: "classic", durable: false });
     const orderMessage = defineMessage(z.object({ orderId: z.string() }));
 
@@ -380,7 +380,7 @@ describe("AmqpClient Integration", () => {
     // GIVEN
     const contract: ContractDefinition = {
       exchanges: {
-        test: defineExchange("test", "topic", { durable: false }),
+        test: defineExchange("test", { durable: false }),
       },
     };
 

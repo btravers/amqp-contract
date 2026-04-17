@@ -106,7 +106,7 @@ describe("Client and Worker Integration", () => {
       workerFactory,
     }) => {
       // GIVEN
-      const exchange = defineExchange("orders", "topic", { durable: false });
+      const exchange = defineExchange("orders", { durable: false });
       const queue = defineQueue("order-processing", { type: "classic", durable: false });
       const orderMessage = defineMessage(
         z.object({
@@ -174,7 +174,7 @@ describe("Client and Worker Integration", () => {
 
     it("should handle multiple messages in sequence", async ({ clientFactory, workerFactory }) => {
       // GIVEN
-      const exchange = defineExchange("events", "topic", { durable: false });
+      const exchange = defineExchange("events", { durable: false });
       const queue = defineQueue("event-processing", { type: "classic", durable: false });
       const eventMessage = defineMessage(
         z.object({
@@ -249,7 +249,7 @@ describe("Client and Worker Integration", () => {
 
     it("should handle validation errors gracefully", async ({ clientFactory, workerFactory }) => {
       // GIVEN
-      const exchange = defineExchange("strict", "topic", { durable: false });
+      const exchange = defineExchange("strict", { durable: false });
       const queue = defineQueue("strict-processing", { type: "classic", durable: false });
       const strictMessage = defineMessage(
         z.object({
@@ -313,7 +313,7 @@ describe("Client and Worker Integration", () => {
       workerFactory,
     }) => {
       // GIVEN
-      const exchange = defineExchange("notifications", "topic", { durable: false });
+      const exchange = defineExchange("notifications", { durable: false });
       const emailQueue = defineQueue("email-queue", { type: "classic", durable: false });
       const smsQueue = defineQueue("sms-queue", { type: "classic", durable: false });
 

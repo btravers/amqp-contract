@@ -100,7 +100,7 @@ import {
 import { z } from "zod";
 
 // Define resources
-const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const ordersExchange = defineExchange("orders");
 const orderProcessingQueue = defineQueue("order-processing", { durable: true });
 
 // Define message schema

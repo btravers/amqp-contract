@@ -76,7 +76,7 @@ Retry is configured at the queue level in your contract definition. Add `retry` 
 ```typescript
 import { defineQueue, defineExchange, defineContract } from "@amqp-contract/contract";
 
-const dlx = defineExchange("orders-dlx", "topic", { durable: true });
+const dlx = defineExchange("orders-dlx");
 
 // Configure retry at queue level
 const orderQueue = defineQueue("order-processing", {
