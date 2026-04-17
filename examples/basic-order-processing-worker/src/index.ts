@@ -1,6 +1,6 @@
+import { orderContract } from "@amqp-contract-examples/basic-order-processing-contract";
 import { RetryableError, TypedAmqpWorker, defineHandlers } from "@amqp-contract/worker";
 import { Future } from "@swan-io/boxed";
-import { orderContract } from "@amqp-contract-examples/basic-order-processing-contract";
 import pino from "pino";
 import { z } from "zod";
 
@@ -27,13 +27,18 @@ async function main() {
     contract: orderContract,
     handlers: defineHandlers(orderContract, {
       // Handler for processing NEW orders (order.created)
-      processOrder: ({ payload }) => {
+      processOrder: ({ payload, headers }) => {
         logger.info(
           {
             orderId: payload.orderId,
             customerId: payload.customerId,
-            items: payload.items.length,
+            items: payload.items,
             total: payload.totalAmount,
+            createdAt: payload.createdAt,
+            headers: {
+              eventSource: headers.eventSource,
+              eventVersion: headers.eventVersion,
+            },
           },
           "[PROCESSING] New order received",
         );
@@ -55,6 +60,7 @@ async function main() {
               type: "new_order",
               orderId: payload.orderId,
               customerId: payload.customerId,
+              createdAt: payload.createdAt,
             },
             "[NOTIFICATIONS] Event received",
           );
@@ -65,6 +71,7 @@ async function main() {
               type: "status_update",
               orderId: payload.orderId,
               status: payload.status,
+              updatedAt: payload.updatedAt,
             },
             "[NOTIFICATIONS] Event received",
           );
@@ -83,6 +90,7 @@ async function main() {
           {
             orderId: payload.orderId,
             status: payload.status,
+            updatedAt: payload.updatedAt,
           },
           "[SHIPPING] Shipment notification received",
         );
@@ -100,6 +108,7 @@ async function main() {
           {
             orderId: payload.orderId,
             status: payload.status,
+            updatedAt: payload.updatedAt,
           },
           "[URGENT] Priority order update received!",
         );
@@ -118,6 +127,7 @@ async function main() {
             orderId: payload.orderId,
             customerId: payload.customerId,
             totalAmount: payload.totalAmount,
+            createdAt: payload.createdAt,
           },
           "[DLX] Failed order received from dead letter exchange",
         );

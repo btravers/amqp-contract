@@ -8,31 +8,38 @@ import {
   definePublisher,
   defineQueue,
 } from "@amqp-contract/contract";
-import { describe, expect } from "vitest";
-import { MessageValidationError } from "../errors.js";
-import { Result } from "@swan-io/boxed";
-import { TypedAmqpClient } from "../client.js";
 import { it as baseIt } from "@amqp-contract/testing/extension";
+import { Result } from "@swan-io/boxed";
+import { describe, expect } from "vitest";
 import { z } from "zod";
+import { CreateClientOptions, TypedAmqpClient } from "../client.js";
+import { MessageValidationError } from "../errors.js";
 
 const it = baseIt.extend<{
   clientFactory: <TContract extends ContractDefinition>(
     contract: TContract,
+    options?: Omit<CreateClientOptions<TContract>, "contract" | "urls">,
   ) => Promise<TypedAmqpClient<TContract>>;
 }>({
   clientFactory: async ({ amqpConnectionUrl }, use) => {
     const clients: Array<TypedAmqpClient<ContractDefinition>> = [];
 
     try {
-      await use(async <TContract extends ContractDefinition>(contract: TContract) => {
-        const client = await TypedAmqpClient.create({
-          contract,
-          urls: [amqpConnectionUrl],
-        }).resultToPromise();
+      await use(
+        async <TContract extends ContractDefinition>(
+          contract: TContract,
+          options?: Omit<CreateClientOptions<TContract>, "contract" | "urls">,
+        ) => {
+          const client = await TypedAmqpClient.create({
+            contract,
+            urls: [amqpConnectionUrl],
+            ...options,
+          }).resultToPromise();
 
-        clients.push(client);
-        return client;
-      });
+          clients.push(client);
+          return client;
+        },
+      );
     } finally {
       // Clean up all clients before fixture cleanup (which deletes the vhost)
       await Promise.all(
@@ -57,21 +64,18 @@ describe("AmqpClient Integration", () => {
       initConsumer,
     }) => {
       // GIVEN
+      const TestMessage = z.object({
+        id: z.string(),
+        message: z.string(),
+      });
+
       const exchange = defineExchange("test-exchange", { durable: false });
+
       const contract = defineContract({
         publishers: {
-          testPublisher: definePublisher(
-            exchange,
-            defineMessage(
-              z.object({
-                id: z.string(),
-                message: z.string(),
-              }),
-            ),
-            {
-              routingKey: "test.key",
-            },
-          ),
+          testPublisher: definePublisher(exchange, defineMessage(TestMessage), {
+            routingKey: "test.key",
+          }),
         },
       });
 
@@ -132,7 +136,54 @@ describe("AmqpClient Integration", () => {
       });
     });
 
-    it("should publish with options", async ({ clientFactory, initConsumer }) => {
+    it("should publish messages with default values", async ({ clientFactory, initConsumer }) => {
+      // GIVEN
+      const TestMessage = z.object({
+        id: z.string(),
+        count: z.number().default(1),
+      });
+
+      const exchange = defineExchange("test-default-values-exchange", {
+        durable: false,
+      });
+
+      const contract = defineContract({
+        publishers: {
+          testPublisher: definePublisher(exchange, defineMessage(TestMessage), {
+            routingKey: "test.key",
+          }),
+        },
+      });
+
+      const client = await clientFactory(contract);
+
+      const pendingMessages = await initConsumer(
+        contract.publishers.testPublisher.exchange.name,
+        contract.publishers.testPublisher.routingKey,
+      );
+
+      // WHEN
+      const result = await client.publish("testPublisher", {
+        id: "123",
+        // count is omitted, should use default value of 1
+      });
+
+      // THEN
+      expect(result).toEqual(Result.Ok(undefined));
+
+      await expect(pendingMessages()).resolves.toEqual([
+        expect.objectContaining({
+          content: Buffer.from(
+            JSON.stringify({
+              id: "123",
+              count: 1, // Default value applied
+            }),
+          ),
+        }),
+      ]);
+    });
+
+    it("should publish messages with headers", async ({ clientFactory, initConsumer }) => {
       // GIVEN
       const TestMessage = z.object({
         content: z.string(),
@@ -175,7 +226,7 @@ describe("AmqpClient Integration", () => {
       ]);
     });
 
-    it("should apply default publish options", async ({ amqpConnectionUrl, initConsumer }) => {
+    it("should apply default publish options", async ({ clientFactory, initConsumer }) => {
       // GIVEN
       const TestMessage = z.object({ content: z.string() });
       const exchange = defineExchange("test-default-options-exchange", {
@@ -190,13 +241,11 @@ describe("AmqpClient Integration", () => {
         },
       });
 
-      const client = await TypedAmqpClient.create({
-        contract,
-        urls: [amqpConnectionUrl],
+      const client = await clientFactory(contract, {
         defaultPublishOptions: {
           headers: { default: "value" },
         },
-      }).resultToPromise();
+      });
 
       const pendingMessages = await initConsumer(
         contract.publishers.testPublisher.exchange.name,
@@ -223,7 +272,7 @@ describe("AmqpClient Integration", () => {
     });
 
     it("should override default publish options with publish-specific options", async ({
-      amqpConnectionUrl,
+      clientFactory,
       initConsumer,
     }) => {
       // GIVEN
@@ -240,14 +289,12 @@ describe("AmqpClient Integration", () => {
         },
       });
 
-      const client = await TypedAmqpClient.create({
-        contract,
-        urls: [amqpConnectionUrl],
+      const client = await clientFactory(contract, {
         defaultPublishOptions: {
           headers: { default: "value" },
           priority: 1,
         },
-      }).resultToPromise();
+      });
 
       const pendingMessages = await initConsumer(
         contract.publishers.testPublisher.exchange.name,

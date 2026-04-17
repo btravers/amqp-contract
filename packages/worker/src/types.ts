@@ -12,10 +12,10 @@ import type { HandlerError } from "./errors.js";
 import { ConsumerOptions } from "./worker.js";
 
 /**
- * Infer the TypeScript type from a schema
+ * Infer the output type from a schema (used by consumers after validation)
  */
-type InferSchemaInput<TSchema extends StandardSchemaV1> =
-  TSchema extends StandardSchemaV1<infer TInput> ? TInput : never;
+type InferSchemaOutput<TSchema extends StandardSchemaV1> =
+  TSchema extends StandardSchemaV1<infer _TInput, infer TOutput> ? TOutput : never;
 
 /**
  * Extract the ConsumerDefinition from any consumer entry type.
@@ -28,26 +28,26 @@ type ExtractConsumerDefinition<T extends ConsumerEntry> = T extends ConsumerDefi
     : never;
 
 /**
- * Infer consumer message payload input type.
+ * Infer consumer message payload output type.
  * Works with any consumer entry type by first extracting the ConsumerDefinition.
  */
-type ConsumerInferPayloadInput<TConsumer extends ConsumerEntry> =
+type ConsumerInferPayloadOutput<TConsumer extends ConsumerEntry> =
   ExtractConsumerDefinition<TConsumer> extends ConsumerDefinition
-    ? InferSchemaInput<ExtractConsumerDefinition<TConsumer>["message"]["payload"]>
+    ? InferSchemaOutput<ExtractConsumerDefinition<TConsumer>["message"]["payload"]>
     : never;
 
 /**
- * Infer consumer message headers input type
- * Returns undefined if no headers schema is defined
+ * Infer consumer message headers output type
+ * Returns undefined if no headers schema is defined.
  */
-type ConsumerInferHeadersInput<TConsumer extends ConsumerEntry> =
+type ConsumerInferHeadersOutput<TConsumer extends ConsumerEntry> =
   ExtractConsumerDefinition<TConsumer> extends ConsumerDefinition
     ? ExtractConsumerDefinition<TConsumer>["message"] extends MessageDefinition<
         infer _TPayload,
         infer THeaders
       >
       ? THeaders extends StandardSchemaV1<Record<string, unknown>>
-        ? InferSchemaInput<THeaders>
+        ? InferSchemaOutput<THeaders>
         : undefined
       : undefined
     : undefined;
@@ -71,7 +71,7 @@ type InferConsumer<
 type WorkerInferConsumerPayload<
   TContract extends ContractDefinition,
   TName extends InferConsumerNames<TContract>,
-> = ConsumerInferPayloadInput<InferConsumer<TContract, TName>>;
+> = ConsumerInferPayloadOutput<InferConsumer<TContract, TName>>;
 
 /**
  * Infer the headers type for a specific consumer
@@ -80,7 +80,7 @@ type WorkerInferConsumerPayload<
 export type WorkerInferConsumerHeaders<
   TContract extends ContractDefinition,
   TName extends InferConsumerNames<TContract>,
-> = ConsumerInferHeadersInput<InferConsumer<TContract, TName>>;
+> = ConsumerInferHeadersOutput<InferConsumer<TContract, TName>>;
 
 /**
  * A consumed message containing parsed payload and headers.
