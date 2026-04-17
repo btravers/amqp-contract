@@ -11,9 +11,6 @@ export {
   definePublisher,
   defineQueueBinding,
   defineQueue,
-  defineQuorumQueue,
-  defineTtlBackoffQueue,
-  defineTtlBackoffRetryInfrastructure,
   extractConsumer,
   extractQueue,
   isBridgedPublisherConfig,
@@ -26,13 +23,10 @@ export type {
   BindingPattern,
   BridgedPublisherConfig,
   CommandConsumerConfig,
-  DefineQuorumQueueOptions,
-  DefineTtlBackoffQueueOptions,
   EventConsumerResult,
   EventPublisherConfig,
   MatchingRoutingKey,
   RoutingKey,
-  TtlBackoffRetryInfrastructure,
 } from "./builder.js";
 export type {
   AnySchema,

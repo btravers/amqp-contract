@@ -573,9 +573,7 @@ Error: Queue 'order-processing' not found
    ```typescript
    const contract = defineContract({
      queues: {
-       orderProcessing: defineQueue("order-processing", {
-         durable: true,
-       }),
+       orderProcessing: defineQueue("order-processing"),
      },
      // ...
    });

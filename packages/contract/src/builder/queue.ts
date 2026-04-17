@@ -1,25 +1,18 @@
 import type {
+  BaseQueueDefinition,
   DeadLetterConfig,
   DefineQueueOptions,
+  DefineQueueOptionsWithDeadLetterExchange,
   ExchangeDefinition,
-  ExtractQueueFromEntry,
-  HeadersExchangeDefinition,
   ImmediateRequeueRetryOptions,
   QueueDefinition,
   QueueEntry,
-  QueueWithTtlBackoffInfrastructure,
-  QuorumQueueDefinition,
-  QuorumQueueOptions,
+  QueueEntryWithDeadLetterExchange,
   ResolvedImmediateRequeueRetryOptions,
   ResolvedTtlBackoffRetryOptions,
   TtlBackoffRetryOptions,
 } from "../types.js";
-import { defineQueueBindingInternal } from "./binding.js";
-import {
-  extractQueueFromEntry,
-  isQueueWithTtlBackoffInfrastructure as isQueueWithTtlBackoffInfrastructureImpl,
-} from "./queue-utils.js";
-import { TtlBackoffRetryInfrastructure } from "./ttl-backoff.js";
+import { wrapWithTtlBackoffInfrastructure } from "./ttl-backoff.js";
 
 /**
  * Resolve immediate-requeue retry options with defaults.
@@ -35,7 +28,7 @@ function resolveImmediateRequeueOptions(
 }
 
 /**
- * Resolve TTL-backoff retry options with defaults applied.
+ * Resolve TTL-backoff retry options with defaults.
  * @internal
  */
 function resolveTtlBackoffOptions(
@@ -56,164 +49,6 @@ function resolveTtlBackoffOptions(
 }
 
 /**
- * Type guard to check if a queue entry is a QueueWithTtlBackoffInfrastructure.
- *
- * When you configure a queue with TTL-backoff retry,
- * `defineQueue` returns a `QueueWithTtlBackoffInfrastructure` instead of a plain
- * `QueueDefinition`. This type guard helps you distinguish between the two.
- *
- * **When to use:**
- * - When you need to check the type of a queue entry at runtime
- * - When writing generic code that handles both plain queues and infrastructure wrappers
- *
- * **Related functions:**
- * - `extractQueue()` - Use this to get the underlying queue definition from either type
- *
- * @param entry - The queue entry to check
- * @returns True if the entry is a QueueWithTtlBackoffInfrastructure, false otherwise
- *
- * @example
- * ```typescript
- * const queue = defineQueue('orders', {
- *   retry: { mode: 'ttl-backoff' },
- * });
- *
- * if (isQueueWithTtlBackoffInfrastructure(queue)) {
- *   // queue has .queue, .waitQueue, .waitQueueBinding, .retryQueueBinding, .waitExchange, .retryExchange
- *   console.log('Wait queue:', queue.waitQueue.name);
- * } else {
- *   // queue is a plain QueueDefinition
- *   console.log('Queue:', queue.name);
- * }
- * ```
- */
-export function isQueueWithTtlBackoffInfrastructure(
-  entry: QueueEntry,
-): entry is QueueWithTtlBackoffInfrastructure {
-  return isQueueWithTtlBackoffInfrastructureImpl(entry);
-}
-
-/**
- * Extract the plain QueueDefinition from a QueueEntry.
- *
- * **Why this function exists:**
- * When you configure a queue with TTL-backoff retry,
- * `defineQueue` (or `defineTtlBackoffQueue`) returns a wrapper object that includes
- * the main queue, wait queue, headers exchanges, and bindings. This function extracts the underlying
- * queue definition so you can access properties like `name`, `type`, etc.
- *
- * **When to use:**
- * - When you need to access queue properties (name, type, etc.)
- * - When passing a queue to functions that expect a plain QueueDefinition
- * - Works safely on both plain queues and infrastructure wrappers
- *
- * **How it works:**
- * - If the entry is a `QueueWithTtlBackoffInfrastructure`, returns `entry.queue`
- * - Otherwise, returns the entry as-is (it's already a plain QueueDefinition)
- *
- * @param entry - The queue entry (either plain QueueDefinition or QueueWithTtlBackoffInfrastructure)
- * @returns The plain QueueDefinition
- *
- * @example
- * ```typescript
- * import { defineQueue, defineTtlBackoffQueue, extractQueue } from '@amqp-contract/contract';
- *
- * // TTL-backoff queue returns a wrapper
- * const orderQueue = defineTtlBackoffQueue('orders', {
- *   maxRetries: 3,
- * });
- *
- * // Use extractQueue to access the queue name
- * const queueName = extractQueue(orderQueue).name; // 'orders'
- *
- * // Also works safely on plain queues
- * const plainQueue = defineQueue('simple', { type: 'quorum', retry: { mode: 'immediate-requeue' } });
- * const plainName = extractQueue(plainQueue).name; // 'simple'
- *
- * // Access other properties
- * const queueDef = extractQueue(orderQueue);
- * console.log(queueDef.name);       // 'orders'
- * console.log(queueDef.type);       // 'quorum'
- * ```
- *
- * @see isQueueWithTtlBackoffInfrastructure - Type guard to check if extraction is needed
- * @see defineTtlBackoffQueue - Creates queues with TTL-backoff infrastructure
- */
-export function extractQueue<T extends QueueEntry>(entry: T): ExtractQueueFromEntry<T> {
-  return extractQueueFromEntry(entry) as ExtractQueueFromEntry<T>;
-}
-
-/**
- * Create TTL-backoff retry infrastructure (wait queue + bindings) for a queue.
- * @internal
- */
-export function createTtlBackoffInfrastructure(
-  queue: QueueDefinition,
-): TtlBackoffRetryInfrastructure {
-  // Ensure queue retry mode is ttl-backoff
-  if (queue.retry.mode !== "ttl-backoff") {
-    throw new Error(
-      `Queue ${queue.name} does not have ttl-backoff retry mode. Infrastructure can only be created for queues with ttl-backoff retry.`,
-    );
-  }
-
-  const waitExchange: HeadersExchangeDefinition = {
-    name: queue.retry.waitExchangeName,
-    type: "headers",
-  };
-
-  const retryExchange: HeadersExchangeDefinition = {
-    name: queue.retry.retryExchangeName,
-    type: "headers",
-  };
-
-  // Create the wait queue (of same type as main queue)
-  const waitQueue: QueueDefinition = {
-    name: queue.retry.waitQueueName,
-    type: queue.type,
-    ...(queue.durable !== undefined && { durable: queue.durable }),
-    deadLetter: {
-      exchange: retryExchange, // Routes back to retry exchange after TTL (will preserve original message routing key)
-    },
-    retry: { mode: "none" }, // No retry for wait queue itself
-  };
-
-  // Create binding for wait queue to receive failed messages
-  const waitQueueBinding = defineQueueBindingInternal(waitQueue, waitExchange, {
-    arguments: {
-      "x-match": "all",
-      "x-wait-queue": waitQueue.name, // Custom header to specify the wait queue to which messages should be routed
-    },
-  });
-
-  // Create binding for main queue to receive retried messages
-  const retryQueueBinding = defineQueueBindingInternal(queue, retryExchange, {
-    arguments: {
-      "x-match": "all",
-      "x-retry-queue": queue.name, // Custom header to specify the retry queue to which messages should be routed
-    },
-  });
-
-  return { waitQueue, waitQueueBinding, retryQueueBinding, waitExchange, retryExchange };
-}
-
-/**
- * Wrap a queue definition with TTL-backoff retry infrastructure.
- * @internal
- */
-function wrapWithTtlBackoffInfrastructure(
-  queue: QueueDefinition,
-): QueueWithTtlBackoffInfrastructure {
-  const infra = createTtlBackoffInfrastructure(queue);
-
-  return {
-    __brand: "QueueWithTtlBackoffInfrastructure",
-    queue,
-    ...infra,
-  };
-}
-
-/**
  * Define an AMQP queue.
  *
  * A queue stores messages until they are consumed by workers. Queues can be bound to exchanges
@@ -226,11 +61,12 @@ function wrapWithTtlBackoffInfrastructure(
  * @param name - The name of the queue
  * @param options - Optional queue configuration
  * @param options.type - Queue type: 'quorum' (default, recommended) or 'classic'
- * @param options.durable - If true, the queue survives broker restarts. Quorum queues are always durable.
- * @param options.exclusive - If true, the queue can only be used by the declaring connection. Only supported with classic queues.
- * @param options.autoDelete - If true, the queue is deleted when the last consumer unsubscribes (default: false)
- * @param options.deadLetter - Dead letter configuration for handling failed messages
+ * @param options.durable - If true, the queue survives broker restarts. Quorum queues only support durable queues (default: true)
+ * @param options.exclusive - If true, the queue can only be used by the declaring connection and is deleted when that connection closes. Only supported with classic queues.
+ * @param options.autoDelete - If true, the queue is deleted when the last consumer unsubscribes. Only supported with classic queues.
  * @param options.maxPriority - Maximum priority level for priority queue (1-255, recommended: 1-10). Only supported with classic queues.
+ * @param options.deadLetter - Dead letter configuration for handling failed messages
+ * @param options.retry - Retry configuration for handling failed message processing
  * @param options.arguments - Additional AMQP arguments (e.g., x-message-ttl)
  * @returns A queue definition
  *
@@ -262,7 +98,6 @@ function wrapWithTtlBackoffInfrastructure(
  * // Priority queue (requires classic type)
  * const taskQueue = defineQueue('urgent-tasks', {
  *   type: 'classic',
- *   durable: true,
  *   maxPriority: 10,
  * });
  *
@@ -277,46 +112,64 @@ function wrapWithTtlBackoffInfrastructure(
  */
 export function defineQueue<TName extends string, TDlx extends ExchangeDefinition>(
   name: TName,
-  options: DefineQueueOptions & { deadLetter: { exchange: TDlx } },
-): (QueueDefinition<TName> | QueueWithTtlBackoffInfrastructure<TName>) & {
-  deadLetter: { exchange: TDlx };
-};
+  options: DefineQueueOptionsWithDeadLetterExchange<TDlx>,
+): QueueEntryWithDeadLetterExchange<TName, TDlx>;
 
 export function defineQueue<TName extends string>(
   name: TName,
   options?: DefineQueueOptions,
-): QueueDefinition<TName> | QueueWithTtlBackoffInfrastructure<TName>;
+): QueueEntry<TName>;
 
-export function defineQueue(
-  name: string,
-  options?: DefineQueueOptions,
-): QueueDefinition | QueueWithTtlBackoffInfrastructure {
+export function defineQueue(name: string, options?: DefineQueueOptions): QueueEntry {
   const opts = options ?? {};
   const type = opts.type ?? "quorum";
+  const durable = opts.durable ?? true;
 
   // Build base properties shared by both queue types
   const baseProps: {
     name: string;
-    durable?: boolean;
-    autoDelete?: boolean;
     deadLetter?: DeadLetterConfig;
     arguments?: Record<string, unknown>;
-  } = { name };
+  } = {
+    name,
+    ...(opts.deadLetter !== undefined && { deadLetter: opts.deadLetter }),
+    ...(opts.arguments !== undefined && { arguments: opts.arguments }),
+  };
 
-  if (opts.durable !== undefined) {
-    baseProps.durable = opts.durable;
-  }
+  // Build specific properties for classic queues
+  const classicProps: {
+    exclusive?: boolean;
+    autoDelete?: boolean;
+    maxPriority?: number;
+  } = {
+    ...(opts.exclusive !== undefined && { exclusive: opts.exclusive }),
+    ...(opts.autoDelete !== undefined && { autoDelete: opts.autoDelete }),
+    ...(opts.maxPriority !== undefined && { maxPriority: opts.maxPriority }),
+  };
 
-  if (opts.autoDelete !== undefined) {
-    baseProps.autoDelete = opts.autoDelete;
-  }
-
-  if (opts.deadLetter !== undefined) {
-    baseProps.deadLetter = opts.deadLetter;
-  }
-
-  if (opts.arguments !== undefined) {
-    baseProps.arguments = opts.arguments;
+  if (type === "quorum") {
+    // Quorum queues do not support non-durable, exclusive, autoDelete, or maxPriority
+    if (opts.durable === false) {
+      throw new Error("Non-durable queues are not supported with quorum type.");
+    }
+    if (opts.exclusive !== undefined) {
+      throw new Error("Exclusive queues are not supported with quorum type.");
+    }
+    if (opts.autoDelete !== undefined) {
+      throw new Error("Auto-deleting queues are not supported with quorum type.");
+    }
+    if (opts.maxPriority !== undefined) {
+      throw new Error("Priority queues are not supported with quorum type.");
+    }
+  } else {
+    // Validate maxPriority
+    if (opts.maxPriority !== undefined) {
+      if (opts.maxPriority < 1 || opts.maxPriority > 255) {
+        throw new Error(
+          `Invalid maxPriority: ${opts.maxPriority}. Must be between 1 and 255. Recommended range: 1-10.`,
+        );
+      }
+    }
   }
 
   const inputRetry = opts.retry ?? { mode: "none" as const };
@@ -340,31 +193,24 @@ export function defineQueue(
         ? resolveTtlBackoffOptions(name, inputRetry)
         : inputRetry;
 
-  const queueDefinition: QueueDefinition = {
+  const baseQueueDefinition: BaseQueueDefinition = {
     ...baseProps,
-    type,
     retry,
   };
 
-  if (type === "classic") {
-    // Add exclusive
-    if (opts.exclusive !== undefined) {
-      queueDefinition.exclusive = opts.exclusive;
-    }
-
-    // Validate and add maxPriority argument
-    if (opts.maxPriority !== undefined) {
-      if (opts.maxPriority < 1 || opts.maxPriority > 255) {
-        throw new Error(
-          `Invalid maxPriority: ${opts.maxPriority}. Must be between 1 and 255. Recommended range: 1-10.`,
-        );
-      }
-      queueDefinition.arguments = {
-        ...queueDefinition.arguments,
-        "x-max-priority": opts.maxPriority,
-      };
-    }
-  }
+  const queueDefinition: QueueDefinition =
+    type === "quorum"
+      ? {
+          ...baseQueueDefinition,
+          type,
+          durable: true, // Quorum queues are always durable
+        }
+      : {
+          ...baseQueueDefinition,
+          ...classicProps,
+          type,
+          durable,
+        };
 
   // If TTL-backoff retry, wrap with infrastructure
   if (retry.mode === "ttl-backoff") {
@@ -372,267 +218,4 @@ export function defineQueue(
   }
 
   return queueDefinition;
-}
-
-// =============================================================================
-// Simplified Queue Configuration Helpers
-// =============================================================================
-
-/**
- * Options for creating a quorum queue with immediate-requeue retry.
- *
- * This simplified helper enforces the required configuration for immediate-requeue retry:
- * - Dead letter exchange is configurable (for failed messages)
- * - Max retries is configurable (for retry count)
- */
-export type DefineQuorumQueueOptions = {
-  /**
-   * Dead letter configuration.
-   * Failed messages will be sent to this exchange (or dropped if not set).
-   */
-  deadLetter?: DeadLetterConfig;
-
-  /**
-   * Maximum retry attempts before sending to DLQ.
-   * @minimum 1
-   * @default 3
-   */
-  maxRetries?: number;
-
-  /**
-   * If true, the queue is deleted when the last consumer unsubscribes.
-   * @default false
-   */
-  autoDelete?: boolean;
-
-  /**
-   * Additional AMQP arguments for advanced configuration.
-   */
-  arguments?: Record<string, unknown>;
-};
-
-/**
- * Create a quorum queue with immediate-requeue retry.
- *
- * This is a simplified helper that enforces best practices:
- * - Uses quorum queues (recommended for most use cases)
- * - Uses dead letter exchange for failed message handling (after all retry attempts)
- * - Uses immediate-requeue retry mode (simpler than TTL-backoff)
- *
- * **When to use:**
- * - You want simple, immediate retries without exponential backoff
- * - You don't need configurable delays between retries
- * - You want the simplest retry configuration
- *
- * @param name - The queue name
- * @param options - Configuration options
- * @returns A quorum queue definition with immediate-requeue retry
- *
- * @example
- * ```typescript
- * const dlx = defineExchange('orders-dlx', { type: 'direct' });
- *
- * const orderQueue = defineQuorumQueue('order-processing', {
- *   deadLetter: { exchange: dlx },
- *   retry: { mode: 'immediate-requeue', maxRetries: 3 }, // Retry up to 3 times
- * });
- *
- * // Use in a contract — exchanges, queues, and bindings are auto-extracted
- * const contract = defineContract({
- *   publishers: { ... },
- *   consumers: { processOrder: defineEventConsumer(event, orderQueue) },
- * });
- * ```
- *
- * @see defineQueue - For full queue configuration options
- * @see defineTtlBackoffQueue - For queues with exponential backoff retry
- */
-export function defineQuorumQueue<TName extends string>(
-  name: TName,
-  options: DefineQuorumQueueOptions,
-): QuorumQueueDefinition<TName> {
-  const { deadLetter, maxRetries, autoDelete, arguments: args } = options;
-
-  // Build retry options, only including defined values
-  const retryOptions: ImmediateRequeueRetryOptions = { mode: "immediate-requeue" };
-  if (maxRetries !== undefined) retryOptions.maxRetries = maxRetries;
-
-  const queueOptions: QuorumQueueOptions = {
-    type: "quorum",
-    retry: retryOptions,
-  };
-
-  if (deadLetter !== undefined) queueOptions.deadLetter = deadLetter;
-  if (autoDelete !== undefined) queueOptions.autoDelete = autoDelete;
-  if (args !== undefined) queueOptions.arguments = args;
-
-  return defineQueue(name, queueOptions) as QuorumQueueDefinition<TName>;
-}
-
-/**
- * Options for creating a queue with TTL-backoff retry.
- *
- * This simplified helper enforces the required configuration for TTL-backoff retry:
- * - Dead letter exchange is configurable (for failed messages)
- * - Returns infrastructure that includes wait queue and bindings
- */
-export type DefineTtlBackoffQueueOptions = {
-  /**
-   * Dead letter configuration.
-   * Failed messages will be sent to this exchange (or dropped if not set).
-   */
-  deadLetter?: DeadLetterConfig;
-
-  /**
-   * Maximum retry attempts before sending to DLQ.
-   * @minimum 1
-   * @default 3
-   */
-  maxRetries?: number;
-
-  /**
-   * Initial delay in ms before first retry.
-   * @default 1000
-   */
-  initialDelayMs?: number;
-
-  /**
-   * Maximum delay in ms between retries.
-   * @default 30000
-   */
-  maxDelayMs?: number;
-
-  /**
-   * Exponential backoff multiplier.
-   * @default 2
-   */
-  backoffMultiplier?: number;
-
-  /**
-   * Add jitter to prevent thundering herd.
-   * @default true
-   */
-  jitter?: boolean;
-
-  /**
-   * Custom name for the wait queue.
-   * @default `${queueName}-wait`
-   */
-  waitQueueName?: string;
-
-  /**
-   * Custom name for the wait exchange.
-   * @default `wait-exchange`
-   */
-  waitExchangeName?: string;
-
-  /**
-   * Custom name for the retry exchange.
-   * @default `retry-exchange`
-   */
-  retryExchangeName?: string;
-
-  /**
-   * If true, the queue is deleted when the last consumer unsubscribes.
-   * @default false
-   */
-  autoDelete?: boolean;
-
-  /**
-   * Additional AMQP arguments for advanced configuration.
-   */
-  arguments?: Record<string, unknown>;
-};
-
-/**
- * Create a queue with TTL-backoff retry (exponential backoff).
- *
- * This is a simplified helper that enforces best practices:
- * - Uses quorum queues (recommended for most use cases)
- * - Uses dead letter exchange for failed message handling (after all retry attempts)
- * - Uses TTL-backoff retry mode with configurable delays
- * - Automatically generates wait queue and bindings
- *
- * **When to use:**
- * - You need exponential backoff between retries
- * - You want configurable delays (initial delay, max delay, jitter)
- * - You're processing messages that may need time before retry
- *
- * **Returns:** A `QueueWithTtlBackoffInfrastructure` object that includes the
- * main queue, wait queue, headers exchanges, and bindings. Pass this directly to `defineContract`
- * and it will be expanded automatically.
- *
- * @param name - The queue name
- * @param options - Configuration options
- * @returns A queue with TTL-backoff infrastructure
- *
- * @example
- * ```typescript
- * const dlx = defineExchange('orders-dlx', { type: 'direct' });
- *
- * const orderQueue = defineTtlBackoffQueue('order-processing', {
- *   deadLetter: { exchange: dlx },
- *   maxRetries: 5,
- *   initialDelayMs: 1000,  // Start with 1s delay
- *   maxDelayMs: 30000,     // Cap at 30s
- * });
- *
- * // Use in a contract — wait queue, exchanges, and bindings are auto-extracted
- * const contract = defineContract({
- *   publishers: { ... },
- *   consumers: { processOrder: defineEventConsumer(event, orderQueue) },
- * });
- *
- * // To access the underlying queue definition (e.g., for the queue name):
- * import { extractQueue } from '@amqp-contract/contract';
- * const queueName = extractQueue(orderQueue).name;
- * ```
- *
- * @see defineQueue - For full queue configuration options
- * @see defineQuorumQueue - For queues with immediate-requeue retry (simpler, immediate retries)
- * @see extractQueue - To access the underlying queue definition
- */
-export function defineTtlBackoffQueue<TName extends string>(
-  name: TName,
-  options: DefineTtlBackoffQueueOptions,
-): QueueWithTtlBackoffInfrastructure<TName> {
-  const {
-    deadLetter,
-    maxRetries,
-    initialDelayMs,
-    maxDelayMs,
-    backoffMultiplier,
-    jitter,
-    waitQueueName,
-    waitExchangeName,
-    retryExchangeName,
-    autoDelete,
-    arguments: args,
-  } = options;
-
-  // Build retry options, only including defined values
-  const retryOptions: TtlBackoffRetryOptions = { mode: "ttl-backoff" };
-  if (maxRetries !== undefined) retryOptions.maxRetries = maxRetries;
-  if (initialDelayMs !== undefined) retryOptions.initialDelayMs = initialDelayMs;
-  if (maxDelayMs !== undefined) retryOptions.maxDelayMs = maxDelayMs;
-  if (backoffMultiplier !== undefined) retryOptions.backoffMultiplier = backoffMultiplier;
-  if (jitter !== undefined) retryOptions.jitter = jitter;
-  if (waitQueueName !== undefined) retryOptions.waitQueueName = waitQueueName;
-  if (waitExchangeName !== undefined) retryOptions.waitExchangeName = waitExchangeName;
-  if (retryExchangeName !== undefined) retryOptions.retryExchangeName = retryExchangeName;
-
-  const queueOptions: QuorumQueueOptions = {
-    type: "quorum",
-    retry: retryOptions,
-  };
-
-  if (deadLetter !== undefined) queueOptions.deadLetter = deadLetter;
-  if (autoDelete !== undefined) queueOptions.autoDelete = autoDelete;
-  if (args !== undefined) queueOptions.arguments = args;
-
-  const result = defineQueue(name, queueOptions);
-
-  // Since we configured TTL-backoff, the result will
-  // always be QueueWithTtlBackoffInfrastructure
-  return result as QueueWithTtlBackoffInfrastructure<TName>;
 }

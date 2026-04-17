@@ -48,8 +48,8 @@ const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
 });
 
 // Multiple queues can consume the same event
-const orderQueue = defineQueue("order-processing", { durable: true });
-const analyticsQueue = defineQueue("analytics", { durable: true });
+const orderQueue = defineQueue("order-processing");
+const analyticsQueue = defineQueue("analytics");
 
 // Compose contract - only publishers and consumers needed
 // Exchanges, queues, and bindings are automatically extracted
@@ -270,7 +270,7 @@ const orderProcessingQueueExplicit = defineQueue("order-processing", {
 const tempQueue = defineQueue("temp-queue", {
   type: "classic",
   durable: false, // Only supported with classic queues
-  autoDelete: true,
+  autoDelete: true, // Only supported with classic queues
 });
 
 // Queues are automatically included in the contract output
@@ -279,8 +279,8 @@ const tempQueue = defineQueue("temp-queue", {
 
 **Queue Types:**
 
-- `quorum` (default) - Quorum queues provide better durability and high-availability. They are always durable and do not support `exclusive` mode or priority queues.
-- `classic` - Traditional RabbitMQ queue type. Use when you need non-durable queues, exclusive queues, or priority queues.
+- `quorum` (default) - Quorum queues provide better durability and high-availability. They are always durable and do not support exclusive, auto-deleting, or priority queues.
+- `classic` - Traditional RabbitMQ queue type. Use when you need non-durable, exclusive, auto-deleting, or priority queues.
 
 ::: tip Best Practice
 Use quorum queues (the default) for production workloads. Only use classic queues when you need specific features not supported by quorum queues.
@@ -463,8 +463,8 @@ Bindings connect queues to exchanges. With `defineContract`, bindings are **auto
 
 ```typescript
 const ordersExchange = defineExchange("orders");
-const orderProcessingQueue = defineQueue("order-processing", { durable: true });
-const allOrdersQueue = defineQueue("all-orders", { durable: true });
+const orderProcessingQueue = defineQueue("order-processing");
+const allOrdersQueue = defineQueue("all-orders");
 
 const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {
   routingKey: "order.created",
@@ -545,7 +545,7 @@ Consumers define message schemas for consuming. Use `defineEventConsumer` (recom
 import { defineEventConsumer, defineConsumer, defineMessage } from "@amqp-contract/contract";
 import { z } from "zod";
 
-const orderProcessingQueue = defineQueue("order-processing", { durable: true });
+const orderProcessingQueue = defineQueue("order-processing");
 
 const orderMessage = defineMessage(
   z.object({
@@ -589,8 +589,8 @@ import { z } from "zod";
 const ordersExchange = defineExchange("orders");
 
 // 2. Define queues
-const orderProcessingQueue = defineQueue("order-processing", { durable: true });
-const orderNotificationsQueue = defineQueue("order-notifications", { durable: true });
+const orderProcessingQueue = defineQueue("order-processing");
+const orderNotificationsQueue = defineQueue("order-notifications");
 
 // 3. Define message
 const orderMessage = defineMessage(
@@ -640,8 +640,8 @@ const client = new AmqpClient(contract, {
   urls: ["amqp://localhost"],
   channelOptions: {
     setup: async (channel) => {
-      await channel.assertExchange("source", "topic", { durable: true });
-      await channel.assertExchange("destination", "topic", { durable: true });
+      await channel.assertExchange("source", "topic");
+      await channel.assertExchange("destination", "topic");
       await channel.bindExchange("destination", "source", "order.#");
     },
   },
@@ -731,7 +731,6 @@ const ordersDlx = defineExchange("orders-dlx");
 
 // 2. Define the main queue with dead letter configuration
 const orderProcessingQueue = defineQueue("order-processing", {
-  durable: true,
   deadLetter: {
     exchange: ordersDlx,
     routingKey: "order.failed", // Optional: routing key for DLX
@@ -743,7 +742,7 @@ const orderProcessingQueue = defineQueue("order-processing", {
 });
 
 // 3. Define a queue to collect dead-lettered messages
-const ordersDlxQueue = defineQueue("orders-dlx-queue", { durable: true });
+const ordersDlxQueue = defineQueue("orders-dlx-queue");
 
 // 4. Define event publisher for DLX binding
 const failedOrderEvent = defineEventPublisher(ordersDlx, orderMessage, {
@@ -810,7 +809,6 @@ const orderMessage = defineMessage(
 
 // Define queues with DLX configuration
 const orderProcessingQueue = defineQueue("order-processing", {
-  durable: true,
   deadLetter: {
     exchange: ordersDlx,
     routingKey: "order.failed",
@@ -820,7 +818,7 @@ const orderProcessingQueue = defineQueue("order-processing", {
   },
 });
 
-const ordersDlxQueue = defineQueue("orders-dlx-queue", { durable: true });
+const ordersDlxQueue = defineQueue("orders-dlx-queue");
 
 // Define event publishers
 const orderCreatedEvent = defineEventPublisher(ordersExchange, orderMessage, {

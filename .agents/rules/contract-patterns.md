@@ -82,9 +82,8 @@ const contract = defineContract({
 ## Queue Types
 
 - **Quorum queues are the default** and recommended for most use cases
-- Use `type: 'quorum'` (default) for reliable, replicated queues
-- Use `type: 'classic'` only for special cases (priority queues, exclusive queues)
-- Quorum queues are always durable and cannot be exclusive
+- Use `type: 'quorum'` (default) for reliable, replicated queues (always durable, do not support exclusive, auto-deleting, or priority queues)
+- Use `type: 'classic'` only for special cases (non-durable, exclusive, auto-deleting, or priority queues)
 
 ```typescript
 // Quorum queue (default, recommended)
@@ -97,7 +96,6 @@ const orderQueue = defineQueue("orders", {
 // Classic queue for special cases only
 const priorityQueue = defineQueue("priority-tasks", {
   type: "classic",
-  durable: true,
   maxPriority: 10, // Only supported with classic queues
 });
 ```

@@ -45,7 +45,7 @@ function createMockConsumeMessage(): ConsumeMessage {
 
 describe("handlers", () => {
   // Setup test contract
-  const testQueue = defineQueue("test-queue", { durable: true });
+  const testQueue = defineQueue("test-queue");
   const testMessage = defineMessage(
     z.object({
       id: z.string(),

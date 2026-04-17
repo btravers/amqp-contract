@@ -11,8 +11,8 @@ import type {
 import { isBridgedPublisherConfig, isCommandConsumerConfig } from "./command.js";
 import { isEventConsumerResult, isEventPublisherConfig } from "./event.js";
 import { definePublisherInternal } from "./publisher.js";
-import { extractQueueFromEntry } from "./queue-utils.js";
-import { isQueueWithTtlBackoffInfrastructure } from "./queue.js";
+import { extractQueue } from "./queue-utils.js";
+import { isQueueWithTtlBackoffInfrastructure } from "./ttl-backoff.js";
 
 /**
  * Define an AMQP contract.
@@ -145,7 +145,7 @@ export function defineContract<TContract extends ContractDefinitionInput>(
         // Extract queue (handle TTL-backoff infrastructure)
         const queueEntry = entry.consumer.queue;
         // Extract the plain queue definition from QueueEntry
-        const queueDef = extractQueueFromEntry(queueEntry);
+        const queueDef = extractQueue(queueEntry);
         queues[queueDef.name] = queueEntry;
 
         // Extract exchange from binding
@@ -175,7 +175,7 @@ export function defineContract<TContract extends ContractDefinitionInput>(
         // Extract queue (handle TTL-backoff infrastructure)
         const queueEntry = entry.consumer.queue;
         // Extract the plain queue definition from QueueEntry
-        const queueDef = extractQueueFromEntry(queueEntry);
+        const queueDef = extractQueue(queueEntry);
         queues[queueDef.name] = queueEntry;
 
         // Extract exchange
@@ -193,7 +193,7 @@ export function defineContract<TContract extends ContractDefinitionInput>(
         // Extract queue (handle TTL-backoff infrastructure)
         const queueEntry = consumer.queue;
         // Extract the plain queue definition from QueueEntry
-        const queueDef = extractQueueFromEntry(queueEntry);
+        const queueDef = extractQueue(queueEntry);
         queues[queueDef.name] = queueEntry;
 
         // Extract dead letter exchange if present

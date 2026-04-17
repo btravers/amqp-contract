@@ -57,7 +57,7 @@ const client = new AmqpClient(contract, {
       await channel.prefetch(10);
 
       // Add additional AMQP resources not in the contract
-      await channel.assertQueue("custom-queue", { durable: true });
+      await channel.assertQueue("custom-queue");
     },
   },
 });
@@ -142,14 +142,10 @@ const client = new AmqpClient(contract, {
       await channel.prefetch(10); // Process max 10 messages concurrently
 
       // Create additional resources not in contract
-      await channel.assertQueue("dead-letter-queue", {
-        durable: true,
-      });
+      await channel.assertQueue("dead-letter-queue");
 
       // Configure channel-level settings
-      await channel.assertExchange("retry-exchange", "topic", {
-        durable: true,
-      });
+      await channel.assertExchange("retry-exchange", "topic");
     },
   },
 });
@@ -191,12 +187,10 @@ const client = new AmqpClient(contract, {
   channelOptions: {
     setup: async (channel: Channel) => {
       // Create dead letter exchange
-      await channel.assertExchange("dlx", "topic", { durable: true });
+      await channel.assertExchange("dlx", "topic");
 
       // Create dead letter queue
-      await channel.assertQueue("dead-letters", {
-        durable: true,
-      });
+      await channel.assertQueue("dead-letters");
 
       // Bind dead letter queue to exchange
       await channel.bindQueue("dead-letters", "dlx", "#");
@@ -347,7 +341,7 @@ const client = new AmqpClient(contract, {
     setup: async (channel: Channel) => {
       try {
         await channel.prefetch(10);
-        await channel.assertQueue("custom-queue", { durable: true });
+        await channel.assertQueue("custom-queue");
       } catch (error) {
         console.error("Channel setup failed:", error);
         throw error; // Re-throw to trigger reconnection
@@ -368,7 +362,7 @@ channelOptions: {
   setup: async (channel: Channel) => {
     // ✅ Idempotent: Can be called multiple times
     await channel.prefetch(10);
-    await channel.assertQueue('queue', { durable: true }); // idempotent
+    await channel.assertQueue('queue'); // idempotent
 
     // ❌ Avoid: Non-idempotent operations
     // await incrementCounter(); // Called on every reconnect!
