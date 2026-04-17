@@ -467,9 +467,11 @@ const orderMessage = defineMessage(
    // ✅ Use prefetch to control concurrency
    const worker = await TypedAmqpWorker.create({
      contract,
-     handlers: { /* ... */ },
-     channelOptions: {
-       prefetch: 10,  // Process up to 10 messages concurrently
+     handlers: {
+       processOrder: [
+         ({ payload }) => { /* ... */ },
+         { prefetch: 10 }, // Process up to 10 messages concurrently
+       ],
      },
    }).resultToPromise();
    ```
@@ -536,8 +538,10 @@ Error: Connection timeout
    const client = await TypedAmqpClient.create({
      contract,
      urls: ["amqp://localhost"],
-     socketOptions: {
-       timeout: 10000, // 10 seconds
+     connectionOptions: {
+       connectionOptions: {
+         timeout: 10000, // 10 seconds
+       },
      },
    }).resultToPromise();
    ```

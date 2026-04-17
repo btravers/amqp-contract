@@ -28,7 +28,7 @@ features:
 
   - icon: 🔄
     title: Reliable Retry
-    details: Built-in exponential backoff using RabbitMQ's native TTL and Dead Letter Exchange pattern.
+    details: Built-in immediate or exponential backoff retry mechanisms.
 
   - icon: 📄
     title: AsyncAPI Compatible

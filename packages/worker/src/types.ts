@@ -5,10 +5,11 @@ import type {
   InferConsumerNames,
   MessageDefinition,
 } from "@amqp-contract/contract";
+import type { StandardSchemaV1 } from "@standard-schema/spec";
 import type { Future, Result } from "@swan-io/boxed";
 import type { ConsumeMessage } from "amqplib";
 import type { HandlerError } from "./errors.js";
-import type { StandardSchemaV1 } from "@standard-schema/spec";
+import { ConsumerOptions } from "./worker.js";
 
 /**
  * Infer the TypeScript type from a schema
@@ -174,7 +175,7 @@ export type WorkerInferConsumerHandlerEntry<
   TName extends InferConsumerNames<TContract>,
 > =
   | WorkerInferConsumerHandler<TContract, TName>
-  | readonly [WorkerInferConsumerHandler<TContract, TName>, { prefetch?: number }];
+  | readonly [WorkerInferConsumerHandler<TContract, TName>, ConsumerOptions];
 
 /**
  * Consumer handlers for a contract.

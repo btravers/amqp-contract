@@ -4,6 +4,7 @@ import type {
   WorkerInferConsumerHandlerEntry,
   WorkerInferConsumerHandlers,
 } from "./types.js";
+import { ConsumerOptions } from "./worker.js";
 
 // =============================================================================
 // Helper Functions
@@ -115,7 +116,7 @@ export function defineHandler<
   contract: TContract,
   consumerName: TName,
   handler: WorkerInferConsumerHandler<TContract, TName>,
-  options: { prefetch?: number },
+  options: ConsumerOptions,
 ): WorkerInferConsumerHandlerEntry<TContract, TName>;
 export function defineHandler<
   TContract extends ContractDefinition,
@@ -124,7 +125,7 @@ export function defineHandler<
   contract: TContract,
   consumerName: TName,
   handler: WorkerInferConsumerHandler<TContract, TName>,
-  options?: { prefetch?: number },
+  options?: ConsumerOptions,
 ): WorkerInferConsumerHandlerEntry<TContract, TName> {
   validateConsumerExists(contract, String(consumerName));
 

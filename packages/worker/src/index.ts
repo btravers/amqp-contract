@@ -1,5 +1,5 @@
 export { TypedAmqpWorker } from "./worker.js";
-export type { CreateWorkerOptions } from "./worker.js";
+export type { CreateWorkerOptions, ConsumerOptions } from "./worker.js";
 export type { HandlerError } from "./errors.js";
 export {
   // Error classes

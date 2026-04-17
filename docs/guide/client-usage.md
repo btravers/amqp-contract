@@ -16,6 +16,25 @@ const client = await TypedAmqpClient.create({
 }).resultToPromise();
 ```
 
+### Default Publish Options
+
+Configure default publish options that apply to all messages published by the client:
+
+```typescript
+const client = await TypedAmqpClient.create({
+  contract,
+  urls: ["amqp://localhost"],
+  defaultPublishOptions: {
+    priority: 5,
+    headers: { "x-app-version": "1.0.0" },
+  },
+}).resultToPromise();
+```
+
+Default publish options can be overridden by options passed to individual `publish` calls.
+
+By default, messages are `persistent` for message durability, but this can be overridden by explicitly setting `persistent: false` in `defaultPublishOptions` when creating the client, or in the options passed to the `publish` method when publishing messages.
+
 ## Publishing Messages
 
 Publish messages with full type safety and explicit error handling:
@@ -92,7 +111,7 @@ const result = await client
     { orderId: "ORD-123", amount: 99.99 },
     {
       options: {
-        persistent: true,
+        persistent: false,
         priority: 10,
         headers: { "x-request-id": "req-123" },
       },
