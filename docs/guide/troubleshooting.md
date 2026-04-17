@@ -622,12 +622,12 @@ Error: Queue 'order-processing' not found
 
    ```typescript
    // ❌ Direct exchange with topic pattern
-   const exchange = defineExchange("orders", "direct");
+   const exchange = defineExchange("orders", { type: "direct" });
    // ...
    routingKey: "order.*"; // Won't work with direct exchange!
 
    // ✅ Use topic exchange for patterns
-   const exchange = defineExchange("orders", "topic");
+   const exchange = defineExchange("orders", { type: "topic" });
    // ...
    routingKey: "order.*"; // Works with topic exchange!
    ```
@@ -663,7 +663,7 @@ Error: PRECONDITION_FAILED - inequivalent arg 'durable' for exchange 'orders'
    ```typescript
    // Find existing properties in RabbitMQ Management UI
    // Update contract to match:
-   const exchange = defineExchange("orders", "topic", {
+   const exchange = defineExchange("orders", {
      durable: true, // Match existing
    });
    ```
@@ -671,9 +671,7 @@ Error: PRECONDITION_FAILED - inequivalent arg 'durable' for exchange 'orders'
 3. **Use different names:**
    ```typescript
    // If you can't delete, use a new name
-   const exchange = defineExchange("orders-v2", "topic", {
-     durable: true,
-   });
+   const exchange = defineExchange("orders-v2");
    ```
 
 ## Still Having Issues?

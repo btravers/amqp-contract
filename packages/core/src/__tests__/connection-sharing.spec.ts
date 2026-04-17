@@ -14,7 +14,7 @@ describe("AmqpClient Connection Sharing Integration", () => {
     // GIVEN
     const contract: ContractDefinition = {
       exchanges: {
-        orders: defineExchange("orders", "topic", { durable: false }),
+        orders: defineExchange("orders", { durable: false }),
       },
     };
 
@@ -39,7 +39,7 @@ describe("AmqpClient Connection Sharing Integration", () => {
     // GIVEN
     const contract: ContractDefinition = {
       exchanges: {
-        orders: defineExchange("orders", "topic", { durable: false }),
+        orders: defineExchange("orders", { durable: false }),
       },
     };
 
@@ -65,7 +65,7 @@ describe("AmqpClient Connection Sharing Integration", () => {
     // GIVEN
     const contract: ContractDefinition = {
       exchanges: {
-        test: defineExchange("test", "topic", { durable: false }),
+        test: defineExchange("test", { durable: false }),
       },
     };
 
@@ -92,7 +92,7 @@ describe("AmqpClient Connection Sharing Integration", () => {
     // GIVEN
     const contract: ContractDefinition = {
       exchanges: {
-        test: defineExchange("test", "topic", { durable: false }),
+        test: defineExchange("test", { durable: false }),
       },
     };
 
@@ -120,7 +120,7 @@ describe("AmqpClient Connection Sharing Integration", () => {
     // GIVEN
     const contract: ContractDefinition = {
       exchanges: {
-        test: defineExchange("test", "topic", { durable: false }),
+        test: defineExchange("test", { durable: false }),
       },
     };
 
@@ -150,7 +150,7 @@ describe("AmqpClient Connection Sharing Integration", () => {
     // GIVEN
     const contract: ContractDefinition = {
       exchanges: {
-        test: defineExchange("test", "topic", { durable: false }),
+        test: defineExchange("test", { durable: false }),
       },
     };
 

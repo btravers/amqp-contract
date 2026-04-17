@@ -12,7 +12,7 @@ describe("Dead Letter Exchange Support", () => {
 
   it("should setup queue with dead letter exchange", async ({ amqpConnectionUrl, amqpChannel }) => {
     // GIVEN
-    const dlx = defineExchange("test-dlx", "topic", { durable: false });
+    const dlx = defineExchange("test-dlx", { durable: false });
     const queue = defineQueue("test-queue-with-dlx", {
       type: "classic",
       durable: false,
@@ -58,7 +58,7 @@ describe("Dead Letter Exchange Support", () => {
     amqpChannel,
   }) => {
     // GIVEN
-    const dlx = defineExchange("test-dlx-no-key", "fanout", { durable: false });
+    const dlx = defineExchange("test-dlx-no-key", { type: "fanout", durable: false });
     const queue = defineQueue("test-queue-dlx-no-key", {
       type: "classic",
       durable: false,
@@ -138,10 +138,8 @@ describe("Dead Letter Exchange Support", () => {
     amqpChannel,
   }) => {
     // GIVEN - A complete DLX setup with main exchange, main queue, DLX, and DLX queue
-    const mainExchange = defineExchange("test-main-exchange", "topic", {
-      durable: false,
-    });
-    const dlx = defineExchange("test-complete-dlx", "topic", { durable: false });
+    const mainExchange = defineExchange("test-main-exchange", { durable: false });
+    const dlx = defineExchange("test-complete-dlx", { durable: false });
     const dlxQueue = defineQueue("test-dlx-queue", { type: "classic", durable: false });
     const mainQueue = defineQueue("test-main-queue", {
       type: "classic",
@@ -208,7 +206,7 @@ describe("Dead Letter Exchange Support", () => {
     amqpConnectionUrl,
   }) => {
     // GIVEN - A queue with DLX reference but DLX not in contract
-    const dlx = defineExchange("test-missing-dlx", "topic", { durable: false });
+    const dlx = defineExchange("test-missing-dlx", { durable: false });
     const queue = defineQueue("test-queue-bad-dlx", {
       type: "classic",
       durable: false,

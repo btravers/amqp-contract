@@ -138,9 +138,7 @@ import {
 import { z } from "zod";
 
 // 1. Define resources
-const notificationsExchange = defineExchange("notifications", "direct", {
-  durable: true,
-});
+const notificationsExchange = defineExchange("notifications", { type: "direct" });
 
 const emailQueue = defineQueue("email-notifications", {
   durable: true,

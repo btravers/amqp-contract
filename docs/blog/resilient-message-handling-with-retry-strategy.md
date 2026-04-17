@@ -68,7 +68,7 @@ import { TypedAmqpWorker, RetryableError } from "@amqp-contract/worker";
 import { Future } from "@swan-io/boxed";
 import { z } from "zod";
 
-const dlx = defineExchange("orders-dlx", "topic", { durable: true });
+const dlx = defineExchange("orders-dlx");
 const orderMessage = defineMessage(z.object({ orderId: z.string(), amount: z.number() }));
 
 // Define queue with retry configuration
@@ -252,10 +252,10 @@ import {
 import { z } from "zod";
 
 // Define the main exchange
-const mainExchange = defineExchange("orders", "topic", { durable: true });
+const mainExchange = defineExchange("orders");
 
 // Define the Dead Letter Exchange
-const dlxExchange = defineExchange("orders-dlx", "topic", { durable: true });
+const dlxExchange = defineExchange("orders-dlx");
 
 // Define your main queue with deadLetter configuration
 const ordersQueue = defineQueue("orders", {
@@ -526,7 +526,7 @@ Retry is configured at the queue level in your contract definition. This allows 
 ```typescript
 import { defineQueue, defineExchange } from "@amqp-contract/contract";
 
-const dlx = defineExchange("orders-dlx", "topic", { durable: true });
+const dlx = defineExchange("orders-dlx");
 
 // Queue with default TTL-backoff retry settings
 const orderQueue = defineQueue("order-processing", {

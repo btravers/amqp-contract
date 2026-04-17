@@ -5,8 +5,8 @@
 Resources are defined individually then composed into a contract. `defineContract` only accepts `publishers` and `consumers` — exchanges, queues, and bindings are automatically extracted and inferred:
 
 ```typescript
-const dlx = defineExchange("orders-dlx", "direct", { durable: true });
-const exchange = defineExchange("orders", "topic", { durable: true });
+const dlx = defineExchange("orders-dlx", { type: "direct" });
+const exchange = defineExchange("orders");
 const queue = defineQueue("processing", {
   deadLetter: { exchange: dlx },
   retry: { mode: "immediate-requeue", maxRetries: 5 },
@@ -73,10 +73,11 @@ const contract = defineContract({
 
 ## Exchange Types
 
-- Use appropriate exchange type: `direct`, `fanout`, `topic`, or `headers`
-- Topic exchanges are most flexible for routing patterns
+- Use appropriate exchange type: `topic`, `direct`, `fanout`, or `headers`
+- **Topic exchanges are the default** and are most flexible for routing patterns
 - Direct exchanges for simple point-to-point messaging
 - Fanout exchanges for broadcast messaging
+- Headers exchanges for complex routing scenarios
 
 ## Queue Types
 
@@ -135,8 +136,8 @@ Bridge exchanges enable cross-domain messaging by routing through a local exchan
 
 ```typescript
 // Consuming events from a remote domain via bridge
-const ordersExchange = defineExchange("orders", "topic", { durable: true });
-const billingExchange = defineExchange("billing", "topic", { durable: true });
+const ordersExchange = defineExchange("orders");
+const billingExchange = defineExchange("billing");
 const billingQueue = defineQueue("billing-orders");
 
 const orderCreated = defineEventPublisher(ordersExchange, orderMessage, {
@@ -154,8 +155,8 @@ const contract = defineContract({
 // contract.bindings: queue binding + exchange-to-exchange binding (both auto-generated)
 
 // Publishing commands to a remote domain via bridge
-const remoteExchange = defineExchange("remote", "topic", { durable: true });
-const localExchange = defineExchange("local", "topic", { durable: true });
+const remoteExchange = defineExchange("remote");
+const localExchange = defineExchange("local");
 
 const command = defineCommandConsumer(remoteQueue, remoteExchange, message, {
   routingKey: "cmd.run",

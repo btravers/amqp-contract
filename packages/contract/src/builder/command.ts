@@ -90,7 +90,7 @@ export type BridgedPublisherConfig<
  *
  * @example
  * ```typescript
- * const tasksExchange = defineExchange('tasks', 'fanout', { durable: true });
+ * const tasksExchange = defineExchange('tasks', { type: 'fanout' });
  * const taskMessage = defineMessage(z.object({ taskId: z.string() }));
  *
  * // Consumer owns the queue
@@ -128,7 +128,7 @@ export function defineCommandConsumer<
  *
  * @example
  * ```typescript
- * const tasksExchange = defineExchange('tasks', 'headers', { durable: true });
+ * const tasksExchange = defineExchange('tasks', { type: 'headers' });
  * const taskMessage = defineMessage(z.object({ taskId: z.string() }));
  *
  * // Consumer owns the queue
@@ -167,7 +167,7 @@ export function defineCommandConsumer<
  *
  * @example
  * ```typescript
- * const tasksExchange = defineExchange('tasks', 'direct', { durable: true });
+ * const tasksExchange = defineExchange('tasks', { type: 'direct' });
  * const taskMessage = defineMessage(z.object({ taskId: z.string() }));
  *
  * const executeTask = defineCommandConsumer(taskQueue, tasksExchange, taskMessage, {
@@ -208,7 +208,7 @@ export function defineCommandConsumer<
  *
  * @example
  * ```typescript
- * const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+ * const ordersExchange = defineExchange('orders', { type: 'topic' });
  * const orderMessage = defineMessage(z.object({ orderId: z.string() }));
  *
  * // Consumer uses pattern to receive multiple command types

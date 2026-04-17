@@ -192,9 +192,9 @@ describe("Publisher and Consumer factory types", () => {
 // ---------------------------------------------------------------------------
 
 describe("ContractOutput type inference", () => {
-  const ordersExchange = defineExchange("orders", "topic", { durable: true });
-  const dlx = defineExchange("orders-dlx", "direct", { durable: true });
-  const fanoutExchange = defineExchange("notifications", "fanout");
+  const ordersExchange = defineExchange("orders");
+  const dlx = defineExchange("orders-dlx", { type: "direct" });
+  const fanoutExchange = defineExchange("notifications", { type: "fanout" });
   const orderQueue = defineQueue("order-processing", {
     deadLetter: { exchange: dlx },
     retry: { mode: "immediate-requeue", maxRetries: 3 },
@@ -347,8 +347,8 @@ describe("ContractOutput type inference", () => {
 // ---------------------------------------------------------------------------
 
 describe("ContractOutput strict literal keys", () => {
-  const ordersExchange = defineExchange("orders", "topic", { durable: true });
-  const dlx = defineExchange("orders-dlx", "direct", { durable: true });
+  const ordersExchange = defineExchange("orders");
+  const dlx = defineExchange("orders-dlx", { type: "direct" });
   const orderQueue = defineQueue("order-processing", {
     deadLetter: { exchange: dlx },
     retry: { mode: "immediate-requeue", maxRetries: 3 },
@@ -416,7 +416,7 @@ describe("ContractOutput strict literal keys", () => {
   });
 
   test("fanout exchange should preserve literal name", () => {
-    const fanoutExchange = defineExchange("notifications", "fanout");
+    const fanoutExchange = defineExchange("notifications", { type: "fanout" });
     const notifMessage = defineMessage(z.object({ text: z.string() }));
     const notifQueue = defineQueue("notifications");
     const broadcast = defineEventPublisher(fanoutExchange, notifMessage);

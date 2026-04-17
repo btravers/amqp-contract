@@ -25,7 +25,7 @@ import { extractQueueFromEntry } from "./queue-utils.js";
  * @example
  * ```typescript
  * const logsQueue = defineQueue('logs-queue', { durable: true });
- * const logsExchange = defineExchange('logs', 'fanout', { durable: true });
+ * const logsExchange = defineExchange('logs', { type: 'fanout' });
  *
  * const binding = defineQueueBinding(logsQueue, logsExchange);
  * ```
@@ -66,7 +66,7 @@ export function defineQueueBinding(
  * @example
  * ```typescript
  * const orderQueue = defineQueue('order-processing', { durable: true });
- * const ordersExchange = defineExchange('orders', 'topic', { durable: true });
+ * const ordersExchange = defineExchange('orders');
  *
  * // Bind with exact routing key
  * const binding = defineQueueBinding(orderQueue, ordersExchange, {
@@ -168,8 +168,8 @@ export function defineQueueBindingInternal(
  *
  * @example
  * ```typescript
- * const sourceExchange = defineExchange('logs', 'fanout', { durable: true });
- * const destExchange = defineExchange('all-logs', 'fanout', { durable: true });
+ * const sourceExchange = defineExchange('logs', { type: 'fanout' });
+ * const destExchange = defineExchange('all-logs', { type: 'fanout' });
  *
  * const binding = defineExchangeBinding(destExchange, sourceExchange);
  * ```
@@ -204,8 +204,8 @@ export function defineExchangeBinding(
  *
  * @example
  * ```typescript
- * const ordersExchange = defineExchange('orders', 'topic', { durable: true });
- * const importantExchange = defineExchange('important-orders', 'topic', { durable: true });
+ * const ordersExchange = defineExchange('orders');
+ * const importantExchange = defineExchange('important-orders');
  *
  * // Forward only high-value orders
  * const binding = defineExchangeBinding(importantExchange, ordersExchange, {

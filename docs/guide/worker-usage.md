@@ -446,7 +446,7 @@ import { TypedAmqpWorker, RetryableError } from "@amqp-contract/worker";
 import { Future } from "@swan-io/boxed";
 
 // 1. Define queue with immediate-requeue retry
-const dlx = defineExchange("orders-dlx", "topic", { durable: true });
+const dlx = defineExchange("orders-dlx");
 const ordersQueue = defineQueue("orders", {
   type: "quorum", // Default queue type
   deadLetter: {
@@ -501,7 +501,7 @@ import { Future } from "@swan-io/boxed";
 import { z } from "zod";
 
 // 1. Define queue with TTL-backoff retry - infrastructure auto-generated
-const dlx = defineExchange("orders-dlx", "topic", { durable: true });
+const dlx = defineExchange("orders-dlx");
 const ordersQueue = defineQueue("orders", {
   deadLetter: { exchange: dlx },
   retry: {
@@ -601,7 +601,7 @@ import {
 import { z } from "zod";
 
 // Define the Dead Letter Exchange
-const dlxExchange = defineExchange("orders-dlx", "topic", { durable: true });
+const dlxExchange = defineExchange("orders-dlx");
 
 // Define the Dead Letter Queue
 const dlq = defineQueue("orders-dlq");
@@ -786,8 +786,8 @@ import { Future, Result } from "@swan-io/boxed";
 import { z } from "zod";
 
 // Define exchanges
-const mainExchange = defineExchange("orders", "topic", { durable: true });
-const dlxExchange = defineExchange("orders-dlx", "topic", { durable: true });
+const mainExchange = defineExchange("orders");
+const dlxExchange = defineExchange("orders-dlx");
 
 // Define message schema
 const orderMessage = defineMessage(

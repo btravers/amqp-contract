@@ -22,8 +22,8 @@ describe("Worker Retry Mechanism", () => {
       // GIVEN a worker with retry configuration
       const TestMessage = z.object({ id: z.string() });
 
-      const exchange = defineExchange("retry-flow-exchange", "topic", { durable: false });
-      const dlx = defineExchange("retry-flow-dlx", "topic", { durable: false });
+      const exchange = defineExchange("retry-flow-exchange", { durable: false });
+      const dlx = defineExchange("retry-flow-dlx", { durable: false });
       const queue = defineQueue("retry-flow-queue", {
         type: "classic",
         durable: false,
@@ -125,8 +125,8 @@ describe("Worker Retry Mechanism", () => {
       // GIVEN a worker with custom backoff configuration
       const TestMessage = z.object({ id: z.string() });
 
-      const exchange = defineExchange("backoff-exchange", "topic", { durable: false });
-      const dlx = defineExchange("backoff-dlx", "topic", { durable: false });
+      const exchange = defineExchange("backoff-exchange", { durable: false });
+      const dlx = defineExchange("backoff-dlx", { durable: false });
       const queue = defineQueue("backoff-queue", {
         type: "classic",
         durable: false,
@@ -214,8 +214,8 @@ describe("Worker Retry Mechanism", () => {
       // GIVEN a worker with maxRetries set to 2
       const TestMessage = z.object({ id: z.string() });
 
-      const exchange = defineExchange("maxretry-exchange", "topic", { durable: false });
-      const dlx = defineExchange("maxretry-dlx", "topic", { durable: false });
+      const exchange = defineExchange("maxretry-exchange", { durable: false });
+      const dlx = defineExchange("maxretry-dlx", { durable: false });
       const queue = defineQueue("maxretry-queue", {
         type: "classic",
         durable: false,
@@ -295,8 +295,8 @@ describe("Worker Retry Mechanism", () => {
       // GIVEN a worker that always fails
       const TestMessage = z.object({ id: z.string() });
 
-      const exchange = defineExchange("headers-exchange", "topic", { durable: false });
-      const dlx = defineExchange("headers-dlx", "topic", { durable: false });
+      const exchange = defineExchange("headers-exchange", { durable: false });
+      const dlx = defineExchange("headers-dlx", { durable: false });
       const queue = defineQueue("headers-queue", {
         type: "classic",
         durable: false,
@@ -362,7 +362,7 @@ describe("Worker Retry Mechanism", () => {
       // GIVEN a queue without dead letter exchange configuration
       const TestMessage = z.object({ id: z.string() });
 
-      const exchange = defineExchange("nodlx-exchange", "topic", { durable: false });
+      const exchange = defineExchange("nodlx-exchange", { durable: false });
       const queue = defineQueue("nodlx-queue", {
         type: "classic",
         durable: false,
@@ -412,8 +412,8 @@ describe("Worker Retry Mechanism", () => {
     }) => {
       const TestMessage = z.object({ id: z.string() });
 
-      const exchange = defineExchange("none-retry-exchange", "topic", { durable: false });
-      const dlx = defineExchange("none-retry-dlx", "topic", { durable: false });
+      const exchange = defineExchange("none-retry-exchange", { durable: false });
+      const dlx = defineExchange("none-retry-dlx", { durable: false });
       const queue = defineQueue("none-retry-queue", {
         type: "classic",
         durable: false,
@@ -482,8 +482,8 @@ describe("Worker Retry Mechanism", () => {
         // GIVEN a quorum queue with immediate-requeue retry configured
         const TestMessage = z.object({ id: z.string() });
 
-        const exchange = defineExchange("quorum-exchange", "topic", { durable: true });
-        const dlx = defineExchange("quorum-dlx", "topic", { durable: true });
+        const exchange = defineExchange("quorum-exchange");
+        const dlx = defineExchange("quorum-dlx");
 
         const queue = defineQueue("quorum-queue", {
           type: "quorum",
@@ -546,8 +546,8 @@ describe("Worker Retry Mechanism", () => {
         // GIVEN a quorum queue with immediate-requeue retry configured
         const TestMessage = z.object({ id: z.string() });
 
-        const exchange = defineExchange("quorum-dlq-exchange", "topic", { durable: true });
-        const dlx = defineExchange("quorum-dlq-dlx", "topic", { durable: true });
+        const exchange = defineExchange("quorum-dlq-exchange");
+        const dlx = defineExchange("quorum-dlq-dlx");
 
         const queue = defineQueue("quorum-dlq-queue", {
           type: "quorum",
@@ -618,8 +618,8 @@ describe("Worker Retry Mechanism", () => {
         // GIVEN a classic queue with immediate-requeue retry configured
         const TestMessage = z.object({ id: z.string() });
 
-        const exchange = defineExchange("classic-exchange", "topic", { durable: false });
-        const dlx = defineExchange("classic-dlx", "topic", { durable: false });
+        const exchange = defineExchange("classic-exchange", { durable: false });
+        const dlx = defineExchange("classic-dlx", { durable: false });
 
         const queue = defineQueue("classic-queue", {
           type: "classic",
@@ -683,8 +683,8 @@ describe("Worker Retry Mechanism", () => {
         // GIVEN a classic queue with immediate-requeue retry configured
         const TestMessage = z.object({ id: z.string() });
 
-        const exchange = defineExchange("classic-dlq-exchange", "topic", { durable: false });
-        const dlx = defineExchange("classic-dlq-dlx", "topic", { durable: false });
+        const exchange = defineExchange("classic-dlq-exchange", { durable: false });
+        const dlx = defineExchange("classic-dlq-dlx", { durable: false });
 
         const queue = defineQueue("classic-dlq-queue", {
           type: "classic",
@@ -754,8 +754,8 @@ describe("Worker Retry Mechanism", () => {
         // GIVEN an exclusive classic queue with immediate-requeue retry
         const TestMessage = z.object({ id: z.string() });
 
-        const exchange = defineExchange("exclusive-exchange", "topic", { durable: false });
-        const dlx = defineExchange("exclusive-dlx", "topic", { durable: false });
+        const exchange = defineExchange("exclusive-exchange", { durable: false });
+        const dlx = defineExchange("exclusive-dlx", { durable: false });
 
         const queue = defineQueue("exclusive-queue", {
           type: "classic",
@@ -817,8 +817,8 @@ describe("Worker Retry Mechanism", () => {
         // GIVEN a classic queue with immediate-requeue retry
         const TestMessage = z.object({ id: z.string() });
 
-        const exchange = defineExchange("headers-exchange", "topic", { durable: false });
-        const dlx = defineExchange("headers-dlx", "topic", { durable: false });
+        const exchange = defineExchange("headers-exchange", { durable: false });
+        const dlx = defineExchange("headers-dlx", { durable: false });
 
         const queue = defineQueue("headers-queue", {
           type: "classic",
@@ -916,7 +916,7 @@ describe("Worker Retry Mechanism", () => {
       // GIVEN a worker with TTL-backoff retry configured without DLX
       const TestMessage = z.object({ id: z.string() });
 
-      const exchange = defineExchange("headers-retry-exchange", "topic", { durable: false });
+      const exchange = defineExchange("headers-retry-exchange", { durable: false });
       const queue = defineQueue("headers-retry-queue", {
         type: "classic",
         durable: false,
@@ -1015,7 +1015,7 @@ describe("Worker Retry Mechanism", () => {
       // GIVEN a worker with custom infrastructure names
       const TestMessage = z.object({ id: z.string() });
 
-      const exchange = defineExchange("custom-names-exchange", "topic", { durable: false });
+      const exchange = defineExchange("custom-names-exchange", { durable: false });
       const queue = defineQueue("custom-names-queue", {
         type: "classic",
         durable: false,
@@ -1099,7 +1099,7 @@ describe("Worker Retry Mechanism", () => {
       // GIVEN a worker with TTL-backoff retry
       const TestMessage = z.object({ id: z.string() });
 
-      const exchange = defineExchange("routing-key-exchange", "topic", { durable: false });
+      const exchange = defineExchange("routing-key-exchange", { durable: false });
       const queue = defineQueue("routing-key-queue", {
         type: "classic",
         durable: false,
@@ -1163,7 +1163,7 @@ describe("Worker Retry Mechanism", () => {
       // GIVEN a worker with TTL-backoff retry and low maxRetries
       const TestMessage = z.object({ id: z.string() });
 
-      const exchange = defineExchange("max-retries-exchange", "topic", { durable: false });
+      const exchange = defineExchange("max-retries-exchange", { durable: false });
       const queue = defineQueue("max-retries-queue", {
         type: "classic",
         durable: false,

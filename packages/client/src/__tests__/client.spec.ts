@@ -57,7 +57,7 @@ describe("AmqpClient Integration", () => {
       initConsumer,
     }) => {
       // GIVEN
-      const exchange = defineExchange("test-exchange", "topic", { durable: false });
+      const exchange = defineExchange("test-exchange", { durable: false });
       const contract = defineContract({
         publishers: {
           testPublisher: definePublisher(
@@ -105,7 +105,9 @@ describe("AmqpClient Integration", () => {
         count: z.number().positive(),
       });
 
-      const exchange = defineExchange("test-validation-exchange", "topic", { durable: false });
+      const exchange = defineExchange("test-validation-exchange", {
+        durable: false,
+      });
 
       const contract = defineContract({
         publishers: {
@@ -136,7 +138,7 @@ describe("AmqpClient Integration", () => {
         content: z.string(),
       });
 
-      const exchange = defineExchange("test-options-exchange", "topic", { durable: false });
+      const exchange = defineExchange("test-options-exchange", { durable: false });
 
       const contract = defineContract({
         publishers: {
@@ -176,7 +178,9 @@ describe("AmqpClient Integration", () => {
     it("should apply default publish options", async ({ amqpConnectionUrl, initConsumer }) => {
       // GIVEN
       const TestMessage = z.object({ content: z.string() });
-      const exchange = defineExchange("test-default-options-exchange", "topic", { durable: false });
+      const exchange = defineExchange("test-default-options-exchange", {
+        durable: false,
+      });
 
       const contract = defineContract({
         publishers: {
@@ -224,7 +228,7 @@ describe("AmqpClient Integration", () => {
     }) => {
       // GIVEN
       const TestMessage = z.object({ content: z.string() });
-      const exchange = defineExchange("test-overridden-options-exchange", "topic", {
+      const exchange = defineExchange("test-overridden-options-exchange", {
         durable: false,
       });
 
@@ -282,7 +286,7 @@ describe("AmqpClient Integration", () => {
       // GIVEN
       const TestMessage = z.object({ id: z.string() });
 
-      const exchange = defineExchange("integration-orders", "topic", { durable: true });
+      const exchange = defineExchange("integration-orders");
       const queue = defineQueue("integration-processing"); // Default quorum queue
       const message = defineMessage(TestMessage);
 
@@ -312,7 +316,9 @@ describe("AmqpClient Integration", () => {
       // GIVEN
       const TestMessage = z.object({ id: z.string() });
 
-      const exchange = defineExchange("integration-classic-orders", "topic", { durable: false });
+      const exchange = defineExchange("integration-classic-orders", {
+        durable: false,
+      });
       const queue = defineQueue("integration-classic-processing", {
         type: "classic",
         durable: false,
@@ -347,7 +353,7 @@ describe("AmqpClient Integration", () => {
       initConsumer,
     }) => {
       // GIVEN
-      const sourceExchange = defineExchange("integration-source", "topic", { durable: true });
+      const sourceExchange = defineExchange("integration-source");
 
       const contract = defineContract({
         publishers: {
@@ -387,7 +393,9 @@ describe("AmqpClient Integration", () => {
       initConsumer,
     }) => {
       // GIVEN
-      const fanoutExchange = defineExchange("integration-fanout", "fanout", { durable: true });
+      const fanoutExchange = defineExchange("integration-fanout", {
+        type: "fanout",
+      });
       const queue = defineQueue("integration-fanout-queue"); // Default quorum queue
 
       const broadcastEvent = defineEventPublisher(
@@ -423,7 +431,7 @@ describe("AmqpClient Integration", () => {
   describe("connection management", () => {
     it("should close cleanly", async ({ clientFactory }) => {
       // GIVEN
-      const exchange = defineExchange("integration-close-test", "topic", { durable: false });
+      const exchange = defineExchange("integration-close-test", { durable: false });
 
       const contract = defineContract({
         publishers: {
@@ -444,7 +452,7 @@ describe("AmqpClient Integration", () => {
 
     it("should handle multiple close calls gracefully", async ({ clientFactory }) => {
       // GIVEN
-      const exchange = defineExchange("integration-multi-close", "topic", { durable: false });
+      const exchange = defineExchange("integration-multi-close", { durable: false });
 
       const contract: ContractDefinition = {
         exchanges: {
@@ -464,7 +472,9 @@ describe("AmqpClient Integration", () => {
 
     it("should publish after connection", async ({ clientFactory, initConsumer }) => {
       // GIVEN
-      const exchange = defineExchange("integration-post-connect", "topic", { durable: false });
+      const exchange = defineExchange("integration-post-connect", {
+        durable: false,
+      });
 
       const contract = defineContract({
         publishers: {
@@ -499,7 +509,9 @@ describe("AmqpClient Integration", () => {
         count: z.number().positive(),
       });
 
-      const exchange = defineExchange("integration-validation-error", "topic", { durable: false });
+      const exchange = defineExchange("integration-validation-error", {
+        durable: false,
+      });
 
       const contract = defineContract({
         publishers: {

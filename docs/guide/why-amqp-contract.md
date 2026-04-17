@@ -117,7 +117,7 @@ import { TypedAmqpWorker } from "@amqp-contract/worker";
 import { z } from "zod";
 
 // 1. Define resources
-const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const ordersExchange = defineExchange("orders");
 const orderProcessingQueue = defineQueue("order-processing", { durable: true });
 
 // 2. Define message schema

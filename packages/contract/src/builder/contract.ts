@@ -43,8 +43,8 @@ import { isQueueWithTtlBackoffInfrastructure } from "./queue.js";
  * import { z } from 'zod';
  *
  * // Define resources
- * const ordersExchange = defineExchange('orders', 'topic', { durable: true });
- * const dlx = defineExchange('orders-dlx', 'direct', { durable: true });
+ * const ordersExchange = defineExchange('orders');
+ * const dlx = defineExchange('orders-dlx', { type: 'direct' });
  * const orderQueue = defineQueue('order-processing', {
  *   deadLetter: { exchange: dlx },
  *   retry: { mode: 'immediate-requeue', maxRetries: 3 },

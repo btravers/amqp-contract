@@ -240,7 +240,7 @@ function wrapWithTtlBackoffInfrastructure(
  * const orderQueue = defineQueue('order-processing');
  *
  * // Explicit quorum queue with dead letter exchange
- * const dlx = defineExchange('orders-dlx', 'topic', { durable: true });
+ * const dlx = defineExchange('orders-dlx');
  * const orderQueueWithDLX = defineQueue('order-processing', {
  *   type: 'quorum',
  *   deadLetter: {
@@ -267,7 +267,7 @@ function wrapWithTtlBackoffInfrastructure(
  * });
  *
  * // Queue with TTL-backoff retry (returns infrastructure automatically)
- * const dlx = defineExchange('orders-dlx', 'direct', { durable: true });
+ * const dlx = defineExchange('orders-dlx', { type: 'direct' });
  * const orderQueue = defineQueue('order-processing', {
  *   deadLetter: { exchange: dlx },
  *   retry: { mode: 'ttl-backoff', maxRetries: 5 },
@@ -430,7 +430,7 @@ export type DefineQuorumQueueOptions = {
  *
  * @example
  * ```typescript
- * const dlx = defineExchange('orders-dlx', 'direct', { durable: true });
+ * const dlx = defineExchange('orders-dlx', { type: 'direct' });
  *
  * const orderQueue = defineQuorumQueue('order-processing', {
  *   deadLetter: { exchange: dlx },
@@ -568,7 +568,7 @@ export type DefineTtlBackoffQueueOptions = {
  *
  * @example
  * ```typescript
- * const dlx = defineExchange('orders-dlx', 'direct', { durable: true });
+ * const dlx = defineExchange('orders-dlx', { type: 'direct' });
  *
  * const orderQueue = defineTtlBackoffQueue('order-processing', {
  *   deadLetter: { exchange: dlx },

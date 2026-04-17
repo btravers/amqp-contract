@@ -27,7 +27,7 @@ Type safety flows automatically from your contract:
 import { z } from "zod";
 
 // 1. Define resources and message
-const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const ordersExchange = defineExchange("orders");
 const orderMessage = defineMessage(
   z.object({
     orderId: z.string(),
@@ -112,7 +112,7 @@ import { z } from "zod";
 import * as v from "valibot";
 import { type } from "arktype";
 
-const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const ordersExchange = defineExchange("orders");
 
 // All work the same way with defineEventPublisher:
 const zodEvent = defineEventPublisher(ordersExchange, defineMessage(z.object({ id: z.string() })), {
@@ -134,21 +134,25 @@ const arktypeEvent = defineEventPublisher(ordersExchange, defineMessage(type({ i
 
 ### Exchanges
 
-Exchanges receive and route messages to queues:
+Exchanges receive and route messages to queues. By default, exchanges are created as **topic exchanges** and are durable:
 
 ```typescript
-const ordersExchange = defineExchange(
-  "orders", // name
-  "topic", // type: direct, fanout, or topic
-  { durable: true }, // options
-);
+// Define default topic exchange and durable
+const ordersExchange = defineExchange("orders");
+
+// Define exchange with custom options
+const tasksExchange = defineExchange("tasks", {
+  type: "direct", // one of "topic", "direct", "fanout", "headers" (default: "topic")
+  durable: false, // (default: true)
+});
 ```
 
 **Exchange Types:**
 
+- `topic` (default) - Pattern matching with wildcards (`*`, `#`)
 - `direct` - Exact routing key match
-- `topic` - Pattern matching with wildcards (`*`, `#`)
 - `fanout` - Broadcast to all bound queues
+- `headers` - Routes based on message headers
 
 ### Queues
 

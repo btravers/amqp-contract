@@ -41,7 +41,7 @@ import {
 import { z } from "zod";
 
 // Event pattern: publisher broadcasts, consumers subscribe
-const ordersExchange = defineExchange("orders", "topic", { durable: true });
+const ordersExchange = defineExchange("orders");
 const orderMessage = defineMessage(
   z.object({
     orderId: z.string(),
