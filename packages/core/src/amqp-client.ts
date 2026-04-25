@@ -313,7 +313,21 @@ export class AmqpClient {
           ),
         )
           .mapError((error: unknown) => new TechnicalError("Failed to release connection", error))
-          .map((releaseResult) => (channelResult.isError() ? channelResult : releaseResult)),
+          .map((releaseResult) => {
+            if (channelResult.isError() && releaseResult.isError()) {
+              return Result.Error(
+                new TechnicalError(
+                  "Failed to close channel and release connection",
+                  new AggregateError(
+                    [channelResult.error, releaseResult.error],
+                    "Failed to close channel and release connection",
+                  ),
+                ),
+              );
+            }
+
+            return channelResult.isError() ? channelResult : releaseResult;
+          }),
       );
   }
 

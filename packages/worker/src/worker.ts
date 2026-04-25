@@ -477,9 +477,9 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
             );
           }),
       )
-      .tapError(() => {
+      .tapError((error) => {
         const durationMs = Date.now() - startTime;
-        endSpanError(span, new Error("Message validation failed"));
+        endSpanError(span, error);
         recordConsumeMetric(this.telemetry, queueName, String(consumerName), false, durationMs);
       });
   }

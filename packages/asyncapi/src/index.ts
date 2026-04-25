@@ -36,6 +36,10 @@ export type AsyncAPIGeneratorOptions = {
    * Supports Zod, Valibot, ArkType, and other Standard Schema v1 compatible libraries.
    */
   schemaConverters?: ConditionalSchemaConverter[];
+  /**
+   * Optional logger for warnings during generation (e.g. unmatched schema converters).
+   */
+  logger?: { warn: (message: string) => void };
 };
 
 /**
@@ -95,6 +99,7 @@ export type AsyncAPIGeneratorGenerateOptions = Pick<AsyncAPIObject, "info"> &
  */
 export class AsyncAPIGenerator {
   private readonly converters: ConditionalSchemaConverter[];
+  private readonly logger?: { warn: (message: string) => void } | undefined;
 
   /**
    * Create a new AsyncAPI generator instance.
@@ -103,6 +108,7 @@ export class AsyncAPIGenerator {
    */
   constructor(options: AsyncAPIGeneratorOptions = {}) {
     this.converters = options.schemaConverters ?? [];
+    this.logger = options.logger;
   }
 
   /**
@@ -458,10 +464,9 @@ export class AsyncAPIGenerator {
       }
     }
 
-    // No converter matched — the output will contain a generic object schema
-    // which likely doesn't reflect the actual message shape.
-    console.warn(
-      `[asyncapi] No schema converter matched for schema. ` +
+    // No converter matched — the output will contain a generic { type: "object" } placeholder.
+    this.logger?.warn(
+      `No schema converter matched for schema. ` +
         `The generated spec will use a generic { type: "object" } placeholder. ` +
         `Configure schemaConverters (e.g. zodToJsonSchema) to generate accurate schemas.`,
     );
