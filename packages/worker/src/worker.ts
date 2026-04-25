@@ -440,6 +440,9 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       "messaging.rabbitmq.message.delivery_tag": msg.fields.deliveryTag,
     });
 
+    let messageHandled = false;
+    let firstError: Error | undefined;
+
     return this.parseAndValidateMessage(msg, consumer, consumerName)
       .flatMapOk((validatedMessage) =>
         handler(validatedMessage, msg)
@@ -449,10 +452,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
               queueName,
             });
             this.amqpClient.ack(msg);
-
-            const durationMs = Date.now() - startTime;
-            endSpanSuccess(span);
-            recordConsumeMetric(this.telemetry, queueName, String(consumerName), true, durationMs);
+            messageHandled = true;
 
             return Future.value(Result.Ok<void, HandlerError>(undefined));
           })
@@ -463,10 +463,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
               errorType: handlerError.name,
               error: handlerError.message,
             });
-
-            const durationMs = Date.now() - startTime;
-            endSpanError(span, handlerError);
-            recordConsumeMetric(this.telemetry, queueName, String(consumerName), false, durationMs);
+            firstError = handlerError;
 
             return handleError(
               { amqpClient: this.amqpClient, logger: this.logger },
@@ -477,10 +474,19 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
             );
           }),
       )
-      .tapError((error) => {
+      .map((result) => {
         const durationMs = Date.now() - startTime;
-        endSpanError(span, error);
-        recordConsumeMetric(this.telemetry, queueName, String(consumerName), false, durationMs);
+        if (messageHandled) {
+          endSpanSuccess(span);
+          recordConsumeMetric(this.telemetry, queueName, String(consumerName), true, durationMs);
+        } else {
+          const error = result.isError()
+            ? result.error
+            : (firstError ?? new Error("Unknown error"));
+          endSpanError(span, error);
+          recordConsumeMetric(this.telemetry, queueName, String(consumerName), false, durationMs);
+        }
+        return result;
       });
   }
 
