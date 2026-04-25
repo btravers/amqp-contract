@@ -2,13 +2,13 @@ pre-commit:
   parallel: true
   commands:
     format:
-      glob: "*.{ts,tsx,js,jsx,json,yaml,yml,md}"
+      glob: "**/*.{ts,tsx,js,jsx,json,yaml,yml,md}"
       exclude: "pnpm-lock.yaml"
       run: pnpm oxfmt {staged_files}
       stage_fixed: true
       skip_empty: true
     lint:
-      glob: "*.{ts,tsx,js,jsx}"
+      glob: "**/*.{ts,tsx,js,jsx}"
       run: pnpm oxlint {staged_files}
 
 commit-msg:
