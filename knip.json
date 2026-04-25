@@ -5,23 +5,18 @@
     "packages/*": {
       "project": ["src/**/*.ts"]
     },
-    "packages/core": {
-      "ignoreDependencies": ["@opentelemetry/api"]
-    },
     "examples/basic-order-processing-contract": {
       "entry": ["src/index.ts", "scripts/*.ts"],
       "project": ["src/**/*.ts", "scripts/**/*.ts"]
     },
     "examples/*": {
-      "project": ["src/**/*.ts"],
-      "ignoreDependencies": ["pino-pretty"]
+      "project": ["src/**/*.ts"]
     },
     "docs": {
       "entry": ["scripts/*.ts"],
       "project": ["scripts/**/*.ts"]
     }
   },
-  "ignore": ["coverage/**", "**/dist/**"],
   "ignoreDependencies": [
     "typedoc-plugin-markdown",
     "@amqp-contract/typedoc",
