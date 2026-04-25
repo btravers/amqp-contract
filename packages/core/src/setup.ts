@@ -28,8 +28,9 @@ export async function setupAmqpTopology(
   contract: ContractDefinition,
 ): Promise<void> {
   // Setup exchanges
+  const exchanges = Object.values(contract.exchanges ?? {});
   const exchangeResults = await Promise.allSettled(
-    Object.values(contract.exchanges ?? {}).map((exchange) =>
+    exchanges.map((exchange) =>
       channel.assertExchange(exchange.name, exchange.type, {
         durable: exchange.durable,
         autoDelete: exchange.autoDelete,
@@ -38,13 +39,17 @@ export async function setupAmqpTopology(
       }),
     ),
   );
-  const exchangeErrors = exchangeResults.filter(
-    (result): result is PromiseRejectedResult => result.status === "rejected",
-  );
+  const exchangeErrors = exchangeResults
+    .map((result, i) => ({ result, name: exchanges[i]!.name }))
+    .filter(
+      (entry): entry is { result: PromiseRejectedResult; name: string } =>
+        entry.result.status === "rejected",
+    );
   if (exchangeErrors.length > 0) {
+    const names = exchangeErrors.map((e) => e.name).join(", ");
     throw new AggregateError(
-      exchangeErrors.map(({ reason }) => reason),
-      "Failed to setup exchanges",
+      exchangeErrors.map(({ result }) => result.reason),
+      `Failed to setup exchanges: ${names}`,
     );
   }
 
@@ -67,8 +72,9 @@ export async function setupAmqpTopology(
   }
 
   // Setup queues
+  const queueEntries = Object.values(contract.queues ?? {});
   const queueResults = await Promise.allSettled(
-    Object.values(contract.queues ?? {}).map((queueEntry) => {
+    queueEntries.map((queueEntry) => {
       const queue = extractQueue(queueEntry);
       // Build queue arguments, merging dead letter configuration and queue type
       const queueArguments: Record<string, unknown> = { ...queue.arguments };
@@ -104,19 +110,24 @@ export async function setupAmqpTopology(
       });
     }),
   );
-  const queueErrors = queueResults.filter(
-    (result): result is PromiseRejectedResult => result.status === "rejected",
-  );
+  const queueErrors = queueResults
+    .map((result, i) => ({ result, name: extractQueue(queueEntries[i]!).name }))
+    .filter(
+      (entry): entry is { result: PromiseRejectedResult; name: string } =>
+        entry.result.status === "rejected",
+    );
   if (queueErrors.length > 0) {
+    const names = queueErrors.map((e) => e.name).join(", ");
     throw new AggregateError(
-      queueErrors.map(({ reason }) => reason),
-      "Failed to setup queues",
+      queueErrors.map(({ result }) => result.reason),
+      `Failed to setup queues: ${names}`,
     );
   }
 
   // Setup bindings
+  const bindings = Object.values(contract.bindings ?? {});
   const bindingResults = await Promise.allSettled(
-    Object.values(contract.bindings ?? {}).map((binding) => {
+    bindings.map((binding) => {
       if (binding.type === "queue") {
         return channel.bindQueue(
           binding.queue.name,
@@ -134,13 +145,24 @@ export async function setupAmqpTopology(
       );
     }),
   );
-  const bindingErrors = bindingResults.filter(
-    (result): result is PromiseRejectedResult => result.status === "rejected",
-  );
+  const bindingErrors = bindingResults
+    .map((result, i) => {
+      const binding = bindings[i]!;
+      const name =
+        binding.type === "queue"
+          ? `${binding.queue.name} -> ${binding.exchange.name}`
+          : `${binding.destination.name} -> ${binding.source.name}`;
+      return { result, name };
+    })
+    .filter(
+      (entry): entry is { result: PromiseRejectedResult; name: string } =>
+        entry.result.status === "rejected",
+    );
   if (bindingErrors.length > 0) {
+    const names = bindingErrors.map((e) => e.name).join(", ");
     throw new AggregateError(
-      bindingErrors.map(({ reason }) => reason),
-      "Failed to setup bindings",
+      bindingErrors.map(({ result }) => result.reason),
+      `Failed to setup bindings: ${names}`,
     );
   }
 }

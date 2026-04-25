@@ -305,15 +305,16 @@ export class AmqpClient {
   close(): Future<Result<void, TechnicalError>> {
     return Future.fromPromise(this.channelWrapper.close())
       .mapError((error: unknown) => new TechnicalError("Failed to close channel", error))
-      .flatMapOk(() =>
+      .flatMap((channelResult) =>
         Future.fromPromise(
           ConnectionManagerSingleton.getInstance().releaseConnection(
             this.urls,
             this.connectionOptions,
           ),
-        ).mapError((error: unknown) => new TechnicalError("Failed to release connection", error)),
-      )
-      .mapOk(() => undefined);
+        )
+          .mapError((error: unknown) => new TechnicalError("Failed to release connection", error))
+          .map((releaseResult) => (channelResult.isError() ? channelResult : releaseResult)),
+      );
   }
 
   /**

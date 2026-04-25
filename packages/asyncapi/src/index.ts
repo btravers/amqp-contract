@@ -458,8 +458,13 @@ export class AsyncAPIGenerator {
       }
     }
 
-    // If no converter matches, return a generic object schema
-    // This allows the contract to still be generated even without schema converters
+    // No converter matched — the output will contain a generic object schema
+    // which likely doesn't reflect the actual message shape.
+    console.warn(
+      `[asyncapi] No schema converter matched for schema. ` +
+        `The generated spec will use a generic { type: "object" } placeholder. ` +
+        `Configure schemaConverters (e.g. zodToJsonSchema) to generate accurate schemas.`,
+    );
     return { type: "object" };
   }
 }
