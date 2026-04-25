@@ -150,8 +150,8 @@ export async function setupAmqpTopology(
       const binding = bindings[i]!;
       const name =
         binding.type === "queue"
-          ? `${binding.queue.name} -> ${binding.exchange.name}`
-          : `${binding.destination.name} -> ${binding.source.name}`;
+          ? `${binding.exchange.name} -> ${binding.queue.name}`
+          : `${binding.source.name} -> ${binding.destination.name}`;
       return { result, name };
     })
     .filter(
