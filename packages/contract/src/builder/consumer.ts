@@ -5,6 +5,7 @@ import type {
   EventConsumerResultBase,
   MessageDefinition,
   QueueEntry,
+  RpcServerConfigBase,
 } from "../types.js";
 
 /**
@@ -19,6 +20,13 @@ function isEventConsumerResultEntry(entry: ConsumerEntry): entry is EventConsume
  */
 function isCommandConsumerConfigEntry(entry: ConsumerEntry): entry is CommandConsumerConfigBase {
   return "__brand" in entry && entry.__brand === "CommandConsumerConfig";
+}
+
+/**
+ * Type guard to check if an entry is an RpcServerConfig.
+ */
+function isRpcServerConfigEntry(entry: ConsumerEntry): entry is RpcServerConfigBase {
+  return "__brand" in entry && entry.__brand === "RpcServerConfig";
 }
 
 /**
@@ -52,7 +60,11 @@ function isCommandConsumerConfigEntry(entry: ConsumerEntry): entry is CommandCon
  * ```
  */
 export function extractConsumer(entry: ConsumerEntry): ConsumerDefinition {
-  if (isEventConsumerResultEntry(entry) || isCommandConsumerConfigEntry(entry)) {
+  if (
+    isEventConsumerResultEntry(entry) ||
+    isCommandConsumerConfigEntry(entry) ||
+    isRpcServerConfigEntry(entry)
+  ) {
     return entry.consumer;
   }
   // Otherwise it's a plain ConsumerDefinition

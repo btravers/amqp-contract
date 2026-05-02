@@ -12,6 +12,7 @@ import { isBridgedPublisherConfig, isCommandConsumerConfig } from "./command.js"
 import { isEventConsumerResult, isEventPublisherConfig } from "./event.js";
 import { definePublisherInternal } from "./publisher.js";
 import { extractQueue } from "./queue-utils.js";
+import { isRpcClientConfig, isRpcServerConfig } from "./rpc.js";
 import { isQueueWithTtlBackoffInfrastructure } from "./ttl-backoff.js";
 
 /**
@@ -104,6 +105,11 @@ export function defineContract<TContract extends ContractDefinitionInput>(
         exchanges[entry.targetExchange.name] = entry.targetExchange;
         publisherBindings[`${name}ExchangeBinding`] = entry.exchangeBinding;
         processedPublishers[name] = entry.publisher;
+      } else if (isRpcClientConfig(entry)) {
+        // RpcClientConfig: extract publisher only. The publisher targets the AMQP
+        // default direct exchange (name `""`), which is implicit — no need to
+        // declare it or its bindings.
+        processedPublishers[name] = entry.publisher;
       } else if (isEventPublisherConfig(entry)) {
         // EventPublisherConfig: extract exchange and convert to publisher definition
         exchanges[entry.exchange.name] = entry.exchange;
@@ -182,6 +188,19 @@ export function defineContract<TContract extends ContractDefinitionInput>(
         exchanges[entry.exchange.name] = entry.exchange;
 
         // Extract dead letter exchange if present
+        if (queueDef.deadLetter?.exchange) {
+          exchanges[queueDef.deadLetter.exchange.name] = queueDef.deadLetter.exchange;
+        }
+      } else if (isRpcServerConfig(entry)) {
+        // RpcServerConfig: extract consumer (carries responseMessage) and queue.
+        // No binding is needed — RPC uses the default direct exchange and the
+        // implicit queue-name binding.
+        processedConsumers[name] = entry.consumer;
+
+        const queueEntry = entry.queue;
+        const queueDef = extractQueue(queueEntry);
+        queues[queueDef.name] = queueEntry;
+
         if (queueDef.deadLetter?.exchange) {
           exchanges[queueDef.deadLetter.exchange.name] = queueDef.deadLetter.exchange;
         }

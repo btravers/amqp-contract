@@ -62,7 +62,7 @@ export function definePublisher<TMessage extends MessageDefinition>(
       PublisherDefinition<TMessage>,
       { exchange: FanoutExchangeDefinition | HeadersExchangeDefinition }
     >,
-    "exchange" | "message" | "routingKey"
+    "exchange" | "message" | "routingKey" | "responseMessage"
   >,
 ): Extract<
   PublisherDefinition<TMessage>,
@@ -128,7 +128,7 @@ export function definePublisher<TMessage extends MessageDefinition>(
       PublisherDefinition<TMessage>,
       { exchange: DirectExchangeDefinition | TopicExchangeDefinition }
     >,
-    "exchange" | "message"
+    "exchange" | "message" | "responseMessage"
   >,
 ): Extract<
   PublisherDefinition<TMessage>,
