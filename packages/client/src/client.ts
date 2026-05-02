@@ -56,8 +56,9 @@ export type CreateClientOptions<TContract extends ContractDefinition> = {
   defaultPublishOptions?: PublishOptions | undefined;
   /**
    * Maximum time in ms to wait for the AMQP connection to become ready before
-   * `create()` rejects. Without this option, `create()` waits forever — the
-   * underlying amqp-connection-manager retries indefinitely.
+   * `create()` resolves to `Result.Error<TechnicalError>`. Without this option,
+   * `create()` waits forever — the underlying amqp-connection-manager retries
+   * indefinitely.
    */
   connectTimeoutMs?: number | undefined;
 };
