@@ -23,6 +23,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          # Use the PAT here too so the git remote is configured with PAT
+          # credentials. The bare GITHUB_TOKEN-authenticated push that
+          # checkout normally sets up is treated by GitHub as a bot event
+          # and would not fire `pull_request` workflows on the resulting
+          # branch — defeating the whole point of using a PAT for releases.
+          token: ${{ secrets.RELEASE_PAT }}
 
       - name: Setup
         uses: ./.github/actions/setup
