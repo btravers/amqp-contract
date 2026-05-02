@@ -464,10 +464,21 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   ): Future<Result<void, HandlerError>> {
     const queueName = extractQueue(consumer.queue).name;
     const replyTo = msg.properties.replyTo;
+    const correlationId = msg.properties.correlationId;
     if (typeof replyTo !== "string" || replyTo.length === 0) {
       this.logger?.warn(
         "RPC handler returned a response but the incoming message has no replyTo; dropping response",
         { consumerName: String(consumerName), queueName },
+      );
+      return Future.value(Result.Ok(undefined));
+    }
+    if (typeof correlationId !== "string" || correlationId.length === 0) {
+      // Without a correlationId the client cannot match the reply to its
+      // pending call — publishing anyway would guarantee a client-side timeout.
+      // Drop and warn so the operator can fix the upstream caller.
+      this.logger?.warn(
+        "RPC handler returned a response but the incoming message has no correlationId; dropping response",
+        { consumerName: String(consumerName), queueName, replyTo },
       );
       return Future.value(Result.Ok(undefined));
     }
@@ -497,7 +508,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       .flatMapOk((validatedResponse) =>
         this.amqpClient
           .publish("", replyTo, validatedResponse, {
-            correlationId: msg.properties.correlationId,
+            correlationId,
             contentType: "application/json",
           })
           .mapErrorToResult((error: TechnicalError) =>
