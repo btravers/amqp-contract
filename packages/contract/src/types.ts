@@ -910,20 +910,9 @@ export type BindingDefinition = QueueBindingDefinition | ExchangeBindingDefiniti
  * };
  * ```
  */
-export type PublisherDefinition<
-  TMessage extends MessageDefinition = MessageDefinition,
-  TResponseMessage extends MessageDefinition | undefined = MessageDefinition | undefined,
-> = {
+export type PublisherDefinition<TMessage extends MessageDefinition = MessageDefinition> = {
   /** The message definition including the payload schema */
   message: TMessage;
-
-  /**
-   * Optional response message definition. When present, this publisher targets an
-   * RPC server that returns a typed response, and the publisher is invoked via
-   * `client.call(name, request, { timeoutMs })` rather than `client.publish(...)`.
-   * @see defineRpcClient
-   */
-  responseMessage?: TResponseMessage;
 } & (
   | {
       /** Direct or topic exchange requiring a routing key */
@@ -960,24 +949,12 @@ export type PublisherDefinition<
  * };
  * ```
  */
-export type ConsumerDefinition<
-  TMessage extends MessageDefinition = MessageDefinition,
-  TResponseMessage extends MessageDefinition | undefined = MessageDefinition | undefined,
-> = {
+export type ConsumerDefinition<TMessage extends MessageDefinition = MessageDefinition> = {
   /** The queue to consume messages from */
   queue: QueueEntry;
 
   /** The message definition including the payload schema */
   message: TMessage;
-
-  /**
-   * Optional response message definition. When present, this consumer is an RPC
-   * server: its handler must return `Future<Result<TResponse, HandlerError>>`,
-   * and the worker publishes the validated response back to `msg.properties.replyTo`
-   * with the same `correlationId`.
-   * @see defineRpcServer
-   */
-  responseMessage?: TResponseMessage;
 };
 
 // =============================================================================
@@ -1053,43 +1030,31 @@ export type BridgedPublisherConfigBase = {
 };
 
 /**
- * Base type for RPC server configuration.
+ * Definition of an RPC operation: a request/response pair flowing over a
+ * request queue with replies routed back via direct reply-to.
  *
- * An RPC server owns a request queue and declares both a request schema and a
- * response schema. The worker dispatches incoming requests to the handler,
- * validates the returned response against the response schema, and publishes
- * it back to `msg.properties.replyTo` with the same `correlationId`.
+ * An RPC is bidirectional on both ends — the server consumes requests and
+ * publishes responses; the client publishes requests and consumes responses —
+ * so it has its own slot in the contract (`rpcs`) rather than being shoehorned
+ * into `consumers` or `publishers`.
  *
- * This is a simplified type used in `ContractDefinitionInput`. The full
- * generic type is defined in the builder module.
+ * @template TRequestMessage - The request message definition
+ * @template TResponseMessage - The response message definition
+ * @template TQueue - The request queue entry
  *
- * @see defineRpcServer for creating RPC servers
+ * @see defineRpc for creating RPC definitions
  */
-export type RpcServerConfigBase = {
-  __brand: "RpcServerConfig";
-  consumer: ConsumerDefinition;
-  queue: QueueEntry;
-  requestMessage: MessageDefinition;
-  responseMessage: MessageDefinition;
-};
-
-/**
- * Base type for RPC client configuration.
- *
- * An RPC client targets an RPC server's queue via the default exchange. The
- * client carries the request and response schemas so `client.call(name, ...)`
- * is fully type-safe on both directions.
- *
- * This is a simplified type used in `ContractDefinitionInput`. The full
- * generic type is defined in the builder module.
- *
- * @see defineRpcClient for creating RPC clients
- */
-export type RpcClientConfigBase = {
-  __brand: "RpcClientConfig";
-  publisher: PublisherDefinition;
-  requestMessage: MessageDefinition;
-  responseMessage: MessageDefinition;
+export type RpcDefinition<
+  TRequestMessage extends MessageDefinition = MessageDefinition,
+  TResponseMessage extends MessageDefinition = MessageDefinition,
+  TQueue extends QueueEntry = QueueEntry,
+> = {
+  /** The queue that receives RPC requests. Replies are routed back via direct reply-to. */
+  queue: TQueue;
+  /** Schema for the request payload (validated on both publish and consume). */
+  request: TRequestMessage;
+  /** Schema for the response payload (validated on both worker reply and client receive). */
+  response: TResponseMessage;
 };
 
 /**
@@ -1160,6 +1125,17 @@ export type ContractDefinition = {
    * The handler will be fully typed based on the message schema.
    */
   consumers?: Record<string, ConsumerDefinition>;
+
+  /**
+   * Named RPC definitions. Each key gets:
+   * - A handler in the TypedAmqpWorker that returns the typed response.
+   * - A `client.call(name, request, options)` method on the TypedAmqpClient.
+   *
+   * RPC entries do not appear in `publishers` or `consumers` because each
+   * end of an RPC plays both roles (publisher of one direction, consumer of
+   * the other).
+   */
+  rpcs?: Record<string, RpcDefinition>;
 };
 
 /**
@@ -1173,8 +1149,7 @@ export type ContractDefinition = {
 export type PublisherEntry =
   | PublisherDefinition
   | EventPublisherConfigBase
-  | BridgedPublisherConfigBase
-  | RpcClientConfigBase;
+  | BridgedPublisherConfigBase;
 
 /**
  * Consumer entry that can be passed to defineContract's consumers section.
@@ -1187,8 +1162,7 @@ export type PublisherEntry =
 export type ConsumerEntry =
   | ConsumerDefinition
   | EventConsumerResultBase
-  | CommandConsumerConfigBase
-  | RpcServerConfigBase;
+  | CommandConsumerConfigBase;
 
 /**
  * Contract definition input type with automatic extraction of event/command patterns.
@@ -1233,6 +1207,13 @@ export type ContractDefinitionInput = {
    * - CommandConsumerConfig from defineCommandConsumer (binding auto-extracted)
    */
   consumers?: Record<string, ConsumerEntry>;
+
+  /**
+   * Named RPC definitions from `defineRpc`. Each entry contributes its queue
+   * (and DLX if any) to the contract topology and exposes a typed
+   * `client.call(name, ...)` / worker handler pair.
+   */
+  rpcs?: Record<string, RpcDefinition>;
 };
 
 // =============================================================================
@@ -1247,11 +1228,9 @@ type ExtractPublisherExchange<T extends PublisherEntry> = T extends BridgedPubli
   ? T["bridgeExchange"]
   : T extends EventPublisherConfigBase
     ? T["exchange"]
-    : T extends RpcClientConfigBase
-      ? T["publisher"]["exchange"]
-      : T extends PublisherDefinition
-        ? T["exchange"]
-        : never;
+    : T extends PublisherDefinition
+      ? T["exchange"]
+      : never;
 
 /**
  * Extract the QueueDefinition from a QueueEntry type.
@@ -1292,11 +1271,9 @@ type ExtractConsumerQueue<T extends ConsumerEntry> = T extends EventConsumerResu
   ? T["queue"]
   : T extends CommandConsumerConfigBase
     ? T["queue"]
-    : T extends RpcServerConfigBase
+    : T extends ConsumerDefinition
       ? T["queue"]
-      : T extends ConsumerDefinition
-        ? T["queue"]
-        : never;
+      : never;
 
 /**
  * Extract the exchange from a consumer entry (from binding).
@@ -1394,11 +1371,9 @@ type ExtractConsumerDefinition<T extends ConsumerEntry> = T extends EventConsume
   ? T["consumer"]
   : T extends CommandConsumerConfigBase
     ? T["consumer"]
-    : T extends RpcServerConfigBase
-      ? T["consumer"]
-      : T extends ConsumerDefinition
-        ? T
-        : never;
+    : T extends ConsumerDefinition
+      ? T
+      : never;
 
 /**
  * Extract consumer definitions from all consumers in a contract.
@@ -1419,11 +1394,9 @@ type ExtractPublisherDefinition<T extends PublisherEntry> = T extends BridgedPub
         (T["exchange"] extends DirectExchangeDefinition | TopicExchangeDefinition
           ? { exchange: T["exchange"]; routingKey: T["routingKey"] & string }
           : { exchange: T["exchange"]; routingKey?: never })
-    : T extends RpcClientConfigBase
-      ? T["publisher"]
-      : T extends PublisherDefinition
-        ? T
-        : never;
+    : T extends PublisherDefinition
+      ? T
+      : never;
 
 /**
  * Extract publisher definitions from all publishers in a contract.
@@ -1530,6 +1503,24 @@ type ExtractExchangeBindingsFromPublishers<TPublishers extends Record<string, Pu
 };
 
 /**
+ * Extract queues from all RPC entries in a contract.
+ * @internal
+ */
+type ExtractQueuesFromRpcs<TRpcs extends Record<string, RpcDefinition>> = {
+  [K in keyof TRpcs as ExtractQueueFromEntry<TRpcs[K]["queue"]>["name"]]: TRpcs[K]["queue"];
+};
+
+/**
+ * Extract dead letter exchanges from all RPC entries in a contract.
+ * @internal
+ */
+type ExtractDeadLetterExchangesFromRpcs<TRpcs extends Record<string, RpcDefinition>> = {
+  [K in keyof TRpcs as ExtractDlxFromEntry<TRpcs[K]["queue"]> extends never
+    ? never
+    : ExtractDlxFromEntry<TRpcs[K]["queue"]>["name"]]: ExtractDlxFromEntry<TRpcs[K]["queue"]>;
+};
+
+/**
  * Contract output type with all resources extracted and properly typed.
  *
  * This type represents the fully expanded contract with:
@@ -1554,10 +1545,16 @@ export type ContractOutput<TContract extends ContractDefinitionInput> = {
       : {}) &
     (TContract["publishers"] extends Record<string, PublisherEntry>
       ? ExtractTargetExchangesFromPublishers<TContract["publishers"]>
+      : {}) &
+    (TContract["rpcs"] extends Record<string, RpcDefinition>
+      ? ExtractDeadLetterExchangesFromRpcs<TContract["rpcs"]>
       : {});
-  queues: TContract["consumers"] extends Record<string, ConsumerEntry>
+  queues: (TContract["consumers"] extends Record<string, ConsumerEntry>
     ? ExtractQueuesFromConsumers<TContract["consumers"]>
-    : {};
+    : {}) &
+    (TContract["rpcs"] extends Record<string, RpcDefinition>
+      ? ExtractQueuesFromRpcs<TContract["rpcs"]>
+      : {});
   bindings: (TContract["consumers"] extends Record<string, ConsumerEntry>
     ? ExtractBindingsFromConsumers<TContract["consumers"]>
     : {}) &
@@ -1573,6 +1570,7 @@ export type ContractOutput<TContract extends ContractDefinitionInput> = {
   consumers: TContract["consumers"] extends Record<string, ConsumerEntry>
     ? ExtractConsumerDefinitions<TContract["consumers"]>
     : {};
+  rpcs: TContract["rpcs"] extends Record<string, RpcDefinition> ? TContract["rpcs"] : {};
 };
 
 /**
@@ -1610,3 +1608,15 @@ export type InferPublisherNames<TContract extends ContractDefinition> =
  */
 export type InferConsumerNames<TContract extends ContractDefinition> =
   TContract["consumers"] extends Record<string, unknown> ? keyof TContract["consumers"] : never;
+
+/**
+ * Extract RPC names from a contract.
+ *
+ * Each name in this union has a typed worker handler and a `client.call(name, ...)`
+ * method. RPC names are disjoint from `InferConsumerNames` and `InferPublisherNames`.
+ *
+ * @template TContract - The contract definition
+ * @returns Union of RPC names, or never if no RPCs defined
+ */
+export type InferRpcNames<TContract extends ContractDefinition> =
+  TContract["rpcs"] extends Record<string, RpcDefinition> ? keyof TContract["rpcs"] : never;

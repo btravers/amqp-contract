@@ -3,110 +3,61 @@ import { z } from "zod";
 import { defineContract } from "./contract.js";
 import { defineMessage } from "./message.js";
 import { defineQueue } from "./queue.js";
-import { defineRpcClient, defineRpcServer, isRpcClientConfig, isRpcServerConfig } from "./rpc.js";
+import { defineRpc } from "./rpc.js";
 
-describe("RPC builders", () => {
+describe("defineRpc", () => {
   const queue = defineQueue("rpc.calculate", { type: "classic", durable: false });
   const request = defineMessage(z.object({ a: z.number(), b: z.number() }));
   const response = defineMessage(z.object({ sum: z.number() }));
 
-  describe("defineRpcServer", () => {
-    it("creates an RpcServerConfig with both schemas and the queue", () => {
-      // WHEN
-      const server = defineRpcServer(queue, { request, response });
+  it("returns an RpcDefinition carrying the queue, request, and response", () => {
+    // WHEN
+    const rpc = defineRpc(queue, { request, response });
 
-      // THEN
-      expect(server).toEqual({
-        __brand: "RpcServerConfig",
-        queue,
-        requestMessage: request,
-        responseMessage: response,
-        consumer: {
-          queue,
-          message: request,
-          responseMessage: response,
-        },
-      });
-    });
-
-    it("is recognised by isRpcServerConfig", () => {
-      // WHEN
-      const server = defineRpcServer(queue, { request, response });
-
-      // THEN
-      expect({ server: isRpcServerConfig(server), empty: isRpcServerConfig({}) }).toEqual({
-        server: true,
-        empty: false,
-      });
-    });
-  });
-
-  describe("defineRpcClient", () => {
-    it("creates an RpcClientConfig that publishes to the default exchange with the queue name as routing key", () => {
-      // GIVEN
-      const server = defineRpcServer(queue, { request, response });
-
-      // WHEN
-      const client = defineRpcClient(server);
-
-      // THEN
-      expect(client).toEqual({
-        __brand: "RpcClientConfig",
-        requestMessage: request,
-        responseMessage: response,
-        publisher: {
-          exchange: { name: "", type: "direct" },
-          routingKey: "rpc.calculate",
-          message: request,
-          responseMessage: response,
-        },
-      });
-    });
-
-    it("is recognised by isRpcClientConfig", () => {
-      // GIVEN
-      const server = defineRpcServer(queue, { request, response });
-
-      // WHEN
-      const client = defineRpcClient(server);
-
-      // THEN
-      expect({ client: isRpcClientConfig(client), empty: isRpcClientConfig({}) }).toEqual({
-        client: true,
-        empty: false,
-      });
-    });
+    // THEN
+    expect(rpc).toEqual({ queue, request, response });
   });
 
   describe("defineContract integration", () => {
-    it("auto-extracts the RPC server's queue and the RPC client's publisher", () => {
+    it("auto-extracts the RPC's queue and exposes it under contract.rpcs", () => {
       // GIVEN
-      const server = defineRpcServer(queue, { request, response });
-      const client = defineRpcClient(server);
+      const calculate = defineRpc(queue, { request, response });
 
       // WHEN
       const contract = defineContract({
-        consumers: { calculate: server },
-        publishers: { calculate: client },
+        rpcs: { calculate },
       });
 
       // THEN
       expect(contract).toMatchObject({
-        // Queue registered, default exchange skipped
+        // Queue registered, default exchange skipped — RPC routes implicitly
+        // via the AMQP default exchange with the queue name as routing key.
         queues: { "rpc.calculate": queue },
-        // Consumer carries the response schema
-        consumers: { calculate: { responseMessage: response } },
-        // Publisher targets the default exchange with the queue name as routing key
-        publishers: {
-          calculate: {
-            exchange: { name: "", type: "direct" },
-            routingKey: "rpc.calculate",
-            responseMessage: response,
-          },
-        },
-        // No binding is created — the default exchange handles routing implicitly
+        rpcs: { calculate: { queue, request, response } },
+        // RPCs do not appear in publishers / consumers; no bindings either.
+        publishers: {},
+        consumers: {},
         bindings: {},
       });
+    });
+
+    it("auto-extracts the RPC's dead-letter exchange when configured", () => {
+      // GIVEN
+      const dlx = { name: "rpc.dlx", type: "topic" as const, durable: true };
+      const dlqQueue = defineQueue("rpc.with-dlx", {
+        type: "classic",
+        durable: false,
+        deadLetter: { exchange: dlx },
+      });
+      const calculate = defineRpc(dlqQueue, { request, response });
+
+      // WHEN
+      const contract = defineContract({
+        rpcs: { calculate },
+      });
+
+      // THEN
+      expect(contract.exchanges).toMatchObject({ "rpc.dlx": dlx });
     });
   });
 });

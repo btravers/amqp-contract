@@ -3,7 +3,9 @@ import type {
   ConsumerEntry,
   ContractDefinition,
   InferConsumerNames,
+  InferRpcNames,
   MessageDefinition,
+  RpcDefinition,
 } from "@amqp-contract/contract";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 import type { Future, Result } from "@swan-io/boxed";
@@ -37,7 +39,7 @@ type ConsumerInferPayloadOutput<TConsumer extends ConsumerEntry> =
     : never;
 
 /**
- * Infer consumer message headers output type
+ * Infer consumer message headers output type.
  * Returns undefined if no headers schema is defined.
  */
 type ConsumerInferHeadersOutput<TConsumer extends ConsumerEntry> =
@@ -52,39 +54,24 @@ type ConsumerInferHeadersOutput<TConsumer extends ConsumerEntry> =
       : undefined
     : undefined;
 
-/**
- * Infer consumer response payload output type.
- * For RPC consumers (those with required `responseMessage`), returns the response
- * payload type. For regular consumers, returns `void`.
- *
- * The `extends { responseMessage: infer R }` check intentionally only matches
- * when `responseMessage` is required — under `exactOptionalPropertyTypes`,
- * `defineRpcServer` intersects the consumer with `{ responseMessage: TResponse }`
- * so RPC consumers satisfy this check while regular consumers (whose
- * `responseMessage?:` is optional) do not.
- */
-type ConsumerInferResponseOutput<TConsumer extends ConsumerEntry> =
-  ExtractConsumerDefinition<TConsumer> extends { responseMessage: infer TResponse }
-    ? TResponse extends MessageDefinition
-      ? InferSchemaOutput<TResponse["payload"]>
-      : void
-    : void;
+// =============================================================================
+// Per-name lookups
+// =============================================================================
 
-/**
- * Infer all consumers from contract
- */
 type InferConsumers<TContract extends ContractDefinition> = NonNullable<TContract["consumers"]>;
-
-/**
- * Get specific consumer entry from contract
- */
 type InferConsumer<
   TContract extends ContractDefinition,
   TName extends InferConsumerNames<TContract>,
 > = InferConsumers<TContract>[TName];
 
+type InferRpcs<TContract extends ContractDefinition> = NonNullable<TContract["rpcs"]>;
+type InferRpc<
+  TContract extends ContractDefinition,
+  TName extends InferRpcNames<TContract>,
+> = InferRpcs<TContract>[TName];
+
 /**
- * Infer the payload type for a specific consumer
+ * Infer the payload type for a regular consumer (validated against the message schema).
  */
 type WorkerInferConsumerPayload<
   TContract extends ContractDefinition,
@@ -92,8 +79,8 @@ type WorkerInferConsumerPayload<
 > = ConsumerInferPayloadOutput<InferConsumer<TContract, TName>>;
 
 /**
- * Infer the headers type for a specific consumer
- * Returns undefined if no headers schema is defined
+ * Infer the headers type for a regular consumer.
+ * Returns undefined if no headers schema is defined.
  */
 export type WorkerInferConsumerHeaders<
   TContract extends ContractDefinition,
@@ -101,14 +88,51 @@ export type WorkerInferConsumerHeaders<
 > = ConsumerInferHeadersOutput<InferConsumer<TContract, TName>>;
 
 /**
- * Infer the handler response type for a specific consumer.
- * - RPC consumers (with `responseMessage`) → the response payload type
- * - Regular consumers → `void`
+ * Infer the request payload type for an RPC.
  */
-export type WorkerInferConsumerResponse<
+export type WorkerInferRpcRequest<
   TContract extends ContractDefinition,
-  TName extends InferConsumerNames<TContract>,
-> = ConsumerInferResponseOutput<InferConsumer<TContract, TName>>;
+  TName extends InferRpcNames<TContract>,
+> =
+  InferRpc<TContract, TName> extends RpcDefinition<infer TRequest, MessageDefinition>
+    ? TRequest extends MessageDefinition
+      ? InferSchemaOutput<TRequest["payload"]>
+      : never
+    : never;
+
+/**
+ * Infer the request headers type for an RPC. Returns undefined unless the RPC's
+ * request `MessageDefinition` declares a headers schema.
+ */
+export type WorkerInferRpcHeaders<
+  TContract extends ContractDefinition,
+  TName extends InferRpcNames<TContract>,
+> =
+  InferRpc<TContract, TName> extends RpcDefinition<infer TRequest, MessageDefinition>
+    ? TRequest extends MessageDefinition<infer _TPayload, infer THeaders>
+      ? THeaders extends StandardSchemaV1<Record<string, unknown>>
+        ? InferSchemaOutput<THeaders>
+        : undefined
+      : undefined
+    : undefined;
+
+/**
+ * Infer the response payload type for an RPC. The handler must return a
+ * `Future<Result<TResponse, HandlerError>>` matching this shape.
+ */
+export type WorkerInferRpcResponse<
+  TContract extends ContractDefinition,
+  TName extends InferRpcNames<TContract>,
+> =
+  InferRpc<TContract, TName> extends RpcDefinition<MessageDefinition, infer TResponse>
+    ? TResponse extends MessageDefinition
+      ? InferSchemaOutput<TResponse["payload"]>
+      : never
+    : never;
+
+// =============================================================================
+// Consumed message envelopes
+// =============================================================================
 
 /**
  * A consumed message containing parsed payload and headers.
@@ -121,7 +145,6 @@ export type WorkerInferConsumerResponse<
  *
  * @example
  * ```typescript
- * // Handler receives the consumed message with typed payload and headers
  * const handler = defineHandler(contract, 'processOrder', (message, rawMessage) => {
  *   console.log(message.payload.orderId);  // Typed payload
  *   console.log(message.headers?.priority); // Typed headers (if defined)
@@ -138,8 +161,7 @@ export type WorkerConsumedMessage<TPayload, THeaders = undefined> = {
 };
 
 /**
- * Infer the full consumed message type for a specific consumer.
- * Includes both payload and headers (if defined).
+ * Infer the full consumed message type for a regular consumer.
  */
 export type WorkerInferConsumedMessage<
   TContract extends ContractDefinition,
@@ -149,36 +171,28 @@ export type WorkerInferConsumedMessage<
   WorkerInferConsumerHeaders<TContract, TName>
 >;
 
+/**
+ * Infer the consumed message type for an RPC handler — payload + headers from
+ * the request side of the RPC.
+ */
+export type WorkerInferRpcConsumedMessage<
+  TContract extends ContractDefinition,
+  TName extends InferRpcNames<TContract>,
+> = WorkerConsumedMessage<
+  WorkerInferRpcRequest<TContract, TName>,
+  WorkerInferRpcHeaders<TContract, TName>
+>;
+
 // =============================================================================
 // Handler Types
 // =============================================================================
-// These handlers return `Future<Result<void, HandlerError>>` for explicit error handling.
-// This approach forces the handler to explicitly handle success/failure cases,
-// making the code more robust and easier to reason about.
+// All handlers return `Future<Result<TResponse, HandlerError>>` for explicit
+// error handling. Regular consumers return `void`; RPC handlers return the
+// response payload. RetryableError → exponential backoff retry; NonRetryableError → DLQ.
 
 /**
- * Consumer handler type for a specific consumer.
- * Returns a `Future<Result<void, HandlerError>>` for explicit error handling.
- *
- * Error handling:
- * - RetryableError: Message will be retried with exponential backoff
- * - NonRetryableError: Message will be immediately sent to DLQ
- *
- * The `WorkerInfer*` naming pattern indicates type inference helpers that extract
- * types from a contract definition at compile time.
- *
- * @param message - The parsed message containing validated payload and headers
- * @param rawMessage - The raw AMQP message with all metadata (fields, properties, content)
- *
- * @example
- * ```typescript
- * const handler: WorkerInferConsumerHandler<typeof contract, 'processOrder'> =
- *   ({ payload }, rawMessage) => {
- *     console.log(payload.orderId);  // Typed payload
- *     console.log(rawMessage.fields.deliveryTag); // Raw AMQP message
- *     return Future.value(Result.Ok(undefined));
- *   };
- * ```
+ * Handler signature for a regular consumer (event/command). Returns
+ * `Future<Result<void, HandlerError>>` — there is no response message.
  */
 export type WorkerInferConsumerHandler<
   TContract extends ContractDefinition,
@@ -186,17 +200,25 @@ export type WorkerInferConsumerHandler<
 > = (
   message: WorkerInferConsumedMessage<TContract, TName>,
   rawMessage: ConsumeMessage,
-) => Future<Result<WorkerInferConsumerResponse<TContract, TName>, HandlerError>>;
+) => Future<Result<void, HandlerError>>;
 
 /**
- * Handler entry for a consumer - either a function or a tuple of [handler, options].
- *
- * Two patterns are supported:
- * 1. Simple handler: `({ payload }, rawMessage) => Future.value(Result.Ok(undefined))`
- * 2. Handler with prefetch: `[({ payload }, rawMessage) => ..., { prefetch: 10 }]`
- *
- * Note: Retry configuration is now defined at the queue level in the contract,
- * not at the handler level. See `QueueDefinition.retry` for configuration options.
+ * Handler signature for an RPC. Returns
+ * `Future<Result<TResponse, HandlerError>>` where `TResponse` is the inferred
+ * response payload. The worker validates the response against the RPC's
+ * response schema and publishes it back to `msg.properties.replyTo` with the
+ * same `correlationId`.
+ */
+export type WorkerInferRpcHandler<
+  TContract extends ContractDefinition,
+  TName extends InferRpcNames<TContract>,
+> = (
+  message: WorkerInferRpcConsumedMessage<TContract, TName>,
+  rawMessage: ConsumeMessage,
+) => Future<Result<WorkerInferRpcResponse<TContract, TName>, HandlerError>>;
+
+/**
+ * Handler entry for a regular consumer — function or `[handler, options]`.
  */
 export type WorkerInferConsumerHandlerEntry<
   TContract extends ContractDefinition,
@@ -206,19 +228,43 @@ export type WorkerInferConsumerHandlerEntry<
   | readonly [WorkerInferConsumerHandler<TContract, TName>, ConsumerOptions];
 
 /**
- * Consumer handlers for a contract.
- * All handlers return `Future<Result<void, HandlerError>>` for explicit error control.
+ * Handler entry for an RPC — function or `[handler, options]`.
+ */
+export type WorkerInferRpcHandlerEntry<
+  TContract extends ContractDefinition,
+  TName extends InferRpcNames<TContract>,
+> =
+  | WorkerInferRpcHandler<TContract, TName>
+  | readonly [WorkerInferRpcHandler<TContract, TName>, ConsumerOptions];
+
+/**
+ * All handlers for a contract: one entry per `consumers` key plus one entry
+ * per `rpcs` key. The two name spaces are disjoint so the resulting object
+ * type is unambiguous.
  *
  * @example
  * ```typescript
- * const handlers: WorkerInferConsumerHandlers<typeof contract> = {
+ * const handlers: WorkerInferHandlers<typeof contract> = {
  *   processOrder: ({ payload }) =>
  *     Future.fromPromise(processPayment(payload))
  *       .mapOk(() => undefined)
  *       .mapError((error) => new RetryableError('Payment failed', error)),
+ *   calculate: ({ payload }) =>
+ *     Future.value(Result.Ok({ sum: payload.a + payload.b })),
  * };
  * ```
  */
-export type WorkerInferConsumerHandlers<TContract extends ContractDefinition> = {
-  [K in InferConsumerNames<TContract>]: WorkerInferConsumerHandlerEntry<TContract, K>;
-};
+export type WorkerInferHandlers<TContract extends ContractDefinition> = ([
+  InferConsumerNames<TContract>,
+] extends [never]
+  ? {}
+  : { [K in InferConsumerNames<TContract>]: WorkerInferConsumerHandlerEntry<TContract, K> }) &
+  ([InferRpcNames<TContract>] extends [never]
+    ? {}
+    : { [K in InferRpcNames<TContract>]: WorkerInferRpcHandlerEntry<TContract, K> });
+
+/**
+ * @deprecated Use `WorkerInferHandlers` — handlers now span consumers ∪ rpcs.
+ */
+export type WorkerInferConsumerHandlers<TContract extends ContractDefinition> =
+  WorkerInferHandlers<TContract>;

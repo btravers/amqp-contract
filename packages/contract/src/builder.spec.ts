@@ -999,6 +999,7 @@ describe("builder", () => {
         bindings: {},
         publishers: {},
         consumers: {},
+        rpcs: {},
       });
     });
 

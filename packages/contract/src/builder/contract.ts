@@ -7,12 +7,12 @@ import type {
   ExchangeDefinition,
   PublisherDefinition,
   QueueEntry,
+  RpcDefinition,
 } from "../types.js";
 import { isBridgedPublisherConfig, isCommandConsumerConfig } from "./command.js";
 import { isEventConsumerResult, isEventPublisherConfig } from "./event.js";
 import { definePublisherInternal } from "./publisher.js";
 import { extractQueue } from "./queue-utils.js";
-import { isRpcClientConfig, isRpcServerConfig } from "./rpc.js";
 import { isQueueWithTtlBackoffInfrastructure } from "./ttl-backoff.js";
 
 /**
@@ -83,13 +83,14 @@ import { isQueueWithTtlBackoffInfrastructure } from "./ttl-backoff.js";
 export function defineContract<TContract extends ContractDefinitionInput>(
   definition: TContract,
 ): ContractOutput<TContract> {
-  const { publishers: inputPublishers, consumers: inputConsumers } = definition;
+  const { publishers: inputPublishers, consumers: inputConsumers, rpcs: inputRpcs } = definition;
   const result: ContractDefinition = {
     exchanges: {},
     queues: {},
     bindings: {},
     publishers: {},
     consumers: {},
+    rpcs: {},
   };
 
   // Process publishers section - extract exchanges and convert EventPublisherConfig entries
@@ -104,11 +105,6 @@ export function defineContract<TContract extends ContractDefinitionInput>(
         exchanges[entry.bridgeExchange.name] = entry.bridgeExchange;
         exchanges[entry.targetExchange.name] = entry.targetExchange;
         publisherBindings[`${name}ExchangeBinding`] = entry.exchangeBinding;
-        processedPublishers[name] = entry.publisher;
-      } else if (isRpcClientConfig(entry)) {
-        // RpcClientConfig: extract publisher only. The publisher targets the AMQP
-        // default direct exchange (name `""`), which is implicit — no need to
-        // declare it or its bindings.
         processedPublishers[name] = entry.publisher;
       } else if (isEventPublisherConfig(entry)) {
         // EventPublisherConfig: extract exchange and convert to publisher definition
@@ -191,19 +187,6 @@ export function defineContract<TContract extends ContractDefinitionInput>(
         if (queueDef.deadLetter?.exchange) {
           exchanges[queueDef.deadLetter.exchange.name] = queueDef.deadLetter.exchange;
         }
-      } else if (isRpcServerConfig(entry)) {
-        // RpcServerConfig: extract consumer (carries responseMessage) and queue.
-        // No binding is needed — RPC uses the default direct exchange and the
-        // implicit queue-name binding.
-        processedConsumers[name] = entry.consumer;
-
-        const queueEntry = entry.queue;
-        const queueDef = extractQueue(queueEntry);
-        queues[queueDef.name] = queueEntry;
-
-        if (queueDef.deadLetter?.exchange) {
-          exchanges[queueDef.deadLetter.exchange.name] = queueDef.deadLetter.exchange;
-        }
       } else {
         // Plain ConsumerDefinition: extract queue
         const consumer = entry as ConsumerDefinition;
@@ -237,6 +220,28 @@ export function defineContract<TContract extends ContractDefinitionInput>(
     result.bindings = { ...result.bindings, ...consumerBindings };
     result.queues = { ...result.queues, ...queues };
     result.exchanges = { ...result.exchanges, ...exchanges };
+  }
+
+  // Process rpcs section — extract each RPC's queue (and DLX if any) into the
+  // contract topology. RPCs use the AMQP default exchange with the queue name
+  // as routing key, so no exchange or binding declarations are needed.
+  if (inputRpcs && Object.keys(inputRpcs).length > 0) {
+    const processedRpcs: Record<string, RpcDefinition> = {};
+    const rpcQueues: Record<string, QueueEntry> = {};
+    const rpcExchanges: Record<string, ExchangeDefinition> = {};
+
+    for (const [name, rpc] of Object.entries(inputRpcs)) {
+      processedRpcs[name] = rpc;
+      const queueDef = extractQueue(rpc.queue);
+      rpcQueues[queueDef.name] = rpc.queue;
+      if (queueDef.deadLetter?.exchange) {
+        rpcExchanges[queueDef.deadLetter.exchange.name] = queueDef.deadLetter.exchange;
+      }
+    }
+
+    result.rpcs = processedRpcs;
+    result.queues = { ...result.queues, ...rpcQueues };
+    result.exchanges = { ...result.exchanges, ...rpcExchanges };
   }
 
   return result as ContractOutput<TContract>;
