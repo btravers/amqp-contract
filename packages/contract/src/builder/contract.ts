@@ -84,6 +84,20 @@ export function defineContract<TContract extends ContractDefinitionInput>(
   definition: TContract,
 ): ContractOutput<TContract> {
   const { publishers: inputPublishers, consumers: inputConsumers, rpcs: inputRpcs } = definition;
+
+  // Consumer names and RPC names share the worker handler keyspace; if the
+  // same key appeared in both, the worker would consume from two queues under
+  // one name and dispatch ambiguously. Fail fast at contract-definition time
+  // rather than producing surprising runtime behavior.
+  if (inputConsumers && inputRpcs) {
+    const collisions = Object.keys(inputConsumers).filter((name) => Object.hasOwn(inputRpcs, name));
+    if (collisions.length > 0) {
+      throw new Error(
+        `defineContract: name collision between consumers and rpcs — keys must be disjoint. Conflicting names: ${collisions.join(", ")}`,
+      );
+    }
+  }
+
   const result: ContractDefinition = {
     exchanges: {},
     queues: {},

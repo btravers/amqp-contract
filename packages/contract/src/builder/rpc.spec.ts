@@ -41,6 +41,21 @@ describe("defineRpc", () => {
       });
     });
 
+    it("throws when an RPC name collides with a consumer name", () => {
+      // GIVEN
+      const calculate = defineRpc(queue, { request, response });
+      const consumerQueue = defineQueue("consumer-queue", { type: "classic", durable: false });
+      const consumer = { queue: consumerQueue, message: request };
+
+      // WHEN / THEN
+      expect(() =>
+        defineContract({
+          consumers: { calculate: consumer },
+          rpcs: { calculate },
+        }),
+      ).toThrow(/name collision between consumers and rpcs/);
+    });
+
     it("auto-extracts the RPC's dead-letter exchange when configured", () => {
       // GIVEN
       const dlx = { name: "rpc.dlx", type: "topic" as const, durable: true };
