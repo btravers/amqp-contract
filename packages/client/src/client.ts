@@ -429,6 +429,25 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
       TechnicalError | MessageValidationError | RpcTimeoutError | RpcCancelledError
     >;
 
+    // setTimeout truncates fractional ms and clamps anything outside the
+    // 32-bit signed integer range (~24.8 days) to 1ms, so reject those up
+    // front as user errors rather than producing surprising behavior.
+    const TIMEOUT_MAX_MS = 2_147_483_647;
+    if (
+      typeof options.timeoutMs !== "number" ||
+      !Number.isFinite(options.timeoutMs) ||
+      options.timeoutMs <= 0 ||
+      options.timeoutMs > TIMEOUT_MAX_MS
+    ) {
+      return Future.value(
+        Result.Error(
+          new TechnicalError(
+            `Invalid timeoutMs for RPC call to "${String(publisherName)}": expected a finite positive number ≤ ${TIMEOUT_MAX_MS}, got ${String(options.timeoutMs)}`,
+          ),
+        ) as CallResult,
+      );
+    }
+
     const startTime = Date.now();
     // Non-null assertion safe: TName is constrained to RPC publishers in the contract.
     const publisher = this.contract.publishers![publisherName as string]!;
@@ -484,7 +503,15 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     };
 
     const publishRequest = (validatedRequest: unknown): Future<Result<void, TechnicalError>> => {
+      // Merge `defaultPublishOptions` (e.g. persistent, priority, headers) with
+      // the per-call options, then layer the RPC-managed fields on top so they
+      // cannot be overridden. `compression` is intentionally dropped: RPC v1
+      // does not implement reply-side decompression, so request-side
+      // compression would break the round-trip.
+      const { compression: _ignoredCompression, ...defaultsWithoutCompression } =
+        this.defaultPublishOptions;
       const publishOptions: AmqpClientPublishOptions = {
+        ...defaultsWithoutCompression,
         ...options.publishOptions,
         replyTo: DIRECT_REPLY_TO,
         correlationId,

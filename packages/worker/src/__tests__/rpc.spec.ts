@@ -4,6 +4,7 @@ import {
   RpcTimeoutError,
   TypedAmqpClient,
 } from "@amqp-contract/client";
+import { TechnicalError } from "@amqp-contract/core";
 import {
   ContractDefinition,
   defineContract,
@@ -190,6 +191,24 @@ describe("TypedAmqpClient RPC", () => {
     expect(result.isError()).toBe(true);
     if (result.isError()) {
       expect(result.error).toBeInstanceOf(MessageValidationError);
+    }
+  });
+
+  it.for([
+    { label: "zero", value: 0 },
+    { label: "negative", value: -1 },
+    { label: "NaN", value: Number.NaN },
+    { label: "Infinity", value: Number.POSITIVE_INFINITY },
+    { label: "above setTimeout max", value: 2_147_483_648 },
+  ])("rejects timeoutMs=$label up front", async ({ value }, { clientFactory }) => {
+    const contract = buildContract(`rpc.calculate.invalid-timeout-${value}`);
+    const client = await clientFactory(contract);
+
+    const result = await client.call("calculate", { a: 1, b: 1 }, { timeoutMs: value }).toPromise();
+
+    expect(result.isError()).toBe(true);
+    if (result.isError()) {
+      expect(result.error).toBeInstanceOf(TechnicalError);
     }
   });
 });
