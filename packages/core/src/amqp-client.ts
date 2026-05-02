@@ -41,11 +41,14 @@ function callSetupFunc(
  * @property urls - AMQP broker URL(s). Multiple URLs provide failover support.
  * @property connectionOptions - Optional connection configuration (heartbeat, reconnect settings, etc.).
  * @property channelOptions - Optional channel configuration options.
+ * @property connectTimeoutMs - Maximum time in ms to wait for the channel to become ready
+ *   in `waitForConnect`. If unset, waits forever (amqp-connection-manager retries indefinitely).
  */
 export type AmqpClientOptions = {
   urls: ConnectionUrl[];
   connectionOptions?: AmqpConnectionManagerOptions | undefined;
   channelOptions?: Partial<CreateChannelOpts> | undefined;
+  connectTimeoutMs?: number | undefined;
 };
 
 /**
@@ -102,6 +105,7 @@ export class AmqpClient {
   private readonly channelWrapper: ChannelWrapper;
   private readonly urls: ConnectionUrl[];
   private readonly connectionOptions?: AmqpConnectionManagerOptions;
+  private readonly connectTimeoutMs?: number;
 
   /**
    * Create a new AMQP client instance.
@@ -122,6 +126,9 @@ export class AmqpClient {
     this.urls = options.urls;
     if (options.connectionOptions !== undefined) {
       this.connectionOptions = options.connectionOptions;
+    }
+    if (options.connectTimeoutMs !== undefined) {
+      this.connectTimeoutMs = options.connectTimeoutMs;
     }
 
     // Always use singleton to get/create connection
@@ -169,10 +176,37 @@ export class AmqpClient {
   /**
    * Wait for the channel to be connected and ready.
    *
+   * If `connectTimeoutMs` was provided in the constructor options, the returned
+   * Future rejects with a TechnicalError once the timeout elapses. Without a
+   * timeout, this waits forever — amqp-connection-manager retries connections
+   * indefinitely and never rejects on its own.
+   *
    * @returns A Future that resolves when the channel is connected
    */
   waitForConnect(): Future<Result<void, TechnicalError>> {
-    return Future.fromPromise(this.channelWrapper.waitForConnect()).mapError(
+    const connectPromise = this.channelWrapper.waitForConnect();
+
+    const racedPromise =
+      this.connectTimeoutMs === undefined
+        ? connectPromise
+        : new Promise<void>((resolve, reject) => {
+            const timeoutMs = this.connectTimeoutMs!;
+            const handle = setTimeout(() => {
+              reject(new Error(`Timed out waiting for AMQP connection after ${timeoutMs}ms`));
+            }, timeoutMs);
+            connectPromise.then(
+              () => {
+                clearTimeout(handle);
+                resolve();
+              },
+              (error: unknown) => {
+                clearTimeout(handle);
+                reject(error);
+              },
+            );
+          });
+
+    return Future.fromPromise(racedPromise).mapError(
       (error: unknown) => new TechnicalError("Failed to connect to AMQP broker", error),
     );
   }

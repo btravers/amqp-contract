@@ -160,6 +160,15 @@ export class ConnectionManagerSingleton {
   }
 
   /**
+   * Get the number of active pooled connections.
+   *
+   * @internal
+   */
+  _getConnectionCountForTesting(): number {
+    return this.connections.size;
+  }
+
+  /**
    * Reset all cached connections (for testing purposes)
    * @internal
    */
