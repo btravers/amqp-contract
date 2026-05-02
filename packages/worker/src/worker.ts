@@ -104,6 +104,12 @@ export type CreateWorkerOptions<TContract extends ContractDefinition> = {
    * Handler-specific options provided in tuple form override these defaults.
    */
   defaultConsumerOptions?: ConsumerOptions | undefined;
+  /**
+   * Maximum time in ms to wait for the AMQP connection to become ready before
+   * `create()` rejects. Without this option, `create()` waits forever — the
+   * underlying amqp-connection-manager retries indefinitely.
+   */
+  connectTimeoutMs?: number | undefined;
 };
 
 /**
@@ -237,12 +243,14 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     defaultConsumerOptions,
     logger,
     telemetry,
+    connectTimeoutMs,
   }: CreateWorkerOptions<TContract>): Future<Result<TypedAmqpWorker<TContract>, TechnicalError>> {
     const worker = new TypedAmqpWorker(
       contract,
       new AmqpClient(contract, {
         urls,
         connectionOptions,
+        connectTimeoutMs,
       }),
       handlers,
       defaultConsumerOptions ?? {},

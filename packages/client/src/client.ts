@@ -54,6 +54,12 @@ export type CreateClientOptions<TContract extends ContractDefinition> = {
    * By default, persistent is set to true for message durability.
    */
   defaultPublishOptions?: PublishOptions | undefined;
+  /**
+   * Maximum time in ms to wait for the AMQP connection to become ready before
+   * `create()` rejects. Without this option, `create()` waits forever — the
+   * underlying amqp-connection-manager retries indefinitely.
+   */
+  connectTimeoutMs?: number | undefined;
 };
 
 /**
@@ -85,10 +91,11 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     defaultPublishOptions,
     logger,
     telemetry,
+    connectTimeoutMs,
   }: CreateClientOptions<TContract>): Future<Result<TypedAmqpClient<TContract>, TechnicalError>> {
     const client = new TypedAmqpClient(
       contract,
-      new AmqpClient(contract, { urls, connectionOptions }),
+      new AmqpClient(contract, { urls, connectionOptions, connectTimeoutMs }),
       { persistent: true, ...defaultPublishOptions },
       logger,
       telemetry ?? defaultTelemetryProvider,

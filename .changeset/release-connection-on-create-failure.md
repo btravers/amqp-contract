@@ -1,10 +1,11 @@
 ---
-"@amqp-contract/client": patch
-"@amqp-contract/worker": patch
+"@amqp-contract/core": minor
+"@amqp-contract/client": minor
+"@amqp-contract/worker": minor
 ---
 
-Fix connection leak when `TypedAmqpClient.create()` or `TypedAmqpWorker.create()` fails.
+Add `connectTimeoutMs` option to `TypedAmqpClient.create()`, `TypedAmqpWorker.create()`, and `AmqpClient`, and fix a connection leak on the failure path.
 
-Previously, if `waitForConnect` rejected (client/worker) or `consumeAll` errored after some consumers had registered (worker), the underlying connection's reference count remained incremented and any registered consumers stayed running. The caller received a `Result.Error` with no handle to clean up.
+`amqp-connection-manager` retries connections indefinitely and never rejects `waitForConnect` on its own. Without a timeout, a misconfigured URL or unreachable broker pinned the call forever. The new `connectTimeoutMs` option races `waitForConnect` against a timer so `create()` can fail fast.
 
-Both factories now invoke `close()` before propagating the error, releasing the connection ref-count via the singleton and cancelling any partially-registered consumers.
+The same code path also fixes a connection leak: when `create()` failed (timeout, or `consumeAll` erroring after some consumers had registered), the connection's reference count in `ConnectionManagerSingleton` stayed incremented and any registered consumers stayed running. Both factories now invoke `close()` before propagating the error.
