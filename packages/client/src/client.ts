@@ -129,7 +129,7 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
 
   /**
    * Consumer tag of the reply consumer subscribed on `amq.rabbitmq.reply-to`.
-   * Set when the contract has at least one RPC publisher; undefined otherwise.
+   * Set when the contract has at least one entry in `rpcs`; undefined otherwise.
    */
   private replyConsumerTag?: string;
 
@@ -242,7 +242,20 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
       return;
     }
 
-    const rawValidation = pending.responseSchema["~standard"].validate(parsed);
+    // Wrap the validate call itself — a Standard Schema implementation may
+    // throw synchronously, and the throw would otherwise escape the consume
+    // callback and could crash the reply consumer.
+    let rawValidation: ReturnType<StandardSchemaV1["~standard"]["validate"]>;
+    try {
+      rawValidation = pending.responseSchema["~standard"].validate(parsed);
+    } catch (error: unknown) {
+      pending.resolve(
+        Result.Error(
+          new TechnicalError(`RPC reply validation threw for "${pending.rpcName}"`, error),
+        ),
+      );
+      return;
+    }
     const validationPromise =
       rawValidation instanceof Promise ? rawValidation : Promise.resolve(rawValidation);
 
@@ -470,7 +483,19 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     const validateRequest = (): Future<
       Result<unknown, TechnicalError | MessageValidationError>
     > => {
-      const rawValidation = requestSchema["~standard"].validate(request);
+      // Wrap the validate call — a Standard Schema implementation may throw
+      // synchronously, and that throw would otherwise escape the Future chain
+      // and leave the pending-call entry/timer dangling until timeout.
+      let rawValidation: ReturnType<StandardSchemaV1["~standard"]["validate"]>;
+      try {
+        rawValidation = requestSchema["~standard"].validate(request);
+      } catch (error: unknown) {
+        return Future.value(
+          Result.Error<unknown, TechnicalError | MessageValidationError>(
+            new TechnicalError("RPC request validation threw", error),
+          ),
+        );
+      }
       const validationPromise =
         rawValidation instanceof Promise ? rawValidation : Promise.resolve(rawValidation);
       return Future.fromPromise(validationPromise)

@@ -516,7 +516,19 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
       return Future.value(Result.Ok(undefined));
     }
 
-    const rawValidation = responseSchema["~standard"].validate(response);
+    // Wrap the call to `validate` itself in try/catch — a Standard Schema
+    // implementation may throw synchronously (not via a rejected Promise), and
+    // we don't want that to crash the consume callback.
+    let rawValidation: ReturnType<StandardSchemaV1["~standard"]["validate"]>;
+    try {
+      rawValidation = responseSchema["~standard"].validate(response);
+    } catch (error: unknown) {
+      return Future.value(
+        Result.Error<void, HandlerError>(
+          new NonRetryableError("RPC response schema validation threw", error),
+        ),
+      );
+    }
     const validationPromise =
       rawValidation instanceof Promise ? rawValidation : Promise.resolve(rawValidation);
 
