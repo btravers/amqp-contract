@@ -44,5 +44,13 @@ jobs:
           commit: "chore: release packages"
           title: "chore: release packages"
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Use a Personal Access Token rather than the default GITHUB_TOKEN.
+          # Events triggered by GITHUB_TOKEN do not start new workflow runs
+          # (GitHub's anti-recursion safeguard), so the "Version Packages"
+          # PR opened by this action would otherwise skip CI entirely. A PAT
+          # attributes the PR to a real user and CI fires normally.
+          # Required repo secret: RELEASE_PAT (classic PAT with `repo` scope,
+          # or a fine-grained token with Contents: read/write + Pull requests:
+          # read/write on this repo).
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PAT }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
