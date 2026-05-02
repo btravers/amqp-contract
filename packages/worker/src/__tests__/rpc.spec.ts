@@ -4,15 +4,14 @@ import {
   RpcTimeoutError,
   TypedAmqpClient,
 } from "@amqp-contract/client";
-import { TechnicalError } from "@amqp-contract/core";
 import {
   ContractDefinition,
   defineContract,
   defineMessage,
   defineQueue,
-  defineRpcClient,
-  defineRpcServer,
+  defineRpc,
 } from "@amqp-contract/contract";
+import { TechnicalError } from "@amqp-contract/core";
 import { it as baseIt } from "@amqp-contract/testing/extension";
 import { Future, Result } from "@swan-io/boxed";
 import { describe, expect } from "vitest";
@@ -79,12 +78,8 @@ const buildContract = (queueName: string) => {
   const queue = defineQueue(queueName, { type: "classic", durable: false });
   const request = defineMessage(z.object({ a: z.number(), b: z.number() }));
   const response = defineMessage(z.object({ sum: z.number() }));
-  const server = defineRpcServer(queue, { request, response });
-  const client = defineRpcClient(server);
-  return defineContract({
-    consumers: { calculate: server },
-    publishers: { calculate: client },
-  });
+  const calculate = defineRpc(queue, { request, response });
+  return defineContract({ rpcs: { calculate } });
 };
 
 describe("TypedAmqpClient RPC", () => {
@@ -116,20 +111,19 @@ describe("TypedAmqpClient RPC", () => {
     }
   });
 
-  it("returns MessageValidationError when the server replies with the wrong shape", async ({
+  it("returns RpcTimeoutError when the server replies with the wrong shape", async ({
     workerFactory,
     clientFactory,
   }) => {
     const contract = buildContract("rpc.calculate.bad-shape");
 
     await workerFactory(contract, {
-      // Cast through unknown to deliberately return a wrong shape.
+      // Cast through unknown to deliberately return a wrong shape — the worker's
+      // response-schema validation drops the reply, so the client times out.
       calculate: () => Future.value(Result.Ok({ wrong: "shape" } as unknown as { sum: number })),
     });
     const client = await clientFactory(contract);
 
-    // The worker's response-schema validation fails before publishing the reply,
-    // so the client times out (no reply is ever sent).
     const result = await client.call("calculate", { a: 1, b: 1 }, { timeoutMs: 500 }).toPromise();
 
     expect(result.isError()).toBe(true);

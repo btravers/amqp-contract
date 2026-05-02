@@ -22,10 +22,10 @@ function captureStack(target: object, ctor: Function): void {
  */
 export class RpcTimeoutError extends Error {
   constructor(
-    public readonly publisherName: string,
+    public readonly rpcName: string,
     public readonly timeoutMs: number,
   ) {
-    super(`RPC call to "${publisherName}" timed out after ${timeoutMs}ms with no reply received`);
+    super(`RPC call to "${rpcName}" timed out after ${timeoutMs}ms with no reply received`);
     this.name = "RpcTimeoutError";
     captureStack(this, this.constructor);
   }
@@ -37,8 +37,8 @@ export class RpcTimeoutError extends Error {
  * caller's promise resolves with `Result.Error(RpcCancelledError)`.
  */
 export class RpcCancelledError extends Error {
-  constructor(public readonly publisherName: string) {
-    super(`RPC call to "${publisherName}" was cancelled because the client was closed`);
+  constructor(public readonly rpcName: string) {
+    super(`RPC call to "${rpcName}" was cancelled because the client was closed`);
     this.name = "RpcCancelledError";
     captureStack(this, this.constructor);
   }

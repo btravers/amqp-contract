@@ -26,7 +26,7 @@ For robust contract definitions with guaranteed consistency, use Event or Comman
 | ----------- | ------------------------------------------ | -------------------------------------------------- |
 | **Event**   | One publisher, many consumers (broadcast)  | `defineEventPublisher` → `defineEventConsumer`     |
 | **Command** | Many publishers, one consumer (task queue) | `defineCommandConsumer` → `defineCommandPublisher` |
-| **RPC**     | Request / response with typed reply        | `defineRpcServer` → `defineRpcClient`              |
+| **RPC**     | Request / response with typed reply        | `defineRpc` (single bidirectional definition)      |
 
 ```typescript
 import {
@@ -78,30 +78,24 @@ const contract = defineContract({
 
 ### RPC Pattern
 
-Use `defineRpcServer` / `defineRpcClient` for typed request/response calls. The
-server handler returns a typed response; the client awaits it via
-`client.call(name, request, { timeoutMs })`. RabbitMQ direct reply-to is used
+Use `defineRpc` for typed request/response calls. RPC is bidirectional on both
+ends — the worker handler consumes the request and produces a typed response;
+the client awaits it via `client.call(name, request, { timeoutMs })`. Both
+ends share the same definition, and RPCs live in their own `rpcs` slot of the
+contract (not `publishers` or `consumers`). RabbitMQ direct reply-to is used
 under the hood, so no reply queue declaration is needed.
 
 ```typescript
-import {
-  defineContract,
-  defineMessage,
-  defineQueue,
-  defineRpcClient,
-  defineRpcServer,
-} from "@amqp-contract/contract";
+import { defineContract, defineMessage, defineQueue, defineRpc } from "@amqp-contract/contract";
 import { z } from "zod";
 
-const calculateRpc = defineRpcServer(defineQueue("rpc.calculate"), {
+const calculate = defineRpc(defineQueue("rpc.calculate"), {
   request: defineMessage(z.object({ a: z.number(), b: z.number() })),
   response: defineMessage(z.object({ sum: z.number() })),
 });
-const callCalculate = defineRpcClient(calculateRpc);
 
 const contract = defineContract({
-  consumers: { calculate: calculateRpc },
-  publishers: { calculate: callCalculate },
+  rpcs: { calculate },
 });
 
 // Server handler returns the response value, not void:

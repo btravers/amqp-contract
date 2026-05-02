@@ -2,6 +2,7 @@ import {
   type ConsumerDefinition,
   type ContractDefinition,
   type InferConsumerNames,
+  type InferRpcNames,
   extractConsumer,
   extractQueue,
 } from "@amqp-contract/contract";
@@ -25,11 +26,25 @@ import { decompressBuffer } from "./decompression.js";
 import type { HandlerError } from "./errors.js";
 import { MessageValidationError, NonRetryableError, RetryableError } from "./errors.js";
 import { handleError } from "./retry.js";
-import type {
-  WorkerInferConsumedMessage,
-  WorkerInferConsumerHandler,
-  WorkerInferConsumerHandlers,
-} from "./types.js";
+import type { WorkerInferHandlers } from "./types.js";
+
+/**
+ * Either a regular consumer name or an RPC name from the contract.
+ */
+type HandlerName<TContract extends ContractDefinition> =
+  | InferConsumerNames<TContract>
+  | InferRpcNames<TContract>;
+
+/**
+ * Resolved handler entry stored on the worker, regardless of whether the
+ * source is a `consumers` or `rpcs` slot. The handler signature is widened
+ * here because both kinds share the same dispatch loop; specific call sites
+ * cast back to the correct typed handler.
+ */
+type StoredHandler = (
+  message: { payload: unknown; headers: unknown },
+  rawMessage: ConsumeMessage,
+) => Future<Result<unknown, HandlerError>>;
 
 export type ConsumerOptions = AmqpClientConsumerOptions;
 
@@ -82,11 +97,16 @@ export type CreateWorkerOptions<TContract extends ContractDefinition> = {
   /** The AMQP contract definition specifying consumers and their message schemas */
   contract: TContract;
   /**
-   * Handlers for each consumer defined in the contract.
-   * Handlers must return `Future<Result<void, HandlerError>>` for explicit error handling.
-   * Use defineHandler() to create handlers.
+   * Handlers for each `consumers` and `rpcs` entry in the contract.
+   *
+   * - Regular consumers return `Future<Result<void, HandlerError>>`.
+   * - RPC handlers return `Future<Result<TResponse, HandlerError>>` where
+   *   `TResponse` is inferred from the RPC's response message schema.
+   *
+   * Use `defineHandler` / `defineHandlers` to create handlers with full type
+   * inference.
    */
-  handlers: WorkerInferConsumerHandlers<TContract>;
+  handlers: WorkerInferHandlers<TContract>;
   /** AMQP broker URL(s). Multiple URLs provide failover support */
   urls: ConnectionUrl[];
   /** Optional connection configuration (heartbeat, reconnect settings, etc.) */
@@ -156,59 +176,75 @@ export type CreateWorkerOptions<TContract extends ContractDefinition> = {
  */
 export class TypedAmqpWorker<TContract extends ContractDefinition> {
   /**
-   * Internal handler storage - handlers returning `Future<Result>`.
+   * Internal handler storage. Keyed by handler name (consumer or RPC); the
+   * stored function signature is widened so the dispatch loop can call it
+   * uniformly. The actual handler is type-checked at the worker's public API
+   * boundary via `WorkerInferHandlers<TContract>`.
    */
-  private readonly actualHandlers: Partial<
-    Record<
-      InferConsumerNames<TContract>,
-      WorkerInferConsumerHandler<TContract, InferConsumerNames<TContract>>
-    >
-  >;
-  private readonly consumerOptions: Partial<Record<InferConsumerNames<TContract>, ConsumerOptions>>;
+  private readonly actualHandlers: Partial<Record<HandlerName<TContract>, StoredHandler>>;
+  private readonly consumerOptions: Partial<Record<HandlerName<TContract>, ConsumerOptions>>;
   private readonly consumerTags: Set<string> = new Set();
   private readonly telemetry: TelemetryProvider;
 
   private constructor(
     private readonly contract: TContract,
     private readonly amqpClient: AmqpClient,
-    handlers: WorkerInferConsumerHandlers<TContract>,
+    handlers: WorkerInferHandlers<TContract>,
     private readonly defaultConsumerOptions: ConsumerOptions,
     private readonly logger?: Logger,
     telemetry?: TelemetryProvider,
   ) {
     this.telemetry = telemetry ?? defaultTelemetryProvider;
 
-    // Extract handlers and options from the handlers object
     this.actualHandlers = {};
     this.consumerOptions = {};
 
-    // Cast handlers to a generic record for iteration
     const handlersRecord = handlers as Record<string, unknown>;
 
-    for (const consumerName of Object.keys(handlersRecord)) {
-      const handlerEntry = handlersRecord[consumerName];
-      const typedConsumerName = consumerName as InferConsumerNames<TContract>;
+    for (const handlerName of Object.keys(handlersRecord)) {
+      const handlerEntry = handlersRecord[handlerName];
+      const typedName = handlerName as HandlerName<TContract>;
 
       if (isHandlerTuple(handlerEntry)) {
-        // Tuple format: [handler, options]
         const [handler, options] = handlerEntry;
-        this.actualHandlers[typedConsumerName] = handler as WorkerInferConsumerHandler<
-          TContract,
-          InferConsumerNames<TContract>
-        >;
-        this.consumerOptions[typedConsumerName] = {
+        this.actualHandlers[typedName] = handler as StoredHandler;
+        this.consumerOptions[typedName] = {
           ...this.defaultConsumerOptions,
           ...options,
         };
       } else {
-        // Direct function format
-        this.actualHandlers[typedConsumerName] = handlerEntry as WorkerInferConsumerHandler<
-          TContract,
-          InferConsumerNames<TContract>
-        >;
-        this.consumerOptions[typedConsumerName] = this.defaultConsumerOptions;
+        this.actualHandlers[typedName] = handlerEntry as StoredHandler;
+        this.consumerOptions[typedName] = this.defaultConsumerOptions;
       }
     }
+  }
+
+  /**
+   * Build a `ConsumerDefinition`-shaped view for a handler name, regardless
+   * of whether it came from `contract.consumers` or `contract.rpcs`. The
+   * dispatch path treats both uniformly — the only difference is whether
+   * `responseMessage` is set, which signals `processMessage` to validate and
+   * publish a reply.
+   */
+  private resolveConsumerView(name: HandlerName<TContract>): {
+    consumer: ConsumerDefinition;
+    isRpc: boolean;
+    responseSchema?: StandardSchemaV1;
+  } {
+    const rpcs = this.contract.rpcs;
+    if (rpcs && (name as string) in rpcs) {
+      const rpc = rpcs[name as string]!;
+      return {
+        consumer: { queue: rpc.queue, message: rpc.request },
+        isRpc: true,
+        responseSchema: rpc.response.payload,
+      };
+    }
+    const consumerEntry = this.contract.consumers![name as string]!;
+    return {
+      consumer: extractConsumer(consumerEntry),
+      isRpc: false,
+    };
   }
 
   /**
@@ -317,15 +353,16 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   }
 
   /**
-   * Start consuming messages for all consumers.
-   * TypeScript guarantees consumers exist (handlers require matching consumers).
+   * Start consuming for every entry in `contract.consumers` and `contract.rpcs`.
    */
   private consumeAll(): Future<Result<void, TechnicalError>> {
-    // Non-null assertion safe: TypeScript guarantees consumers exist (handlers require matching consumers)
-    const consumers = this.contract.consumers!;
-    const consumerNames = Object.keys(consumers) as InferConsumerNames<TContract>[];
+    const consumerNames = Object.keys(
+      this.contract.consumers ?? {},
+    ) as InferConsumerNames<TContract>[];
+    const rpcNames = Object.keys(this.contract.rpcs ?? {}) as InferRpcNames<TContract>[];
+    const allNames = [...consumerNames, ...rpcNames] as HandlerName<TContract>[];
 
-    return Future.all(consumerNames.map((name) => this.consume(name)))
+    return Future.all(allNames.map((name) => this.consume(name)))
       .map(Result.all)
       .mapOk(() => undefined);
   }
@@ -335,23 +372,15 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   }
 
   /**
-   * Start consuming messages for a specific consumer.
-   * TypeScript guarantees consumer and handler exist for valid consumer names.
+   * Start consuming messages for a specific handler — either a `consumers`
+   * entry (regular event/command consumer) or an `rpcs` entry (RPC server).
    */
-  private consume<TName extends InferConsumerNames<TContract>>(
-    consumerName: TName,
-  ): Future<Result<void, TechnicalError>> {
-    // Non-null assertions safe: TypeScript guarantees these exist for valid TName
-    const consumerEntry = this.contract.consumers![consumerName as string]!;
-    const consumer = extractConsumer(consumerEntry);
-    // Non-null assertion safe: constructor validates handlers match consumer names
-    const handler = this.actualHandlers[consumerName]!;
+  private consume(name: HandlerName<TContract>): Future<Result<void, TechnicalError>> {
+    const view = this.resolveConsumerView(name);
+    // Non-null assertion safe: constructor validates handlers match contract names.
+    const handler = this.actualHandlers[name]!;
 
-    return this.consumeSingle(
-      consumerName,
-      consumer,
-      handler as Parameters<typeof this.consumeSingle<TName>>[2],
-    );
+    return this.consumeSingle(name, view, handler);
   }
 
   /**
@@ -394,11 +423,11 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * Parse and validate a message from AMQP.
    * @returns Ok with validated message (payload + headers), or Error (message already nacked)
    */
-  private parseAndValidateMessage<TName extends InferConsumerNames<TContract>>(
+  private parseAndValidateMessage(
     msg: ConsumeMessage,
     consumer: ConsumerDefinition,
-    consumerName: TName,
-  ): Future<Result<WorkerInferConsumedMessage<TContract, TName>, TechnicalError>> {
+    consumerName: HandlerName<TContract>,
+  ): Future<Result<{ payload: unknown; headers: unknown }, TechnicalError>> {
     const queue = extractQueue(consumer.queue);
     const context = {
       consumerName: String(consumerName),
@@ -443,48 +472,45 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
     return Future.allFromDict({ payload: parsePayload, headers: parseHeaders }).map(
       Result.allFromDict,
-    ) as Future<Result<WorkerInferConsumedMessage<TContract, TName>, TechnicalError>>;
+    ) as Future<Result<{ payload: unknown; headers: unknown }, TechnicalError>>;
   }
 
   /**
    * Validate an RPC handler's response and publish it back to the caller's reply
-   * queue with the same `correlationId`. The response is published via the AMQP
-   * default exchange with `routingKey = msg.properties.replyTo`, which works for
-   * both `amq.rabbitmq.reply-to` and any anonymous queue declared by the caller.
+   * queue with the same `correlationId`. Published via the AMQP default exchange
+   * with `routingKey = msg.properties.replyTo`, which works for both
+   * `amq.rabbitmq.reply-to` and any anonymous queue declared by the caller.
    *
    * Validation errors are surfaced as NonRetryableError (handler returned the
    * wrong shape — retrying the same input will not fix it). Publish errors are
    * surfaced as RetryableError so the worker's existing retry logic applies.
    */
-  private publishRpcResponse<TName extends InferConsumerNames<TContract>>(
+  private publishRpcResponse(
     msg: ConsumeMessage,
-    consumer: ConsumerDefinition,
-    consumerName: TName,
+    queueName: string,
+    rpcName: HandlerName<TContract>,
+    responseSchema: StandardSchemaV1,
     response: unknown,
   ): Future<Result<void, HandlerError>> {
-    const queueName = extractQueue(consumer.queue).name;
     const replyTo = msg.properties.replyTo;
     const correlationId = msg.properties.correlationId;
     if (typeof replyTo !== "string" || replyTo.length === 0) {
       this.logger?.warn(
         "RPC handler returned a response but the incoming message has no replyTo; dropping response",
-        { consumerName: String(consumerName), queueName },
+        { rpcName: String(rpcName), queueName },
       );
       return Future.value(Result.Ok(undefined));
     }
     if (typeof correlationId !== "string" || correlationId.length === 0) {
       // Without a correlationId the client cannot match the reply to its
       // pending call — publishing anyway would guarantee a client-side timeout.
-      // Drop and warn so the operator can fix the upstream caller.
       this.logger?.warn(
         "RPC handler returned a response but the incoming message has no correlationId; dropping response",
-        { consumerName: String(consumerName), queueName, replyTo },
+        { rpcName: String(rpcName), queueName, replyTo },
       );
       return Future.value(Result.Ok(undefined));
     }
 
-    // Non-null assertion safe: this method is only called when responseMessage is set.
-    const responseSchema = consumer.responseMessage!.payload;
     const rawValidation = responseSchema["~standard"].validate(response);
     const validationPromise =
       rawValidation instanceof Promise ? rawValidation : Promise.resolve(rawValidation);
@@ -498,8 +524,8 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         if (validation.issues) {
           return Result.Error<unknown, HandlerError>(
             new NonRetryableError(
-              `RPC response for "${String(consumerName)}" failed schema validation`,
-              new MessageValidationError(String(consumerName), validation.issues),
+              `RPC response for "${String(rpcName)}" failed schema validation`,
+              new MessageValidationError(String(rpcName), validation.issues),
             ),
           );
         }
@@ -527,40 +553,39 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   }
 
   /**
-   * Process a single consumed message: validate, invoke handler, record telemetry, and handle errors.
+   * Process a single consumed message: validate, invoke handler, optionally
+   * publish the RPC response, record telemetry, and handle errors.
    */
-  private processMessage<TName extends InferConsumerNames<TContract>>(
+  private processMessage(
     msg: ConsumeMessage,
-    consumer: ConsumerDefinition,
-    consumerName: TName,
-    handler: (
-      message: WorkerInferConsumedMessage<TContract, TName>,
-      rawMessage: ConsumeMessage,
-    ) => Future<Result<unknown, HandlerError>>,
+    view: { consumer: ConsumerDefinition; isRpc: boolean; responseSchema?: StandardSchemaV1 },
+    name: HandlerName<TContract>,
+    handler: StoredHandler,
   ): Future<Result<void, TechnicalError>> {
+    const { consumer, isRpc, responseSchema } = view;
     const queueName = extractQueue(consumer.queue).name;
     const startTime = Date.now();
-    const span = startConsumeSpan(this.telemetry, queueName, String(consumerName), {
+    const span = startConsumeSpan(this.telemetry, queueName, String(name), {
       "messaging.rabbitmq.message.delivery_tag": msg.fields.deliveryTag,
     });
 
     let messageHandled = false;
     let firstError: Error | undefined;
 
-    return this.parseAndValidateMessage(msg, consumer, consumerName)
+    return this.parseAndValidateMessage(msg, consumer, name)
       .flatMapOk((validatedMessage) =>
         handler(validatedMessage, msg)
           .flatMapOk((handlerResponse) => {
-            // RPC: validate response and publish back to msg.properties.replyTo.
-            if (consumer.responseMessage) {
+            if (isRpc && responseSchema) {
               return this.publishRpcResponse(
                 msg,
-                consumer,
-                consumerName,
+                queueName,
+                name,
+                responseSchema,
                 handlerResponse,
               ).flatMapOk(() => {
                 this.logger?.info("Message consumed successfully", {
-                  consumerName: String(consumerName),
+                  consumerName: String(name),
                   queueName,
                 });
                 this.amqpClient.ack(msg);
@@ -570,7 +595,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
             }
 
             this.logger?.info("Message consumed successfully", {
-              consumerName: String(consumerName),
+              consumerName: String(name),
               queueName,
             });
             this.amqpClient.ack(msg);
@@ -580,7 +605,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           })
           .flatMapError((handlerError: HandlerError) => {
             this.logger?.error("Error processing message", {
-              consumerName: String(consumerName),
+              consumerName: String(name),
               queueName,
               errorType: handlerError.name,
               error: handlerError.message,
@@ -591,7 +616,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
               { amqpClient: this.amqpClient, logger: this.logger },
               handlerError,
               msg,
-              String(consumerName),
+              String(name),
               consumer,
             );
           }),
@@ -600,13 +625,13 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         const durationMs = Date.now() - startTime;
         if (messageHandled) {
           endSpanSuccess(span);
-          recordConsumeMetric(this.telemetry, queueName, String(consumerName), true, durationMs);
+          recordConsumeMetric(this.telemetry, queueName, String(name), true, durationMs);
         } else {
           const error = result.isError()
             ? result.error
             : (firstError ?? new Error("Unknown error"));
           endSpanError(span, error);
-          recordConsumeMetric(this.telemetry, queueName, String(consumerName), false, durationMs);
+          recordConsumeMetric(this.telemetry, queueName, String(name), false, durationMs);
         }
         return result;
       });
@@ -615,15 +640,12 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   /**
    * Consume messages one at a time.
    */
-  private consumeSingle<TName extends InferConsumerNames<TContract>>(
-    consumerName: TName,
-    consumer: ConsumerDefinition,
-    handler: (
-      message: WorkerInferConsumedMessage<TContract, TName>,
-      rawMessage: ConsumeMessage,
-    ) => Future<Result<unknown, HandlerError>>,
+  private consumeSingle(
+    name: HandlerName<TContract>,
+    view: { consumer: ConsumerDefinition; isRpc: boolean; responseSchema?: StandardSchemaV1 },
+    handler: StoredHandler,
   ): Future<Result<void, TechnicalError>> {
-    const queueName = extractQueue(consumer.queue).name;
+    const queueName = extractQueue(view.consumer.queue).name;
 
     return this.amqpClient
       .consume(
@@ -631,21 +653,20 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
         async (msg) => {
           if (msg === null) {
             this.logger?.warn("Consumer cancelled by server", {
-              consumerName: String(consumerName),
+              consumerName: String(name),
               queueName,
             });
             return;
           }
-          await this.processMessage(msg, consumer, consumerName, handler).toPromise();
+          await this.processMessage(msg, view, name, handler).toPromise();
         },
-        this.consumerOptions[consumerName],
+        this.consumerOptions[name],
       )
       .tapOk((consumerTag) => {
         this.consumerTags.add(consumerTag);
       })
       .mapError(
-        (error) =>
-          new TechnicalError(`Failed to start consuming for "${String(consumerName)}"`, error),
+        (error) => new TechnicalError(`Failed to start consuming for "${String(name)}"`, error),
       )
       .mapOk(() => undefined);
   }

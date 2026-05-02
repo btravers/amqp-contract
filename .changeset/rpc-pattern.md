@@ -5,32 +5,25 @@
 "@amqp-contract/core": minor
 ---
 
-Add RPC pattern: `defineRpcServer` / `defineRpcClient` for typed request/response over RabbitMQ.
-
-Defining an RPC operation:
+Add RPC pattern: typed request/response over RabbitMQ via a single
+`defineRpc` builder and a dedicated `rpcs` slot on the contract.
 
 ```typescript
-import {
-  defineContract,
-  defineMessage,
-  defineQueue,
-  defineRpcClient,
-  defineRpcServer,
-} from "@amqp-contract/contract";
+import { defineContract, defineMessage, defineQueue, defineRpc } from "@amqp-contract/contract";
 import { z } from "zod";
 
-const calculateRpc = defineRpcServer(defineQueue("rpc.calculate"), {
+const calculate = defineRpc(defineQueue("rpc.calculate"), {
   request: defineMessage(z.object({ a: z.number(), b: z.number() })),
   response: defineMessage(z.object({ sum: z.number() })),
 });
 
 const contract = defineContract({
-  consumers: { calculate: calculateRpc },
-  publishers: { calculate: defineRpcClient(calculateRpc) },
+  rpcs: { calculate },
 });
 ```
 
-The worker handler returns the response payload (validated against the response schema before being published back to the caller's `replyTo`):
+The worker handler returns the response payload (validated against the
+response schema before being published back to the caller's `replyTo`):
 
 ```typescript
 TypedAmqpWorker.create({
@@ -49,11 +42,24 @@ const result = await client.call("calculate", { a: 1, b: 2 }, { timeoutMs: 5_000
 // Result<{ sum: number }, TechnicalError | MessageValidationError | RpcTimeoutError | RpcCancelledError>
 ```
 
-**Implementation notes:**
+**Design notes:**
 
-- Uses RabbitMQ direct reply-to (`amq.rabbitmq.reply-to`) — no reply queue declaration needed.
-- Routes via the AMQP default direct exchange with the server's queue name as routing key.
-- A single reply consumer demultiplexes responses by `correlationId`; the client manages an in-memory pending-call map.
+- RPC is bidirectional on both ends (server consumes requests + publishes
+  responses; client publishes requests + consumes responses), so it has
+  its own `rpcs` slot rather than being shoehorned into `publishers` or
+  `consumers`.
+- A single `defineRpc(queue, { request, response })` produces one
+  definition shared by both ends — no client/server split, no risk of
+  schema drift.
+- Worker handler keys live in the same object as `consumers` handlers;
+  RPC handlers return the typed response payload, regular consumers
+  return `void`.
+- Uses RabbitMQ direct reply-to (`amq.rabbitmq.reply-to`) — no reply
+  queue declaration needed.
+- A single reply consumer demultiplexes responses by `correlationId`;
+  the client manages an in-memory pending-call map.
 - Closing the client rejects every in-flight call with `RpcCancelledError`.
-- Response-schema validation failures on the server are mapped to `NonRetryableError` (handler bug → DLQ).
-- AsyncAPI generation surfaces RPC publishers/consumers as ordinary publish/receive operations; richer `requestReply` operation pairs are tracked as a follow-up.
+- Response-schema validation failures on the server map to
+  `NonRetryableError` (handler bug → DLQ).
+- AsyncAPI generation does not yet emit dedicated requestReply pairs for
+  RPCs — tracked as a follow-up.

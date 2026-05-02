@@ -37,10 +37,7 @@ export {
   isBridgedPublisherConfig,
   isCommandConsumerConfig,
   // RPC pattern
-  defineRpcServer,
-  defineRpcClient,
-  isRpcServerConfig,
-  isRpcClientConfig,
+  defineRpc,
   // TTL-backoff infrastructure
   isQueueWithTtlBackoffInfrastructure,
 } from "./builder/index.js";
@@ -57,7 +54,4 @@ export type {
   // Command pattern types
   BridgedPublisherConfig,
   CommandConsumerConfig,
-  // RPC pattern types
-  RpcServerConfig,
-  RpcClientConfig,
 } from "./builder/index.js";

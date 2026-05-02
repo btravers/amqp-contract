@@ -3,6 +3,6 @@ export type { CallOptions, CreateClientOptions, PublishOptions } from "./client.
 export { MessageValidationError, RpcCancelledError, RpcTimeoutError } from "./errors.js";
 export type {
   ClientInferPublisherInput,
-  ClientInferRpcPublisherNames,
+  ClientInferRpcRequestInput,
   ClientInferRpcResponseOutput,
 } from "./types.js";
