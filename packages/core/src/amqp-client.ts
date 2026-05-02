@@ -177,11 +177,18 @@ export class AmqpClient {
    * Wait for the channel to be connected and ready.
    *
    * If `connectTimeoutMs` was provided in the constructor options, the returned
-   * Future rejects with a TechnicalError once the timeout elapses. Without a
-   * timeout, this waits forever — amqp-connection-manager retries connections
-   * indefinitely and never rejects on its own.
+   * Future resolves to `Result.Error<TechnicalError>` once the timeout elapses.
+   * Without a timeout, this waits forever — amqp-connection-manager retries
+   * connections indefinitely and never errors on its own.
    *
-   * @returns A Future that resolves when the channel is connected
+   * NOTE: When using `AmqpClient` directly (not via `TypedAmqpClient` /
+   * `TypedAmqpWorker`), the constructor has already incremented the pooled
+   * connection's reference count. Callers must invoke `close()` on the error
+   * path to release the connection — `waitForConnect` does not do this
+   * automatically. The typed factories handle this cleanup for you.
+   *
+   * @returns A Future resolving to `Result.Ok(void)` on connect, or
+   *   `Result.Error(TechnicalError)` on timeout / connection failure.
    */
   waitForConnect(): Future<Result<void, TechnicalError>> {
     const connectPromise = this.channelWrapper.waitForConnect();
