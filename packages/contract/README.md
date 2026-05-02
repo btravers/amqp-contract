@@ -26,6 +26,7 @@ For robust contract definitions with guaranteed consistency, use Event or Comman
 | ----------- | ------------------------------------------ | -------------------------------------------------- |
 | **Event**   | One publisher, many consumers (broadcast)  | `defineEventPublisher` → `defineEventConsumer`     |
 | **Command** | Many publishers, one consumer (task queue) | `defineCommandConsumer` → `defineCommandPublisher` |
+| **RPC**     | Request / response with typed reply        | `defineRpcServer` → `defineRpcClient`              |
 
 ```typescript
 import {
@@ -75,12 +76,47 @@ const contract = defineContract({
 });
 ```
 
+### RPC Pattern
+
+Use `defineRpcServer` / `defineRpcClient` for typed request/response calls. The
+server handler returns a typed response; the client awaits it via
+`client.call(name, request, { timeoutMs })`. RabbitMQ direct reply-to is used
+under the hood, so no reply queue declaration is needed.
+
+```typescript
+import {
+  defineContract,
+  defineMessage,
+  defineQueue,
+  defineRpcClient,
+  defineRpcServer,
+} from "@amqp-contract/contract";
+import { z } from "zod";
+
+const calculateRpc = defineRpcServer(defineQueue("rpc.calculate"), {
+  request: defineMessage(z.object({ a: z.number(), b: z.number() })),
+  response: defineMessage(z.object({ sum: z.number() })),
+});
+const callCalculate = defineRpcClient(calculateRpc);
+
+const contract = defineContract({
+  consumers: { calculate: calculateRpc },
+  publishers: { calculate: callCalculate },
+});
+
+// Server handler returns the response value, not void:
+//   handlers: { calculate: ({ payload }) => Future.value(Result.Ok({ sum: payload.a + payload.b })) }
+//
+// Client invokes with a required timeout:
+//   const result = await client.call("calculate", { a: 1, b: 2 }, { timeoutMs: 5_000 }).toPromise();
+```
+
 **Benefits:**
 
 - ✅ Guaranteed message schema consistency between publishers and consumers
 - ✅ Routing key validation and type safety
 - ✅ Full type safety with TypeScript inference
-- ✅ Event-oriented and command-oriented patterns
+- ✅ Event, command, and RPC patterns
 - ✅ Flexible routing key patterns for topic exchanges
 
 ## Documentation

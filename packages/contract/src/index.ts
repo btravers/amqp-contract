@@ -11,6 +11,8 @@ export {
   definePublisher,
   defineQueueBinding,
   defineQueue,
+  defineRpcClient,
+  defineRpcServer,
   extractConsumer,
   extractQueue,
   isBridgedPublisherConfig,
@@ -18,6 +20,8 @@ export {
   isEventConsumerResult,
   isEventPublisherConfig,
   isQueueWithTtlBackoffInfrastructure,
+  isRpcClientConfig,
+  isRpcServerConfig,
 } from "./builder.js";
 export type {
   BindingPattern,
@@ -27,6 +31,8 @@ export type {
   EventPublisherConfig,
   MatchingRoutingKey,
   RoutingKey,
+  RpcClientConfig,
+  RpcServerConfig,
 } from "./builder.js";
 export type {
   AnySchema,
@@ -67,6 +73,8 @@ export type {
   ResolvedRetryOptions,
   ResolvedTtlBackoffRetryOptions,
   ResolvedImmediateRequeueRetryOptions,
+  RpcClientConfigBase,
+  RpcServerConfigBase,
   TopicExchangeDefinition,
   TtlBackoffRetryOptions,
 } from "./types.js";

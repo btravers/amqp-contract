@@ -27,8 +27,9 @@ export async function setupAmqpTopology(
   channel: Channel,
   contract: ContractDefinition,
 ): Promise<void> {
-  // Setup exchanges
-  const exchanges = Object.values(contract.exchanges ?? {});
+  // Setup exchanges. The AMQP default exchange (name "") is implicit; RabbitMQ
+  // does not allow asserting it, so we skip empty-named exchange entries.
+  const exchanges = Object.values(contract.exchanges ?? {}).filter((e) => e.name !== "");
   const exchangeResults = await Promise.allSettled(
     exchanges.map((exchange) =>
       channel.assertExchange(exchange.name, exchange.type, {

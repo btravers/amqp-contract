@@ -53,6 +53,24 @@ type ConsumerInferHeadersOutput<TConsumer extends ConsumerEntry> =
     : undefined;
 
 /**
+ * Infer consumer response payload output type.
+ * For RPC consumers (those with required `responseMessage`), returns the response
+ * payload type. For regular consumers, returns `void`.
+ *
+ * The `extends { responseMessage: infer R }` check intentionally only matches
+ * when `responseMessage` is required — under `exactOptionalPropertyTypes`,
+ * `defineRpcServer` intersects the consumer with `{ responseMessage: TResponse }`
+ * so RPC consumers satisfy this check while regular consumers (whose
+ * `responseMessage?:` is optional) do not.
+ */
+type ConsumerInferResponseOutput<TConsumer extends ConsumerEntry> =
+  ExtractConsumerDefinition<TConsumer> extends { responseMessage: infer TResponse }
+    ? TResponse extends MessageDefinition
+      ? InferSchemaOutput<TResponse["payload"]>
+      : void
+    : void;
+
+/**
  * Infer all consumers from contract
  */
 type InferConsumers<TContract extends ContractDefinition> = NonNullable<TContract["consumers"]>;
@@ -81,6 +99,16 @@ export type WorkerInferConsumerHeaders<
   TContract extends ContractDefinition,
   TName extends InferConsumerNames<TContract>,
 > = ConsumerInferHeadersOutput<InferConsumer<TContract, TName>>;
+
+/**
+ * Infer the handler response type for a specific consumer.
+ * - RPC consumers (with `responseMessage`) → the response payload type
+ * - Regular consumers → `void`
+ */
+export type WorkerInferConsumerResponse<
+  TContract extends ContractDefinition,
+  TName extends InferConsumerNames<TContract>,
+> = ConsumerInferResponseOutput<InferConsumer<TContract, TName>>;
 
 /**
  * A consumed message containing parsed payload and headers.
@@ -158,7 +186,7 @@ export type WorkerInferConsumerHandler<
 > = (
   message: WorkerInferConsumedMessage<TContract, TName>,
   rawMessage: ConsumeMessage,
-) => Future<Result<void, HandlerError>>;
+) => Future<Result<WorkerInferConsumerResponse<TContract, TName>, HandlerError>>;
 
 /**
  * Handler entry for a consumer - either a function or a tuple of [handler, options].

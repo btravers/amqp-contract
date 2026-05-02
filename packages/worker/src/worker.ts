@@ -23,7 +23,7 @@ import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connectio
 import type { ConsumeMessage } from "amqplib";
 import { decompressBuffer } from "./decompression.js";
 import type { HandlerError } from "./errors.js";
-import { MessageValidationError } from "./errors.js";
+import { MessageValidationError, NonRetryableError, RetryableError } from "./errors.js";
 import { handleError } from "./retry.js";
 import type {
   WorkerInferConsumedMessage,
@@ -447,6 +447,75 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   }
 
   /**
+   * Validate an RPC handler's response and publish it back to the caller's reply
+   * queue with the same `correlationId`. The response is published via the AMQP
+   * default exchange with `routingKey = msg.properties.replyTo`, which works for
+   * both `amq.rabbitmq.reply-to` and any anonymous queue declared by the caller.
+   *
+   * Validation errors are surfaced as NonRetryableError (handler returned the
+   * wrong shape — retrying the same input will not fix it). Publish errors are
+   * surfaced as RetryableError so the worker's existing retry logic applies.
+   */
+  private publishRpcResponse<TName extends InferConsumerNames<TContract>>(
+    msg: ConsumeMessage,
+    consumer: ConsumerDefinition,
+    consumerName: TName,
+    response: unknown,
+  ): Future<Result<void, HandlerError>> {
+    const queueName = extractQueue(consumer.queue).name;
+    const replyTo = msg.properties.replyTo;
+    if (typeof replyTo !== "string" || replyTo.length === 0) {
+      this.logger?.warn(
+        "RPC handler returned a response but the incoming message has no replyTo; dropping response",
+        { consumerName: String(consumerName), queueName },
+      );
+      return Future.value(Result.Ok(undefined));
+    }
+
+    // Non-null assertion safe: this method is only called when responseMessage is set.
+    const responseSchema = consumer.responseMessage!.payload;
+    const rawValidation = responseSchema["~standard"].validate(response);
+    const validationPromise =
+      rawValidation instanceof Promise ? rawValidation : Promise.resolve(rawValidation);
+
+    return Future.fromPromise(validationPromise)
+      .mapError(
+        (error: unknown) =>
+          new NonRetryableError("RPC response schema validation threw", error) as HandlerError,
+      )
+      .mapOkToResult((validation) => {
+        if (validation.issues) {
+          return Result.Error<unknown, HandlerError>(
+            new NonRetryableError(
+              `RPC response for "${String(consumerName)}" failed schema validation`,
+              new MessageValidationError(String(consumerName), validation.issues),
+            ),
+          );
+        }
+        return Result.Ok<unknown, HandlerError>(validation.value);
+      })
+      .flatMapOk((validatedResponse) =>
+        this.amqpClient
+          .publish("", replyTo, validatedResponse, {
+            correlationId: msg.properties.correlationId,
+            contentType: "application/json",
+          })
+          .mapErrorToResult((error: TechnicalError) =>
+            Result.Error<void, HandlerError>(
+              new RetryableError("Failed to publish RPC response", error),
+            ),
+          )
+          .mapOkToResult((published) =>
+            published
+              ? Result.Ok<void, HandlerError>(undefined)
+              : Result.Error<void, HandlerError>(
+                  new RetryableError("Failed to publish RPC response: channel buffer full"),
+                ),
+          ),
+      );
+  }
+
+  /**
    * Process a single consumed message: validate, invoke handler, record telemetry, and handle errors.
    */
   private processMessage<TName extends InferConsumerNames<TContract>>(
@@ -456,7 +525,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     handler: (
       message: WorkerInferConsumedMessage<TContract, TName>,
       rawMessage: ConsumeMessage,
-    ) => Future<Result<void, HandlerError>>,
+    ) => Future<Result<unknown, HandlerError>>,
   ): Future<Result<void, TechnicalError>> {
     const queueName = extractQueue(consumer.queue).name;
     const startTime = Date.now();
@@ -470,7 +539,25 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     return this.parseAndValidateMessage(msg, consumer, consumerName)
       .flatMapOk((validatedMessage) =>
         handler(validatedMessage, msg)
-          .flatMapOk(() => {
+          .flatMapOk((handlerResponse) => {
+            // RPC: validate response and publish back to msg.properties.replyTo.
+            if (consumer.responseMessage) {
+              return this.publishRpcResponse(
+                msg,
+                consumer,
+                consumerName,
+                handlerResponse,
+              ).flatMapOk(() => {
+                this.logger?.info("Message consumed successfully", {
+                  consumerName: String(consumerName),
+                  queueName,
+                });
+                this.amqpClient.ack(msg);
+                messageHandled = true;
+                return Future.value(Result.Ok<void, HandlerError>(undefined));
+              });
+            }
+
             this.logger?.info("Message consumed successfully", {
               consumerName: String(consumerName),
               queueName,
@@ -523,7 +610,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     handler: (
       message: WorkerInferConsumedMessage<TContract, TName>,
       rawMessage: ConsumeMessage,
-    ) => Future<Result<void, HandlerError>>,
+    ) => Future<Result<unknown, HandlerError>>,
   ): Future<Result<void, TechnicalError>> {
     const queueName = extractQueue(consumer.queue).name;
 
