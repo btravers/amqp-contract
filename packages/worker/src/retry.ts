@@ -243,28 +243,47 @@ function calculateRetryDelay(retryCount: number, config: ResolvedTtlBackoffRetry
 
 /**
  * Parse message content for republishing.
- * Prevents double JSON serialization by converting Buffer to object when possible.
+ *
+ * The channel is configured with `json: true`, so values published as plain
+ * objects are encoded once at publish time. Re-publishing the raw `Buffer`
+ * would then trigger a *second* JSON.stringify (turning the bytes into a
+ * stringified base64 blob), so for JSON payloads we must round-trip back to
+ * the parsed value. For any other content type — or when the message is
+ * compressed — we pass the bytes through untouched, since re-parsing would
+ * either fail or silently corrupt binary data.
  */
 function parseMessageContentForRetry(
   ctx: RetryContext,
   msg: ConsumeMessage,
   queueName: string,
 ): Buffer | unknown {
-  let content: Buffer | unknown = msg.content;
-
-  // If message is not compressed (no contentEncoding), parse it to get the original object
-  if (!msg.properties.contentEncoding) {
-    try {
-      content = JSON.parse(msg.content.toString());
-    } catch (err) {
-      ctx.logger?.warn("Failed to parse message for retry, using original buffer", {
-        queueName,
-        error: err,
-      });
-    }
+  if (msg.properties.contentEncoding) {
+    // Compressed (gzip, brotli, …) — opaque to us; keep the buffer as-is so
+    // the consumer's decompressor sees the same bytes the producer sent.
+    return msg.content;
   }
 
-  return content;
+  const contentType = msg.properties.contentType;
+  const isJson =
+    contentType === undefined ||
+    contentType === "application/json" ||
+    contentType.startsWith("application/json;") ||
+    contentType.endsWith("+json");
+
+  if (!isJson) {
+    // Binary or other text payload — preserve bytes exactly.
+    return msg.content;
+  }
+
+  try {
+    return JSON.parse(msg.content.toString());
+  } catch (err) {
+    ctx.logger?.warn("Failed to parse JSON message for retry, using original buffer", {
+      queueName,
+      error: err,
+    });
+    return msg.content;
+  }
 }
 
 /**

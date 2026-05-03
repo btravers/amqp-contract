@@ -2098,4 +2098,57 @@ describe("builder", () => {
       });
     });
   });
+
+  describe("defineContract collision detection", () => {
+    it("dedupes the same exchange referenced by both a publisher and a consumer", () => {
+      const exchange = defineExchange("orders");
+      const queue = defineQueue("order-processing");
+      const message = defineMessage(z.object({ orderId: z.string() }));
+      const event = defineEventPublisher(exchange, message, { routingKey: "order.created" });
+
+      const contract = defineContract({
+        publishers: { orderCreated: event },
+        consumers: { processOrder: defineEventConsumer(event, queue) },
+      });
+
+      expect(Object.keys(contract.exchanges)).toEqual(["orders"]);
+    });
+
+    it("throws when two publishers declare the same exchange name with different types", () => {
+      const topicExchange = defineExchange("orders", { type: "topic" });
+      const directExchange = defineExchange("orders", { type: "direct" });
+      const message = defineMessage(z.object({ orderId: z.string() }));
+      const a = defineEventPublisher(topicExchange, message, { routingKey: "order.created" });
+      const b = defineEventPublisher(directExchange, message, { routingKey: "order.created" });
+
+      expect(() =>
+        defineContract({
+          publishers: { a, b },
+        }),
+      ).toThrow(/exchange "orders" was declared with conflicting definitions/);
+    });
+
+    it("throws when two consumers declare the same queue with different retry config", () => {
+      const exchange = defineExchange("orders");
+      const message = defineMessage(z.object({ orderId: z.string() }));
+      const event = defineEventPublisher(exchange, message, { routingKey: "order.created" });
+
+      const queueA = defineQueue("processing", {
+        retry: { mode: "immediate-requeue", maxRetries: 3 },
+      });
+      const queueB = defineQueue("processing", {
+        retry: { mode: "immediate-requeue", maxRetries: 10 },
+      });
+
+      expect(() =>
+        defineContract({
+          publishers: { ev: event },
+          consumers: {
+            a: defineEventConsumer(event, queueA),
+            b: defineEventConsumer(event, queueB),
+          },
+        }),
+      ).toThrow(/queue "processing" was declared with conflicting definitions/);
+    });
+  });
 });

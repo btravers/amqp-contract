@@ -24,7 +24,7 @@ import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connectio
 import type { ConsumeMessage } from "amqplib";
 import { decompressBuffer } from "./decompression.js";
 import type { HandlerError } from "./errors.js";
-import { MessageValidationError, NonRetryableError, RetryableError } from "./errors.js";
+import { MessageValidationError, NonRetryableError } from "./errors.js";
 import { handleError } from "./retry.js";
 import type { WorkerInferHandlers } from "./types.js";
 
@@ -126,11 +126,11 @@ export type CreateWorkerOptions<TContract extends ContractDefinition> = {
   defaultConsumerOptions?: ConsumerOptions | undefined;
   /**
    * Maximum time in ms to wait for the AMQP connection to become ready before
-   * `create()` resolves to `Result.Error<TechnicalError>`. Without this option,
-   * `create()` waits forever — the underlying amqp-connection-manager retries
-   * indefinitely.
+   * `create()` resolves to `Result.Error<TechnicalError>`. Defaults to 30s
+   * (the {@link AmqpClient}'s `DEFAULT_CONNECT_TIMEOUT_MS`). Pass `null` to
+   * disable the timeout and let amqp-connection-manager retry indefinitely.
    */
-  connectTimeoutMs?: number | undefined;
+  connectTimeoutMs?: number | null | undefined;
 };
 
 /**
@@ -389,13 +389,13 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   }
 
   /**
-   * Validate data against a Standard Schema and handle errors.
+   * Validate data against a Standard Schema. No side effects; the caller is
+   * responsible for ack/nack based on the Result.
    */
   private validateSchema(
     schema: StandardSchemaV1,
     data: unknown,
-    context: { consumerName: string; queueName: string; field: string },
-    msg: ConsumeMessage,
+    context: { consumerName: string; field: string },
   ): Future<Result<unknown, TechnicalError>> {
     const rawValidation = schema["~standard"].validate(data);
     const validationPromise =
@@ -413,65 +413,47 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
           );
         }
         return Result.Ok(result.value);
-      })
-      .tapError((error) => {
-        this.logger?.error(`${context.field} validation failed`, {
-          consumerName: context.consumerName,
-          queueName: context.queueName,
-          error,
-        });
-        this.amqpClient.nack(msg, false, false);
       });
   }
 
   /**
-   * Parse and validate a message from AMQP.
-   * @returns Ok with validated message (payload + headers), or Error (message already nacked)
+   * Parse and validate a message from AMQP. Pure: returns the validated payload
+   * and headers, or an error. The dispatch path in {@link processMessage} routes
+   * validation/parse errors directly to the DLQ (single nack) — they never enter
+   * the retry pipeline because retrying an unparseable or schema-violating
+   * payload cannot succeed.
    */
   private parseAndValidateMessage(
     msg: ConsumeMessage,
     consumer: ConsumerDefinition,
     consumerName: HandlerName<TContract>,
   ): Future<Result<{ payload: unknown; headers: unknown }, TechnicalError>> {
-    const queue = extractQueue(consumer.queue);
-    const context = {
-      consumerName: String(consumerName),
-      queueName: queue.name,
-    };
+    const context = { consumerName: String(consumerName) };
 
-    const nackAndError = (message: string, error?: unknown): TechnicalError => {
-      this.logger?.error(message, { ...context, error });
-      this.amqpClient.nack(msg, false, false);
-      return new TechnicalError(message, error);
-    };
-
-    // Decompress → Parse JSON → Validate payload
     const parsePayload = decompressBuffer(msg.content, msg.properties.contentEncoding)
-      .tapError((error) => {
-        this.logger?.error("Failed to decompress message", { ...context, error });
-        this.amqpClient.nack(msg, false, false);
-      })
+      .mapErrorToResult((error) =>
+        Result.Error(new TechnicalError("Failed to decompress message", error)),
+      )
       .mapOkToResult((buffer) =>
-        Result.fromExecution(() => JSON.parse(buffer.toString()) as unknown).mapError((error) =>
-          nackAndError("Failed to parse JSON", error),
+        Result.fromExecution(() => JSON.parse(buffer.toString()) as unknown).mapError(
+          (error) => new TechnicalError("Failed to parse JSON", error),
         ),
       )
       .flatMapOk((parsed) =>
-        this.validateSchema(
-          consumer.message.payload as StandardSchemaV1,
-          parsed,
-          { ...context, field: "payload" },
-          msg,
-        ),
+        this.validateSchema(consumer.message.payload as StandardSchemaV1, parsed, {
+          ...context,
+          field: "payload",
+        }),
       );
 
-    // Validate headers (if schema defined)
     const parseHeaders = consumer.message.headers
       ? this.validateSchema(
           consumer.message.headers as StandardSchemaV1,
           msg.properties.headers ?? {},
-          { ...context, field: "headers" },
-          msg,
+          {
+            ...context,
+            field: "headers",
+          },
         )
       : Future.value(Result.Ok<unknown, TechnicalError>(undefined));
 
@@ -486,9 +468,18 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
    * with `routingKey = msg.properties.replyTo`, which works for both
    * `amq.rabbitmq.reply-to` and any anonymous queue declared by the caller.
    *
-   * Validation errors are surfaced as NonRetryableError (handler returned the
-   * wrong shape — retrying the same input will not fix it). Publish errors are
-   * surfaced as RetryableError so the worker's existing retry logic applies.
+   * Failure semantics:
+   * - **Missing replyTo / correlationId**: NonRetryableError. The caller is
+   *   already lost; retrying the original message cannot recover the reply
+   *   path. The poison message lands in DLQ for inspection rather than being
+   *   silently ack'd (which would mask a contract violation).
+   * - **Schema validation failure**: NonRetryableError — the handler returned
+   *   the wrong shape; retrying the same input will not fix it.
+   * - **Publish failure**: NonRetryableError. The caller has already timed out
+   *   (or will shortly), so retrying the message wastes the queue's retry
+   *   budget on a reply that no one is waiting for. The message is logged and
+   *   DLQ'd; the original work is treated as completed for the purpose of the
+   *   inbox.
    */
   private publishRpcResponse(
     msg: ConsumeMessage,
@@ -500,20 +491,32 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     const replyTo = msg.properties.replyTo;
     const correlationId = msg.properties.correlationId;
     if (typeof replyTo !== "string" || replyTo.length === 0) {
-      this.logger?.warn(
-        "RPC handler returned a response but the incoming message has no replyTo; dropping response",
+      this.logger?.error(
+        "RPC handler returned a response but the incoming message has no replyTo",
         { rpcName: String(rpcName), queueName },
       );
-      return Future.value(Result.Ok(undefined));
+      return Future.value(
+        Result.Error<void, HandlerError>(
+          new NonRetryableError(
+            `RPC "${String(rpcName)}" received a message without replyTo; cannot deliver response`,
+          ),
+        ),
+      );
     }
     if (typeof correlationId !== "string" || correlationId.length === 0) {
       // Without a correlationId the client cannot match the reply to its
       // pending call — publishing anyway would guarantee a client-side timeout.
-      this.logger?.warn(
-        "RPC handler returned a response but the incoming message has no correlationId; dropping response",
+      this.logger?.error(
+        "RPC handler returned a response but the incoming message has no correlationId",
         { rpcName: String(rpcName), queueName, replyTo },
       );
-      return Future.value(Result.Ok(undefined));
+      return Future.value(
+        Result.Error<void, HandlerError>(
+          new NonRetryableError(
+            `RPC "${String(rpcName)}" received a message without correlationId; cannot deliver response`,
+          ),
+        ),
+      );
     }
 
     // Wrap the call to `validate` itself in try/catch — a Standard Schema
@@ -554,16 +557,21 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
             correlationId,
             contentType: "application/json",
           })
+          // Reply-side failures are not retryable from the inbox: by the time
+          // the broker can't deliver the reply, the caller's RPC future has
+          // already (or will soon) time out. Retrying the original message
+          // re-runs the handler against a stale caller. Send to DLQ instead so
+          // the failure is visible without churning the queue.
           .mapErrorToResult((error: TechnicalError) =>
             Result.Error<void, HandlerError>(
-              new RetryableError("Failed to publish RPC response", error),
+              new NonRetryableError("Failed to publish RPC response", error),
             ),
           )
           .mapOkToResult((published) =>
             published
               ? Result.Ok<void, HandlerError>(undefined)
               : Result.Error<void, HandlerError>(
-                  new RetryableError("Failed to publish RPC response: channel buffer full"),
+                  new NonRetryableError("Failed to publish RPC response: channel buffer full"),
                 ),
           ),
       );
@@ -590,53 +598,70 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     let firstError: Error | undefined;
 
     return this.parseAndValidateMessage(msg, consumer, name)
-      .flatMapOk((validatedMessage) =>
-        handler(validatedMessage, msg)
-          .flatMapOk((handlerResponse) => {
-            if (isRpc && responseSchema) {
-              return this.publishRpcResponse(
-                msg,
-                queueName,
-                name,
-                responseSchema,
-                handlerResponse,
-              ).flatMapOk(() => {
+      .flatMap((parseResult) =>
+        parseResult.match({
+          Ok: (validatedMessage) =>
+            handler(validatedMessage, msg)
+              .flatMapOk((handlerResponse) => {
+                if (isRpc && responseSchema) {
+                  return this.publishRpcResponse(
+                    msg,
+                    queueName,
+                    name,
+                    responseSchema,
+                    handlerResponse,
+                  ).flatMapOk(() => {
+                    this.logger?.info("Message consumed successfully", {
+                      consumerName: String(name),
+                      queueName,
+                    });
+                    this.amqpClient.ack(msg);
+                    messageHandled = true;
+                    return Future.value(Result.Ok<void, HandlerError>(undefined));
+                  });
+                }
+
                 this.logger?.info("Message consumed successfully", {
                   consumerName: String(name),
                   queueName,
                 });
                 this.amqpClient.ack(msg);
                 messageHandled = true;
+
                 return Future.value(Result.Ok<void, HandlerError>(undefined));
-              });
-            }
+              })
+              .flatMapError((handlerError: HandlerError) => {
+                this.logger?.error("Error processing message", {
+                  consumerName: String(name),
+                  queueName,
+                  errorType: handlerError.name,
+                  error: handlerError.message,
+                });
+                firstError = handlerError;
 
-            this.logger?.info("Message consumed successfully", {
+                return handleError(
+                  { amqpClient: this.amqpClient, logger: this.logger },
+                  handlerError,
+                  msg,
+                  String(name),
+                  consumer,
+                );
+              }),
+          // Parse / validation failure path: nack once with requeue=false so the
+          // queue's DLX (if configured) receives the poison message. We bypass
+          // handleError() because a malformed payload is deterministic — retrying
+          // it would burn the queue's retry budget on a guaranteed failure.
+          Error: (parseError) => {
+            firstError = parseError;
+            this.logger?.error("Failed to parse/validate message; sending to DLQ", {
               consumerName: String(name),
               queueName,
+              error: parseError,
             });
-            this.amqpClient.ack(msg);
-            messageHandled = true;
-
-            return Future.value(Result.Ok<void, HandlerError>(undefined));
-          })
-          .flatMapError((handlerError: HandlerError) => {
-            this.logger?.error("Error processing message", {
-              consumerName: String(name),
-              queueName,
-              errorType: handlerError.name,
-              error: handlerError.message,
-            });
-            firstError = handlerError;
-
-            return handleError(
-              { amqpClient: this.amqpClient, logger: this.logger },
-              handlerError,
-              msg,
-              String(name),
-              consumer,
-            );
-          }),
+            this.amqpClient.nack(msg, false, false);
+            return Future.value(Result.Error<void, TechnicalError>(parseError));
+          },
+        }),
       )
       .map((result) => {
         const durationMs = Date.now() - startTime;
@@ -675,7 +700,23 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
             });
             return;
           }
-          await this.processMessage(msg, view, name, handler).toPromise();
+          // The dispatch path is built on `Future<Result<…>>` so handler
+          // failures are values, not exceptions. Defensively guard the
+          // boundary anyway: a handler that violates the contract by throwing
+          // synchronously (or any unexpected fault inside processMessage)
+          // would otherwise leave the message neither acked nor nacked, and
+          // amqp-connection-manager would not redeliver it until the channel
+          // closes. nack(requeue=false) routes it via DLX if configured.
+          try {
+            await this.processMessage(msg, view, name, handler).toPromise();
+          } catch (error: unknown) {
+            this.logger?.error("Uncaught error in consume callback; nacking message", {
+              consumerName: String(name),
+              queueName,
+              error,
+            });
+            this.amqpClient.nack(msg, false, false);
+          }
         },
         this.consumerOptions[name],
       )
