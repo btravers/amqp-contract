@@ -16,6 +16,59 @@ import { extractQueue } from "./queue-utils.js";
 import { isQueueWithTtlBackoffInfrastructure } from "./ttl-backoff.js";
 
 /**
+ * Structural equality for resource definitions. We compare on a JSON projection
+ * after stripping non-comparable fields (Standard Schema instances, branded
+ * symbols) so that, e.g., two `defineExchange("orders")` calls in different
+ * files are treated as the same exchange.
+ */
+function resourcesEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  try {
+    return JSON.stringify(a, replacer) === JSON.stringify(b, replacer);
+  } catch {
+    return false;
+  }
+}
+
+function replacer(_key: string, value: unknown): unknown {
+  // Standard Schema validators are functions / proxies that JSON.stringify
+  // cannot meaningfully compare. Reduce them to a structural marker so two
+  // independent `defineMessage(z.object({...}))` declarations of the same
+  // shape don't trip the collision check.
+  if (typeof value === "function") return "[function]";
+  if (value && typeof value === "object" && "~standard" in (value as object)) {
+    return "[standard-schema]";
+  }
+  return value;
+}
+
+/**
+ * Add an entry to a name-keyed map, throwing if the name is already taken by a
+ * structurally-different definition. Identical re-declarations are silently
+ * deduplicated — that's how the same exchange can flow into the contract via
+ * both a publisher and a consumer.
+ */
+function addResource<T>(
+  bucket: Record<string, T>,
+  name: string,
+  value: T,
+  kind: "exchange" | "queue" | "binding",
+): void {
+  const existing = bucket[name];
+  if (existing === undefined) {
+    bucket[name] = value;
+    return;
+  }
+  if (!resourcesEqual(existing, value)) {
+    throw new Error(
+      `defineContract: ${kind} "${name}" was declared with conflicting definitions. ` +
+        `Two ${kind}s sharing a name must be the exact same definition; ` +
+        `define the ${kind} once and reference it from every publisher/consumer that needs it.`,
+    );
+  }
+}
+
+/**
  * Define an AMQP contract.
  *
  * A contract is the central definition of your AMQP messaging topology. It brings together
@@ -107,22 +160,24 @@ export function defineContract<TContract extends ContractDefinitionInput>(
     rpcs: {},
   };
 
+  const exchanges: Record<string, ExchangeDefinition> = {};
+  const queues: Record<string, QueueEntry> = {};
+  const bindings: Record<string, BindingDefinition> = {};
+
   // Process publishers section - extract exchanges and convert EventPublisherConfig entries
   if (inputPublishers && Object.keys(inputPublishers).length > 0) {
     const processedPublishers: Record<string, PublisherDefinition> = {};
-    const exchanges: Record<string, ExchangeDefinition> = {};
-    const publisherBindings: Record<string, BindingDefinition> = {};
 
     for (const [name, entry] of Object.entries(inputPublishers)) {
       if (isBridgedPublisherConfig(entry)) {
         // BridgedPublisherConfig: extract publisher, exchanges, and e2e binding
-        exchanges[entry.bridgeExchange.name] = entry.bridgeExchange;
-        exchanges[entry.targetExchange.name] = entry.targetExchange;
-        publisherBindings[`${name}ExchangeBinding`] = entry.exchangeBinding;
+        addResource(exchanges, entry.bridgeExchange.name, entry.bridgeExchange, "exchange");
+        addResource(exchanges, entry.targetExchange.name, entry.targetExchange, "exchange");
+        addResource(bindings, `${name}ExchangeBinding`, entry.exchangeBinding, "binding");
         processedPublishers[name] = entry.publisher;
       } else if (isEventPublisherConfig(entry)) {
         // EventPublisherConfig: extract exchange and convert to publisher definition
-        exchanges[entry.exchange.name] = entry.exchange;
+        addResource(exchanges, entry.exchange.name, entry.exchange, "exchange");
         const publisherOptions: { routingKey?: string } = {};
         if (entry.routingKey !== undefined) {
           publisherOptions.routingKey = entry.routingKey;
@@ -135,105 +190,114 @@ export function defineContract<TContract extends ContractDefinitionInput>(
       } else {
         // Plain PublisherDefinition: extract exchange
         const publisher = entry as PublisherDefinition;
-        exchanges[publisher.exchange.name] = publisher.exchange;
+        addResource(exchanges, publisher.exchange.name, publisher.exchange, "exchange");
         processedPublishers[name] = publisher;
       }
     }
 
     result.publishers = processedPublishers;
-    result.exchanges = { ...result.exchanges, ...exchanges };
-    result.bindings = { ...result.bindings, ...publisherBindings };
   }
 
   // Process consumers section - extract queues, exchanges, bindings, and consumer definitions
   if (inputConsumers && Object.keys(inputConsumers).length > 0) {
     const processedConsumers: Record<string, ConsumerDefinition> = {};
-    const consumerBindings: Record<string, BindingDefinition> = {};
-    const queues: Record<string, QueueEntry> = {};
-    const exchanges: Record<string, ExchangeDefinition> = {};
+    const consumerQueueEntries: QueueEntry[] = [];
 
     for (const [name, entry] of Object.entries(inputConsumers)) {
       if (isEventConsumerResult(entry)) {
         // EventConsumerResult: extract consumer, binding, queue, and exchange
         processedConsumers[name] = entry.consumer;
-        consumerBindings[`${name}Binding`] = entry.binding;
+        addResource(bindings, `${name}Binding`, entry.binding, "binding");
 
-        // Extract queue (handle TTL-backoff infrastructure)
         const queueEntry = entry.consumer.queue;
-        // Extract the plain queue definition from QueueEntry
         const queueDef = extractQueue(queueEntry);
-        queues[queueDef.name] = queueEntry;
+        addResource(queues, queueDef.name, queueEntry, "queue");
+        consumerQueueEntries.push(queueEntry);
 
-        // Extract exchange from binding
-        exchanges[entry.binding.exchange.name] = entry.binding.exchange;
+        addResource(exchanges, entry.binding.exchange.name, entry.binding.exchange, "exchange");
 
-        // Extract dead letter exchange if present
         if (queueDef.deadLetter?.exchange) {
-          exchanges[queueDef.deadLetter.exchange.name] = queueDef.deadLetter.exchange;
+          addResource(
+            exchanges,
+            queueDef.deadLetter.exchange.name,
+            queueDef.deadLetter.exchange,
+            "exchange",
+          );
         }
 
-        // Extract bridge exchange and e2e binding if present
         if (entry.exchangeBinding) {
-          consumerBindings[`${name}ExchangeBinding`] = entry.exchangeBinding;
+          addResource(bindings, `${name}ExchangeBinding`, entry.exchangeBinding, "binding");
         }
         if (entry.bridgeExchange) {
-          exchanges[entry.bridgeExchange.name] = entry.bridgeExchange;
+          addResource(exchanges, entry.bridgeExchange.name, entry.bridgeExchange, "exchange");
         }
-        // Also extract the source exchange (stored in entry.exchange for bridged consumers)
+        // Source exchange (stored in entry.exchange for bridged consumers)
         if (entry.exchange) {
-          exchanges[entry.exchange.name] = entry.exchange;
+          addResource(exchanges, entry.exchange.name, entry.exchange, "exchange");
         }
       } else if (isCommandConsumerConfig(entry)) {
         // CommandConsumerConfig: extract consumer, binding, queue, and exchange
         processedConsumers[name] = entry.consumer;
-        consumerBindings[`${name}Binding`] = entry.binding;
+        addResource(bindings, `${name}Binding`, entry.binding, "binding");
 
-        // Extract queue (handle TTL-backoff infrastructure)
         const queueEntry = entry.consumer.queue;
-        // Extract the plain queue definition from QueueEntry
         const queueDef = extractQueue(queueEntry);
-        queues[queueDef.name] = queueEntry;
+        addResource(queues, queueDef.name, queueEntry, "queue");
+        consumerQueueEntries.push(queueEntry);
 
-        // Extract exchange
-        exchanges[entry.exchange.name] = entry.exchange;
+        addResource(exchanges, entry.exchange.name, entry.exchange, "exchange");
 
-        // Extract dead letter exchange if present
         if (queueDef.deadLetter?.exchange) {
-          exchanges[queueDef.deadLetter.exchange.name] = queueDef.deadLetter.exchange;
+          addResource(
+            exchanges,
+            queueDef.deadLetter.exchange.name,
+            queueDef.deadLetter.exchange,
+            "exchange",
+          );
         }
       } else {
         // Plain ConsumerDefinition: extract queue
         const consumer = entry as ConsumerDefinition;
         processedConsumers[name] = consumer;
 
-        // Extract queue (handle TTL-backoff infrastructure)
         const queueEntry = consumer.queue;
-        // Extract the plain queue definition from QueueEntry
         const queueDef = extractQueue(queueEntry);
-        queues[queueDef.name] = queueEntry;
+        addResource(queues, queueDef.name, queueEntry, "queue");
+        consumerQueueEntries.push(queueEntry);
 
-        // Extract dead letter exchange if present
         if (queueDef.deadLetter?.exchange) {
-          exchanges[queueDef.deadLetter.exchange.name] = queueDef.deadLetter.exchange;
+          addResource(
+            exchanges,
+            queueDef.deadLetter.exchange.name,
+            queueDef.deadLetter.exchange,
+            "exchange",
+          );
         }
       }
     }
 
     // Auto-generate TTL-backoff retry infrastructure for queues with TTL-backoff retry mode
-    for (const queueEntry of Object.values(queues) as QueueEntry[]) {
+    for (const queueEntry of consumerQueueEntries) {
       if (isQueueWithTtlBackoffInfrastructure(queueEntry)) {
-        queues[queueEntry.waitQueue.name] = queueEntry.waitQueue;
-        consumerBindings[`${queueEntry.queue.name}WaitBinding`] = queueEntry.waitQueueBinding;
-        consumerBindings[`${queueEntry.queue.name}RetryBinding`] = queueEntry.retryQueueBinding;
-        exchanges[queueEntry.waitExchange.name] = queueEntry.waitExchange;
-        exchanges[queueEntry.retryExchange.name] = queueEntry.retryExchange;
+        addResource(queues, queueEntry.waitQueue.name, queueEntry.waitQueue, "queue");
+        addResource(
+          bindings,
+          `${queueEntry.queue.name}WaitBinding`,
+          queueEntry.waitQueueBinding,
+          "binding",
+        );
+        addResource(
+          bindings,
+          `${queueEntry.queue.name}RetryBinding`,
+          queueEntry.retryQueueBinding,
+          "binding",
+        );
+        addResource(exchanges, queueEntry.waitExchange.name, queueEntry.waitExchange, "exchange");
+        addResource(exchanges, queueEntry.retryExchange.name, queueEntry.retryExchange, "exchange");
       }
     }
 
     result.consumers = processedConsumers;
-    result.bindings = { ...result.bindings, ...consumerBindings };
-    result.queues = { ...result.queues, ...queues };
-    result.exchanges = { ...result.exchanges, ...exchanges };
   }
 
   // Process rpcs section — extract each RPC's queue (and DLX if any) into the
@@ -241,22 +305,27 @@ export function defineContract<TContract extends ContractDefinitionInput>(
   // as routing key, so no exchange or binding declarations are needed.
   if (inputRpcs && Object.keys(inputRpcs).length > 0) {
     const processedRpcs: Record<string, RpcDefinition> = {};
-    const rpcQueues: Record<string, QueueEntry> = {};
-    const rpcExchanges: Record<string, ExchangeDefinition> = {};
 
     for (const [name, rpc] of Object.entries(inputRpcs)) {
       processedRpcs[name] = rpc;
       const queueDef = extractQueue(rpc.queue);
-      rpcQueues[queueDef.name] = rpc.queue;
+      addResource(queues, queueDef.name, rpc.queue, "queue");
       if (queueDef.deadLetter?.exchange) {
-        rpcExchanges[queueDef.deadLetter.exchange.name] = queueDef.deadLetter.exchange;
+        addResource(
+          exchanges,
+          queueDef.deadLetter.exchange.name,
+          queueDef.deadLetter.exchange,
+          "exchange",
+        );
       }
     }
 
     result.rpcs = processedRpcs;
-    result.queues = { ...result.queues, ...rpcQueues };
-    result.exchanges = { ...result.exchanges, ...rpcExchanges };
   }
+
+  result.exchanges = exchanges;
+  result.queues = queues;
+  result.bindings = bindings;
 
   return result as ContractOutput<TContract>;
 }
