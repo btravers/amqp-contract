@@ -87,7 +87,7 @@ Any failure of the AMQP transport itself: connection lost, channel closed, broke
 ```ts
 import { TechnicalError } from "@amqp-contract/core";
 
-const result = await client.publish("orderCreated", { orderId: "1" }).toPromise();
+const result = await client.publish("orderCreated", { orderId: "1" });
 result.match(
   () => console.log("ok"),
   (err) => {
@@ -119,7 +119,7 @@ The client was closed (`client.close()`) while a call was still pending. All in-
 ```ts
 import { RpcTimeoutError, RpcCancelledError } from "@amqp-contract/client";
 
-const result = await client.call("calculate", { a: 1, b: 2 }, { timeoutMs: 5_000 }).toPromise();
+const result = await client.call("calculate", { a: 1, b: 2 }, { timeoutMs: 5_000 });
 result.match(
   (response) => /* ... */,
   (err) => {
