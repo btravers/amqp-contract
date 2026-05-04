@@ -13,7 +13,17 @@
     "typescript",
     "vitest"
   ],
+  "homepage": "https://github.com/btravers/amqp-contract#readme",
+  "bugs": {
+    "url": "https://github.com/btravers/amqp-contract/issues"
+  },
   "license": "MIT",
+  "author": "Benoit TRAVERS <benoit.travers.fr@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/btravers/amqp-contract.git",
+    "directory": "packages/testing"
+  },
   "files": [
     "dist",
     "docs"
