@@ -108,24 +108,26 @@ const chargeHandler = defineHandler(contract, "chargeCustomer", ({ payload }) =>
       currency: payload.currency,
       idempotencyKey: payload.idempotencyKey,
     }),
-  , (error) => {
+    (error) => {
       // Card declined / fraud / closed account — won't change with retry.
       if (error instanceof PermanentDeclineError) {
         return new NonRetryableError(`Charge declined: ${error.code}`, error);
       }
       // 5xx, network, timeout — let the queue retry with backoff.
       return new RetryableError("Payment provider unavailable", error);
-    })
-    .map(() => undefined),
+    },
+  ).map(() => undefined),
 );
 
-const worker = (await TypedAmqpWorker.create({
-  contract,
-  handlers: {
-    chargeCustomer: [chargeHandler, { prefetch: 5 }],
-  },
-  urls: ["amqp://localhost"],
-}))._unsafeUnwrap();
+const worker = (
+  await TypedAmqpWorker.create({
+    contract,
+    handlers: {
+      chargeCustomer: [chargeHandler, { prefetch: 5 }],
+    },
+    urls: ["amqp://localhost"],
+  })
+)._unsafeUnwrap();
 
 process.on("SIGINT", async () => {
   await worker.close();

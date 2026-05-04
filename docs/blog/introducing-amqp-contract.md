@@ -166,6 +166,7 @@ And create a type-safe worker for consuming messages:
 
 ```typescript
 import { TypedAmqpWorker } from "@amqp-contract/worker";
+import { okAsync } from "neverthrow";
 import { contract } from "./contract";
 
 const worker = (
