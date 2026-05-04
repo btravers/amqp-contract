@@ -17,6 +17,7 @@ import {
   endSpanSuccess,
   recordLateRpcReply,
   recordPublishMetric,
+  safeJsonParse,
   startPublishSpan,
 } from "@amqp-contract/core";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
@@ -240,15 +241,16 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     this.pendingCalls.delete(correlationId);
     clearTimeout(pending.timer);
 
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(msg.content.toString());
-    } catch (error: unknown) {
-      pending.resolve(
-        err(new TechnicalError(`Failed to parse RPC reply JSON for "${pending.rpcName}"`, error)),
-      );
+    const parseResult = safeJsonParse(
+      msg.content,
+      (error) =>
+        new TechnicalError(`Failed to parse RPC reply JSON for "${pending.rpcName}"`, error),
+    );
+    if (parseResult.isErr()) {
+      pending.resolve(err(parseResult.error));
       return;
     }
+    const parsed = parseResult.value;
 
     // Wrap the validate call itself — a Standard Schema implementation may
     // throw synchronously, and the throw would otherwise escape the consume

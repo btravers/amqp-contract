@@ -12,6 +12,7 @@ export {
 } from "./connection-manager.js";
 export { MessageValidationError, TechnicalError } from "./errors.js";
 export type { Logger, LoggerContext } from "./logger.js";
+export { safeJsonParse } from "./parsing.js";
 export { setupAmqpTopology } from "./setup.js";
 export {
   _resetTelemetryCacheForTesting,
