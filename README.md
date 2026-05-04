@@ -101,8 +101,10 @@ const worker = (
 ## Installation
 
 ```bash
-pnpm add @amqp-contract/contract @amqp-contract/client @amqp-contract/worker
+pnpm add @amqp-contract/contract @amqp-contract/client @amqp-contract/worker neverthrow
 ```
+
+`neverthrow` is exposed in the public types (`ResultAsync<void, HandlerError>`), so consumers need it directly to construct handler results.
 
 ## Documentation
 
