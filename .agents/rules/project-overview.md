@@ -47,18 +47,17 @@ amqp-contract/
 
 ## Package Source Layout
 
-```
-packages/<name>/
-├── src/
-│   ├── index.ts             # Public API surface
-│   ├── <feature>.ts         # Implementation
-│   ├── <feature>.spec.ts    # Unit tests (no broker required)
-│   └── __tests__/
-│       └── <feature>.spec.ts  # Integration tests (require RabbitMQ)
-├── package.json
-├── tsconfig.json
-├── tsdown.config.ts         # Build config
-└── vitest.config.ts         # Splits unit / integration projects
-```
+The shape varies by package — there's no single template. The pieces that _do_ recur:
 
-Unit specs live next to the source they cover. Integration specs go under `src/__tests__/` so the `vitest.config.ts` `unit` and `integration` projects can target them by glob.
+- `src/index.ts` — public API surface (always).
+- `src/<feature>.ts` — implementation modules, `.js` extensions in imports.
+- `package.json` — entry points, `exports` map, build script, deps; metadata fields (`repository`, `homepage`, `bugs`, `author`, `license`) required on every publishable package, see [Build & Release](./build-and-release.md).
+- `tsconfig.json` — extends from `tools/tsconfig`.
+
+Where the packages **diverge**:
+
+- **Build config.** `core`, `client`, `worker`, `asyncapi` use a `tsdown.config.ts` (mostly to mark `neverthrow` external). `contract` and `testing` configure tsdown via CLI flags in `package.json`. `testing` is multi-entry (`index`, `global-setup`, `extension`) and ESM-only; the others are dual ESM + CJS.
+- **Test layout.** `core`, `client`, `worker` have a unit / integration split: unit specs sit next to source (`feature.spec.ts`), integration specs under `src/__tests__/`, and `vitest.config.ts` runs them as two named projects. `contract` and `asyncapi` only have unit specs and keep them next to source. `testing` has no tests (it _is_ the testing package — see [Testing](./testing.md)).
+- **Build/test scripts.** Confirm via `package.json` rather than assuming.
+
+Look at `packages/contract` for the simplest case, `packages/worker` for a package with an integration suite, `packages/testing` for the multi-entry/ESM-only shape.

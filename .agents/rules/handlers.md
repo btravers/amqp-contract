@@ -33,22 +33,32 @@ const asyncHandler = ({ payload }) =>
 
 ## RPC handler
 
-`defineRpc` creates a request-reply slot. Handlers return `ResultAsync<TResponse, HandlerError>` — the worker validates the response against the RPC's response schema and publishes it back to the caller's `replyTo` with the same `correlationId`.
+`defineRpc` creates a request-reply slot. RPC handlers return `ResultAsync<TResponse, HandlerError>` — the worker validates the response against the RPC's response schema and publishes it back to the caller's `replyTo` with the same `correlationId`.
+
+> **Important:** `defineHandler` / `defineHandlers` are not RPC-aware today. Both helpers are typed against `InferConsumerNames<TContract>` and the runtime `validateConsumerExists` only inspects `contract.consumers`. Passing an RPC name throws _"Consumer X not found in contract"_ and won't type-check. For RPC handlers, write them inline inside `TypedAmqpWorker.create({ handlers: { … } })` — the `handlers` parameter is typed against `WorkerInferHandlers<TContract>` internally, so each name (consumer or RPC) gets the correct signature inferred:
 
 ```typescript
 import { okAsync, ResultAsync } from "neverthrow";
-import { defineHandler, RetryableError } from "@amqp-contract/worker";
+import { TypedAmqpWorker, RetryableError } from "@amqp-contract/worker";
 
-const calculateHandler = defineHandler(contract, "calculate", ({ payload }) =>
-  okAsync({ sum: payload.a + payload.b }),
-);
+const result = await TypedAmqpWorker.create({
+  contract,
+  handlers: {
+    // Regular consumer — `payload` typed from the consumer's message schema
+    processOrder: ({ payload }) => okAsync(undefined),
 
-const lookupUserHandler = defineHandler(contract, "lookupUser", ({ payload }) =>
-  ResultAsync.fromPromise(
-    db.users.findById(payload.userId),
-    (error) => new RetryableError("DB unavailable", error),
-  ).map((user) => ({ id: user.id, name: user.name })),
-);
+    // RPC handler — must return the typed response payload
+    calculate: ({ payload }) => okAsync({ sum: payload.a + payload.b }),
+
+    // RPC with async work
+    lookupUser: ({ payload }) =>
+      ResultAsync.fromPromise(
+        db.users.findById(payload.userId),
+        (error) => new RetryableError("DB unavailable", error),
+      ).map((user) => ({ id: user.id, name: user.name })),
+  },
+  urls: ["amqp://localhost"],
+});
 ```
 
 The matching client-side call:
@@ -62,14 +72,14 @@ if (result.isOk()) {
 
 RPC error semantics worth knowing:
 
-- **Missing `replyTo` / `correlationId`** on the inbound message → `NonRetryableError` (request goes to DLQ — retrying can't recover the lost reply path).
+- **Missing `replyTo` / `correlationId`** on the inbound message → `NonRetryableError`. The request is `nack`ed without requeue, so it routes to the queue's DLQ if configured (poison messages stay visible for inspection rather than being silently ack'd).
 - **Response fails the response schema** → `NonRetryableError` (handler returned the wrong shape; retrying won't help).
-- **Client-side timeout** → call resolves to `err(RpcTimeoutError)`; pending state is cleared so a late reply is dropped silently.
+- **Client-side timeout** → call resolves to `err(RpcTimeoutError)`; pending state is cleared. If a reply still arrives, it's logged at `warn` and counted via `recordLateRpcReply` (telemetry hook for tuning) — it's not retried.
 - **Client closed mid-call** → call resolves to `err(RpcCancelledError)`.
 
-## Using `defineHandler` / `defineHandlers`
+## Using `defineHandler` / `defineHandlers` (regular consumers only)
 
-Use `defineHandler` (single) or `defineHandlers` (object) for full type inference from the contract. Both also validate at construction time that the name exists in `contract.consumers` ∪ `contract.rpcs`:
+Use `defineHandler` (single) or `defineHandlers` (object) for full type inference and a runtime check that the name exists in `contract.consumers`. Neither helper handles RPC names today (see the warning above).
 
 ```typescript
 import { defineHandler, RetryableError, NonRetryableError } from "@amqp-contract/worker";
@@ -93,25 +103,32 @@ const validateOrderHandler = defineHandler(contract, "validateOrder", ({ payload
 
 ## Error types
 
-### Worker-side (returned from handlers)
+`HandlerError` is the **union type alias** `RetryableError | NonRetryableError` (not a base class — `instanceof HandlerError` does not work). Handlers can only legally return one of those two error types. The other errors below are produced by the framework around handlers.
 
-| Error                    | Behaviour                                                                        |
-| ------------------------ | -------------------------------------------------------------------------------- |
-| `RetryableError`         | Transient. Worker requeues per the queue's `retry` mode (immediate or backoff).  |
-| `NonRetryableError`      | Permanent. Worker `nack`s without requeue, sending to DLQ if configured.         |
-| `MessageValidationError` | Inbound payload/headers failed schema validation. Routes to DLQ — never retried. |
-| `TechnicalError`         | Transport-level failure (connection, channel, broker). Returned by core helpers. |
+### Returned from handlers
 
-Helpers and type guards: `retryable()`, `nonRetryable()` factory functions; `isRetryableError`, `isNonRetryableError`, `isHandlerError` for narrowing. Both `RetryableError` and `NonRetryableError` extend the `HandlerError` union type.
+| Error               | Behaviour                                                                       |
+| ------------------- | ------------------------------------------------------------------------------- |
+| `RetryableError`    | Transient. Worker requeues per the queue's `retry` mode (immediate or backoff). |
+| `NonRetryableError` | Permanent. Worker `nack`s without requeue, sending to DLQ if configured.        |
+
+Helpers and type guards: `retryable()`, `nonRetryable()` factory functions; `isRetryableError`, `isNonRetryableError`, `isHandlerError` for narrowing.
+
+### Raised by the framework around handlers
+
+| Error                    | When                                                                                                                                       |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `MessageValidationError` | Inbound payload/headers failed schema validation **before** the handler ran. Routes to DLQ — never retried.                                |
+| `TechnicalError`         | Transport-level failure (connection, channel, broker). Returned by `@amqp-contract/core` and surfaced via the client / worker public APIs. |
 
 ### Client-side (returned from `client.publish` / `client.call`)
 
-| Error                    | When you get it                                                                                                 |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------- |
-| `MessageValidationError` | Outbound payload failed the request/publisher schema before the message hit the broker.                         |
-| `TechnicalError`         | Publish failed at the broker (channel buffer full, connection lost, etc.).                                      |
-| `RpcTimeoutError`        | RPC call's `timeoutMs` elapsed before a reply arrived. Pending state cleared; a late reply is dropped silently. |
-| `RpcCancelledError`      | RPC was in flight when `client.close()` was called. All pending calls fail with this so callers don't hang.     |
+| Error                    | When                                                                                                                                                                                     |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MessageValidationError` | Outbound payload failed the request/publisher schema before the message hit the broker.                                                                                                  |
+| `TechnicalError`         | Publish failed at the broker (channel buffer full, connection lost, etc.).                                                                                                               |
+| `RpcTimeoutError`        | RPC call's `timeoutMs` elapsed before a reply arrived. Pending state is cleared. A reply that arrives later is logged at `warn` and counted via `recordLateRpcReply` (it isn't retried). |
+| `RpcCancelledError`      | RPC was in flight when `client.close()` was called. All pending calls fail with this so callers don't hang.                                                                              |
 
 `publish()` returns `ResultAsync<void, TechnicalError | MessageValidationError>`.
 `call()` returns `ResultAsync<TResponse, TechnicalError | MessageValidationError | RpcTimeoutError | RpcCancelledError>`.
@@ -163,4 +180,11 @@ const handlers = {
 
 ## Public exports
 
-For the authoritative list of what's exported from `@amqp-contract/worker`, read [`packages/worker/src/index.ts`](../../packages/worker/src/index.ts). Notable types: `WorkerInferHandlers<TContract>` (full handlers object — covers `consumers` ∪ `rpcs`), `WorkerInferConsumerHandler`, `WorkerInferRpcHandler`, `WorkerInferConsumedMessage`, `WorkerInferRpcConsumedMessage`. The legacy `WorkerInferConsumerHandlers` alias is `@deprecated` and still re-exported for one cycle — new code should use `WorkerInferHandlers`.
+For the authoritative list, read [`packages/worker/src/index.ts`](../../packages/worker/src/index.ts). What's currently re-exported:
+
+- Classes: `TypedAmqpWorker`, `RetryableError`, `NonRetryableError`, `MessageValidationError`
+- Factories / guards: `retryable`, `nonRetryable`, `isRetryableError`, `isNonRetryableError`, `isHandlerError`
+- Helpers: `defineHandler`, `defineHandlers`
+- Types: `CreateWorkerOptions`, `ConsumerOptions`, `HandlerError`, `WorkerInferConsumerHandler`, `WorkerInferConsumerHandlerEntry`, `WorkerInferConsumerHandlers` (deprecated alias for the consumer-handlers shape), `WorkerConsumedMessage`, `WorkerInferConsumedMessage`, `WorkerInferConsumerHeaders`
+
+What is **not** currently re-exported (RPC-side types live in `packages/worker/src/types.ts` but aren't surfaced at the package root): `WorkerInferHandlers`, `WorkerInferRpcHandler`, `WorkerInferRpcHandlerEntry`, `WorkerInferRpcConsumedMessage`, `WorkerInferRpcRequest`, `WorkerInferRpcResponse`, `WorkerInferRpcHeaders`. RPC handlers don't need them at the call site — `TypedAmqpWorker.create`'s parameter type infers each handler's signature from the contract automatically.

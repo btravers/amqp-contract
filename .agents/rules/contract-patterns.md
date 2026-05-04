@@ -262,13 +262,19 @@ const queueName = extractQueue(queue).name;
 
 ## Type Inference Helpers
 
-The `Infer*` naming pattern indicates type inference helpers that extract types from a contract at compile time. The full set lives in the package `index.ts` files; the most common ones:
+The `Infer*` naming pattern indicates type inference helpers that extract types from a contract at compile time.
+
+**Re-exported from `@amqp-contract/client`:**
 
 - `ClientInferPublisherInput<Contract, "publisherName">` — input shape for `client.publish(...)`
 - `ClientInferRpcRequestInput<Contract, "rpcName">` — input shape for `client.call(...)`
 - `ClientInferRpcResponseOutput<Contract, "rpcName">` — typed response from `client.call(...)`
-- `WorkerInferConsumedMessage<Contract, "consumerName">` — `{ payload, headers }` envelope for a regular consumer
-- `WorkerInferRpcConsumedMessage<Contract, "rpcName">` — `{ payload, headers }` envelope for an RPC handler
+
+**Re-exported from `@amqp-contract/worker`:**
+
 - `WorkerInferConsumerHandler<Contract, "consumerName">` — handler signature for a regular consumer
-- `WorkerInferRpcHandler<Contract, "rpcName">` — handler signature for an RPC
-- `WorkerInferHandlers<Contract>` — full handlers object expected by `TypedAmqpWorker.create`
+- `WorkerInferConsumedMessage<Contract, "consumerName">` — `{ payload, headers }` envelope for a regular consumer
+- `WorkerInferConsumerHeaders<Contract, "consumerName">` — just the headers slice
+- `WorkerInferConsumerHandlerEntry<Contract, "consumerName">` — handler-or-`[handler, opts]` tuple shape
+
+The RPC equivalents (`WorkerInferRpcHandler`, `WorkerInferRpcConsumedMessage`, `WorkerInferRpcRequest`, `WorkerInferRpcResponse`, `WorkerInferRpcHeaders`) and the unified `WorkerInferHandlers<Contract>` exist in `packages/worker/src/types.ts` but are **not** currently re-exported from the package root. Inline RPC handlers don't need them — the `handlers` parameter on `TypedAmqpWorker.create` infers each name's signature automatically.
