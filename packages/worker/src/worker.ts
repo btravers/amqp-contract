@@ -16,12 +16,13 @@ import {
   endSpanError,
   endSpanSuccess,
   recordConsumeMetric,
+  safeJsonParse,
   startConsumeSpan,
 } from "@amqp-contract/core";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
 import type { ConsumeMessage } from "amqplib";
-import { err, errAsync, ok, okAsync, Result, ResultAsync } from "neverthrow";
+import { err, errAsync, ok, okAsync, ResultAsync } from "neverthrow";
 import { decompressBuffer } from "./decompression.js";
 import type { HandlerError } from "./errors.js";
 import { MessageValidationError, NonRetryableError } from "./errors.js";
@@ -433,10 +434,7 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
 
     const parsePayload = decompressBuffer(msg.content, msg.properties.contentEncoding)
       .andThen((buffer) =>
-        Result.fromThrowable(
-          () => JSON.parse(buffer.toString()) as unknown,
-          (error) => new TechnicalError("Failed to parse JSON", error),
-        )(),
+        safeJsonParse(buffer, (error) => new TechnicalError("Failed to parse JSON", error)),
       )
       .andThen((parsed) =>
         this.validateSchema(consumer.message.payload as StandardSchemaV1, parsed, {
@@ -569,8 +567,66 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
   }
 
   /**
+   * Parse and validate the message; on failure, nack(requeue=false) so the
+   * queue's DLX (if configured) receives the poison message and bypass the
+   * retry pipeline — a malformed payload is deterministic and retrying it
+   * would burn the queue's retry budget on a guaranteed failure.
+   */
+  private parseAndValidateOrNack(
+    msg: ConsumeMessage,
+    consumer: ConsumerDefinition,
+    name: HandlerName<TContract>,
+  ): ResultAsync<{ payload: unknown; headers: unknown }, TechnicalError> {
+    return this.parseAndValidateMessage(msg, consumer, name).orElse((parseError) => {
+      this.amqpClient.nack(msg, false, false);
+      return errAsync(parseError);
+    });
+  }
+
+  /**
+   * Invoke the handler and ack the message on success. Returns the handler's
+   * response (RPC) or `undefined` (regular consumer). Errors propagate as
+   * `HandlerError` for downstream RPC reply publishing or routing via
+   * {@link handleError}.
+   */
+  private runHandler(
+    handler: StoredHandler,
+    validatedMessage: { payload: unknown; headers: unknown },
+    msg: ConsumeMessage,
+  ): ResultAsync<unknown, HandlerError> {
+    return handler(validatedMessage, msg);
+  }
+
+  /**
+   * For RPC handlers, validate and publish the reply on the caller's
+   * `replyTo` / `correlationId`. For non-RPC consumers, this is a no-op that
+   * resolves to `okAsync(undefined)`.
+   */
+  private publishReplyIfRpc(
+    msg: ConsumeMessage,
+    view: { consumer: ConsumerDefinition; isRpc: boolean; responseSchema?: StandardSchemaV1 },
+    name: HandlerName<TContract>,
+    handlerResponse: unknown,
+  ): ResultAsync<void, HandlerError> {
+    if (!view.isRpc || !view.responseSchema) {
+      return okAsync<void, HandlerError>(undefined);
+    }
+    const queueName = extractQueue(view.consumer.queue).name;
+    return this.publishRpcResponse(msg, queueName, name, view.responseSchema, handlerResponse);
+  }
+
+  /**
    * Process a single consumed message: validate, invoke handler, optionally
-   * publish the RPC response, record telemetry, and handle errors.
+   * publish the RPC response, record telemetry, and route errors.
+   *
+   * The success-vs-failure telemetry decision is data-driven: the chain
+   * resolves to `ok(undefined)` only on handler success (and reply publish
+   * success for RPC). Handler failures — even when {@link handleError} routes
+   * them successfully to retry/DLQ — are still classified as failures for
+   * metrics, by re-failing the chain with a `TechnicalError` whose `cause`
+   * is the original `HandlerError`. The terminal `orTee` unwraps the cause
+   * before recording the span exception so traces keep the original
+   * `RetryableError` / `NonRetryableError` class as the exception type.
    */
   private processMessage(
     msg: ConsumeMessage,
@@ -578,93 +634,80 @@ export class TypedAmqpWorker<TContract extends ContractDefinition> {
     name: HandlerName<TContract>,
     handler: StoredHandler,
   ): ResultAsync<void, TechnicalError> {
-    const { consumer, isRpc, responseSchema } = view;
+    const { consumer } = view;
     const queueName = extractQueue(consumer.queue).name;
     const startTime = Date.now();
     const span = startConsumeSpan(this.telemetry, queueName, String(name), {
       "messaging.rabbitmq.message.delivery_tag": msg.fields.deliveryTag,
     });
 
-    let messageHandled = false;
-    let firstError: Error | undefined;
-
-    // Parse / validation failure path: nack once with requeue=false so the
-    // queue's DLX (if configured) receives the poison message. We bypass
-    // handleError() because a malformed payload is deterministic — retrying
-    // it would burn the queue's retry budget on a guaranteed failure.
-    const parsedOrNack = this.parseAndValidateMessage(msg, consumer, name).orElse((parseError) => {
-      firstError = parseError;
-      this.logger?.error("Failed to parse/validate message; sending to DLQ", {
-        consumerName: String(name),
-        queueName,
-        error: parseError,
-      });
-      this.amqpClient.nack(msg, false, false);
-      return errAsync(parseError);
-    });
-
-    const inner: ResultAsync<void, TechnicalError> = parsedOrNack.andThen((validatedMessage) =>
-      handler(validatedMessage, msg)
-        .andThen<void, HandlerError>((handlerResponse) => {
-          if (isRpc && responseSchema) {
-            return this.publishRpcResponse(
-              msg,
-              queueName,
-              name,
-              responseSchema,
-              handlerResponse,
-            ).map(() => {
+    return this.parseAndValidateOrNack(msg, consumer, name)
+      .orTee((parseError) => {
+        this.logger?.error("Failed to parse/validate message; sending to DLQ", {
+          consumerName: String(name),
+          queueName,
+          error: parseError,
+        });
+      })
+      .andThen<void, TechnicalError>((validatedMessage) =>
+        this.runHandler(handler, validatedMessage, msg)
+          .andThen((handlerResponse) =>
+            this.publishReplyIfRpc(msg, view, name, handlerResponse).andTee(() => {
               this.logger?.info("Message consumed successfully", {
                 consumerName: String(name),
                 queueName,
               });
               this.amqpClient.ack(msg);
-              messageHandled = true;
+            }),
+          )
+          .orElse((handlerError: HandlerError) => {
+            this.logger?.error("Error processing message", {
+              consumerName: String(name),
+              queueName,
+              errorType: handlerError.name,
+              retryCount:
+                (msg.properties.headers?.["x-delivery-count"] as number | undefined) ??
+                (msg.properties.headers?.["x-retry-count"] as number | undefined) ??
+                0,
+              error: handlerError.message,
             });
-          }
 
-          this.logger?.info("Message consumed successfully", {
-            consumerName: String(name),
-            queueName,
-          });
-          this.amqpClient.ack(msg);
-          messageHandled = true;
-          return okAsync<void, HandlerError>(undefined);
-        })
-        .orElse((handlerError: HandlerError) => {
-          this.logger?.error("Error processing message", {
-            consumerName: String(name),
-            queueName,
-            errorType: handlerError.name,
-            error: handlerError.message,
-          });
-          firstError = handlerError;
-
-          return handleError(
-            { amqpClient: this.amqpClient, logger: this.logger },
-            handlerError,
-            msg,
-            String(name),
-            consumer,
-          );
-        }),
-    );
-
-    return new ResultAsync<void, TechnicalError>(
-      (async () => {
-        const result = await inner;
-        const durationMs = Date.now() - startTime;
-        if (messageHandled) {
-          endSpanSuccess(span);
-          recordConsumeMetric(this.telemetry, queueName, String(name), true, durationMs);
-        } else {
-          const error = result.isErr() ? result.error : (firstError ?? new Error("Unknown error"));
-          endSpanError(span, error);
-          recordConsumeMetric(this.telemetry, queueName, String(name), false, durationMs);
-        }
-        return result;
-      })(),
-    );
+            // Route the failure to retry / DLQ via handleError. Regardless of
+            // whether routing succeeds, the *handler* failed — re-fail the
+            // chain with the original handlerError so the failure telemetry
+            // path fires. Routing-internal errors (e.g. a TTL-backoff
+            // misconfiguration) take precedence: they surface as the chain's
+            // error and still produce failure telemetry.
+            return handleError(
+              { amqpClient: this.amqpClient, logger: this.logger },
+              handlerError,
+              msg,
+              String(name),
+              consumer,
+            ).andThen(() =>
+              errAsync<void, TechnicalError>(
+                new TechnicalError(
+                  `Handler "${String(name)}" failed: ${handlerError.message}`,
+                  handlerError,
+                ),
+              ),
+            );
+          }),
+      )
+      .andTee(() => {
+        endSpanSuccess(span);
+        recordConsumeMetric(this.telemetry, queueName, String(name), true, Date.now() - startTime);
+      })
+      .orTee((error) => {
+        // Routed handler failures arrive here wrapped in a `TechnicalError`
+        // (so the chain's error type stays uniform), with the original
+        // `HandlerError` carried via `cause`. Surface the original to the span
+        // so the recorded `exception.type` is the discriminating subclass
+        // (`RetryableError` / `NonRetryableError`) rather than the wrapper.
+        const reportedError = error.cause instanceof Error ? error.cause : error;
+        endSpanError(span, reportedError);
+        recordConsumeMetric(this.telemetry, queueName, String(name), false, Date.now() - startTime);
+      });
   }
 
   /**

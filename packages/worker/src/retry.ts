@@ -40,13 +40,10 @@ export function handleError(
   consumerName: string,
   consumer: ConsumerDefinition,
 ): ResultAsync<void, TechnicalError> {
-  // NonRetryableError -> send directly to DLQ without retrying
+  // NonRetryableError -> send directly to DLQ without retrying.
+  // The caller already logged the original error; we only emit a routing
+  // decision log inside `sendToDLQ`.
   if (error instanceof NonRetryableError) {
-    ctx.logger?.error("Non-retryable error, sending to DLQ immediately", {
-      consumerName,
-      errorType: error.name,
-      error: error.message,
-    });
     sendToDLQ(ctx, msg, consumer);
     return okAsync(undefined);
   }
@@ -64,10 +61,13 @@ export function handleError(
     return handleErrorTtlBackoff(ctx, error, msg, consumerName, consumer, config);
   }
 
-  // None mode: no retry, send directly to DLQ or reject
-  ctx.logger?.warn("Retry disabled (none mode), sending to DLQ", {
+  // None mode: no retry, send directly to DLQ or reject. The caller already
+  // logged the original error; emit an info-level routing-decision log so
+  // operators can distinguish this DLQ path from `NonRetryableError` and
+  // max-retries exhaustion paths in retry.ts.
+  ctx.logger?.info("Retry disabled (none mode), sending to DLQ", {
     consumerName,
-    error: error.message,
+    queueName: extractQueue(consumer.queue).name,
   });
   sendToDLQ(ctx, msg, consumer);
   return okAsync(undefined);
@@ -101,25 +101,24 @@ function handleErrorImmediateRequeue(
       ? ((msg.properties.headers?.["x-delivery-count"] as number) ?? 0)
       : ((msg.properties.headers?.["x-retry-count"] as number) ?? 0);
 
-  // Max retries exceeded -> DLQ
+  // Max retries exceeded -> DLQ. The caller already logged the original error;
+  // emit only the routing decision here.
   if (retryCount >= config.maxRetries) {
-    ctx.logger?.error("Max retries exceeded, sending to DLQ (immediate-requeue mode)", {
+    ctx.logger?.info("Max retries exceeded, sending to DLQ (immediate-requeue mode)", {
       consumerName,
       queueName,
       retryCount,
       maxRetries: config.maxRetries,
-      error: error.message,
     });
     sendToDLQ(ctx, msg, consumer);
     return okAsync(undefined);
   }
 
-  ctx.logger?.warn("Retrying message (immediate-requeue mode)", {
+  ctx.logger?.info("Retrying message (immediate-requeue mode)", {
     consumerName,
     queueName,
     retryCount,
     maxRetries: config.maxRetries,
-    error: error.message,
   });
 
   if (queue.type === "quorum") {
@@ -187,14 +186,14 @@ function handleErrorTtlBackoff(
   // Get retry count from headers
   const retryCount = (msg.properties.headers?.["x-retry-count"] as number) ?? 0;
 
-  // Max retries exceeded -> DLQ
+  // Max retries exceeded -> DLQ. The caller already logged the original error;
+  // emit only the routing decision here.
   if (retryCount >= config.maxRetries) {
-    ctx.logger?.error("Max retries exceeded, sending to DLQ (ttl-backoff mode)", {
+    ctx.logger?.info("Max retries exceeded, sending to DLQ (ttl-backoff mode)", {
       consumerName,
       queueName,
       retryCount,
       maxRetries: config.maxRetries,
-      error: error.message,
     });
     sendToDLQ(ctx, msg, consumer);
     return okAsync(undefined);
@@ -202,13 +201,12 @@ function handleErrorTtlBackoff(
 
   // Retry with exponential backoff
   const delayMs = calculateRetryDelay(retryCount, config);
-  ctx.logger?.warn("Retrying message (ttl-backoff mode)", {
+  ctx.logger?.info("Retrying message (ttl-backoff mode)", {
     consumerName,
     queueName,
     retryCount: retryCount + 1,
     maxRetries: config.maxRetries,
     delayMs,
-    error: error.message,
   });
 
   // Re-publish the message to the wait exchange with TTL and incremented x-retry-count header
