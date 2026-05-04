@@ -34,6 +34,14 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
+      # Trusted Publishing exchanges the workflow's OIDC token for a
+      # short-lived npm credential, removing the need for a long-lived
+      # NPM_TOKEN. It requires npm >= 11.5.1, which is newer than the npm
+      # bundled with the Node version pinned by ./.github/actions/setup, so
+      # upgrade the CLI explicitly before publishing.
+      - name: Install npm with Trusted Publishing support
+        run: npm install -g npm@latest
+
       - name: Build
         run: pnpm build
 
@@ -60,4 +68,7 @@ jobs:
           # or a fine-grained token with Contents: read/write + Pull requests:
           # read/write on this repo).
           GITHUB_TOKEN: ${{ secrets.RELEASE_PAT }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # No NPM_TOKEN — auth is handled by Trusted Publishing via the
+          # OIDC token granted by `id-token: write` above. Each published
+          # package must have a trusted publisher configured on npmjs.com
+          # pointing at this repo + workflow file (.github/workflows/release.yml).
