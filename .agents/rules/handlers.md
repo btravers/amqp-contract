@@ -182,9 +182,7 @@ const handlers = {
 
 For the authoritative list, read [`packages/worker/src/index.ts`](../../packages/worker/src/index.ts). What's currently re-exported:
 
-- Classes: `TypedAmqpWorker`, `RetryableError`, `NonRetryableError`, `MessageValidationError`
+- Classes: `TypedAmqpWorker`, `HandlerError` (abstract base), `RetryableError`, `NonRetryableError`, `MessageValidationError`
 - Factories / guards: `retryable`, `nonRetryable`, `isRetryableError`, `isNonRetryableError`, `isHandlerError`
-- Helpers: `defineHandler`, `defineHandlers`
-- Types: `CreateWorkerOptions`, `ConsumerOptions`, `HandlerError`, `WorkerInferConsumerHandler`, `WorkerInferConsumerHandlerEntry`, `WorkerInferConsumerHandlers` (deprecated alias for the consumer-handlers shape), `WorkerConsumedMessage`, `WorkerInferConsumedMessage`, `WorkerInferConsumerHeaders`
-
-What is **not** currently re-exported (RPC-side types live in `packages/worker/src/types.ts` but aren't surfaced at the package root): `WorkerInferHandlers`, `WorkerInferRpcHandler`, `WorkerInferRpcHandlerEntry`, `WorkerInferRpcConsumedMessage`, `WorkerInferRpcRequest`, `WorkerInferRpcResponse`, `WorkerInferRpcHeaders`. RPC handlers don't need them at the call site — `TypedAmqpWorker.create`'s parameter type infers each handler's signature from the contract automatically.
+- Helpers: `defineHandler`, `defineHandlers` (both accept consumer **and** RPC names)
+- Types: `CreateWorkerOptions`, `ConsumerOptions`, `WorkerConsumedMessage`, `WorkerInferConsumedMessage`, `WorkerInferConsumerHandler`, `WorkerInferConsumerHandlerEntry`, `WorkerInferConsumerHeaders`, `WorkerInferHandlers` (consumers ∪ rpcs), `WorkerInferRpcConsumedMessage`, `WorkerInferRpcHandler`, `WorkerInferRpcHandlerEntry`, `WorkerInferRpcHeaders`, `WorkerInferRpcRequest`, `WorkerInferRpcResponse`

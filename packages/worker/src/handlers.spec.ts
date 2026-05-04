@@ -5,6 +5,7 @@ import {
   defineContract,
   defineMessage,
   defineQueue,
+  defineRpc,
 } from "@amqp-contract/contract";
 import { defineHandler, defineHandlers } from "./handlers.js";
 import { describe, expect, it } from "vitest";
@@ -52,11 +53,17 @@ describe("handlers", () => {
       data: z.string(),
     }),
   );
+  const rpcQueue = defineQueue("rpc-queue");
+  const rpcRequest = defineMessage(z.object({ a: z.number(), b: z.number() }));
+  const rpcResponse = defineMessage(z.object({ sum: z.number() }));
 
   const testContract = defineContract({
     consumers: {
       testConsumer: defineConsumer(testQueue, testMessage),
       anotherConsumer: defineConsumer(testQueue, testMessage),
+    },
+    rpcs: {
+      calculate: defineRpc(rpcQueue, { request: rpcRequest, response: rpcResponse }),
     },
   });
 
@@ -89,7 +96,31 @@ describe("handlers", () => {
       expect(result).toEqual([handler, { prefetch: 10 }]);
     });
 
-    it("should throw error if consumer not found in contract", () => {
+    it("should create an RPC handler returning a typed response", () => {
+      // GIVEN
+      const handler = ({ payload }: { payload: { a: number; b: number } }) =>
+        okAsync({ sum: payload.a + payload.b });
+
+      // WHEN
+      const result = defineHandler(testContract, "calculate", handler);
+
+      // THEN
+      expect(result).toBe(handler);
+    });
+
+    it("should create an RPC handler with options", () => {
+      // GIVEN
+      const handler = ({ payload }: { payload: { a: number; b: number } }) =>
+        okAsync({ sum: payload.a + payload.b });
+
+      // WHEN
+      const result = defineHandler(testContract, "calculate", handler, { prefetch: 5 });
+
+      // THEN
+      expect(result).toEqual([handler, { prefetch: 5 }]);
+    });
+
+    it("should throw error if name is not in contract (mentioning both consumers and RPCs)", () => {
       // GIVEN
       const handler = ({ payload }: { payload: { id: string; data: string } }) => {
         console.log(payload.id);
@@ -98,16 +129,16 @@ describe("handlers", () => {
 
       // WHEN/THEN
       expect(() => {
-        // @ts-expect-error Testing runtime validation with invalid consumer name
-        defineHandler(testContract, "nonExistentConsumer", handler);
+        // @ts-expect-error Testing runtime validation with invalid name
+        defineHandler(testContract, "nonExistent", handler);
       }).toThrow(
-        'Consumer "nonExistentConsumer" not found in contract. Available consumers: testConsumer, anotherConsumer',
+        'Handler target "nonExistent" not found in contract. Available consumers and RPCs: testConsumer, anotherConsumer, calculate',
       );
     });
   });
 
   describe("defineHandlers (safe handlers)", () => {
-    it("should create multiple safe handlers", () => {
+    it("should create multiple safe handlers spanning consumers and RPCs", () => {
       // GIVEN
       const handlers = {
         testConsumer: ({ payload }: { payload: { id: string; data: string } }) => {
@@ -118,6 +149,8 @@ describe("handlers", () => {
           console.log(payload.data);
           return okAsync(undefined);
         },
+        calculate: ({ payload }: { payload: { a: number; b: number } }) =>
+          okAsync({ sum: payload.a + payload.b }),
       };
 
       // WHEN
@@ -127,25 +160,30 @@ describe("handlers", () => {
       expect(result).toBe(handlers);
     });
 
-    it("should throw error if handler references non-existent consumer", () => {
+    it("should throw error if a handler key is not in contract (consumers ∪ rpcs)", () => {
       // GIVEN
       const handlers = {
         testConsumer: ({ payload }: { payload: { id: string; data: string } }) => {
           console.log(payload.id);
           return okAsync(undefined);
         },
-        nonExistentConsumer: ({ payload }: { payload: { id: string; data: string } }) => {
+        anotherConsumer: ({ payload }: { payload: { id: string; data: string } }) => {
+          console.log(payload.data);
+          return okAsync(undefined);
+        },
+        calculate: ({ payload }: { payload: { a: number; b: number } }) =>
+          okAsync({ sum: payload.a + payload.b }),
+        nonExistent: ({ payload }: { payload: { id: string; data: string } }) => {
           console.log(payload.data);
           return okAsync(undefined);
         },
       };
 
-      // WHEN/THEN
+      // WHEN/THEN — cast to bypass type-system check; runtime guard is what's under test
       expect(() => {
-        // @ts-expect-error Testing runtime validation with non-existent consumer
-        defineHandlers(testContract, handlers);
+        defineHandlers(testContract, handlers as never);
       }).toThrow(
-        'Consumer "nonExistentConsumer" not found in contract. Available consumers: testConsumer, anotherConsumer',
+        'Handler target "nonExistent" not found in contract. Available consumers and RPCs: testConsumer, anotherConsumer, calculate',
       );
     });
   });

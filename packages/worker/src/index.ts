@@ -1,8 +1,8 @@
 export { TypedAmqpWorker } from "./worker.js";
 export type { CreateWorkerOptions, ConsumerOptions } from "./worker.js";
-export type { HandlerError } from "./errors.js";
 export {
-  // Error classes
+  // Error classes (HandlerError is an abstract base class)
+  HandlerError,
   MessageValidationError,
   NonRetryableError,
   RetryableError,
@@ -16,10 +16,16 @@ export {
 } from "./errors.js";
 export { defineHandler, defineHandlers } from "./handlers.js";
 export type {
-  WorkerInferConsumerHandler,
-  WorkerInferConsumerHandlerEntry,
-  WorkerInferConsumerHandlers,
   WorkerConsumedMessage,
   WorkerInferConsumedMessage,
+  WorkerInferConsumerHandler,
+  WorkerInferConsumerHandlerEntry,
   WorkerInferConsumerHeaders,
+  WorkerInferHandlers,
+  WorkerInferRpcConsumedMessage,
+  WorkerInferRpcHandler,
+  WorkerInferRpcHandlerEntry,
+  WorkerInferRpcHeaders,
+  WorkerInferRpcRequest,
+  WorkerInferRpcResponse,
 } from "./types.js";

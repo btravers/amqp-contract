@@ -9,11 +9,7 @@ import {
   defineQueue,
 } from "@amqp-contract/contract";
 import { it as baseIt } from "@amqp-contract/testing/extension";
-import {
-  TypedAmqpWorker,
-  type WorkerInferConsumerHandlers,
-  defineHandlers,
-} from "@amqp-contract/worker";
+import { TypedAmqpWorker, type WorkerInferHandlers, defineHandlers } from "@amqp-contract/worker";
 import { ok, okAsync } from "neverthrow";
 import { describe, expect, vi } from "vitest";
 import { z } from "zod";
@@ -24,7 +20,7 @@ const it = baseIt.extend<{
   ) => Promise<TypedAmqpClient<TContract>>;
   workerFactory: <TContract extends ContractDefinition>(
     contract: TContract,
-    handlers: WorkerInferConsumerHandlers<TContract>,
+    handlers: WorkerInferHandlers<TContract>,
   ) => Promise<TypedAmqpWorker<TContract>>;
 }>({
   clientFactory: async ({ amqpConnectionUrl }, use) => {
@@ -63,7 +59,7 @@ const it = baseIt.extend<{
       await use(
         async <TContract extends ContractDefinition>(
           contract: TContract,
-          handlers: WorkerInferConsumerHandlers<TContract>,
+          handlers: WorkerInferHandlers<TContract>,
         ) => {
           const worker = (
             await TypedAmqpWorker.create({

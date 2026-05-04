@@ -1,4 +1,5 @@
 import {
+  HandlerError,
   NonRetryableError,
   RetryableError,
   isHandlerError,
@@ -83,6 +84,31 @@ describe("Type Guards", () => {
       expect(isHandlerError(123)).toBe(false);
       expect(isHandlerError({})).toBe(false);
     });
+  });
+});
+
+describe("HandlerError class hierarchy", () => {
+  it("RetryableError is an instance of HandlerError", () => {
+    const error = new RetryableError("test");
+    expect(error).toBeInstanceOf(HandlerError);
+    expect(error).toBeInstanceOf(Error);
+  });
+
+  it("NonRetryableError is an instance of HandlerError", () => {
+    const error = new NonRetryableError("test");
+    expect(error).toBeInstanceOf(HandlerError);
+    expect(error).toBeInstanceOf(Error);
+  });
+
+  it("HandlerError narrows by name discriminator", () => {
+    const errors: HandlerError[] = [new RetryableError("retry"), new NonRetryableError("dlq")];
+    for (const error of errors) {
+      if (error.name === "RetryableError") {
+        expect(error).toBeInstanceOf(RetryableError);
+      } else {
+        expect(error).toBeInstanceOf(NonRetryableError);
+      }
+    }
   });
 });
 

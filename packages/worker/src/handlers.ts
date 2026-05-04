@@ -1,8 +1,14 @@
-import type { ContractDefinition, InferConsumerNames } from "@amqp-contract/contract";
+import type {
+  ContractDefinition,
+  InferConsumerNames,
+  InferRpcNames,
+} from "@amqp-contract/contract";
 import type {
   WorkerInferConsumerHandler,
   WorkerInferConsumerHandlerEntry,
-  WorkerInferConsumerHandlers,
+  WorkerInferHandlers,
+  WorkerInferRpcHandler,
+  WorkerInferRpcHandlerEntry,
 } from "./types.js";
 import { ConsumerOptions } from "./worker.js";
 
@@ -11,41 +17,53 @@ import { ConsumerOptions } from "./worker.js";
 // =============================================================================
 
 /**
- * Validate that a consumer exists in the contract
+ * Build the list of available handler-target names — every key under
+ * `contract.consumers` plus every key under `contract.rpcs`.
  */
-function validateConsumerExists<TContract extends ContractDefinition>(
+function availableHandlerNames<TContract extends ContractDefinition>(
   contract: TContract,
-  consumerName: string,
+): readonly string[] {
+  const consumers = contract.consumers ? Object.keys(contract.consumers) : [];
+  const rpcs = contract.rpcs ? Object.keys(contract.rpcs) : [];
+  return [...consumers, ...rpcs];
+}
+
+function formatAvailable(names: readonly string[]): string {
+  return names.length > 0 ? names.join(", ") : "none";
+}
+
+/**
+ * Validate that a name maps to a contract entry — either a `consumers` key
+ * or an `rpcs` key. The two name spaces are disjoint by contract definition.
+ */
+function validateHandlerTargetExists<TContract extends ContractDefinition>(
+  contract: TContract,
+  name: string,
 ): void {
   const consumers = contract.consumers;
+  const rpcs = contract.rpcs;
 
-  if (!consumers || !(consumerName in consumers)) {
-    const availableConsumers = consumers ? Object.keys(consumers) : [];
-    const available = availableConsumers.length > 0 ? availableConsumers.join(", ") : "none";
+  const isConsumer = !!consumers && Object.hasOwn(consumers, name);
+  const isRpc = !!rpcs && Object.hasOwn(rpcs, name);
+
+  if (!isConsumer && !isRpc) {
+    const available = formatAvailable(availableHandlerNames(contract));
     throw new Error(
-      `Consumer "${consumerName}" not found in contract. Available consumers: ${available}`,
+      `Handler target "${name}" not found in contract. Available consumers and RPCs: ${available}`,
     );
   }
 }
 
 /**
- * Validate that all handlers reference valid consumers
+ * Validate that every key in `handlers` maps to a contract entry —
+ * either a `consumers` key or an `rpcs` key.
  */
 function validateHandlers<TContract extends ContractDefinition>(
   contract: TContract,
   handlers: object,
 ): void {
-  const consumers = contract.consumers;
-  const availableConsumers = Object.keys(consumers ?? {});
-  const availableConsumerNames =
-    availableConsumers.length > 0 ? availableConsumers.join(", ") : "none";
-
   for (const handlerName of Object.keys(handlers)) {
-    if (!consumers || !(handlerName in consumers)) {
-      throw new Error(
-        `Consumer "${handlerName}" not found in contract. Available consumers: ${availableConsumerNames}`,
-      );
-    }
+    validateHandlerTargetExists(contract, handlerName);
   }
 }
 
@@ -54,30 +72,32 @@ function validateHandlers<TContract extends ContractDefinition>(
 // =============================================================================
 
 /**
- * Define a type-safe handler for a specific consumer in a contract.
+ * Define a type-safe handler for a specific consumer or RPC in a contract.
  *
- * **Recommended:** This function creates handlers that return `ResultAsync<void, HandlerError>`,
- * providing explicit error handling and better control over retry behavior.
+ * **Recommended:** This function creates handlers that return
+ * `ResultAsync<void, HandlerError>` (consumers) or
+ * `ResultAsync<TResponse, HandlerError>` (RPCs), providing explicit error
+ * handling and better control over retry behavior.
  *
  * Supports two patterns:
  * 1. Simple handler: just the function
- * 2. Handler with options: [handler, { prefetch: 10 }]
+ * 2. Handler with options: `[handler, { prefetch: 10 }]`
  *
  * @template TContract - The contract definition type
- * @template TName - The consumer name from the contract
- * @param contract - The contract definition containing the consumer
- * @param consumerName - The name of the consumer from the contract
- * @param handler - The handler function that returns `ResultAsync<void, HandlerError>`
+ * @template TName - The consumer or RPC name from the contract
+ * @param contract - The contract definition containing the consumer or RPC
+ * @param name - The name of the consumer or RPC from the contract
+ * @param handler - The handler function — for consumers, returns
+ *   `ResultAsync<void, HandlerError>`; for RPCs, returns
+ *   `ResultAsync<TResponse, HandlerError>`.
  * @param options - Optional consumer options (prefetch)
  * @returns A type-safe handler that can be used with TypedAmqpWorker
  *
- * @example
+ * @example Consumer handler
  * ```typescript
  * import { defineHandler, RetryableError, NonRetryableError } from '@amqp-contract/worker';
  * import { errAsync, okAsync, ResultAsync } from 'neverthrow';
- * import { orderContract } from './contract';
  *
- * // Simple handler with explicit error handling
  * const processOrderHandler = defineHandler(
  *   orderContract,
  *   'processOrder',
@@ -87,18 +107,14 @@ function validateHandlers<TContract extends ContractDefinition>(
  *       (error) => new RetryableError('Payment failed', error),
  *     ).map(() => undefined),
  * );
+ * ```
  *
- * // Handler with validation (non-retryable error)
- * const validateOrderHandler = defineHandler(
- *   orderContract,
- *   'validateOrder',
- *   ({ payload }) => {
- *     if (payload.amount < 1) {
- *       // Won't be retried - goes directly to DLQ
- *       return errAsync(new NonRetryableError('Invalid order amount'));
- *     }
- *     return okAsync(undefined);
- *   },
+ * @example RPC handler
+ * ```typescript
+ * const calculateHandler = defineHandler(
+ *   rpcContract,
+ *   'calculate',
+ *   ({ payload }) => okAsync({ sum: payload.a + payload.b }),
  * );
  * ```
  */
@@ -107,7 +123,7 @@ export function defineHandler<
   TName extends InferConsumerNames<TContract>,
 >(
   contract: TContract,
-  consumerName: TName,
+  name: TName,
   handler: WorkerInferConsumerHandler<TContract, TName>,
 ): WorkerInferConsumerHandlerEntry<TContract, TName>;
 export function defineHandler<
@@ -115,20 +131,32 @@ export function defineHandler<
   TName extends InferConsumerNames<TContract>,
 >(
   contract: TContract,
-  consumerName: TName,
+  name: TName,
   handler: WorkerInferConsumerHandler<TContract, TName>,
   options: ConsumerOptions,
 ): WorkerInferConsumerHandlerEntry<TContract, TName>;
 export function defineHandler<
   TContract extends ContractDefinition,
-  TName extends InferConsumerNames<TContract>,
+  TName extends InferRpcNames<TContract>,
 >(
   contract: TContract,
-  consumerName: TName,
-  handler: WorkerInferConsumerHandler<TContract, TName>,
-  options?: ConsumerOptions,
-): WorkerInferConsumerHandlerEntry<TContract, TName> {
-  validateConsumerExists(contract, String(consumerName));
+  name: TName,
+  handler: WorkerInferRpcHandler<TContract, TName>,
+): WorkerInferRpcHandlerEntry<TContract, TName>;
+export function defineHandler<
+  TContract extends ContractDefinition,
+  TName extends InferRpcNames<TContract>,
+>(
+  contract: TContract,
+  name: TName,
+  handler: WorkerInferRpcHandler<TContract, TName>,
+  options: ConsumerOptions,
+): WorkerInferRpcHandlerEntry<TContract, TName>;
+export function defineHandler<
+  TContract extends ContractDefinition,
+  TName extends InferConsumerNames<TContract> | InferRpcNames<TContract>,
+>(contract: TContract, name: TName, handler: unknown, options?: ConsumerOptions): unknown {
+  validateHandlerTargetExists(contract, String(name));
 
   if (options) {
     return [handler, options];
@@ -137,21 +165,25 @@ export function defineHandler<
 }
 
 /**
- * Define multiple type-safe handlers for consumers in a contract.
+ * Define multiple type-safe handlers for consumers and RPCs in a contract.
  *
- * **Recommended:** This function creates handlers that return `ResultAsync<void, HandlerError>`,
- * providing explicit error handling and better control over retry behavior.
+ * **Recommended:** This function creates handlers that return
+ * `ResultAsync<void, HandlerError>` (consumers) or
+ * `ResultAsync<TResponse, HandlerError>` (RPCs), providing explicit error
+ * handling and better control over retry behavior.
+ *
+ * The handlers object must contain exactly one entry per `consumers` and
+ * `rpcs` key in the contract — see {@link WorkerInferHandlers}.
  *
  * @template TContract - The contract definition type
- * @param contract - The contract definition containing the consumers
- * @param handlers - An object with handler functions for each consumer
+ * @param contract - The contract definition containing the consumers and RPCs
+ * @param handlers - An object with handler functions for each consumer and RPC
  * @returns A type-safe handlers object that can be used with TypedAmqpWorker
  *
  * @example
  * ```typescript
  * import { defineHandlers, RetryableError } from '@amqp-contract/worker';
- * import { ResultAsync } from 'neverthrow';
- * import { orderContract } from './contract';
+ * import { okAsync, ResultAsync } from 'neverthrow';
  *
  * const handlers = defineHandlers(orderContract, {
  *   processOrder: ({ payload }) =>
@@ -159,18 +191,14 @@ export function defineHandler<
  *       processPayment(payload),
  *       (error) => new RetryableError('Payment failed', error),
  *     ).map(() => undefined),
- *   notifyOrder: ({ payload }) =>
- *     ResultAsync.fromPromise(
- *       sendNotification(payload),
- *       (error) => new RetryableError('Notification failed', error),
- *     ).map(() => undefined),
+ *   calculate: ({ payload }) => okAsync({ sum: payload.a + payload.b }),
  * });
  * ```
  */
 export function defineHandlers<TContract extends ContractDefinition>(
   contract: TContract,
-  handlers: WorkerInferConsumerHandlers<TContract>,
-): WorkerInferConsumerHandlers<TContract> {
+  handlers: WorkerInferHandlers<TContract>,
+): WorkerInferHandlers<TContract> {
   validateHandlers(contract, handlers);
   return handlers;
 }
