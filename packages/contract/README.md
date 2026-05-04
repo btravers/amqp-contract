@@ -102,7 +102,7 @@ const contract = defineContract({
 //   handlers: { calculate: ({ payload }) => okAsync({ sum: payload.a + payload.b }) }
 //
 // Client invokes with a required timeout:
-//   const result = await client.call("calculate", { a: 1, b: 2 }, { timeoutMs: 5_000 }).toPromise();
+//   const result = await client.call("calculate", { a: 1, b: 2 }, { timeoutMs: 5_000 });
 ```
 
 **Benefits:**

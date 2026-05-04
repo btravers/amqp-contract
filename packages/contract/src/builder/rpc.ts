@@ -35,7 +35,7 @@ import type { MessageDefinition, QueueEntry, RpcDefinition } from "../types.js";
  * //   handlers: { calculate: ({ payload }) => okAsync({ sum: payload.a + payload.b }) }
  *
  * // Client: typed call with required timeout
- * //   const result = await client.call('calculate', { a: 1, b: 2 }, { timeoutMs: 5_000 }).toPromise();
+ * //   const result = await client.call('calculate', { a: 1, b: 2 }, { timeoutMs: 5_000 });
  * ```
  */
 export function defineRpc<
