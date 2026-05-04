@@ -13,7 +13,7 @@
     "knip": "knip",
     "lint": "oxlint .",
     "prepare": "lefthook install",
-    "release": "pnpm build && changeset publish",
+    "release": "pnpm build && pnpm publish -r --access public --no-git-checks",
     "test": "turbo run test",
     "test:integration": "turbo run test:integration",
     "typecheck": "turbo run typecheck",
