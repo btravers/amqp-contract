@@ -11,7 +11,7 @@
   "dependencies": {
     "@amqp-contract-examples/basic-order-processing-contract": "workspace:*",
     "@amqp-contract/worker": "workspace:*",
-    "@swan-io/boxed": "catalog:",
+    "neverthrow": "catalog:",
     "pino": "catalog:",
     "pino-pretty": "catalog:",
     "zod": "catalog:"

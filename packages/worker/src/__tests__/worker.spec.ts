@@ -7,7 +7,7 @@ import {
   defineQueue,
   extractQueue,
 } from "@amqp-contract/contract";
-import { Future, Result } from "@swan-io/boxed";
+import { errAsync, okAsync } from "neverthrow";
 import { describe, expect, vi } from "vitest";
 import { z } from "zod";
 import { RetryableError } from "../errors.js";
@@ -44,7 +44,7 @@ describe("AmqpWorker Integration", () => {
       defineHandlers(contract, {
         testConsumer: ({ payload }) => {
           messages.push(payload);
-          return Future.value(Result.Ok(undefined));
+          return okAsync(undefined);
         },
       }),
     );
@@ -95,7 +95,7 @@ describe("AmqpWorker Integration", () => {
       defineHandlers(contract, {
         testConsumer: ({ payload }) => {
           messages.push(payload);
-          return Future.value(Result.Ok(undefined));
+          return okAsync(undefined);
         },
       }),
     );
@@ -152,7 +152,7 @@ describe("AmqpWorker Integration", () => {
         testConsumer: ({ payload, headers }) => {
           messages.push(payload);
           messageHeaders.push(headers);
-          return Future.value(Result.Ok(undefined));
+          return okAsync(undefined);
         },
       }),
     );
@@ -219,7 +219,7 @@ describe("AmqpWorker Integration", () => {
       defineHandlers(contract, {
         testConsumer: ({ payload }) => {
           messages.push(payload);
-          return Future.value(Result.Ok(undefined));
+          return okAsync(undefined);
         },
       }),
     );
@@ -270,11 +270,11 @@ describe("AmqpWorker Integration", () => {
       defineHandlers(contract, {
         consumer1: ({ payload }) => {
           messages1.push(payload);
-          return Future.value(Result.Ok(undefined));
+          return okAsync(undefined);
         },
         consumer2: ({ payload }) => {
           messages2.push(payload);
-          return Future.value(Result.Ok(undefined));
+          return okAsync(undefined);
         },
       }),
     );
@@ -324,7 +324,7 @@ describe("AmqpWorker Integration", () => {
       defineHandlers(contract, {
         testConsumer: ({ payload }) => {
           messages.push(payload);
-          return Future.value(Result.Ok(undefined));
+          return okAsync(undefined);
         },
       }),
     );
@@ -371,10 +371,10 @@ describe("AmqpWorker Integration", () => {
         testConsumer: ({ payload }) => {
           attemptCount++;
           if (payload.shouldFail && attemptCount === 1) {
-            return Future.value(Result.Error(new RetryableError("Handler error on first attempt")));
+            return errAsync(new RetryableError("Handler error on first attempt"));
           }
           messages.push(payload);
-          return Future.value(Result.Ok(undefined));
+          return okAsync(undefined);
         },
       }),
     );
@@ -422,7 +422,7 @@ describe("AmqpWorker Integration", () => {
       defineHandlers(contract, {
         destConsumer: ({ payload }) => {
           messages.push(payload);
-          return Future.value(Result.Ok(undefined));
+          return okAsync(undefined);
         },
       }),
     );
@@ -467,7 +467,7 @@ describe("AmqpWorker Integration", () => {
       defineHandlers(contract, {
         testConsumer: ({ payload }) => {
           messages.push(payload);
-          return Future.value(Result.Ok(undefined));
+          return okAsync(undefined);
         },
       }),
     );
@@ -534,11 +534,11 @@ describe("AmqpWorker Integration", () => {
       defineHandlers(contract, {
         orderConsumer: ({ payload }) => {
           orders.push(payload);
-          return Future.value(Result.Ok(undefined));
+          return okAsync(undefined);
         },
         notificationConsumer: ({ payload }) => {
           notifications.push(payload);
-          return Future.value(Result.Ok(undefined));
+          return okAsync(undefined);
         },
       }),
     );
@@ -637,16 +637,16 @@ describe("AmqpWorker Integration", () => {
     };
 
     // Create worker with mock logger
-    const worker = await TypedAmqpWorker.create({
-      contract,
-      handlers: {
-        testConsumer: defineHandler(contract, "testConsumer", (_msg) =>
-          Future.value(Result.Ok(undefined)),
-        ),
-      },
-      urls: [amqpConnectionUrl],
-      logger: mockLogger,
-    }).resultToPromise();
+    const worker = (
+      await TypedAmqpWorker.create({
+        contract,
+        handlers: {
+          testConsumer: defineHandler(contract, "testConsumer", (_msg) => okAsync(undefined)),
+        },
+        urls: [amqpConnectionUrl],
+        logger: mockLogger,
+      })
+    )._unsafeUnwrap();
 
     // Wait for worker setup
     const WORKER_SETUP_WAIT_MS = 500;
@@ -684,6 +684,6 @@ describe("AmqpWorker Integration", () => {
     expect(unexpectedWarnings).toHaveLength(0);
 
     // Clean up
-    await worker.close().resultToPromise();
+    (await worker.close())._unsafeUnwrap();
   });
 });

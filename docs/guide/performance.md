@@ -155,8 +155,8 @@ Publisher confirms ensure messages reach RabbitMQ:
 
 ```typescript
 // amqp-contract uses confirms by default
-// Each publish returns a Future that resolves when confirmed
-const result = await client.publish("orderCreated", payload).resultToPromise();
+// Each publish returns a ResultAsync that resolves when confirmed
+const result = await client.publish("orderCreated", payload);
 ```
 
 For maximum throughput without confirms (not recommended for critical messages):

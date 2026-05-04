@@ -9,7 +9,7 @@ import {
   defineQueue,
 } from "@amqp-contract/contract";
 import { it as baseIt } from "@amqp-contract/testing/extension";
-import { Result } from "@swan-io/boxed";
+import { err, ok } from "neverthrow";
 import { describe, expect } from "vitest";
 import { z } from "zod";
 import { CreateClientOptions, TypedAmqpClient } from "../client.js";
@@ -30,11 +30,13 @@ const it = baseIt.extend<{
           contract: TContract,
           options?: Omit<CreateClientOptions<TContract>, "contract" | "urls">,
         ) => {
-          const client = await TypedAmqpClient.create({
-            contract,
-            urls: [amqpConnectionUrl],
-            ...options,
-          }).resultToPromise();
+          const client = (
+            await TypedAmqpClient.create({
+              contract,
+              urls: [amqpConnectionUrl],
+              ...options,
+            })
+          )._unsafeUnwrap();
 
           clients.push(client);
           return client;
@@ -45,7 +47,7 @@ const it = baseIt.extend<{
       await Promise.all(
         clients.map(async (client) => {
           try {
-            await client.close().resultToPromise();
+            (await client.close())._unsafeUnwrap();
           } catch (error) {
             // Swallow errors during cleanup to avoid unhandled rejections
             // eslint-disable-next-line no-console
@@ -93,7 +95,7 @@ describe("AmqpClient Integration", () => {
       });
 
       // THEN
-      expect(result).toEqual(Result.Ok(undefined));
+      expect(result).toEqual(ok(undefined));
 
       await expect(pendingMessages()).resolves.toEqual([
         expect.objectContaining({
@@ -169,7 +171,7 @@ describe("AmqpClient Integration", () => {
       });
 
       // THEN
-      expect(result).toEqual(Result.Ok(undefined));
+      expect(result).toEqual(ok(undefined));
 
       await expect(pendingMessages()).resolves.toEqual([
         expect.objectContaining({
@@ -214,7 +216,7 @@ describe("AmqpClient Integration", () => {
       );
 
       // THEN
-      expect(result).toEqual(Result.Ok(undefined));
+      expect(result).toEqual(ok(undefined));
 
       await expect(pendingMessages()).resolves.toEqual([
         expect.objectContaining({
@@ -256,7 +258,7 @@ describe("AmqpClient Integration", () => {
       const result = await client.publish("testPublisher", { content: "default publish" });
 
       // THEN
-      expect(result).toEqual(Result.Ok(undefined));
+      expect(result).toEqual(ok(undefined));
 
       await expect(pendingMessages()).resolves.toEqual([
         expect.objectContaining({
@@ -268,7 +270,7 @@ describe("AmqpClient Integration", () => {
         }),
       ]);
 
-      await client.close().resultToPromise();
+      (await client.close())._unsafeUnwrap();
     });
 
     it("should override default publish options with publish-specific options", async ({
@@ -309,7 +311,7 @@ describe("AmqpClient Integration", () => {
       );
 
       // THEN
-      expect(result).toEqual(Result.Ok(undefined));
+      expect(result).toEqual(ok(undefined));
 
       await expect(pendingMessages()).resolves.toEqual([
         expect.objectContaining({
@@ -322,7 +324,7 @@ describe("AmqpClient Integration", () => {
         }),
       ]);
 
-      await client.close().resultToPromise();
+      (await client.close())._unsafeUnwrap();
     });
   });
 
@@ -578,9 +580,7 @@ describe("AmqpClient Integration", () => {
       });
 
       // THEN
-      expect(result).toEqual(
-        Result.Error(new MessageValidationError("testPublisher", expect.any(Array))),
-      );
+      expect(result).toEqual(err(new MessageValidationError("testPublisher", expect.any(Array))));
     });
   });
 });

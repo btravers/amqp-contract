@@ -30,9 +30,9 @@ const worker = await TypedAmqpWorker.create({
   handlers: {
     processOrder: ({ payload }) => {
       // What happens when the payment service is temporarily down?
-      return Future.fromPromise(paymentService.charge(payload))
-        .mapOk(() => undefined)
-        .mapError((error) => new RetryableError("Payment failed", error));
+      return ResultAsync.fromPromise(paymentService.charge(payload))
+        .map(() => undefined)
+        .mapErr((error) => new RetryableError("Payment failed", error));
       // Without retry configuration, message may be lost or stuck
     },
   },
@@ -65,7 +65,7 @@ import {
   defineMessage,
 } from "@amqp-contract/contract";
 import { TypedAmqpWorker, RetryableError } from "@amqp-contract/worker";
-import { Future } from "@swan-io/boxed";
+import { ResultAsync } from "neverthrow";
 import { z } from "zod";
 
 const dlx = defineExchange("orders-dlx");
@@ -97,12 +97,12 @@ const worker = await TypedAmqpWorker.create({
   handlers: {
     processOrder: ({ payload }) =>
       // If this fails, message is automatically retried with exponential backoff
-      Future.fromPromise(paymentService.charge(payload))
-        .mapOk(() => undefined)
-        .mapError((error) => new RetryableError("Payment failed", error)),
+      ResultAsync.fromPromise(paymentService.charge(payload))
+        .map(() => undefined)
+        .mapErr((error) => new RetryableError("Payment failed", error)),
   },
   urls: ["amqp://localhost"],
-}).resultToPromise();
+});
 ```
 
 ## Choosing a Retry Strategy
@@ -116,7 +116,7 @@ A simpler mode that requeues failed messages immediately (no wait queues):
 ```typescript
 import { defineQueue, defineExchange, defineContract } from "@amqp-contract/contract";
 import { TypedAmqpWorker, RetryableError } from "@amqp-contract/worker";
-import { Future } from "@swan-io/boxed";
+import { ResultAsync } from "neverthrow";
 
 // Define queue with immediate-requeue retry
 const ordersQueue = defineQueue("orders", {
@@ -133,12 +133,12 @@ const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: ({ payload }) =>
-      Future.fromPromise(paymentService.charge(payload))
-        .mapOk(() => undefined)
-        .mapError((error) => new RetryableError("Payment failed", error)),
+      ResultAsync.fromPromise(paymentService.charge(payload))
+        .map(() => undefined)
+        .mapErr((error) => new RetryableError("Payment failed", error)),
   },
   urls: ["amqp://localhost"],
-}).resultToPromise();
+});
 ```
 
 **How it works:**
@@ -295,23 +295,23 @@ Use `RetryableError` when the operation might succeed if retried:
 
 ```typescript
 import { TypedAmqpWorker, RetryableError } from "@amqp-contract/worker";
-import { Future } from "@swan-io/boxed";
+import { ResultAsync } from "neverthrow";
 
 // Retry is configured at the queue level in the contract
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: {
     processOrder: ({ payload }) =>
-      Future.fromPromise(externalApiCall(payload))
-        .mapOk(() => undefined)
-        .mapError(
+      ResultAsync.fromPromise(externalApiCall(payload))
+        .map(() => undefined)
+        .mapErr(
           (error) =>
             // Explicitly signal this should be retried
             new RetryableError("External API temporarily unavailable", error),
         ),
   },
   urls: ["amqp://localhost"],
-}).resultToPromise();
+});
 ```
 
 ### NonRetryableError - For Permanent Failures
@@ -320,7 +320,7 @@ Use `NonRetryableError` when retrying would be pointless:
 
 ```typescript
 import { TypedAmqpWorker, NonRetryableError, RetryableError } from "@amqp-contract/worker";
-import { Future, Result } from "@swan-io/boxed";
+import { ResultAsync, Result } from "neverthrow";
 
 // Retry is configured at the queue level in the contract
 const worker = await TypedAmqpWorker.create({
@@ -329,26 +329,26 @@ const worker = await TypedAmqpWorker.create({
     processOrder: ({ payload }) => {
       // Validation errors should not be retried
       if (payload.amount <= 0) {
-        return Future.value(
-          Result.Error(new NonRetryableError("Invalid order amount - cannot be negative")),
+        return ResultAsync.value(
+          err(new NonRetryableError("Invalid order amount - cannot be negative")),
         );
       }
 
       // Business rule violations - check and fail fast
-      return Future.fromPromise(isBlacklistedCustomer(payload.customerId))
-        .flatMapOk((isBlacklisted) => {
+      return ResultAsync.fromPromise(isBlacklistedCustomer(payload.customerId))
+        .andThen((isBlacklisted) => {
           if (isBlacklisted) {
-            return Future.value(Result.Error(new NonRetryableError("Customer is blacklisted")));
+            return errAsync(new NonRetryableError("Customer is blacklisted"));
           }
-          return Future.fromPromise(processPayment(payload))
-            .mapOk(() => undefined)
-            .mapError((error) => new RetryableError("Payment failed", error));
+          return ResultAsync.fromPromise(processPayment(payload))
+            .map(() => undefined)
+            .mapErr((error) => new RetryableError("Payment failed", error));
         })
-        .mapError((error) => new RetryableError("Check failed", error));
+        .mapErr((error) => new RetryableError("Check failed", error));
     },
   },
   urls: ["amqp://localhost"],
-}).resultToPromise();
+});
 ```
 
 **NonRetryableError behavior:**
@@ -367,22 +367,22 @@ const worker = await TypedAmqpWorker.create({
 
 ## Safe Handlers for Maximum Control
 
-For the most explicit error handling, use safe handlers that return `Future<Result>`:
+For the most explicit error handling, use safe handlers that return `ResultAsync<Result>`:
 
 ```typescript
 import { defineHandler, RetryableError, NonRetryableError } from "@amqp-contract/worker";
-import { Future, Result } from "@swan-io/boxed";
+import { ResultAsync, Result } from "neverthrow";
 import { match } from "ts-pattern";
 
 const processOrderHandler = defineHandler(contract, "processOrder", ({ payload }) => {
   // Validation - non-retryable
   if (payload.amount <= 0) {
-    return Future.value(Result.Error(new NonRetryableError("Invalid amount")));
+    return errAsync(new NonRetryableError("Invalid amount"));
   }
 
-  return Future.fromPromise(processPayment(payload))
-    .mapOk(() => undefined)
-    .mapError((error) =>
+  return ResultAsync.fromPromise(processPayment(payload))
+    .map(() => undefined)
+    .mapErr((error) =>
       match(error)
         .when(
           (e) => e instanceof PaymentDeclinedError,
@@ -403,7 +403,7 @@ const worker = await TypedAmqpWorker.create({
     processOrder: processOrderHandler,
   },
   urls: ["amqp://localhost"],
-}).resultToPromise();
+});
 ```
 
 ## Retry Header Tracking
@@ -471,20 +471,20 @@ const ordersQueue = defineQueue("orders", {
 Since messages may be processed multiple times, design your handlers to be idempotent:
 
 ```typescript
-import { Future, Result } from "@swan-io/boxed";
+import { ResultAsync, Result } from "neverthrow";
 import { RetryableError } from "@amqp-contract/worker";
 
 const processOrderHandler = ({ payload }) => {
   // Use the orderId as an idempotency key
-  return Future.fromPromise(db.orders.findById(payload.orderId))
-    .flatMapOk((existing) => {
+  return ResultAsync.fromPromise(db.orders.findById(payload.orderId))
+    .andThen((existing) => {
       if (existing) {
         console.log(`Order ${payload.orderId} already processed, skipping`);
-        return Future.value(Result.Ok(undefined));
+        return okAsync(undefined);
       }
-      return Future.fromPromise(db.orders.create(payload)).mapOk(() => undefined);
+      return ResultAsync.fromPromise(db.orders.create(payload)).map(() => undefined);
     })
-    .mapError((error) => new RetryableError("Database error", error));
+    .mapErr((error) => new RetryableError("Database error", error));
 };
 ```
 
@@ -493,7 +493,7 @@ const processOrderHandler = ({ payload }) => {
 Set up alerts for messages reaching your dead letter queue:
 
 ```typescript
-import { Future, Result } from "@swan-io/boxed";
+import { ResultAsync, Result } from "neverthrow";
 
 // Example: DLQ monitoring consumer
 const dlqMonitor = await TypedAmqpWorker.create({
@@ -501,15 +501,15 @@ const dlqMonitor = await TypedAmqpWorker.create({
   handlers: {
     monitorFailedOrders: ({ payload }) => {
       // Alert your monitoring system
-      return Future.fromPromise(
+      return ResultAsync.fromPromise(
         alerting.send({
           severity: "warning",
           message: `Order ${payload.orderId} failed after max retries`,
           headers: payload.headers,
         }),
       )
-        .mapOk(() => undefined)
-        .mapError(() => new Error("Alert failed"));
+        .map(() => undefined)
+        .mapErr(() => new Error("Alert failed"));
     },
   },
   urls: ["amqp://localhost"],

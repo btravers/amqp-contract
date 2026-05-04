@@ -21,13 +21,11 @@ import { TypedAmqpClient } from "@amqp-contract/client";
 const client = await TypedAmqpClient.create({
   contract,
   urls: ["amqp://localhost"],
-}).resultToPromise();
+});
 
-await client
-  .publish("orderCreated", {
-    /* fully typed */
-  })
-  .resultToPromise();
+await client.publish("orderCreated", {
+  /* fully typed */
+});
 ```
 
 ## Patterns Demonstrated

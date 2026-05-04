@@ -309,7 +309,7 @@ import { orderContract } from "@amqp-contract-examples/basic-order-processing-co
 const client = await TypedAmqpClient.create({
   contract: orderContract,
   urls: ["amqp://localhost"],
-}).resultToPromise();
+});
 
 // Publish new order with explicit error handling
 const result = await client.publish("orderCreated", {
@@ -359,22 +359,22 @@ const worker = await TypedAmqpWorker.create({
       console.log(`[PROCESSING] Order ${payload.orderId}`);
       console.log(`  Customer: ${payload.customerId}`);
       console.log(`  Total: $${payload.totalAmount}`);
-      return Future.value(Result.Ok(undefined));
+      return okAsync(undefined);
     },
 
     notifyOrder: ({ payload }) => {
       console.log(`[NOTIFICATION] Order ${payload.orderId} event`);
-      return Future.value(Result.Ok(undefined));
+      return okAsync(undefined);
     },
 
     shipOrder: ({ payload }) => {
       console.log(`[SHIPPING] Order ${payload.orderId} - ${payload.status}`);
-      return Future.value(Result.Ok(undefined));
+      return okAsync(undefined);
     },
 
     handleUrgentOrder: ({ payload }) => {
       console.log(`[URGENT] Order ${payload.orderId} - ${payload.status}`);
-      return Future.value(Result.Ok(undefined));
+      return okAsync(undefined);
     },
   },
   connection,

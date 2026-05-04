@@ -6,8 +6,8 @@ import {
   isQueueWithTtlBackoffInfrastructure,
 } from "@amqp-contract/contract";
 import { type AmqpClient, type Logger, TechnicalError } from "@amqp-contract/core";
-import { Future, Result } from "@swan-io/boxed";
 import type { ConsumeMessage } from "amqplib";
+import { err, errAsync, ok, okAsync, ResultAsync } from "neverthrow";
 import { NonRetryableError } from "./errors.js";
 
 type RetryContext = {
@@ -39,7 +39,7 @@ export function handleError(
   msg: ConsumeMessage,
   consumerName: string,
   consumer: ConsumerDefinition,
-): Future<Result<void, TechnicalError>> {
+): ResultAsync<void, TechnicalError> {
   // NonRetryableError -> send directly to DLQ without retrying
   if (error instanceof NonRetryableError) {
     ctx.logger?.error("Non-retryable error, sending to DLQ immediately", {
@@ -48,7 +48,7 @@ export function handleError(
       error: error.message,
     });
     sendToDLQ(ctx, msg, consumer);
-    return Future.value(Result.Ok(undefined));
+    return okAsync(undefined);
   }
 
   // Get retry config from the queue definition in the contract
@@ -70,7 +70,7 @@ export function handleError(
     error: error.message,
   });
   sendToDLQ(ctx, msg, consumer);
-  return Future.value(Result.Ok(undefined));
+  return okAsync(undefined);
 }
 
 /**
@@ -89,7 +89,7 @@ function handleErrorImmediateRequeue(
   consumerName: string,
   consumer: ConsumerDefinition,
   config: ResolvedImmediateRequeueRetryOptions,
-): Future<Result<void, TechnicalError>> {
+): ResultAsync<void, TechnicalError> {
   const queue = extractQueue(consumer.queue);
   const queueName = queue.name;
 
@@ -111,7 +111,7 @@ function handleErrorImmediateRequeue(
       error: error.message,
     });
     sendToDLQ(ctx, msg, consumer);
-    return Future.value(Result.Ok(undefined));
+    return okAsync(undefined);
   }
 
   ctx.logger?.warn("Retrying message (immediate-requeue mode)", {
@@ -125,7 +125,7 @@ function handleErrorImmediateRequeue(
   if (queue.type === "quorum") {
     // For quorum queues, nack with requeue=true to trigger native retry mechanism
     ctx.amqpClient.nack(msg, false, true);
-    return Future.value(Result.Ok(undefined));
+    return okAsync(undefined);
   } else {
     // For classic queues, re-publish the message to the same exchange / routing key immediately with an incremented x-retry-count header
     return publishForRetry(ctx, {
@@ -171,15 +171,13 @@ function handleErrorTtlBackoff(
   consumerName: string,
   consumer: ConsumerDefinition,
   config: ResolvedTtlBackoffRetryOptions,
-): Future<Result<void, TechnicalError>> {
+): ResultAsync<void, TechnicalError> {
   if (!isQueueWithTtlBackoffInfrastructure(consumer.queue)) {
     ctx.logger?.error("Queue does not have TTL-backoff infrastructure", {
       consumerName,
       queueName: consumer.queue.name,
     });
-    return Future.value(
-      Result.Error(new TechnicalError("Queue does not have TTL-backoff infrastructure")),
-    );
+    return errAsync(new TechnicalError("Queue does not have TTL-backoff infrastructure"));
   }
 
   const queueEntry = consumer.queue;
@@ -199,7 +197,7 @@ function handleErrorTtlBackoff(
       error: error.message,
     });
     sendToDLQ(ctx, msg, consumer);
-    return Future.value(Result.Ok(undefined));
+    return okAsync(undefined);
   }
 
   // Retry with exponential backoff
@@ -277,10 +275,10 @@ function parseMessageContentForRetry(
 
   try {
     return JSON.parse(msg.content.toString());
-  } catch (err) {
+  } catch (parseErr) {
     ctx.logger?.warn("Failed to parse JSON message for retry, using original buffer", {
       queueName,
-      error: err,
+      error: parseErr,
     });
     return msg.content;
   }
@@ -308,7 +306,7 @@ function publishForRetry(
     delayMs?: number;
     error: Error;
   },
-): Future<Result<void, TechnicalError>> {
+): ResultAsync<void, TechnicalError> {
   // Get retry count from headers
   const retryCount = (msg.properties.headers?.["x-retry-count"] as number) ?? 0;
   const newRetryCount = retryCount + 1;
@@ -337,16 +335,14 @@ function publishForRetry(
           : {}),
       },
     })
-    .mapOkToResult((published) => {
+    .andThen((published) => {
       if (!published) {
         ctx.logger?.error("Failed to publish message for retry (write buffer full)", {
           queueName,
           retryCount: newRetryCount,
           ...(delayMs !== undefined ? { delayMs } : {}),
         });
-        return Result.Error(
-          new TechnicalError("Failed to publish message for retry (write buffer full)"),
-        );
+        return err(new TechnicalError("Failed to publish message for retry (write buffer full)"));
       }
 
       ctx.logger?.info("Message published for retry", {
@@ -354,7 +350,7 @@ function publishForRetry(
         retryCount: newRetryCount,
         ...(delayMs !== undefined ? { delayMs } : {}),
       });
-      return Result.Ok(undefined);
+      return ok<void, TechnicalError>(undefined);
     });
 }
 

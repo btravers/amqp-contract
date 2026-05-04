@@ -69,7 +69,7 @@ import { contract } from "./contract.js";
 const client = await TypedAmqpClient.create({
   contract, // Resources declared automatically!
   urls: ["amqp://localhost"],
-}).resultToPromise();
+});
 
 // Publish - fully typed and validated!
 const result = await client.publish("orderCreated", {
@@ -116,7 +116,7 @@ channel.consume("order-processing", (msg) => {
 
 ```typescript [✅ amqp-contract - Fully typed]
 import { TypedAmqpWorker } from "@amqp-contract/worker";
-import { Future, Result } from "@swan-io/boxed";
+import { ResultAsync, Result } from "neverthrow";
 import { contract } from "./contract.js";
 
 const worker = await TypedAmqpWorker.create({
@@ -127,11 +127,11 @@ const worker = await TypedAmqpWorker.create({
       console.log(payload.orderId); // ✅ Full autocomplete!
       console.log(payload.amount); // ✅ Type-safe!
       // ✅ Automatic validation - invalid messages rejected!
-      return Future.value(Result.Ok(undefined));
+      return okAsync(undefined);
     }, // ✅ Auto-acknowledgment on success!
   },
   urls: ["amqp://localhost"],
-}).resultToPromise();
+});
 ```
 
 :::

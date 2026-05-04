@@ -8,8 +8,8 @@ import type {
   RpcDefinition,
 } from "@amqp-contract/contract";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
-import type { Future, Result } from "@swan-io/boxed";
 import type { ConsumeMessage } from "amqplib";
+import type { ResultAsync } from "neverthrow";
 import type { HandlerError } from "./errors.js";
 import { ConsumerOptions } from "./worker.js";
 
@@ -118,7 +118,7 @@ export type WorkerInferRpcHeaders<
 
 /**
  * Infer the response payload type for an RPC. The handler must return a
- * `Future<Result<TResponse, HandlerError>>` matching this shape.
+ * `ResultAsync<TResponse, HandlerError>` matching this shape.
  */
 export type WorkerInferRpcResponse<
   TContract extends ContractDefinition,
@@ -149,7 +149,7 @@ export type WorkerInferRpcResponse<
  *   console.log(message.payload.orderId);  // Typed payload
  *   console.log(message.headers?.priority); // Typed headers (if defined)
  *   console.log(rawMessage.fields.deliveryTag); // Raw AMQP message
- *   return Future.value(Result.Ok(undefined));
+ *   return okAsync(undefined);
  * });
  * ```
  */
@@ -186,13 +186,13 @@ export type WorkerInferRpcConsumedMessage<
 // =============================================================================
 // Handler Types
 // =============================================================================
-// All handlers return `Future<Result<TResponse, HandlerError>>` for explicit
+// All handlers return `ResultAsync<TResponse, HandlerError>` for explicit
 // error handling. Regular consumers return `void`; RPC handlers return the
 // response payload. RetryableError → exponential backoff retry; NonRetryableError → DLQ.
 
 /**
  * Handler signature for a regular consumer (event/command). Returns
- * `Future<Result<void, HandlerError>>` — there is no response message.
+ * `ResultAsync<void, HandlerError>` — there is no response message.
  */
 export type WorkerInferConsumerHandler<
   TContract extends ContractDefinition,
@@ -200,11 +200,11 @@ export type WorkerInferConsumerHandler<
 > = (
   message: WorkerInferConsumedMessage<TContract, TName>,
   rawMessage: ConsumeMessage,
-) => Future<Result<void, HandlerError>>;
+) => ResultAsync<void, HandlerError>;
 
 /**
  * Handler signature for an RPC. Returns
- * `Future<Result<TResponse, HandlerError>>` where `TResponse` is the inferred
+ * `ResultAsync<TResponse, HandlerError>` where `TResponse` is the inferred
  * response payload. The worker validates the response against the RPC's
  * response schema and publishes it back to `msg.properties.replyTo` with the
  * same `correlationId`.
@@ -215,7 +215,7 @@ export type WorkerInferRpcHandler<
 > = (
   message: WorkerInferRpcConsumedMessage<TContract, TName>,
   rawMessage: ConsumeMessage,
-) => Future<Result<WorkerInferRpcResponse<TContract, TName>, HandlerError>>;
+) => ResultAsync<WorkerInferRpcResponse<TContract, TName>, HandlerError>;
 
 /**
  * Handler entry for a regular consumer — function or `[handler, options]`.
@@ -246,11 +246,11 @@ export type WorkerInferRpcHandlerEntry<
  * ```typescript
  * const handlers: WorkerInferHandlers<typeof contract> = {
  *   processOrder: ({ payload }) =>
- *     Future.fromPromise(processPayment(payload))
- *       .mapOk(() => undefined)
- *       .mapError((error) => new RetryableError('Payment failed', error)),
- *   calculate: ({ payload }) =>
- *     Future.value(Result.Ok({ sum: payload.a + payload.b })),
+ *     ResultAsync.fromPromise(
+ *       processPayment(payload),
+ *       (error) => new RetryableError('Payment failed', error),
+ *     ).map(() => undefined),
+ *   calculate: ({ payload }) => okAsync({ sum: payload.a + payload.b }),
  * };
  * ```
  */

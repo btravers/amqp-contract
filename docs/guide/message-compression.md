@@ -42,7 +42,7 @@ import { contract } from "./contract";
 const client = await TypedAmqpClient.create({
   contract,
   urls: ["amqp://localhost"],
-}).resultToPromise();
+});
 
 // Publish with gzip compression
 await client
@@ -56,7 +56,7 @@ await client
       compression: "gzip",
     },
   )
-  .resultToPromise();
+  ;
 
 // Publish with deflate compression
 await client
@@ -70,7 +70,7 @@ await client
       compression: "deflate",
     },
   )
-  .resultToPromise();
+  ;
 
 // Publish without compression
 await client
@@ -78,7 +78,7 @@ await client
     orderId: "ORD-125",
     items: [],
   })
-  .resultToPromise();
+  ;
 ```
 
 ### Consuming Compressed Messages
@@ -96,11 +96,11 @@ const worker = await TypedAmqpWorker.create({
       // Message is automatically decompressed
       console.log("Processing order:", payload.orderId);
       console.log("Items:", payload.items); // Already decompressed
-      return Future.value(Result.Ok(undefined));
+      return okAsync(undefined);
     },
   },
   urls: ["amqp://localhost"],
-}).resultToPromise();
+});
 ```
 
 The worker automatically:
@@ -124,11 +124,9 @@ class OrderPublisher {
     // Compress if message is larger than 1KB
     const shouldCompress = messageSize > 1024;
 
-    await this.client
-      .publish("orderCreated", order, {
-        compression: shouldCompress ? "gzip" : undefined,
-      })
-      .resultToPromise();
+    await this.client.publish("orderCreated", order, {
+      compression: shouldCompress ? "gzip" : undefined,
+    });
   }
 }
 ```
@@ -183,11 +181,9 @@ client.publish("event", data, { compression: "deflate" });
 Compression errors are returned in the Result type:
 
 ```typescript
-await client
-  .publish("event", data, {
-    compression: "gzip",
-  })
-  .resultToPromise();
+await client.publish("event", data, {
+  compression: "gzip",
+});
 ```
 
 ### Decompression Errors
@@ -233,11 +229,9 @@ function shouldCompress(message: unknown): boolean {
   return JSON.stringify(message).length > SIZE_THRESHOLD;
 }
 
-await client
-  .publish("event", data, {
-    compression: shouldCompress(data) ? "gzip" : undefined,
-  })
-  .resultToPromise();
+await client.publish("event", data, {
+  compression: shouldCompress(data) ? "gzip" : undefined,
+});
 ```
 
 ### 3. Monitor Performance
@@ -248,11 +242,9 @@ Track compression ratios and performance:
 const startTime = Date.now();
 const originalSize = JSON.stringify(data).length;
 
-await client
-  .publish("event", data, {
-    compression: "gzip",
-  })
-  .resultToPromise();
+await client.publish("event", data, {
+  compression: "gzip",
+});
 
 const duration = Date.now() - startTime;
 console.log("Published in", duration, "ms");

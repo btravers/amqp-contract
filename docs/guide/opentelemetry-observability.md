@@ -200,9 +200,9 @@ const processOrder = ({ payload }) => {
   span?.setAttribute("order.id", payload.orderId);
   span?.setAttribute("order.amount", payload.amount);
 
-  return Future.fromPromise(process(payload))
-    .mapOk(() => undefined)
-    .mapError((e) => new RetryableError("Failed", e));
+  return ResultAsync.fromPromise(process(payload))
+    .map(() => undefined)
+    .mapErr((e) => new RetryableError("Failed", e));
 };
 ```
 

@@ -8,9 +8,9 @@ This page explains both, and how they compose.
 
 When a worker processes a message, three things can happen:
 
-1. The handler returns `Result.Ok(undefined)` — the message is **acked** and gone.
-2. The handler returns `Result.Error(NonRetryableError)` — the message is sent **straight to the DLQ**, no retries (the queue's retry mode is bypassed).
-3. The handler returns `Result.Error(RetryableError)` — the **queue's retry mode** decides what happens next.
+1. The handler returns `ok(undefined)` — the message is **acked** and gone.
+2. The handler returns `err(NonRetryableError)` — the message is sent **straight to the DLQ**, no retries (the queue's retry mode is bypassed).
+3. The handler returns `err(RetryableError)` — the **queue's retry mode** decides what happens next.
 
 So `RetryableError` is the only path that consults the retry mode. `NonRetryableError` is your way of saying "this will never succeed, don't bother."
 
@@ -92,12 +92,12 @@ Inside a handler, you decide whether a failure is retryable:
 
 ```ts
 import { defineHandler, RetryableError, NonRetryableError } from "@amqp-contract/worker";
-import { Future, Result } from "@swan-io/boxed";
+import { ResultAsync, Result } from "neverthrow";
 
 const processOrder = defineHandler(contract, "processOrder", ({ payload }) =>
-  Future.fromPromise(callPaymentApi(payload))
-    .mapOk(() => undefined)
-    .mapError((error) => {
+  ResultAsync.fromPromise(callPaymentApi(payload))
+    .map(() => undefined)
+    .mapErr((error) => {
       // 4xx from a payment provider: retrying won't help.
       if (error instanceof PaymentValidationError) {
         return new NonRetryableError("Invalid payment details", error);
@@ -137,6 +137,6 @@ If you need the failure context to be visible on poison messages too, prefer a q
 ## Pitfalls
 
 - **No DLX configured.** `nack(requeue=false)` will drop the message. The worker logs a warning, but you'll lose the body. Always set `deadLetter` if you care about poison messages.
-- **Throwing instead of returning.** A handler that throws an exception bypasses the Future/Result framework. The worker has a defensive try/catch that nacks to DLQ, but you've lost the chance to classify the error. Always return `Future.value(Result.Error(...))`.
+- **Throwing instead of returning.** A handler that throws an exception bypasses the ResultAsync/Result framework. The worker has a defensive try/catch that nacks to DLQ, but you've lost the chance to classify the error. Always return `errAsync(...)`.
 - **Mixing modes per handler.** Retry is a property of the queue, not the handler. If you want different policies for different work, give them different queues.
 - **Tuning `maxRetries` without DLQ inspection.** Pick a number that makes sense for your latency budget; the right answer almost always lives in the DLQ telemetry, not in your head.

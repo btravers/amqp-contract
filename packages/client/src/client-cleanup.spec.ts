@@ -17,9 +17,9 @@ describe("TypedAmqpClient.create cleanup", () => {
       contract,
       urls: ["amqp://localhost:1"],
       connectTimeoutMs: 200,
-    }).toPromise();
+    });
 
-    expect(result.isError()).toBe(true);
+    expect(result.isErr()).toBe(true);
     expect(_getConnectionCountForTesting()).toBe(0);
   });
 });

@@ -32,7 +32,7 @@ import type { MessageDefinition, QueueEntry, RpcDefinition } from "../types.js";
  * const contract = defineContract({ rpcs: { calculate } });
  *
  * // Server (worker): handler returns the typed response
- * //   handlers: { calculate: ({ payload }) => Future.value(Result.Ok({ sum: payload.a + payload.b })) }
+ * //   handlers: { calculate: ({ payload }) => okAsync({ sum: payload.a + payload.b }) }
  *
  * // Client: typed call with required timeout
  * //   const result = await client.call('calculate', { a: 1, b: 2 }, { timeoutMs: 5_000 }).toPromise();

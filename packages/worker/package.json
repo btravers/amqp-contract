@@ -61,7 +61,7 @@
     "@amqp-contract/contract": "workspace:*",
     "@amqp-contract/core": "workspace:*",
     "@standard-schema/spec": "catalog:",
-    "@swan-io/boxed": "catalog:"
+    "neverthrow": "catalog:"
   },
   "devDependencies": {
     "@amqp-contract/testing": "workspace:*",

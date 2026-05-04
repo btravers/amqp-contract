@@ -10,7 +10,7 @@ describe("Compression utilities", () => {
       const gunzipAsync = promisify(gunzip);
 
       const testData = Buffer.from(JSON.stringify({ message: "Hello, World!" }));
-      const compressed = await compressBuffer(testData, "gzip").resultToPromise();
+      const compressed = (await compressBuffer(testData, "gzip"))._unsafeUnwrap();
       const decompressed = await gunzipAsync(compressed);
 
       expect(decompressed).toEqual(testData);
@@ -22,7 +22,7 @@ describe("Compression utilities", () => {
       const inflateAsync = promisify(inflate);
 
       const testData = Buffer.from(JSON.stringify({ message: "Hello, World!" }));
-      const compressed = await compressBuffer(testData, "deflate").resultToPromise();
+      const compressed = (await compressBuffer(testData, "deflate"))._unsafeUnwrap();
       const decompressed = await inflateAsync(compressed);
 
       expect(decompressed).toEqual(testData);
@@ -40,7 +40,7 @@ describe("Compression utilities", () => {
         }),
       );
 
-      const compressed = await compressBuffer(largeData, "gzip").resultToPromise();
+      const compressed = (await compressBuffer(largeData, "gzip"))._unsafeUnwrap();
 
       // Compressed data should be significantly smaller
       expect(compressed.length).toBeLessThan(largeData.length);

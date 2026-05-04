@@ -32,15 +32,15 @@ const worker = await TypedAmqpWorker.create({
   handlers: {
     processOrder: ({ payload }) => {
       // Handler logic here
-      return Future.value(Result.Ok(undefined));
+      return okAsync(undefined);
     },
     notifyOrder: ({ payload }) => {
       // Handler logic here
-      return Future.value(Result.Ok(undefined));
+      return okAsync(undefined);
     },
   },
   urls: [env.AMQP_URL],
-}).resultToPromise();
+});
 ```
 
 ### External Handlers (src/handlers.ts)
@@ -56,7 +56,7 @@ Handlers can be organized in separate files using `defineHandler` or `defineHand
 // handlers.ts
 export const processOrderHandler = defineHandler(orderContract, "processOrder", ({ payload }) => {
   // Handler logic here
-  return Future.value(Result.Ok(undefined));
+  return okAsync(undefined);
 });
 
 // index.ts - to use external handlers, import them:
@@ -69,7 +69,7 @@ const worker = await TypedAmqpWorker.create({
     // ... other handlers
   },
   urls: [env.AMQP_URL],
-}).resultToPromise();
+});
 ```
 
 The main `src/index.ts` file uses inline handlers for simplicity, while `src/handlers.ts` provides an example of how to organize handlers externally for better maintainability.

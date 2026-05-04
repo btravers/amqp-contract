@@ -4,7 +4,7 @@
 
 | Package                   | Version | Purpose                                |
 | ------------------------- | ------- | -------------------------------------- |
-| `@swan-io/boxed`          | 3.2.1   | Future/Result functional types         |
+| `neverthrow`              | 3.2.1   | ResultAsync/Result functional types    |
 | `amqplib`                 | 0.10.9  | AMQP 0.9.1 client                      |
 | `amqp-connection-manager` | 5.0.0   | Connection management                  |
 | `zod`                     | 4.3.6   | Schema validation (Standard Schema v1) |

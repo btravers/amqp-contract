@@ -2,23 +2,23 @@
 
 ## Handler Signature
 
-Handlers receive `({ payload, headers }, rawMessage)` and return `Future<Result<void, HandlerError>>`:
+Handlers receive `({ payload, headers }, rawMessage)` and return `ResultAsync<void, HandlerError>`:
 
 ```typescript
-import { Future, Result } from "@swan-io/boxed";
+import { ResultAsync, Result } from "neverthrow";
 import { RetryableError, NonRetryableError } from "@amqp-contract/worker";
 
-// Handler signature: (message, rawMessage) => Future<Result<void, HandlerError>>
+// Handler signature: (message, rawMessage) => ResultAsync<void, HandlerError>
 const handler = ({ payload }, rawMessage) => {
   console.log(payload.orderId);
-  return Future.value(Result.Ok(undefined));
+  return okAsync(undefined);
 };
 
-// For async operations, use Future.fromPromise
+// For async operations, use ResultAsync.fromPromise
 const asyncHandler = ({ payload }) =>
-  Future.fromPromise(processPayment(payload))
-    .mapOk(() => undefined)
-    .mapError((error) => new RetryableError("Payment failed", error));
+  ResultAsync.fromPromise(processPayment(payload))
+    .map(() => undefined)
+    .mapErr((error) => new RetryableError("Payment failed", error));
 ```
 
 ## Handler Parameters
@@ -37,20 +37,20 @@ Use `defineHandler` for all new code to get full type inference from the contrac
 
 ```typescript
 import { defineHandler, RetryableError, NonRetryableError } from "@amqp-contract/worker";
-import { Future, Result } from "@swan-io/boxed";
+import { ResultAsync, Result } from "neverthrow";
 
 const processOrderHandler = defineHandler(contract, "processOrder", ({ payload }) =>
-  Future.fromPromise(processPayment(payload.orderId))
-    .mapOk(() => undefined)
-    .mapError((error) => new RetryableError("Payment service unavailable", error)),
+  ResultAsync.fromPromise(processPayment(payload.orderId))
+    .map(() => undefined)
+    .mapErr((error) => new RetryableError("Payment service unavailable", error)),
 );
 
 // For permanent failures
 const validateOrderHandler = defineHandler(contract, "validateOrder", ({ payload }) => {
   if (payload.amount < 1) {
-    return Future.value(Result.Error(new NonRetryableError("Invalid amount")));
+    return errAsync(new NonRetryableError("Invalid amount"));
   }
-  return Future.value(Result.Ok(undefined));
+  return okAsync(undefined);
 });
 ```
 
@@ -65,9 +65,9 @@ const validateOrderHandler = defineHandler(contract, "validateOrder", ({ payload
 ```typescript
 // Conditional error handling
 ({ payload }) =>
-  Future.fromPromise(process(payload))
-    .mapOk(() => undefined)
-    .mapError((error) => {
+  ResultAsync.fromPromise(process(payload))
+    .map(() => undefined)
+    .mapErr((error) => {
       if (error instanceof ValidationError) {
         return new NonRetryableError("Invalid data");
       }
@@ -86,44 +86,44 @@ const handlers = {
 };
 ```
 
-## @swan-io/boxed API Reference
+## neverthrow API Reference
 
-This project uses [@swan-io/boxed](https://boxed.cool) for functional error handling.
+This project uses [neverthrow](https://github.com/supermacro/neverthrow) for functional error handling.
 
-### Future<Result<A, E>> Key Methods
+### ResultAsync<A, E> Key Methods
 
-| Method                        | Description                           | Example                                         |
-| ----------------------------- | ------------------------------------- | ----------------------------------------------- |
-| `Future.value(result)`        | Create resolved Future                | `Future.value(Result.Ok(undefined))`            |
-| `Future.fromPromise(promise)` | Convert Promise to Future<Result>     | `Future.fromPromise(fetch(url))`                |
-| `.mapOk(f)`                   | Transform Ok value                    | `.mapOk(() => undefined)`                       |
-| `.mapError(f)`                | Transform Error value                 | `.mapError((e) => new RetryableError(e))`       |
-| `.flatMapOk(f)`               | Chain with another Future             | `.flatMapOk((v) => Future.value(Result.Ok(v)))` |
-| `.resultToPromise()`          | Convert to Promise (rejects on Error) | `await future.resultToPromise()`                |
+| Method                             | Description                            | Example                                 |
+| ---------------------------------- | -------------------------------------- | --------------------------------------- |
+| `ResultAsync.value(result)`        | Create resolved ResultAsync            | `okAsync(undefined)`                    |
+| `ResultAsync.fromPromise(promise)` | Convert Promise to ResultAsync<Result> | `ResultAsync.fromPromise(fetch(url))`   |
+| `.map(f)`                          | Transform Ok value                     | `.map(() => undefined)`                 |
+| `.mapErr(f)`                       | Transform Error value                  | `.mapErr((e) => new RetryableError(e))` |
+| `.andThen(f)`                      | Chain with another ResultAsync         | `.andThen((v) => okAsync(v))`           |
+| ``                                 | Convert to Promise (rejects on Error)  | `await future`                          |
 
 ### Result<Ok, Error> Key Methods
 
-| Method                   | Description           | Example                                        |
-| ------------------------ | --------------------- | ---------------------------------------------- |
-| `Result.Ok(value)`       | Create success        | `Result.Ok(undefined)`                         |
-| `Result.Error(error)`    | Create failure        | `Result.Error(new RetryableError("failed"))`   |
-| `.isOk()` / `.isError()` | Type guards           | `if (result.isOk()) { ... }`                   |
-| `.map(f)`                | Transform Ok          | `result.map(x => x * 2)`                       |
-| `.mapError(f)`           | Transform Error       | `result.mapError(e => new Error(e))`           |
-| `.getOr(default)`        | Extract with fallback | `result.getOr(0)`                              |
-| `.match({ Ok, Error })`  | Pattern match         | `result.match({ Ok: v => v, Error: () => 0 })` |
+| Method                  | Description           | Example                                        |
+| ----------------------- | --------------------- | ---------------------------------------------- |
+| `ok(value)`             | Create success        | `ok(undefined)`                                |
+| `err(error)`            | Create failure        | `err(new RetryableError("failed"))`            |
+| `.isOk()` / `.isErr()`  | Type guards           | `if (result.isOk()) { ... }`                   |
+| `.map(f)`               | Transform Ok          | `result.map(x => x * 2)`                       |
+| `.mapErr(f)`            | Transform Error       | `result.mapErr(e => new Error(e))`             |
+| `.getOr(default)`       | Extract with fallback | `result.getOr(0)`                              |
+| `.match({ Ok, Error })` | Pattern match         | `result.match({ Ok: v => v, Error: () => 0 })` |
 
 ### Common Patterns
 
 ```typescript
 // Simple sync handler
-({ payload }) => Future.value(Result.Ok(undefined));
+({ payload }) => okAsync(undefined);
 
 // Async with error mapping
 ({ payload }) =>
-  Future.fromPromise(asyncOperation(payload))
-    .mapOk(() => undefined)
-    .mapError((error) => new RetryableError("Failed", error));
+  ResultAsync.fromPromise(asyncOperation(payload))
+    .map(() => undefined)
+    .mapErr((error) => new RetryableError("Failed", error));
 ```
 
 ## Worker Package Exports

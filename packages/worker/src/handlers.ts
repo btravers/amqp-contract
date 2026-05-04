@@ -56,7 +56,7 @@ function validateHandlers<TContract extends ContractDefinition>(
 /**
  * Define a type-safe handler for a specific consumer in a contract.
  *
- * **Recommended:** This function creates handlers that return `Future<Result<void, HandlerError>>`,
+ * **Recommended:** This function creates handlers that return `ResultAsync<void, HandlerError>`,
  * providing explicit error handling and better control over retry behavior.
  *
  * Supports two patterns:
@@ -67,24 +67,25 @@ function validateHandlers<TContract extends ContractDefinition>(
  * @template TName - The consumer name from the contract
  * @param contract - The contract definition containing the consumer
  * @param consumerName - The name of the consumer from the contract
- * @param handler - The handler function that returns `Future<Result<void, HandlerError>>`
+ * @param handler - The handler function that returns `ResultAsync<void, HandlerError>`
  * @param options - Optional consumer options (prefetch)
  * @returns A type-safe handler that can be used with TypedAmqpWorker
  *
  * @example
  * ```typescript
  * import { defineHandler, RetryableError, NonRetryableError } from '@amqp-contract/worker';
- * import { Future, Result } from '@swan-io/boxed';
+ * import { errAsync, okAsync, ResultAsync } from 'neverthrow';
  * import { orderContract } from './contract';
  *
- * // Simple handler with explicit error handling using mapError
+ * // Simple handler with explicit error handling
  * const processOrderHandler = defineHandler(
  *   orderContract,
  *   'processOrder',
  *   ({ payload }) =>
- *     Future.fromPromise(processPayment(payload))
- *       .mapOk(() => undefined)
- *       .mapError((error) => new RetryableError('Payment failed', error))
+ *     ResultAsync.fromPromise(
+ *       processPayment(payload),
+ *       (error) => new RetryableError('Payment failed', error),
+ *     ).map(() => undefined),
  * );
  *
  * // Handler with validation (non-retryable error)
@@ -94,10 +95,10 @@ function validateHandlers<TContract extends ContractDefinition>(
  *   ({ payload }) => {
  *     if (payload.amount < 1) {
  *       // Won't be retried - goes directly to DLQ
- *       return Future.value(Result.Error(new NonRetryableError('Invalid order amount')));
+ *       return errAsync(new NonRetryableError('Invalid order amount'));
  *     }
- *     return Future.value(Result.Ok(undefined));
- *   }
+ *     return okAsync(undefined);
+ *   },
  * );
  * ```
  */
@@ -138,7 +139,7 @@ export function defineHandler<
 /**
  * Define multiple type-safe handlers for consumers in a contract.
  *
- * **Recommended:** This function creates handlers that return `Future<Result<void, HandlerError>>`,
+ * **Recommended:** This function creates handlers that return `ResultAsync<void, HandlerError>`,
  * providing explicit error handling and better control over retry behavior.
  *
  * @template TContract - The contract definition type
@@ -149,18 +150,20 @@ export function defineHandler<
  * @example
  * ```typescript
  * import { defineHandlers, RetryableError } from '@amqp-contract/worker';
- * import { Future } from '@swan-io/boxed';
+ * import { ResultAsync } from 'neverthrow';
  * import { orderContract } from './contract';
  *
  * const handlers = defineHandlers(orderContract, {
  *   processOrder: ({ payload }) =>
- *     Future.fromPromise(processPayment(payload))
- *       .mapOk(() => undefined)
- *       .mapError((error) => new RetryableError('Payment failed', error)),
+ *     ResultAsync.fromPromise(
+ *       processPayment(payload),
+ *       (error) => new RetryableError('Payment failed', error),
+ *     ).map(() => undefined),
  *   notifyOrder: ({ payload }) =>
- *     Future.fromPromise(sendNotification(payload))
- *       .mapOk(() => undefined)
- *       .mapError((error) => new RetryableError('Notification failed', error)),
+ *     ResultAsync.fromPromise(
+ *       sendNotification(payload),
+ *       (error) => new RetryableError('Notification failed', error),
+ *     ).map(() => undefined),
  * });
  * ```
  */
