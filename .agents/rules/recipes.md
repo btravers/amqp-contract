@@ -15,10 +15,10 @@ End-to-end how-tos for the changes that come up most. Each recipe lists the exac
 ## Add a new RPC
 
 1. **Schemas** — request and response, both via `defineMessage`.
-2. **Queue** — `defineQueue(...)` for the RPC. Almost always quorum, no DLQ for the RPC queue itself (the reply path handles the failure modes; see [handlers.md → RPC error semantics](./handlers.md#rpc-handler)).
+2. **Queue** — `defineQueue(...)` for the RPC. Quorum by default. **Configure a `deadLetter`** even though replies, not the queue, drive most failure modes: missing `replyTo` / `correlationId` and response-schema mismatches are surfaced as `NonRetryableError` and the worker `nack`s them without requeue, so without a DLX they're dropped silently.
 3. **RPC entry** — `defineRpc(queue, { request, response })`.
 4. **Add to `defineContract`** under `rpcs: { ... }`.
-5. **Server-side handler** — `defineHandler(contract, "yourRpcName", ({ payload }) => okAsync({ /* response */ }))`. The worker validates the response and replies automatically.
+5. **Server-side handler** — define it **inline** in the `handlers` object passed to `TypedAmqpWorker.create({ handlers: { yourRpcName: ({ payload }) => okAsync({ /* response */ }) } })`. `defineHandler` / `defineHandlers` are not RPC-aware (they're typed against `InferConsumerNames` and only validate `contract.consumers`); calling them with an RPC name throws _"Consumer X not found in contract"_. The worker validates the response against the response schema and publishes back automatically.
 6. **Client call** — `client.call("yourRpcName", request, { timeoutMs: 5_000 })`. `timeoutMs` is required.
 7. **Tests** — round-trip integration test (worker + client both wired up). For "no server" scenarios, just create the client without a worker; for "request validation fails", pass a deliberately wrong payload through `as unknown as ...`.
 8. **Changeset** — minor bump.
@@ -35,9 +35,12 @@ End-to-end how-tos for the changes that come up most. Each recipe lists the exac
 
 If you're spinning up a new `@amqp-contract/*` package:
 
-1. Create `packages/<name>/` with `package.json`, `tsconfig.json`, `tsdown.config.ts`, `vitest.config.ts`, `src/index.ts`.
-2. Mirror the metadata fields from `packages/contract/package.json`: `homepage`, `bugs`, `license`, `author`, `repository` (with the correct `directory`), `files`, `type: "module"`, `exports`, `main`/`module`/`types`. **All six fields are required** — npm Trusted Publishing rejects on missing/empty `repository.url` (we hit this in the migration).
-3. In `tsdown.config.ts`, mark `neverthrow` external if the package re-exports `ResultAsync` types. Add any other dep whose types surface publicly.
+1. Create `packages/<name>/` with at minimum: `package.json`, `tsconfig.json` (extends `@amqp-contract/tsconfig`), and `src/index.ts`. Add `vitest.config.ts` only if the package has tests; add `tsdown.config.ts` only if you need config beyond what the CLI flags can express (see existing packages — `contract` and `testing` skip the config file, the others use one).
+2. Mirror the metadata fields from `packages/contract/package.json`: `homepage`, `bugs`, `license`, `author`, `repository` (with the correct `directory`), `files`, `type: "module"`, plus the appropriate `exports` map (single entry like `contract` or multi-entry like `testing`). **All of these are required** — npm Trusted Publishing rejects on missing or empty `repository.url` (we hit that during the migration).
+3. Pick the build shape that matches your package's exports:
+   - **Single-entry, dual ESM+CJS** (most packages): `tsdown src/index.ts --format cjs,esm --dts --clean`, with a `tsdown.config.ts` if you need to mark deps external (see [Build & Release](./build-and-release.md)).
+   - **Multi-entry, ESM-only** (like `testing`): pass each entry as a positional and use `--format esm`.
+     If `ResultAsync` (or any other dep) appears in your public types, mark that dep `external` to prevent its types being inlined.
 4. Add the package to the `fixed` group in [`.changeset/config.json`](../../.changeset/config.json) so it versions with the rest.
 5. Configure the npmjs Trusted Publisher for the new package (npm UI → package settings → trusted publishing → point at `.github/workflows/release.yml` in `btravers/amqp-contract`). Until this is done, the publish will fail with `ENEEDAUTH`.
 6. `pnpm install` to update the lockfile and turbo's package graph.
