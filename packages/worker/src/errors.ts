@@ -1,19 +1,20 @@
 export { MessageValidationError } from "@amqp-contract/core";
 
 /**
- * Retryable errors - transient failures that may succeed on retry
- * Examples: network timeouts, rate limiting, temporary service unavailability
+ * Abstract base class for all handler-signalled errors.
  *
- * Use this error type when the operation might succeed if retried.
- * The worker will apply exponential backoff and retry the message.
+ * Concrete subclasses (`RetryableError`, `NonRetryableError`) discriminate on
+ * the `name` property so exhaustive narrowing in user code keeps working.
+ * `error instanceof HandlerError` is true for any handler error.
  */
-export class RetryableError extends Error {
+export abstract class HandlerError extends Error {
+  abstract override readonly name: "RetryableError" | "NonRetryableError";
+
   constructor(
     message: string,
     public override readonly cause?: unknown,
   ) {
     super(message);
-    this.name = "RetryableError";
     // Node.js specific stack trace capture
     const ErrorConstructor = Error as unknown as {
       captureStackTrace?: (target: object, constructor: Function) => void;
@@ -22,6 +23,17 @@ export class RetryableError extends Error {
       ErrorConstructor.captureStackTrace(this, this.constructor);
     }
   }
+}
+
+/**
+ * Retryable errors - transient failures that may succeed on retry
+ * Examples: network timeouts, rate limiting, temporary service unavailability
+ *
+ * Use this error type when the operation might succeed if retried.
+ * The worker will apply exponential backoff and retry the message.
+ */
+export class RetryableError extends HandlerError {
+  override readonly name = "RetryableError" as const;
 }
 
 /**
@@ -31,28 +43,9 @@ export class RetryableError extends Error {
  * Use this error type when retrying would not help - the message will be
  * immediately sent to the dead letter queue (DLQ) if configured.
  */
-export class NonRetryableError extends Error {
-  constructor(
-    message: string,
-    public override readonly cause?: unknown,
-  ) {
-    super(message);
-    this.name = "NonRetryableError";
-    // Node.js specific stack trace capture
-    const ErrorConstructor = Error as unknown as {
-      captureStackTrace?: (target: object, constructor: Function) => void;
-    };
-    if (typeof ErrorConstructor.captureStackTrace === "function") {
-      ErrorConstructor.captureStackTrace(this, this.constructor);
-    }
-  }
+export class NonRetryableError extends HandlerError {
+  override readonly name = "NonRetryableError" as const;
 }
-
-/**
- * Union type representing all handler errors.
- * Use this type when defining handlers that explicitly signal error outcomes.
- */
-export type HandlerError = RetryableError | NonRetryableError;
 
 // =============================================================================
 // Type Guards
@@ -129,7 +122,7 @@ export function isNonRetryableError(error: unknown): error is NonRetryableError 
  * ```
  */
 export function isHandlerError(error: unknown): error is HandlerError {
-  return isRetryableError(error) || isNonRetryableError(error);
+  return error instanceof HandlerError;
 }
 
 // =============================================================================

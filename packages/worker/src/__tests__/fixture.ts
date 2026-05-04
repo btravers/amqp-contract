@@ -1,12 +1,12 @@
 import type { ContractDefinition } from "@amqp-contract/contract";
 import { TypedAmqpWorker } from "../worker.js";
-import type { WorkerInferConsumerHandlers } from "../types.js";
+import type { WorkerInferHandlers } from "../types.js";
 import { it as baseIt } from "@amqp-contract/testing/extension";
 
 export const it = baseIt.extend<{
   workerFactory: <TContract extends ContractDefinition>(
     contract: TContract,
-    handlers: WorkerInferConsumerHandlers<TContract>,
+    handlers: WorkerInferHandlers<TContract>,
   ) => Promise<TypedAmqpWorker<TContract>>;
 }>({
   workerFactory: async ({ amqpConnectionUrl }, use) => {
@@ -16,7 +16,7 @@ export const it = baseIt.extend<{
       await use(
         async <TContract extends ContractDefinition>(
           contract: TContract,
-          handlers: WorkerInferConsumerHandlers<TContract>,
+          handlers: WorkerInferHandlers<TContract>,
         ) => {
           // Topology setup (exchanges, queues, bindings, wait queues) is done automatically
           // by AmqpClient in the channel setup callback

@@ -262,9 +262,3 @@ export type WorkerInferHandlers<TContract extends ContractDefinition> = ([
   ([InferRpcNames<TContract>] extends [never]
     ? {}
     : { [K in InferRpcNames<TContract>]: WorkerInferRpcHandlerEntry<TContract, K> });
-
-/**
- * @deprecated Use `WorkerInferHandlers` — handlers now span consumers ∪ rpcs.
- */
-export type WorkerInferConsumerHandlers<TContract extends ContractDefinition> =
-  WorkerInferHandlers<TContract>;
