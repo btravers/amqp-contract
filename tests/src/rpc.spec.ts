@@ -14,7 +14,7 @@ import {
 import { TechnicalError } from "@amqp-contract/core";
 import { it as baseIt } from "@amqp-contract/testing/extension";
 import { TypedAmqpWorker } from "@amqp-contract/worker";
-import { Future, Result } from "@swan-io/boxed";
+import { okAsync, ResultAsync } from "neverthrow";
 import { describe, expect } from "vitest";
 import { z } from "zod";
 
@@ -31,11 +31,13 @@ const it = baseIt.extend<{
     const workers: Array<TypedAmqpWorker<ContractDefinition>> = [];
     try {
       await use(async (contract, handlers) => {
-        const worker = await TypedAmqpWorker.create({
-          contract,
-          handlers,
-          urls: [amqpConnectionUrl],
-        }).resultToPromise();
+        const worker = (
+          await TypedAmqpWorker.create({
+            contract,
+            handlers,
+            urls: [amqpConnectionUrl],
+          })
+        )._unsafeUnwrap();
         workers.push(worker as TypedAmqpWorker<ContractDefinition>);
         return worker;
       });
@@ -44,7 +46,7 @@ const it = baseIt.extend<{
         workers.map((w) =>
           w
             .close()
-            .resultToPromise()
+            .then((r) => r._unsafeUnwrap())
             .catch(() => undefined),
         ),
       );
@@ -54,10 +56,12 @@ const it = baseIt.extend<{
     const clients: Array<TypedAmqpClient<ContractDefinition>> = [];
     try {
       await use(async (contract) => {
-        const client = await TypedAmqpClient.create({
-          contract,
-          urls: [amqpConnectionUrl],
-        }).resultToPromise();
+        const client = (
+          await TypedAmqpClient.create({
+            contract,
+            urls: [amqpConnectionUrl],
+          })
+        )._unsafeUnwrap();
         clients.push(client as TypedAmqpClient<ContractDefinition>);
         return client;
       });
@@ -66,7 +70,7 @@ const it = baseIt.extend<{
         clients.map((c) =>
           c
             .close()
-            .resultToPromise()
+            .then((r) => r._unsafeUnwrap())
             .catch(() => undefined),
         ),
       );
@@ -87,11 +91,11 @@ describe("TypedAmqpClient RPC", () => {
     const contract = buildContract("rpc.calculate.success");
 
     await workerFactory(contract, {
-      calculate: ({ payload }) => Future.value(Result.Ok({ sum: payload.a + payload.b })),
+      calculate: ({ payload }) => okAsync({ sum: payload.a + payload.b }),
     });
     const client = await clientFactory(contract);
 
-    const result = await client.call("calculate", { a: 2, b: 3 }, { timeoutMs: 5_000 }).toPromise();
+    const result = await client.call("calculate", { a: 2, b: 3 }, { timeoutMs: 5_000 });
 
     expect(result.isOk()).toBe(true);
     if (result.isOk()) {
@@ -103,10 +107,10 @@ describe("TypedAmqpClient RPC", () => {
     const contract = buildContract("rpc.calculate.timeout");
     const client = await clientFactory(contract);
 
-    const result = await client.call("calculate", { a: 1, b: 1 }, { timeoutMs: 200 }).toPromise();
+    const result = await client.call("calculate", { a: 1, b: 1 }, { timeoutMs: 200 });
 
-    expect(result.isError()).toBe(true);
-    if (result.isError()) {
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
       expect(result.error).toBeInstanceOf(RpcTimeoutError);
     }
   });
@@ -120,14 +124,14 @@ describe("TypedAmqpClient RPC", () => {
     await workerFactory(contract, {
       // Cast through unknown to deliberately return a wrong shape — the worker's
       // response-schema validation drops the reply, so the client times out.
-      calculate: () => Future.value(Result.Ok({ wrong: "shape" } as unknown as { sum: number })),
+      calculate: () => okAsync({ wrong: "shape" } as unknown as { sum: number }),
     });
     const client = await clientFactory(contract);
 
-    const result = await client.call("calculate", { a: 1, b: 1 }, { timeoutMs: 500 }).toPromise();
+    const result = await client.call("calculate", { a: 1, b: 1 }, { timeoutMs: 500 });
 
-    expect(result.isError()).toBe(true);
-    if (result.isError()) {
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
       expect(result.error).toBeInstanceOf(RpcTimeoutError);
     }
   });
@@ -148,9 +152,9 @@ describe("TypedAmqpClient RPC", () => {
     await workerFactory(contract, {
       calculate: () => {
         handlerStarted();
-        // Future that never resolves — the worker holds the message until the
-        // channel is torn down by the test fixture cleanup.
-        return Future.make<Result<{ sum: number }, never>>(() => undefined);
+        // ResultAsync wrapping a never-resolving promise — the worker holds
+        // the message until the channel is torn down by the test fixture cleanup.
+        return new ResultAsync<{ sum: number }, never>(new Promise(() => undefined));
       },
     });
 
@@ -162,11 +166,11 @@ describe("TypedAmqpClient RPC", () => {
     // the publish has completed and the pending-call entry is registered.
     await handlerStartedPromise;
 
-    await client.close().resultToPromise();
+    (await client.close())._unsafeUnwrap();
 
-    const result = await callFuture.toPromise();
-    expect(result.isError()).toBe(true);
-    if (result.isError()) {
+    const result = await callFuture;
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
       expect(result.error).toBeInstanceOf(RpcCancelledError);
     }
   });
@@ -179,11 +183,10 @@ describe("TypedAmqpClient RPC", () => {
       // Intentional shape violation cast through unknown.
       .call("calculate", { a: "nope" } as unknown as { a: number; b: number }, {
         timeoutMs: 5_000,
-      })
-      .toPromise();
+      });
 
-    expect(result.isError()).toBe(true);
-    if (result.isError()) {
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
       expect(result.error).toBeInstanceOf(MessageValidationError);
     }
   });
@@ -198,10 +201,10 @@ describe("TypedAmqpClient RPC", () => {
     const contract = buildContract(`rpc.calculate.invalid-timeout-${value}`);
     const client = await clientFactory(contract);
 
-    const result = await client.call("calculate", { a: 1, b: 1 }, { timeoutMs: value }).toPromise();
+    const result = await client.call("calculate", { a: 1, b: 1 }, { timeoutMs: value });
 
-    expect(result.isError()).toBe(true);
-    if (result.isError()) {
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
       expect(result.error).toBeInstanceOf(TechnicalError);
     }
   });

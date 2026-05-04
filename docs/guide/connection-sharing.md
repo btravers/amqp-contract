@@ -37,7 +37,7 @@ const client = await TypedAmqpClient.create({
   connectionOptions: {
     heartbeatIntervalInSeconds: 30,
   },
-}).resultToPromise();
+});
 
 // 2. Create worker - automatically reuses the same connection!
 const worker = await TypedAmqpWorker.create({
@@ -48,23 +48,23 @@ const worker = await TypedAmqpWorker.create({
       console.log("Processing order:", payload.orderId);
 
       // Can publish from within consumer
-      return Future.fromPromise(
+      return ResultAsync.fromPromise(
         client.publish("orderProcessed", {
           orderId: payload.orderId,
           status: "completed",
         }),
       )
-        .mapOk(() => {
+        .map(() => {
           console.log("Order processed event published");
           return undefined;
         })
-        .mapError((error) => {
+        .mapErr((error) => {
           console.error("Failed to publish:", error);
           return new RetryableError("Failed to publish", error);
         });
     },
   },
-}).resultToPromise();
+});
 
 // Both client and worker automatically share a single connection! ✅
 // Result: 1 connection, 2 channels

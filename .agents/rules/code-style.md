@@ -7,7 +7,7 @@
 - **`.js` extensions required** — all imports must include `.js` extension (ESM requirement)
 - **Standard Schema v1** — for runtime validation (Zod, Valibot, ArkType supported)
 - **Catalog dependencies** — use `pnpm-workspace.yaml` catalog, not hardcoded versions
-- **Future/Result handlers** — always use `Future<Result<void, HandlerError>>`, not `async`
+- **ResultAsync/Result handlers** — always use `ResultAsync<void, HandlerError>`, not `async`
 - **Conventional commits** — required; use conventional commit types (for example: feat, fix, docs, chore, test, refactor)
 - **Strict mode** — enabled in tsconfig.json
 - Prefer `readonly` arrays and properties where appropriate
@@ -53,11 +53,11 @@ processOrder: async ({ payload }) => {
   await process(payload);
 };
 
-// Good — use Future/Result pattern
+// Good — use ResultAsync/Result pattern
 processOrder: ({ payload }) =>
-  Future.fromPromise(process(payload))
-    .mapOk(() => undefined)
-    .mapError((e) => new RetryableError("Failed", e));
+  ResultAsync.fromPromise(process(payload))
+    .map(() => undefined)
+    .mapErr((e) => new RetryableError("Failed", e));
 
 // Bad — accessing message directly
 processOrder: (message) => {

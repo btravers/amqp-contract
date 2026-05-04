@@ -91,7 +91,7 @@ import { contract } from "./contract";
 const client = await TypedAmqpClient.create({
   contract,
   urls: ["amqp://localhost"],
-}).resultToPromise();
+});
 
 await client.publish("orderCreated", {
   orderId: "ORD-123", // ✅ TypeScript knows!
@@ -101,7 +101,7 @@ await client.publish("orderCreated", {
 
 ```typescript [3. Consume]
 import { TypedAmqpWorker } from "@amqp-contract/worker";
-import { Future, Result } from "@swan-io/boxed";
+import { ResultAsync, Result } from "neverthrow";
 import { contract } from "./contract";
 
 const worker = await TypedAmqpWorker.create({
@@ -109,11 +109,11 @@ const worker = await TypedAmqpWorker.create({
   handlers: {
     processOrder: ({ payload }) => {
       console.log(payload.orderId); // ✅ Fully typed!
-      return Future.value(Result.Ok(undefined));
+      return okAsync(undefined);
     },
   },
   urls: ["amqp://localhost"],
-}).resultToPromise();
+});
 ```
 
 :::

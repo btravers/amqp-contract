@@ -219,7 +219,7 @@ Property 'orderId' does not exist on type 'never'.
    handlers: {
      processEmail: ({ payload }) => {
        console.log(payload.to);  // Type-safe!
-       return Future.value(Result.Ok(undefined));
+       return okAsync(undefined);
      },
    }
    ```
@@ -408,7 +408,7 @@ const orderMessage = defineMessage(
      const client = await TypedAmqpClient.create({
        contract,
        urls: ["amqp://localhost"],
-     }).resultToPromise();
+     });
      await client.publish("sendEmail", message);
      await client.close();
    }
@@ -417,7 +417,7 @@ const orderMessage = defineMessage(
    const client = await TypedAmqpClient.create({
      contract,
      urls: ["amqp://localhost"],
-   }).resultToPromise();
+   });
 
    async function publishMessage() {
      await client.publish("sendEmail", message);
@@ -457,10 +457,10 @@ const orderMessage = defineMessage(
    // ❌ Blocking operation
    handlers: {
      processOrder: ({ payload }) => {
-       return Future.fromPromise(fetch("http://slow-api.com/process"))  // Slow!
-         .flatMapOk((result) => Future.fromPromise(processResult(result)))
-         .mapOk(() => undefined)
-         .mapError((error) => new RetryableError("Processing failed", error));
+       return ResultAsync.fromPromise(fetch("http://slow-api.com/process"))  // Slow!
+         .andThen((result) => ResultAsync.fromPromise(processResult(result)))
+         .map(() => undefined)
+         .mapErr((error) => new RetryableError("Processing failed", error));
      },
    }
 
@@ -473,7 +473,7 @@ const orderMessage = defineMessage(
          { prefetch: 10 }, // Process up to 10 messages concurrently
        ],
      },
-   }).resultToPromise();
+   });
    ```
 
 2. **Heavy computation in handlers:**
@@ -483,9 +483,9 @@ const orderMessage = defineMessage(
    handlers: {
      processImage: ({ payload }) => {
        // Queue heavy work to worker pool
-       return Future.fromPromise(jobQueue.add("process-image", payload))
-         .mapOk(() => undefined)
-         .mapError((error) => new RetryableError("Failed to queue job", error));
+       return ResultAsync.fromPromise(jobQueue.add("process-image", payload))
+         .map(() => undefined)
+         .mapErr((error) => new RetryableError("Failed to queue job", error));
      },
    }
    ```
@@ -497,15 +497,15 @@ const orderMessage = defineMessage(
    handlers: {
      processOrder: ({ payload }) => {
        // Inefficient - multiple sequential queries
-       return Future.fromPromise(
+       return ResultAsync.fromPromise(
          (async () => {
            for (const item of payload.items) {
              await db.query("SELECT * FROM products WHERE id = ?", [item.id]);
            }
          })()
        )
-         .mapOk(() => undefined)
-         .mapError((error) => new RetryableError("Query failed", error));
+         .map(() => undefined)
+         .mapErr((error) => new RetryableError("Query failed", error));
      },
    }
 
@@ -513,9 +513,9 @@ const orderMessage = defineMessage(
    handlers: {
      processOrder: ({ payload }) => {
        const ids = payload.items.map(item => item.id);
-       return Future.fromPromise(db.query("SELECT * FROM products WHERE id IN (?)", [ids]))
-         .mapOk(() => undefined)
-         .mapError((error) => new RetryableError("Query failed", error));
+       return ResultAsync.fromPromise(db.query("SELECT * FROM products WHERE id IN (?)", [ids]))
+         .map(() => undefined)
+         .mapErr((error) => new RetryableError("Query failed", error));
      },
    }
    ```
@@ -543,7 +543,7 @@ Error: Connection timeout
          timeout: 10000, // 10 seconds
        },
      },
-   }).resultToPromise();
+   });
    ```
 
 2. **Use connection pooling:**
@@ -590,7 +590,7 @@ Error: Queue 'order-processing' not found
    const client = await TypedAmqpClient.create({
      contract,
      urls: ["amqp://localhost"],
-   }).resultToPromise();
+   });
    ```
 
 ### Messages not routing

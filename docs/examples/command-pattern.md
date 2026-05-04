@@ -71,16 +71,14 @@ import { randomUUID } from "node:crypto";
 const client = await TypedAmqpClient.create({
   contract,
   urls: ["amqp://localhost"],
-}).resultToPromise();
+});
 
-await client
-  .publish("chargeCustomer", {
-    customerId: "cust_123",
-    amountCents: 4_999,
-    currency: "USD",
-    idempotencyKey: randomUUID(),
-  })
-  .resultToPromise();
+await client.publish("chargeCustomer", {
+  customerId: "cust_123",
+  amountCents: 4_999,
+  currency: "USD",
+  idempotencyKey: randomUUID(),
+});
 ```
 
 A `subscriptions-service`, `refunds-service`, or any other publisher does the same — they all use `chargeCustomer`. Routing-key dispatch is handled by the contract; callers never name `payments.charge` themselves.
@@ -97,11 +95,11 @@ import {
   RetryableError,
   NonRetryableError,
 } from "@amqp-contract/worker";
-import { Future, Result } from "@swan-io/boxed";
+import { ResultAsync, Result } from "neverthrow";
 import { contract } from "@org/payment-contract";
 
 const chargeHandler = defineHandler(contract, "chargeCustomer", ({ payload }) =>
-  Future.fromPromise(
+  ResultAsync.fromPromise(
     chargeProvider({
       customerId: payload.customerId,
       amount: payload.amountCents,
@@ -109,8 +107,8 @@ const chargeHandler = defineHandler(contract, "chargeCustomer", ({ payload }) =>
       idempotencyKey: payload.idempotencyKey,
     }),
   )
-    .mapOk(() => undefined)
-    .mapError((error) => {
+    .map(() => undefined)
+    .mapErr((error) => {
       // Card declined / fraud / closed account — won't change with retry.
       if (error instanceof PermanentDeclineError) {
         return new NonRetryableError(`Charge declined: ${error.code}`, error);
@@ -126,10 +124,10 @@ const worker = await TypedAmqpWorker.create({
     chargeCustomer: [chargeHandler, { prefetch: 5 }],
   },
   urls: ["amqp://localhost"],
-}).resultToPromise();
+});
 
 process.on("SIGINT", async () => {
-  await worker.close().resultToPromise();
+  await worker.close();
   process.exit(0);
 });
 ```

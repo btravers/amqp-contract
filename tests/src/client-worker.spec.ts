@@ -14,7 +14,7 @@ import {
   type WorkerInferConsumerHandlers,
   defineHandlers,
 } from "@amqp-contract/worker";
-import { Future, Result } from "@swan-io/boxed";
+import { ok, okAsync } from "neverthrow";
 import { describe, expect, vi } from "vitest";
 import { z } from "zod";
 
@@ -32,10 +32,12 @@ const it = baseIt.extend<{
 
     try {
       await use(async <TContract extends ContractDefinition>(contract: TContract) => {
-        const client = await TypedAmqpClient.create({
-          contract,
-          urls: [amqpConnectionUrl],
-        }).resultToPromise();
+        const client = (
+          await TypedAmqpClient.create({
+            contract,
+            urls: [amqpConnectionUrl],
+          })
+        )._unsafeUnwrap();
 
         clients.push(client);
         return client;
@@ -45,7 +47,7 @@ const it = baseIt.extend<{
       await Promise.all(
         clients.map(async (client) => {
           try {
-            await client.close().resultToPromise();
+            (await client.close())._unsafeUnwrap();
           } catch (error) {
             // Swallow errors during cleanup to avoid unhandled rejections
             // eslint-disable-next-line no-console
@@ -63,11 +65,13 @@ const it = baseIt.extend<{
           contract: TContract,
           handlers: WorkerInferConsumerHandlers<TContract>,
         ) => {
-          const worker = await TypedAmqpWorker.create({
-            contract,
-            handlers: defineHandlers(contract, handlers),
-            urls: [amqpConnectionUrl],
-          }).resultToPromise();
+          const worker = (
+            await TypedAmqpWorker.create({
+              contract,
+              handlers: defineHandlers(contract, handlers),
+              urls: [amqpConnectionUrl],
+            })
+          )._unsafeUnwrap();
 
           workers.push(worker);
           return worker;
@@ -78,7 +82,7 @@ const it = baseIt.extend<{
       await Promise.all(
         workers.map(async (worker) => {
           try {
-            await worker.close().resultToPromise();
+            (await worker.close())._unsafeUnwrap();
           } catch (error) {
             // Swallow errors during cleanup to avoid unhandled rejections
             // eslint-disable-next-line no-console
@@ -139,7 +143,7 @@ describe("Client and Worker Integration", () => {
       });
 
       // GIVEN
-      const mockHandler = vi.fn().mockReturnValue(Future.value(Result.Ok(undefined)));
+      const mockHandler = vi.fn().mockReturnValue(okAsync(undefined));
       await workerFactory(contract, {
         processOrder: mockHandler,
       });
@@ -166,7 +170,7 @@ describe("Client and Worker Integration", () => {
       );
 
       // THEN
-      expect(publishResult).toEqual(Result.Ok(undefined));
+      expect(publishResult).toEqual(ok(undefined));
 
       await vi.waitFor(
         () => {
@@ -223,7 +227,7 @@ describe("Client and Worker Integration", () => {
       const receivedMessages: unknown[] = [];
       const mockHandler = vi.fn().mockImplementation((message: unknown) => {
         receivedMessages.push(message);
-        return Future.value(Result.Ok(undefined));
+        return okAsync(undefined);
       });
       await workerFactory(contract, {
         processEvent: mockHandler,
@@ -242,7 +246,7 @@ describe("Client and Worker Integration", () => {
 
       for (const message of messages) {
         const result = await client.publish("eventPublisher", message);
-        expect(result).toEqual(Result.Ok(undefined));
+        expect(result).toEqual(ok(undefined));
       }
 
       // THEN
@@ -289,7 +293,7 @@ describe("Client and Worker Integration", () => {
         },
       });
 
-      const mockHandler = vi.fn().mockReturnValue(Future.value(Result.Ok(undefined)));
+      const mockHandler = vi.fn().mockReturnValue(okAsync(undefined));
       await workerFactory(contract, {
         processStrict: mockHandler,
       });
@@ -305,7 +309,7 @@ describe("Client and Worker Integration", () => {
       } as never);
 
       // THEN
-      expect(invalidResult.isError()).toBe(true);
+      expect(invalidResult.isErr()).toBe(true);
 
       // WHEN
       const validResult = await client.publish("strictPublisher", {
@@ -314,7 +318,7 @@ describe("Client and Worker Integration", () => {
       });
 
       // THEN
-      expect(validResult).toEqual(Result.Ok(undefined));
+      expect(validResult).toEqual(ok(undefined));
 
       await vi.waitFor(
         () => {
@@ -365,8 +369,8 @@ describe("Client and Worker Integration", () => {
       });
 
       // GIVEN
-      const emailHandler = vi.fn().mockReturnValue(Future.value(Result.Ok(undefined)));
-      const smsHandler = vi.fn().mockReturnValue(Future.value(Result.Ok(undefined)));
+      const emailHandler = vi.fn().mockReturnValue(okAsync(undefined));
+      const smsHandler = vi.fn().mockReturnValue(okAsync(undefined));
 
       await workerFactory(contract, {
         processEmail: emailHandler,
@@ -382,14 +386,14 @@ describe("Client and Worker Integration", () => {
         recipient: "user@example.com",
         message: "Test email",
       });
-      expect(emailResult).toEqual(Result.Ok(undefined));
+      expect(emailResult).toEqual(ok(undefined));
 
       // WHEN
       const smsResult = await client.publish("smsNotification", {
         recipient: "+1234567890",
         message: "Test SMS",
       });
-      expect(smsResult).toEqual(Result.Ok(undefined));
+      expect(smsResult).toEqual(ok(undefined));
 
       // THEN
       await vi.waitFor(

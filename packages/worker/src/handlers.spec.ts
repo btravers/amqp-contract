@@ -1,4 +1,4 @@
-import { Future, Result } from "@swan-io/boxed";
+import { errAsync, okAsync } from "neverthrow";
 import { NonRetryableError, RetryableError } from "./errors.js";
 import {
   defineConsumer,
@@ -65,7 +65,7 @@ describe("handlers", () => {
       // GIVEN
       const handler = ({ payload }: { payload: { id: string; data: string } }) => {
         console.log(payload.id);
-        return Future.value(Result.Ok(undefined));
+        return okAsync(undefined);
       };
 
       // WHEN
@@ -79,7 +79,7 @@ describe("handlers", () => {
       // GIVEN
       const handler = ({ payload }: { payload: { id: string; data: string } }) => {
         console.log(payload.id);
-        return Future.value(Result.Ok(undefined));
+        return okAsync(undefined);
       };
 
       // WHEN
@@ -93,7 +93,7 @@ describe("handlers", () => {
       // GIVEN
       const handler = ({ payload }: { payload: { id: string; data: string } }) => {
         console.log(payload.id);
-        return Future.value(Result.Ok(undefined));
+        return okAsync(undefined);
       };
 
       // WHEN/THEN
@@ -112,11 +112,11 @@ describe("handlers", () => {
       const handlers = {
         testConsumer: ({ payload }: { payload: { id: string; data: string } }) => {
           console.log(payload.id);
-          return Future.value(Result.Ok(undefined));
+          return okAsync(undefined);
         },
         anotherConsumer: ({ payload }: { payload: { id: string; data: string } }) => {
           console.log(payload.data);
-          return Future.value(Result.Ok(undefined));
+          return okAsync(undefined);
         },
       };
 
@@ -132,11 +132,11 @@ describe("handlers", () => {
       const handlers = {
         testConsumer: ({ payload }: { payload: { id: string; data: string } }) => {
           console.log(payload.id);
-          return Future.value(Result.Ok(undefined));
+          return okAsync(undefined);
         },
         nonExistentConsumer: ({ payload }: { payload: { id: string; data: string } }) => {
           console.log(payload.data);
-          return Future.value(Result.Ok(undefined));
+          return okAsync(undefined);
         },
       };
 
@@ -157,7 +157,7 @@ describe("handlers", () => {
         _message: { payload: { id: string; data: string } },
         _rawMessage: ConsumeMessage,
       ) => {
-        return Future.value(Result.Error(new RetryableError("Transient failure")));
+        return errAsync(new RetryableError("Transient failure"));
       };
 
       // WHEN
@@ -180,7 +180,7 @@ describe("handlers", () => {
         _message: { payload: { id: string; data: string } },
         _rawMessage: ConsumeMessage,
       ) => {
-        return Future.value(Result.Error(new NonRetryableError("Invalid message")));
+        return errAsync(new NonRetryableError("Invalid message"));
       };
 
       // WHEN

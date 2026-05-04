@@ -36,9 +36,6 @@ catalogs:
     '@standard-schema/spec':
       specifier: 1.1.0
       version: 1.1.0
-    '@swan-io/boxed':
-      specifier: 3.2.1
-      version: 3.2.1
     '@types/amqplib':
       specifier: 0.10.8
       version: 0.10.8
@@ -66,6 +63,9 @@ catalogs:
     mermaid:
       specifier: 11.14.0
       version: 11.14.0
+    neverthrow:
+      specifier: 8.2.0
+      version: 8.2.0
     oxfmt:
       specifier: 0.47.0
       version: 0.47.0
@@ -225,12 +225,12 @@ importers:
       '@amqp-contract/tsconfig':
         specifier: workspace:*
         version: link:../../tools/tsconfig
-      '@swan-io/boxed':
-        specifier: 'catalog:'
-        version: 3.2.1(typescript@6.0.3)
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 4.1.5(vitest@4.1.5)
+      neverthrow:
+        specifier: 'catalog:'
+        version: 8.2.0
       tsx:
         specifier: 'catalog:'
         version: 4.21.0
@@ -283,9 +283,9 @@ importers:
       '@amqp-contract/worker':
         specifier: workspace:*
         version: link:../../packages/worker
-      '@swan-io/boxed':
+      neverthrow:
         specifier: 'catalog:'
-        version: 3.2.1(typescript@6.0.3)
+        version: 8.2.0
       pino:
         specifier: 'catalog:'
         version: 10.3.1
@@ -387,9 +387,9 @@ importers:
       '@standard-schema/spec':
         specifier: 'catalog:'
         version: 1.1.0
-      '@swan-io/boxed':
+      neverthrow:
         specifier: 'catalog:'
-        version: 3.2.1(typescript@6.0.3)
+        version: 8.2.0
       ts-pattern:
         specifier: 'catalog:'
         version: 5.9.0
@@ -476,15 +476,15 @@ importers:
       '@amqp-contract/contract':
         specifier: workspace:*
         version: link:../contract
-      '@swan-io/boxed':
-        specifier: 'catalog:'
-        version: 3.2.1(typescript@6.0.3)
       amqp-connection-manager:
         specifier: 'catalog:'
         version: 5.0.0(amqplib@0.10.9)
       amqplib:
         specifier: 'catalog:'
         version: 0.10.9
+      neverthrow:
+        specifier: 'catalog:'
+        version: 8.2.0
     devDependencies:
       '@amqp-contract/testing':
         specifier: workspace:*
@@ -565,9 +565,9 @@ importers:
       '@standard-schema/spec':
         specifier: 'catalog:'
         version: 1.1.0
-      '@swan-io/boxed':
+      neverthrow:
         specifier: 'catalog:'
-        version: 3.2.1(typescript@6.0.3)
+        version: 8.2.0
     devDependencies:
       '@amqp-contract/testing':
         specifier: workspace:*
@@ -629,9 +629,9 @@ importers:
       '@amqp-contract/worker':
         specifier: workspace:*
         version: link:../packages/worker
-      '@swan-io/boxed':
+      neverthrow:
         specifier: 'catalog:'
-        version: 3.2.1(typescript@6.0.3)
+        version: 8.2.0
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -2068,6 +2068,12 @@ packages:
   '@rolldown/pluginutils@1.0.0-rc.17':
     resolution: {integrity: sha512-n8iosDOt6Ig1UhJ2AYqoIhHWh/isz0xpicHTzpKBeotdVsTEcxsSA/i3EVM7gQAj0rU27OLAxCjzlj15IWY7bg==}
 
+  '@rollup/rollup-linux-x64-gnu@4.60.2':
+    resolution: {integrity: sha512-UQjrkIdWrKI626Du8lCQ6MJp/6V1LAo2bOK9OTu4mSn8GGXIkPXk/Vsp4bLHCd9Z9Iz2OTEaokUE90VweJgIYQ==}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
   '@shikijs/core@2.5.0':
     resolution: {integrity: sha512-uu/8RExTKtavlpH7XqnVYBrfBkUc20ngXiX9NSrBhOVZYv/7XQRKUyhtkeflY5QsxC0GbJThCerruZfsUaSldg==}
 
@@ -2183,15 +2189,6 @@ packages:
   '@stoplight/yaml@4.3.0':
     resolution: {integrity: sha512-JZlVFE6/dYpP9tQmV0/ADfn32L9uFarHWxfcRhReKUnljz1ZiUM5zpX+PH8h5CJs6lao3TuFqnPm9IJJCEkE2w==}
     engines: {node: '>=10.8'}
-
-  '@swan-io/boxed@3.2.1':
-    resolution: {integrity: sha512-MQqSpe09PdjDjTR4HCPpUxO9XsacNguCkce1C2wm1eIb6ycWXQoV+biYvLEuI/LiMqB31KySdgY2YFwrVucLCw==}
-    deprecated: This package has been transferred to @bloodyowl/boxed
-    peerDependencies:
-      typescript: '>=5.0.0'
-    peerDependenciesMeta:
-      typescript:
-        optional: true
 
   '@turbo/darwin-64@2.9.8':
     resolution: {integrity: sha512-zU1P95ygDpsQ+2QHh7CVTqvYwi9UBlhKWzoIyUnP3vUoge7H9SQEzrd8dj+XcTrslAp9Db3vIBcXtMVoTEYDnA==}
@@ -4052,6 +4049,10 @@ packages:
     resolution: {integrity: sha512-N8SpfPUnUp1bK+PMYW8qSWdl9U+wwNWI4QKxOYDy9JAro3WMX7p2OeVRF9v+347pnakNevPmiHhNmZ2HbFA76w==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
     hasBin: true
+
+  neverthrow@8.2.0:
+    resolution: {integrity: sha512-kOCT/1MCPAxY5iUV3wytNFUMUolzuwd/VF/1KCx7kf6CutrOsTie+84zTGTpgQycjvfLdBBdvBvFLqFD2c0wkQ==}
+    engines: {node: '>=18'}
 
   nimma@0.2.3:
     resolution: {integrity: sha512-1ZOI8J+1PKKGceo/5CT5GfQOG6H8I2BencSK06YarZ2wXwH37BSSUWldqJmMJYA5JfqDqffxDXynt6f11AyKcA==}
@@ -6404,6 +6405,9 @@ snapshots:
 
   '@rolldown/pluginutils@1.0.0-rc.17': {}
 
+  '@rollup/rollup-linux-x64-gnu@4.60.2':
+    optional: true
+
   '@shikijs/core@2.5.0':
     dependencies:
       '@shikijs/engine-javascript': 2.5.0
@@ -6612,10 +6616,6 @@ snapshots:
       '@stoplight/types': 14.1.1
       '@stoplight/yaml-ast-parser': 0.0.50
       tslib: 2.8.1
-
-  '@swan-io/boxed@3.2.1(typescript@6.0.3)':
-    optionalDependencies:
-      typescript: 6.0.3
 
   '@turbo/darwin-64@2.9.8':
     optional: true
@@ -8608,6 +8608,10 @@ snapshots:
     optional: true
 
   nanoid@3.3.11: {}
+
+  neverthrow@8.2.0:
+    optionalDependencies:
+      '@rollup/rollup-linux-x64-gnu': 4.60.2
 
   nimma@0.2.3:
     dependencies:

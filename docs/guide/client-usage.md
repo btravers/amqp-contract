@@ -4,7 +4,7 @@ Learn how to use the type-safe AMQP client to publish messages.
 
 ## Creating a Client
 
-Create a type-safe client from your contract. The `create` method returns a `Future<Result<...>>` that must be awaited:
+Create a type-safe client from your contract. The `create` method returns a `ResultAsync<Result<...>>` that must be awaited:
 
 ```typescript
 import { TypedAmqpClient } from "@amqp-contract/client";
@@ -13,7 +13,7 @@ import { contract } from "./contract";
 const client = await TypedAmqpClient.create({
   contract,
   urls: ["amqp://localhost"],
-}).resultToPromise();
+});
 ```
 
 ### Default Publish Options
@@ -28,7 +28,7 @@ const client = await TypedAmqpClient.create({
     priority: 5,
     headers: { "x-app-version": "1.0.0" },
   },
-}).resultToPromise();
+});
 ```
 
 Default publish options can be overridden by options passed to individual `publish` calls.
@@ -91,13 +91,11 @@ result.match({
 Override the routing key for specific messages:
 
 ```typescript
-const result = await client
-  .publish(
-    "orderCreated",
-    { orderId: "ORD-123", amount: 99.99 },
-    { routingKey: "order.created.urgent" },
-  )
-  .resultToPromise();
+const result = await client.publish(
+  "orderCreated",
+  { orderId: "ORD-123", amount: 99.99 },
+  { routingKey: "order.created.urgent" },
+);
 ```
 
 ### Message Properties
@@ -105,19 +103,17 @@ const result = await client
 Set AMQP message properties:
 
 ```typescript
-const result = await client
-  .publish(
-    "orderCreated",
-    { orderId: "ORD-123", amount: 99.99 },
-    {
-      options: {
-        persistent: false,
-        priority: 10,
-        headers: { "x-request-id": "req-123" },
-      },
+const result = await client.publish(
+  "orderCreated",
+  { orderId: "ORD-123", amount: 99.99 },
+  {
+    options: {
+      persistent: false,
+      priority: 10,
+      headers: { "x-request-id": "req-123" },
     },
-  )
-  .resultToPromise();
+  },
+);
 ```
 
 ### Publishing with Headers
@@ -125,19 +121,17 @@ const result = await client
 When your message schema defines a [headers schema](/guide/defining-contracts#message-headers), pass headers via the `options.headers` property:
 
 ```typescript
-const result = await client
-  .publish(
-    "orderCreated",
-    { orderId: "ORD-123", amount: 99.99 },
-    {
-      headers: {
-        correlationId: "550e8400-e29b-41d4-a716-446655440000",
-        priority: "high",
-        tenantId: "tenant-42",
-      },
+const result = await client.publish(
+  "orderCreated",
+  { orderId: "ORD-123", amount: 99.99 },
+  {
+    headers: {
+      correlationId: "550e8400-e29b-41d4-a716-446655440000",
+      priority: "high",
+      tenantId: "tenant-42",
     },
-  )
-  .resultToPromise();
+  },
+);
 ```
 
 Headers are validated by the consumer at runtime using the headers schema defined in `defineMessage`. On the publish side, headers are passed as raw AMQP message properties — make sure to match the expected schema to avoid consumer-side validation errors.
@@ -197,17 +191,14 @@ async function main() {
     client = await TypedAmqpClient.create({
       contract,
       urls: ["amqp://localhost"],
-    }).resultToPromise();
+    });
 
-    const result = await client
-      .publish("orderCreated", {
-        orderId: "ORD-123",
-        customerId: "CUST-456",
-        amount: 99.99,
-        items: [{ productId: "PROD-A", quantity: 2 }],
-      })
-      .resultToPromise();
-
+    const result = await client.publish("orderCreated", {
+      orderId: "ORD-123",
+      customerId: "CUST-456",
+      amount: 99.99,
+      items: [{ productId: "PROD-A", quantity: 2 }],
+    });
     result.match({
       Ok: () => console.log("✅ Message published"),
       Error: (error) =>

@@ -1,6 +1,6 @@
 import { orderContract } from "@amqp-contract-examples/basic-order-processing-contract";
 import { RetryableError, TypedAmqpWorker, defineHandlers } from "@amqp-contract/worker";
-import { Future } from "@swan-io/boxed";
+import { ResultAsync } from "neverthrow";
 import pino from "pino";
 import { z } from "zod";
 
@@ -23,7 +23,7 @@ const logger = pino({
 
 async function main() {
   // Create type-safe worker with handlers for each consumer
-  const worker = await TypedAmqpWorker.create({
+  const workerResult = await TypedAmqpWorker.create({
     contract: orderContract,
     handlers: defineHandlers(orderContract, {
       // Handler for processing NEW orders (order.created)
@@ -43,11 +43,12 @@ async function main() {
           "[PROCESSING] New order received",
         );
 
-        return Future.fromPromise(new Promise<void>((resolve) => setTimeout(resolve, 500)))
-          .mapOk(() => {
-            logger.info({ orderId: payload.orderId }, "Order processed successfully");
-          })
-          .mapError((e) => new RetryableError("Processing failed", e));
+        return ResultAsync.fromPromise(
+          new Promise<void>((resolve) => setTimeout(resolve, 500)),
+          (e) => new RetryableError("Processing failed", e),
+        ).map(() => {
+          logger.info({ orderId: payload.orderId }, "Order processed successfully");
+        });
       },
 
       // Handler for ALL order notifications (order.#)
@@ -77,11 +78,12 @@ async function main() {
           );
         }
 
-        return Future.fromPromise(new Promise<void>((resolve) => setTimeout(resolve, 300)))
-          .mapOk(() => {
-            logger.info("Notification sent");
-          })
-          .mapError((e) => new RetryableError("Notification failed", e));
+        return ResultAsync.fromPromise(
+          new Promise<void>((resolve) => setTimeout(resolve, 300)),
+          (e) => new RetryableError("Notification failed", e),
+        ).map(() => {
+          logger.info("Notification sent");
+        });
       },
 
       // Handler for SHIPPED orders (order.shipped)
@@ -95,11 +97,12 @@ async function main() {
           "[SHIPPING] Shipment notification received",
         );
 
-        return Future.fromPromise(new Promise<void>((resolve) => setTimeout(resolve, 400)))
-          .mapOk(() => {
-            logger.info({ orderId: payload.orderId }, "Shipping label prepared");
-          })
-          .mapError((e) => new RetryableError("Shipping failed", e));
+        return ResultAsync.fromPromise(
+          new Promise<void>((resolve) => setTimeout(resolve, 400)),
+          (e) => new RetryableError("Shipping failed", e),
+        ).map(() => {
+          logger.info({ orderId: payload.orderId }, "Shipping label prepared");
+        });
       },
 
       // Handler for URGENT orders (order.*.urgent)
@@ -113,11 +116,12 @@ async function main() {
           "[URGENT] Priority order update received!",
         );
 
-        return Future.fromPromise(new Promise<void>((resolve) => setTimeout(resolve, 200)))
-          .mapOk(() => {
-            logger.warn({ orderId: payload.orderId }, "Urgent update handled");
-          })
-          .mapError((e) => new RetryableError("Urgent handling failed", e));
+        return ResultAsync.fromPromise(
+          new Promise<void>((resolve) => setTimeout(resolve, 200)),
+          (e) => new RetryableError("Urgent handling failed", e),
+        ).map(() => {
+          logger.warn({ orderId: payload.orderId }, "Urgent update handled");
+        });
       },
 
       // Handler for FAILED orders (from dead letter exchange)
@@ -132,17 +136,17 @@ async function main() {
           "[DLX] Failed order received from dead letter exchange",
         );
 
-        return Future.fromPromise(new Promise<void>((resolve) => setTimeout(resolve, 200)))
-          .mapOk(() => {
-            logger.error({ orderId: payload.orderId }, "Failed order logged for investigation");
-          })
-          .mapError((e) => new RetryableError("Failed order handling failed", e));
+        return ResultAsync.fromPromise(
+          new Promise<void>((resolve) => setTimeout(resolve, 200)),
+          (e) => new RetryableError("Failed order handling failed", e),
+        ).map(() => {
+          logger.error({ orderId: payload.orderId }, "Failed order logged for investigation");
+        });
       },
     }),
     urls: [env.AMQP_URL],
-  })
-    .tapError((error) => logger.error({ error }, "Failed to create worker"))
-    .resultToPromise();
+  }).orTee((error) => logger.error({ error }, "Failed to create worker"));
+  const worker = workerResult._unsafeUnwrap();
 
   logger.info("Worker ready, waiting for messages...");
   logger.info("=".repeat(60));
@@ -160,7 +164,7 @@ async function main() {
   // Handle graceful shutdown
   process.on("SIGINT", async () => {
     logger.info("Shutting down worker...");
-    await worker.close().resultToPromise();
+    (await worker.close())._unsafeUnwrap();
     process.exit(0);
   });
 }

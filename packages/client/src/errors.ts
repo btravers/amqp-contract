@@ -34,7 +34,7 @@ export class RpcTimeoutError extends Error {
 /**
  * Returned from any in-flight RPC call when the client is closed before the
  * reply is received. The correlation map is cleared on close and every pending
- * caller's promise resolves with `Result.Error(RpcCancelledError)`.
+ * caller's promise resolves with `err(RpcCancelledError)`.
  */
 export class RpcCancelledError extends Error {
   constructor(public readonly rpcName: string) {

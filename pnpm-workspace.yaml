@@ -30,7 +30,6 @@ catalog:
   "@orpc/valibot": 1.14.1
   "@orpc/zod": 1.14.1
   "@standard-schema/spec": 1.1.0
-  "@swan-io/boxed": 3.2.1
   "@types/amqplib": 0.10.8
   "@types/node": 24.12.2
   "@vitest/coverage-v8": 4.1.5
@@ -40,6 +39,7 @@ catalog:
   knip: 6.11.0
   lefthook: 2.1.6
   mermaid: 11.14.0
+  neverthrow: 8.2.0
   oxfmt: 0.47.0
   oxlint: 1.62.0
   pino: 10.3.1

@@ -20,12 +20,14 @@ export const it = baseIt.extend<{
         ) => {
           // Topology setup (exchanges, queues, bindings, wait queues) is done automatically
           // by AmqpClient in the channel setup callback
-          const worker = await TypedAmqpWorker.create({
-            contract,
-            handlers,
-            urls: [amqpConnectionUrl],
-            logger: console,
-          }).resultToPromise();
+          const worker = (
+            await TypedAmqpWorker.create({
+              contract,
+              handlers,
+              urls: [amqpConnectionUrl],
+              logger: console,
+            })
+          )._unsafeUnwrap();
 
           workers.push(worker);
           return worker;
@@ -36,7 +38,7 @@ export const it = baseIt.extend<{
       await Promise.all(
         workers.map(async (worker) => {
           try {
-            await worker.close().resultToPromise();
+            (await worker.close())._unsafeUnwrap();
           } catch (error) {
             // Swallow errors during cleanup to avoid unhandled rejections
             // eslint-disable-next-line no-console

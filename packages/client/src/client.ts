@@ -20,8 +20,8 @@ import {
   startPublishSpan,
 } from "@amqp-contract/core";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
-import { Future, Result } from "@swan-io/boxed";
 import type { AmqpConnectionManagerOptions, ConnectionUrl } from "amqp-connection-manager";
+import { err, errAsync, ok, okAsync, Result, ResultAsync } from "neverthrow";
 import { randomUUID } from "node:crypto";
 import { compressBuffer } from "./compression.js";
 import { MessageValidationError, RpcCancelledError, RpcTimeoutError } from "./errors.js";
@@ -91,7 +91,7 @@ export type CreateClientOptions<TContract extends ContractDefinition> = {
   defaultPublishOptions?: PublishOptions | undefined;
   /**
    * Maximum time in ms to wait for the AMQP connection to become ready before
-   * `create()` resolves to `Result.Error<TechnicalError>`. Defaults to 30s
+   * `create()` resolves to an `err(TechnicalError)`. Defaults to 30s
    * (the {@link AmqpClient}'s `DEFAULT_CONNECT_TIMEOUT_MS`). Pass `null` to
    * disable the timeout and let amqp-connection-manager retry indefinitely.
    */
@@ -104,8 +104,8 @@ export type CreateClientOptions<TContract extends ContractDefinition> = {
 export type CallOptions = {
   /**
    * Maximum time in ms to wait for an RPC reply. If exceeded, the call resolves
-   * to `Result.Error<RpcTimeoutError>` and the in-memory correlation entry is
-   * cleared. A late reply arriving after the timeout is silently dropped.
+   * to `err(RpcTimeoutError)` and the in-memory correlation entry is cleared.
+   * A late reply arriving after the timeout is silently dropped.
    *
    * Required: RPC without a timeout is a footgun.
    */
@@ -160,7 +160,7 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     logger,
     telemetry,
     connectTimeoutMs,
-  }: CreateClientOptions<TContract>): Future<Result<TypedAmqpClient<TContract>, TechnicalError>> {
+  }: CreateClientOptions<TContract>): ResultAsync<TypedAmqpClient<TContract>, TechnicalError> {
     const client = new TypedAmqpClient(
       contract,
       new AmqpClient(contract, { urls, connectionOptions, connectTimeoutMs }),
@@ -169,24 +169,25 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
       telemetry ?? defaultTelemetryProvider,
     );
 
-    return client
+    const setup = client
       .waitForConnectionReady()
-      .flatMapOk(() => client.setupReplyConsumerIfNeeded())
-      .flatMap((result) =>
-        result.match({
-          Ok: () => Future.value(Result.Ok<TypedAmqpClient<TContract>, TechnicalError>(client)),
-          // Release the AmqpClient's connection ref-count so a failed create() does not leak.
-          Error: (error) =>
-            client
-              .close()
-              .tapError((closeError) => {
-                logger?.warn("Failed to close client after connection failure", {
-                  error: closeError,
-                });
-              })
-              .map(() => Result.Error<TypedAmqpClient<TContract>, TechnicalError>(error)),
-        }),
-      );
+      .andThen(() => client.setupReplyConsumerIfNeeded());
+
+    return new ResultAsync<TypedAmqpClient<TContract>, TechnicalError>(
+      (async () => {
+        const setupResult = await setup;
+        if (setupResult.isOk()) {
+          return ok(client);
+        }
+        const closeResult = await client.close();
+        if (closeResult.isErr()) {
+          logger?.warn("Failed to close client after connection failure", {
+            error: closeResult.error,
+          });
+        }
+        return err(setupResult.error);
+      })(),
+    );
   }
 
   /**
@@ -194,18 +195,18 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
    * once. Replies for every in-flight call arrive on this single consumer and
    * are demultiplexed by `correlationId`.
    */
-  private setupReplyConsumerIfNeeded(): Future<Result<void, TechnicalError>> {
+  private setupReplyConsumerIfNeeded(): ResultAsync<void, TechnicalError> {
     const rpcs = this.contract.rpcs ?? {};
     if (Object.keys(rpcs).length === 0) {
-      return Future.value(Result.Ok(undefined));
+      return okAsync(undefined);
     }
 
     return this.amqpClient
       .consume(DIRECT_REPLY_TO, (msg) => this.handleRpcReply(msg), { noAck: true })
-      .tapOk((tag) => {
+      .andTee((tag) => {
         this.replyConsumerTag = tag;
       })
-      .mapOk(() => undefined);
+      .map(() => undefined);
   }
 
   /**
@@ -244,9 +245,7 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
       parsed = JSON.parse(msg.content.toString());
     } catch (error: unknown) {
       pending.resolve(
-        Result.Error(
-          new TechnicalError(`Failed to parse RPC reply JSON for "${pending.rpcName}"`, error),
-        ),
+        err(new TechnicalError(`Failed to parse RPC reply JSON for "${pending.rpcName}"`, error)),
       );
       return;
     }
@@ -259,9 +258,7 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
       rawValidation = pending.responseSchema["~standard"].validate(parsed);
     } catch (error: unknown) {
       pending.resolve(
-        Result.Error(
-          new TechnicalError(`RPC reply validation threw for "${pending.rpcName}"`, error),
-        ),
+        err(new TechnicalError(`RPC reply validation threw for "${pending.rpcName}"`, error)),
       );
       return;
     }
@@ -271,25 +268,21 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     validationPromise.then(
       (validation) => {
         if (validation.issues) {
-          pending.resolve(
-            Result.Error(new MessageValidationError(pending.rpcName, validation.issues)),
-          );
+          pending.resolve(err(new MessageValidationError(pending.rpcName, validation.issues)));
           return;
         }
-        pending.resolve(Result.Ok(validation.value));
+        pending.resolve(ok(validation.value));
       },
       (error: unknown) => {
         pending.resolve(
-          Result.Error(
-            new TechnicalError(`RPC reply validation threw for "${pending.rpcName}"`, error),
-          ),
+          err(new TechnicalError(`RPC reply validation threw for "${pending.rpcName}"`, error)),
         );
       },
     );
   }
 
   /**
-   * Publish a message using a defined publisher
+   * Publish a message using a defined publisher.
    *
    * @param publisherName - The name of the publisher to use
    * @param message - The message to publish
@@ -299,18 +292,12 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
    * If `options.compression` is specified, the message will be compressed before publishing
    * and the `contentEncoding` property will be set automatically. Any `contentEncoding`
    * value already in options will be overwritten by the compression algorithm.
-   *
-   * @returns Result.Ok(void) on success, or Result.Error with specific error on failure
-   */
-  /**
-   * Publish a message using a defined publisher.
-   * TypeScript guarantees publisher exists for valid publisher names.
    */
   publish<TName extends InferPublisherNames<TContract>>(
     publisherName: TName,
     message: ClientInferPublisherInput<TContract, TName>,
     options?: PublishOptions,
-  ): Future<Result<void, TechnicalError | MessageValidationError>> {
+  ): ResultAsync<void, TechnicalError | MessageValidationError> {
     const startTime = Date.now();
     // Non-null assertions safe: TypeScript guarantees these exist for valid TName
     const publisher = this.contract.publishers![publisherName as string]!;
@@ -321,24 +308,25 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
       [MessagingSemanticConventions.AMQP_PUBLISHER_NAME]: String(publisherName),
     });
 
-    const validateMessage = () => {
+    const validateMessage = (): ResultAsync<unknown, TechnicalError | MessageValidationError> => {
       const validationResult = publisher.message.payload["~standard"].validate(message);
-      return Future.fromPromise(
-        validationResult instanceof Promise ? validationResult : Promise.resolve(validationResult),
-      )
-        .mapError((error) => new TechnicalError(`Validation failed`, error))
-        .mapOkToResult((validation) => {
-          if (validation.issues) {
-            return Result.Error(
-              new MessageValidationError(String(publisherName), validation.issues),
-            );
-          }
-
-          return Result.Ok(validation.value);
-        });
+      const promise =
+        validationResult instanceof Promise ? validationResult : Promise.resolve(validationResult);
+      return ResultAsync.fromPromise(
+        promise,
+        (error): TechnicalError | MessageValidationError =>
+          new TechnicalError("Validation failed", error),
+      ).andThen((validation) => {
+        if (validation.issues) {
+          return err<unknown, TechnicalError | MessageValidationError>(
+            new MessageValidationError(String(publisherName), validation.issues),
+          );
+        }
+        return ok<unknown, TechnicalError | MessageValidationError>(validation.value);
+      });
     };
 
-    const publishMessage = (validatedMessage: unknown): Future<Result<void, TechnicalError>> => {
+    const publishMessage = (validatedMessage: unknown): ResultAsync<void, TechnicalError> => {
       // Merge default options with provided options
       const mergedOptions = { ...this.defaultPublishOptions, ...options };
 
@@ -347,26 +335,24 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
       const publishOptions: AmqpClientPublishOptions = { ...restOptions };
 
       // Prepare payload and options based on compression configuration
-      const preparePayload = (): Future<Result<Buffer | unknown, TechnicalError>> => {
+      const preparePayload = (): ResultAsync<Buffer | unknown, TechnicalError> => {
         if (compression) {
           // Compress the message payload
           const messageBuffer = Buffer.from(JSON.stringify(validatedMessage));
           publishOptions.contentEncoding = compression;
-
           return compressBuffer(messageBuffer, compression);
         }
 
         // No compression: use the channel's built-in JSON serialization
-        return Future.value(Result.Ok(validatedMessage));
+        return okAsync(validatedMessage);
       };
 
-      // Publish the prepared payload
-      return preparePayload().flatMapOk((payload) =>
+      return preparePayload().andThen((payload) =>
         this.amqpClient
           .publish(publisher.exchange.name, publisher.routingKey ?? "", payload, publishOptions)
-          .mapOkToResult((published) => {
+          .andThen((published) => {
             if (!published) {
-              return Result.Error(
+              return err<void, TechnicalError>(
                 new TechnicalError(
                   `Failed to publish message for publisher "${String(publisherName)}": Channel rejected the message (buffer full or other channel issue)`,
                 ),
@@ -380,20 +366,19 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
               compressed: !!compression,
             });
 
-            return Result.Ok(undefined);
+            return ok<void, TechnicalError>(undefined);
           }),
       );
     };
 
-    // Validate message using schema
     return validateMessage()
-      .flatMapOk((validatedMessage) => publishMessage(validatedMessage))
-      .tapOk(() => {
+      .andThen((validatedMessage) => publishMessage(validatedMessage))
+      .andTee(() => {
         const durationMs = Date.now() - startTime;
         endSpanSuccess(span);
         recordPublishMetric(this.telemetry, exchange.name, routingKey, true, durationMs);
       })
-      .tapError((error) => {
+      .orTee((error) => {
         const durationMs = Date.now() - startTime;
         endSpanError(span, error);
         recordPublishMetric(this.telemetry, exchange.name, routingKey, false, durationMs);
@@ -406,23 +391,13 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
    * The request payload is validated against the RPC's request schema, then
    * published to the AMQP default exchange with the server's queue name as
    * routing key, `replyTo` set to `amq.rabbitmq.reply-to`, and a fresh UUID
-   * `correlationId`. The returned Future resolves once a matching reply
+   * `correlationId`. The returned ResultAsync resolves once a matching reply
    * arrives and validates against the response schema, or once `timeoutMs`
    * elapses (whichever comes first).
    *
-   * @typeParam TName - An RPC name from `contract.rpcs`.
-   * @param rpcName - The RPC name from the contract.
-   * @param request - The request payload, validated against the request schema.
-   * @param options - Per-call options. `timeoutMs` is required.
-   *
-   * @returns `Result.Ok(response)` on a successful round-trip; `Result.Error`
-   *   on validation, transport, timeout, or cancel.
-   *
    * @example
    * ```typescript
-   * const result = await client
-   *   .call('calculate', { a: 1, b: 2 }, { timeoutMs: 5_000 })
-   *   .toPromise();
+   * const result = await client.call('calculate', { a: 1, b: 2 }, { timeoutMs: 5_000 });
    * if (result.isOk()) console.log(result.value.sum); // 3
    * ```
    */
@@ -430,16 +405,13 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     rpcName: TName,
     request: ClientInferRpcRequestInput<TContract, TName>,
     options: CallOptions,
-  ): Future<
-    Result<
-      ClientInferRpcResponseOutput<TContract, TName>,
-      TechnicalError | MessageValidationError | RpcTimeoutError | RpcCancelledError
-    >
+  ): ResultAsync<
+    ClientInferRpcResponseOutput<TContract, TName>,
+    TechnicalError | MessageValidationError | RpcTimeoutError | RpcCancelledError
   > {
-    type CallResult = Result<
-      ClientInferRpcResponseOutput<TContract, TName>,
-      TechnicalError | MessageValidationError | RpcTimeoutError | RpcCancelledError
-    >;
+    type ResponseType = ClientInferRpcResponseOutput<TContract, TName>;
+    type CallError = TechnicalError | MessageValidationError | RpcTimeoutError | RpcCancelledError;
+    type CallResult = Result<ResponseType, CallError>;
 
     // setTimeout truncates fractional ms and clamps anything outside the
     // 32-bit signed integer range (~24.8 days) to 1ms, so reject those up
@@ -451,12 +423,10 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
       options.timeoutMs <= 0 ||
       options.timeoutMs > TIMEOUT_MAX_MS
     ) {
-      return Future.value(
-        Result.Error(
-          new TechnicalError(
-            `Invalid timeoutMs for RPC call to "${String(rpcName)}": expected a finite positive number ≤ ${TIMEOUT_MAX_MS}, got ${String(options.timeoutMs)}`,
-          ),
-        ) as CallResult,
+      return errAsync<ResponseType, CallError>(
+        new TechnicalError(
+          `Invalid timeoutMs for RPC call to "${String(rpcName)}": expected a finite positive number ≤ ${TIMEOUT_MAX_MS}, got ${String(options.timeoutMs)}`,
+        ),
       );
     }
 
@@ -473,52 +443,57 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
     });
 
     const correlationId = randomUUID();
-    const callFuture = Future.make<CallResult>((resolve) => {
-      const timer = setTimeout(() => {
-        const pending = this.pendingCalls.get(correlationId);
-        if (!pending) return;
-        this.pendingCalls.delete(correlationId);
-        resolve(Result.Error(new RpcTimeoutError(String(rpcName), options.timeoutMs)));
-      }, options.timeoutMs);
 
-      this.pendingCalls.set(correlationId, {
-        rpcName: String(rpcName),
-        responseSchema,
-        resolve: resolve as PendingCall["resolve"],
-        timer,
-      });
+    // Set up the reply future + pending entry up front so a reply that arrives
+    // racing the publish round-trip can find a slot. Cleanup on preflight
+    // failure happens in the `.orElse` below.
+    let resolveCall!: (result: CallResult) => void;
+    const callPromise = new Promise<CallResult>((res) => {
+      resolveCall = res;
+    });
+    const callResultAsync = new ResultAsync<ResponseType, CallError>(callPromise);
+
+    const timer = setTimeout(() => {
+      if (!this.pendingCalls.has(correlationId)) return;
+      this.pendingCalls.delete(correlationId);
+      resolveCall(err(new RpcTimeoutError(String(rpcName), options.timeoutMs)));
+    }, options.timeoutMs);
+
+    this.pendingCalls.set(correlationId, {
+      rpcName: String(rpcName),
+      responseSchema,
+      resolve: resolveCall as PendingCall["resolve"],
+      timer,
     });
 
-    const validateRequest = (): Future<
-      Result<unknown, TechnicalError | MessageValidationError>
-    > => {
+    const validateRequest = (): ResultAsync<unknown, TechnicalError | MessageValidationError> => {
       // Wrap the validate call — a Standard Schema implementation may throw
-      // synchronously, and that throw would otherwise escape the Future chain
-      // and leave the pending-call entry/timer dangling until timeout.
+      // synchronously, and that throw would otherwise escape the chain and
+      // leave the pending-call entry/timer dangling until timeout.
       let rawValidation: ReturnType<StandardSchemaV1["~standard"]["validate"]>;
       try {
         rawValidation = requestSchema["~standard"].validate(request);
       } catch (error: unknown) {
-        return Future.value(
-          Result.Error<unknown, TechnicalError | MessageValidationError>(
-            new TechnicalError("RPC request validation threw", error),
-          ),
+        return errAsync<unknown, TechnicalError | MessageValidationError>(
+          new TechnicalError("RPC request validation threw", error),
         );
       }
       const validationPromise =
         rawValidation instanceof Promise ? rawValidation : Promise.resolve(rawValidation);
-      return Future.fromPromise(validationPromise)
-        .mapError((error) => new TechnicalError("RPC request validation threw", error))
-        .mapOkToResult((validation) =>
-          validation.issues
-            ? Result.Error<unknown, TechnicalError | MessageValidationError>(
-                new MessageValidationError(String(rpcName), validation.issues),
-              )
-            : Result.Ok<unknown, TechnicalError | MessageValidationError>(validation.value),
-        );
+      return ResultAsync.fromPromise(
+        validationPromise,
+        (error): TechnicalError | MessageValidationError =>
+          new TechnicalError("RPC request validation threw", error),
+      ).andThen((validation) =>
+        validation.issues
+          ? err<unknown, TechnicalError | MessageValidationError>(
+              new MessageValidationError(String(rpcName), validation.issues),
+            )
+          : ok<unknown, TechnicalError | MessageValidationError>(validation.value),
+      );
     };
 
-    const publishRequest = (validatedRequest: unknown): Future<Result<void, TechnicalError>> => {
+    const publishRequest = (validatedRequest: unknown): ResultAsync<void, TechnicalError> => {
       // Merge `defaultPublishOptions` (persistent, priority, headers, …) with
       // the per-call options, then layer the RPC-managed fields on top so they
       // cannot be overridden. `compression` is intentionally dropped: RPC v1
@@ -535,10 +510,10 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
       };
       return this.amqpClient
         .publish("", queueName, validatedRequest, publishOptions)
-        .mapOkToResult((published) =>
+        .andThen((published) =>
           published
-            ? Result.Ok<void, TechnicalError>(undefined)
-            : Result.Error<void, TechnicalError>(
+            ? ok<void, TechnicalError>(undefined)
+            : err<void, TechnicalError>(
                 new TechnicalError(
                   `Failed to publish RPC request for "${String(rpcName)}": channel buffer full`,
                 ),
@@ -546,28 +521,26 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
         );
     };
 
-    // Validate the request, publish it, and await the reply (or timeout).
     return validateRequest()
-      .flatMapOk((validated) => publishRequest(validated))
-      .flatMap((preflight) => {
-        if (preflight.isError()) {
-          // Publish/validation failed before the request hit the broker — clean
-          // up the pending entry so the timer never fires.
-          const pending = this.pendingCalls.get(correlationId);
-          if (pending) {
-            clearTimeout(pending.timer);
-            this.pendingCalls.delete(correlationId);
-          }
-          return Future.value(Result.Error(preflight.error) as CallResult);
+      .andThen((validated) => publishRequest(validated))
+      .andThen(() => callResultAsync)
+      .orElse((error: CallError) => {
+        // If preflight failed (validate or publish), the pending entry still
+        // exists and the timer is alive. Clean both up so the call doesn't
+        // leak. Timer-fired errors and reply-resolved errors have already
+        // cleaned the entry, so the .has() check guards against double cleanup.
+        if (this.pendingCalls.has(correlationId)) {
+          clearTimeout(timer);
+          this.pendingCalls.delete(correlationId);
         }
-        return callFuture;
+        return errAsync<ResponseType, CallError>(error);
       })
-      .tapOk(() => {
+      .andTee(() => {
         const durationMs = Date.now() - startTime;
         endSpanSuccess(span);
         recordPublishMetric(this.telemetry, "", queueName, true, durationMs);
       })
-      .tapError((error) => {
+      .orTee((error) => {
         const durationMs = Date.now() - startTime;
         endSpanError(span, error);
         recordPublishMetric(this.telemetry, "", queueName, false, durationMs);
@@ -578,24 +551,25 @@ export class TypedAmqpClient<TContract extends ContractDefinition> {
    * Close the channel and connection. Cancels the reply consumer (if any) and
    * rejects every in-flight RPC call with `RpcCancelledError`.
    */
-  close(): Future<Result<void, TechnicalError>> {
+  close(): ResultAsync<void, TechnicalError> {
     // Reject pending calls first — once close() runs, no reply will arrive.
     for (const [, pending] of this.pendingCalls) {
       clearTimeout(pending.timer);
-      pending.resolve(Result.Error(new RpcCancelledError(pending.rpcName)));
+      pending.resolve(err(new RpcCancelledError(pending.rpcName)));
     }
     this.pendingCalls.clear();
 
-    const cancelReply = this.replyConsumerTag
-      ? this.amqpClient.cancel(this.replyConsumerTag).tapError((error) => {
+    const cancelReply: ResultAsync<void, TechnicalError> = this.replyConsumerTag
+      ? this.amqpClient.cancel(this.replyConsumerTag).orElse((error) => {
           this.logger?.warn("Failed to cancel RPC reply consumer during close", { error });
+          return ok<void, TechnicalError>(undefined);
         })
-      : Future.value(Result.Ok<void, TechnicalError>(undefined));
+      : okAsync<void, TechnicalError>(undefined);
 
-    return cancelReply.flatMap(() => this.amqpClient.close()).mapOk(() => undefined);
+    return cancelReply.andThen(() => this.amqpClient.close());
   }
 
-  private waitForConnectionReady(): Future<Result<void, TechnicalError>> {
+  private waitForConnectionReady(): ResultAsync<void, TechnicalError> {
     return this.amqpClient.waitForConnect();
   }
 }

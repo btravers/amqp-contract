@@ -58,7 +58,7 @@ const contract = defineContract({
 const client = await TypedAmqpClient.create({
   contract,
   urls: ["amqp://localhost"],
-}).resultToPromise();
+});
 
 const result = await client.publish("orderCreated", {
   orderId: "ORD-123", // ✅ TypeScript knows!

@@ -149,15 +149,16 @@ export function isHandlerError(error: unknown): error is HandlerError {
  * @example
  * ```typescript
  * import { retryable } from '@amqp-contract/worker';
- * import { Future, Result } from '@swan-io/boxed';
+ * import { ResultAsync } from 'neverthrow';
  *
  * const handler = ({ payload }) =>
- *   Future.fromPromise(processPayment(payload))
- *     .mapOk(() => undefined)
- *     .mapError((e) => retryable('Payment service unavailable', e));
+ *   ResultAsync.fromPromise(
+ *     processPayment(payload),
+ *     (e) => retryable('Payment service unavailable', e),
+ *   ).map(() => undefined);
  *
  * // Equivalent to:
- * // .mapError((e) => new RetryableError('Payment service unavailable', e));
+ * // ResultAsync.fromPromise(processPayment(payload), (e) => new RetryableError('...', e))
  * ```
  */
 export function retryable(message: string, cause?: unknown): RetryableError {
@@ -177,17 +178,17 @@ export function retryable(message: string, cause?: unknown): RetryableError {
  * @example
  * ```typescript
  * import { nonRetryable } from '@amqp-contract/worker';
- * import { Future, Result } from '@swan-io/boxed';
+ * import { errAsync, okAsync } from 'neverthrow';
  *
  * const handler = ({ payload }) => {
  *   if (!isValidPayload(payload)) {
- *     return Future.value(Result.Error(nonRetryable('Invalid payload format')));
+ *     return errAsync(nonRetryable('Invalid payload format'));
  *   }
- *   return Future.value(Result.Ok(undefined));
+ *   return okAsync(undefined);
  * };
  *
  * // Equivalent to:
- * // return Future.value(Result.Error(new NonRetryableError('Invalid payload format')));
+ * // return errAsync(new NonRetryableError('Invalid payload format'));
  * ```
  */
 export function nonRetryable(message: string, cause?: unknown): NonRetryableError {

@@ -148,15 +148,13 @@ const contract = defineContract({
 const client = await TypedAmqpClient.create({
   contract,
   urls: ["amqp://localhost"],
-}).resultToPromise();
+});
 
-await client
-  .publish("orderCreated", {
-    orderId: "ORD-123", // ✅ TypeScript knows these fields!
-    customerId: "CUST-456", // ✅ Autocomplete works!
-    amount: 99.99, // ✅ Type checked at compile time!
-  })
-  .resultToPromise();
+await client.publish("orderCreated", {
+  orderId: "ORD-123", // ✅ TypeScript knows these fields!
+  customerId: "CUST-456", // ✅ Autocomplete works!
+  amount: 99.99, // ✅ Type checked at compile time!
+});
 
 // 5. Consumer gets fully typed payloads
 const worker = await TypedAmqpWorker.create({
@@ -166,11 +164,11 @@ const worker = await TypedAmqpWorker.create({
       console.log(payload.orderId); // ✅ Fully typed!
       console.log(payload.customerId); // ✅ Autocomplete!
       console.log(payload.amount); // ✅ Type safe!
-      return Future.value(Result.Ok(undefined));
+      return okAsync(undefined);
     },
   },
   urls: ["amqp://localhost"],
-}).resultToPromise();
+});
 ```
 
 ### 2. Automatic Validation
@@ -197,21 +195,17 @@ TypeScript catches errors before runtime:
 
 ```typescript
 // ❌ TypeScript error at compile time
-await client
-  .publish("orderCreated", {
-    orderId: "ORD-123",
-    // Missing customerId and amount - TypeScript error!
-  })
-  .resultToPromise();
+await client.publish("orderCreated", {
+  orderId: "ORD-123",
+  // Missing customerId and amount - TypeScript error!
+});
 
 // ❌ TypeScript error for wrong types
-await client
-  .publish("orderCreated", {
-    orderId: 123, // Error: orderId must be string
-    customerId: "CUST-456",
-    amount: 99.99,
-  })
-  .resultToPromise();
+await client.publish("orderCreated", {
+  orderId: 123, // Error: orderId must be string
+  customerId: "CUST-456",
+  amount: 99.99,
+});
 ```
 
 ### 4. Single Source of Truth

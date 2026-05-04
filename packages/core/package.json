@@ -59,9 +59,9 @@
   },
   "dependencies": {
     "@amqp-contract/contract": "workspace:*",
-    "@swan-io/boxed": "catalog:",
     "amqp-connection-manager": "catalog:",
-    "amqplib": "catalog:"
+    "amqplib": "catalog:",
+    "neverthrow": "catalog:"
   },
   "devDependencies": {
     "@amqp-contract/testing": "workspace:*",

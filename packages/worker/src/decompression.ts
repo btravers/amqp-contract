@@ -1,6 +1,6 @@
-import { Future, Result } from "@swan-io/boxed";
-import { gunzip, inflate } from "node:zlib";
 import { TechnicalError } from "@amqp-contract/core";
+import { errAsync, okAsync, ResultAsync } from "neverthrow";
+import { gunzip, inflate } from "node:zlib";
 import { promisify } from "node:util";
 
 const gunzipAsync = promisify(gunzip);
@@ -28,39 +28,39 @@ function isSupportedEncoding(encoding: string): encoding is SupportedEncoding {
  *
  * @param buffer - The buffer to decompress
  * @param contentEncoding - The content-encoding header value (e.g., 'gzip', 'deflate')
- * @returns A Future with the decompressed buffer or a TechnicalError
+ * @returns A ResultAsync resolving to the decompressed buffer or a TechnicalError
  *
  * @internal
  */
 export function decompressBuffer(
   buffer: Buffer,
   contentEncoding: string | undefined,
-): Future<Result<Buffer, TechnicalError>> {
+): ResultAsync<Buffer, TechnicalError> {
   if (!contentEncoding) {
-    return Future.value(Result.Ok(buffer));
+    return okAsync(buffer);
   }
 
   const normalizedEncoding = contentEncoding.toLowerCase();
 
   if (!isSupportedEncoding(normalizedEncoding)) {
-    return Future.value(
-      Result.Error(
-        new TechnicalError(
-          `Unsupported content-encoding: "${contentEncoding}". ` +
-            `Supported encodings are: ${SUPPORTED_ENCODINGS.join(", ")}. ` +
-            `Please check your publisher configuration.`,
-        ),
+    return errAsync(
+      new TechnicalError(
+        `Unsupported content-encoding: "${contentEncoding}". ` +
+          `Supported encodings are: ${SUPPORTED_ENCODINGS.join(", ")}. ` +
+          `Please check your publisher configuration.`,
       ),
     );
   }
 
   switch (normalizedEncoding) {
     case "gzip":
-      return Future.fromPromise(gunzipAsync(buffer)).mapError(
+      return ResultAsync.fromPromise(
+        gunzipAsync(buffer),
         (error) => new TechnicalError("Failed to decompress gzip", error),
       );
     case "deflate":
-      return Future.fromPromise(inflateAsync(buffer)).mapError(
+      return ResultAsync.fromPromise(
+        inflateAsync(buffer),
         (error) => new TechnicalError("Failed to decompress deflate", error),
       );
   }

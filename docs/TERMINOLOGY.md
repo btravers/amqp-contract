@@ -80,9 +80,9 @@ When implementing the contract, we use our terms:
 
 ```typescript
 // Client = runtime publisher
-const client = await TypedAmqpClient.create({ contract, urls }).resultToPromise();
+const client = await TypedAmqpClient.create({ contract, urls });
 
-await client.publish("orderCreated", message).resultToPromise();
+await client.publish("orderCreated", message);
 
 // Worker = runtime consumer
 const worker = await TypedAmqpWorker.create({
@@ -90,11 +90,11 @@ const worker = await TypedAmqpWorker.create({
   handlers: {
     processOrder: ({ payload }) => {
       // Handle message
-      return Future.value(Result.Ok(undefined));
+      return okAsync(undefined);
     },
   },
   urls,
-}).resultToPromise();
+});
 ```
 
 These terms (`TypedAmqpClient`, `TypedAmqpWorker`) describe the **runtime components** that implement the contract.
@@ -150,20 +150,20 @@ await publisher.publish(exchange, routingKey, message);
 const consumer = await createConsumer(queue, handler);
 
 // amqp-contract uses:
-const client = await TypedAmqpClient.create({ contract, urls }).resultToPromise();
+const client = await TypedAmqpClient.create({ contract, urls });
 
-await client.publish("orderCreated", message).resultToPromise();
+await client.publish("orderCreated", message);
 
 const worker = await TypedAmqpWorker.create({
   contract,
   handlers: { processOrder: handler },
   urls,
-}).resultToPromise();
+});
 ```
 
 The functionality is identical; only the naming differs.
 
-## Future Considerations
+## ResultAsync Considerations
 
 We're committed to listening to the community. If there's strong feedback that the standard AMQP terms would be clearer, we may consider:
 

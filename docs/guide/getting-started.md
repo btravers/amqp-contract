@@ -187,7 +187,7 @@ async function main() {
   const client = await TypedAmqpClient.create({
     contract,
     urls: ["amqp://localhost"],
-  }).resultToPromise();
+  });
 
   console.log("✅ Connected to RabbitMQ");
 
@@ -218,7 +218,7 @@ Create `consumer.ts` - processes messages:
 ```typescript
 // consumer.ts
 import { TypedAmqpWorker } from "@amqp-contract/worker";
-import { Future, Result } from "@swan-io/boxed";
+import { ResultAsync, Result } from "neverthrow";
 import { contract } from "./contract.js";
 
 async function main() {
@@ -236,14 +236,16 @@ async function main() {
         console.log(`  Body: ${payload.body}`);
 
         // Simulate sending email
-        return Future.fromPromise(new Promise((resolve) => setTimeout(resolve, 1000))).mapOk(() => {
-          console.log("✅ Email sent successfully!");
-          return undefined;
-        });
+        return ResultAsync.fromPromise(new Promise((resolve) => setTimeout(resolve, 1000))).map(
+          () => {
+            console.log("✅ Email sent successfully!");
+            return undefined;
+          },
+        );
       },
     },
     urls: ["amqp://localhost"],
-  }).resultToPromise();
+  });
 
   console.log("✅ Worker ready, waiting for messages...\n");
   console.log("Press Ctrl+C to stop\n");

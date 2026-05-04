@@ -128,7 +128,7 @@ import { contract } from "./contract";
 const client = await TypedAmqpClient.create({
   contract,
   urls: ["amqp://localhost"],
-}).resultToPromise();
+});
 
 // ✅ Fully typed! TypeScript knows exactly what fields are required
 const result = await client.publish("orderCreated", {
@@ -182,11 +182,11 @@ const worker = await TypedAmqpWorker.create({
 
       // ✅ TypeScript catches typos and wrong field names
       // console.log(payload.ordreId); // ❌ TypeScript error!
-      return Future.value(Result.Ok(undefined));
+      return okAsync(undefined);
     },
   },
   urls: ["amqp://localhost"],
-}).resultToPromise();
+});
 
 console.log("✅ Worker ready");
 ```
@@ -227,7 +227,7 @@ TypeScript catches errors before runtime:
 
 ```typescript
 // ❌ TypeScript error - "orderDeleted" doesn't exist in contract
-await client.publish("orderDeleted", { orderId: "123" }).resultToPromise();
+await client.publish("orderDeleted", { orderId: "123" });
 
 // ❌ TypeScript error - missing handler for "processOrder"
 await TypedAmqpWorker.create({

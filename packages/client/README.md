@@ -26,16 +26,13 @@ import { contract } from "./contract";
 const client = await TypedAmqpClient.create({
   contract,
   urls: ["amqp://localhost"],
-}).resultToPromise();
+});
 
 // Publish message with explicit error handling
-const result = await client
-  .publish("orderCreated", {
-    orderId: "ORD-123",
-    amount: 99.99,
-  })
-  .resultToPromise();
-
+const result = await client.publish("orderCreated", {
+  orderId: "ORD-123",
+  amount: 99.99,
+});
 console.log("Published successfully");
 
 // Clean up
@@ -44,7 +41,7 @@ await client.close();
 
 ## Error Handling
 
-The client uses `Result` types from [@swan-io/boxed](https://github.com/swan-io/boxed) for explicit error handling. Runtime errors are part of the type signature:
+The client uses `Result` types from [neverthrow](https://github.com/supermacro/neverthrow) for explicit error handling. Runtime errors are part of the type signature:
 
 ```typescript
 publish(): Result<boolean, TechnicalError | MessageValidationError>

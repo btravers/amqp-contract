@@ -7,7 +7,7 @@
 - **TypeScript 5.9+** — strict type safety
 - **Standard Schema v1** — universal schema validation interface (Zod, Valibot, ArkType)
 - **amqplib** — AMQP 0.9.1 client for Node.js
-- **@swan-io/boxed** — Future/Result functional error handling
+- **neverthrow** — ResultAsync/Result functional error handling
 - **Vitest** — test framework
 - **Turbo** — monorepo build system
 - **pnpm** — package manager

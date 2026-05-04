@@ -1,5 +1,4 @@
 import type { ContractDefinition } from "@amqp-contract/contract";
-import { Future, Result } from "@swan-io/boxed";
 import type {
   AmqpConnectionManager,
   AmqpConnectionManagerOptions,
@@ -8,6 +7,7 @@ import type {
   CreateChannelOpts,
 } from "amqp-connection-manager";
 import type { Channel, ConsumeMessage, Options } from "amqplib";
+import { err, ok, Result, ResultAsync } from "neverthrow";
 import { ConnectionManagerSingleton } from "./connection-manager.js";
 import { TechnicalError } from "./errors.js";
 import { setupAmqpTopology } from "./setup.js";
@@ -39,7 +39,7 @@ function callSetupFunc(
  * Default time `waitForConnect` will wait for the broker before erroring out.
  * Defaulting to a finite value (rather than waiting forever) means a fail-fast
  * developer experience: a misconfigured URL, a down broker, or wrong
- * credentials surface as a Result.Error within 30 seconds. Pass `null`
+ * credentials surface as an `err` within 30 seconds. Pass `null`
  * explicitly to disable the timeout — `Infinity` and other non-finite values
  * are also coerced to "no timeout" because Node's `setTimeout` clamps large
  * delays to ~24.8 days and silently fires near-immediately on `Infinity`.
@@ -107,7 +107,7 @@ export type ConsumerOptions = Options.Consume & {
  * - Automatic AMQP topology setup (exchanges, queues, bindings) from contract
  * - Channel creation with JSON serialization enabled by default
  *
- * All operations return `Future<Result<T, TechnicalError>>` for consistent error handling.
+ * All operations return `ResultAsync<T, TechnicalError>` for consistent error handling.
  *
  * @example
  * ```typescript
@@ -116,14 +116,14 @@ export type ConsumerOptions = Options.Consume & {
  *   connectionOptions: { heartbeatIntervalInSeconds: 30 }
  * });
  *
- * // Wait for connection
- * await client.waitForConnect().resultToPromise();
+ * // Wait for connection (ResultAsync is thenable)
+ * await client.waitForConnect();
  *
  * // Publish a message
- * const result = await client.publish('exchange', 'routingKey', { data: 'value' }).resultToPromise();
+ * const result = await client.publish('exchange', 'routingKey', { data: 'value' });
  *
  * // Close when done
- * await client.close().resultToPromise();
+ * await client.close();
  * ```
  */
 export class AmqpClient {
@@ -208,7 +208,7 @@ export class AmqpClient {
    * Wait for the channel to be connected and ready.
    *
    * If `connectTimeoutMs` was provided in the constructor options, the returned
-   * Future resolves to `Result.Error<TechnicalError>` once the timeout elapses.
+   * ResultAsync resolves to `err(TechnicalError)` once the timeout elapses.
    * Without a timeout, this waits forever — amqp-connection-manager retries
    * connections indefinitely and never errors on its own.
    *
@@ -217,11 +217,8 @@ export class AmqpClient {
    * connection's reference count. Callers must invoke `close()` on the error
    * path to release the connection — `waitForConnect` does not do this
    * automatically. The typed factories handle this cleanup for you.
-   *
-   * @returns A Future resolving to `Result.Ok(void)` on connect, or
-   *   `Result.Error(TechnicalError)` on timeout / connection failure.
    */
-  waitForConnect(): Future<Result<void, TechnicalError>> {
+  waitForConnect(): ResultAsync<void, TechnicalError> {
     const connectPromise = this.channelWrapper.waitForConnect();
     const timeoutMs = this.connectTimeoutMs;
 
@@ -244,7 +241,8 @@ export class AmqpClient {
             );
           });
 
-    return Future.fromPromise(racedPromise).mapError(
+    return ResultAsync.fromPromise(
+      racedPromise,
       (error: unknown) => new TechnicalError("Failed to connect to AMQP broker", error),
     );
   }
@@ -252,37 +250,32 @@ export class AmqpClient {
   /**
    * Publish a message to an exchange.
    *
-   * @param exchange - The exchange name
-   * @param routingKey - The routing key
-   * @param content - The message content (will be JSON serialized if json: true)
-   * @param options - Optional publish options
-   * @returns A Future with `Result<boolean>` - true if message was sent, false if channel buffer is full
+   * @returns ResultAsync resolving to `true` if the message was sent, `false` if the channel buffer is full.
    */
   publish(
     exchange: string,
     routingKey: string,
     content: Buffer | unknown,
     options?: PublishOptions,
-  ): Future<Result<boolean, TechnicalError>> {
-    return Future.fromPromise(
+  ): ResultAsync<boolean, TechnicalError> {
+    return ResultAsync.fromPromise(
       this.channelWrapper.publish(exchange, routingKey, content, options),
-    ).mapError((error: unknown) => new TechnicalError("Failed to publish message", error));
+      (error: unknown) => new TechnicalError("Failed to publish message", error),
+    );
   }
 
   /**
    * Publish a message directly to a queue.
    *
-   * @param queue - The queue name
-   * @param content - The message content (will be JSON serialized if json: true)
-   * @param options - Optional publish options
-   * @returns A Future with `Result<boolean>` - true if message was sent, false if channel buffer is full
+   * @returns ResultAsync resolving to `true` if the message was sent, `false` if the channel buffer is full.
    */
   sendToQueue(
     queue: string,
     content: Buffer | unknown,
     options?: PublishOptions,
-  ): Future<Result<boolean, TechnicalError>> {
-    return Future.fromPromise(this.channelWrapper.sendToQueue(queue, content, options)).mapError(
+  ): ResultAsync<boolean, TechnicalError> {
+    return ResultAsync.fromPromise(
+      this.channelWrapper.sendToQueue(queue, content, options),
       (error: unknown) => new TechnicalError("Failed to publish message to queue", error),
     );
   }
@@ -290,31 +283,27 @@ export class AmqpClient {
   /**
    * Start consuming messages from a queue.
    *
-   * @param queue - The queue name
-   * @param callback - The callback to invoke for each message
-   * @param options - Optional consume options
-   * @returns A Future with `Result<string>` - the consumer tag
+   * @returns ResultAsync resolving to the consumer tag.
    */
   consume(
     queue: string,
     callback: ConsumeCallback,
     options?: ConsumerOptions,
-  ): Future<Result<string, TechnicalError>> {
-    return Future.fromPromise(this.channelWrapper.consume(queue, callback, options))
-      .mapError((error: unknown) => new TechnicalError("Failed to start consuming messages", error))
-      .mapOk((reply: { consumerTag: string }) => reply.consumerTag);
+  ): ResultAsync<string, TechnicalError> {
+    return ResultAsync.fromPromise(
+      this.channelWrapper.consume(queue, callback, options),
+      (error: unknown) => new TechnicalError("Failed to start consuming messages", error),
+    ).map((reply: { consumerTag: string }) => reply.consumerTag);
   }
 
   /**
    * Cancel a consumer by its consumer tag.
-   *
-   * @param consumerTag - The consumer tag to cancel
-   * @returns A Future that resolves when the consumer is cancelled
    */
-  cancel(consumerTag: string): Future<Result<void, TechnicalError>> {
-    return Future.fromPromise(this.channelWrapper.cancel(consumerTag))
-      .mapError((error: unknown) => new TechnicalError("Failed to cancel consumer", error))
-      .mapOk(() => undefined);
+  cancel(consumerTag: string): ResultAsync<void, TechnicalError> {
+    return ResultAsync.fromPromise(
+      this.channelWrapper.cancel(consumerTag),
+      (error: unknown) => new TechnicalError("Failed to cancel consumer", error),
+    ).map(() => undefined);
   }
 
   /**
@@ -372,35 +361,41 @@ export class AmqpClient {
    * - Decrease the reference count on the shared connection
    * - Close the connection if this was the last client using it
    *
-   * @returns A Future that resolves when the channel and connection are closed
+   * Both steps run regardless of each other's outcome; if both fail, the
+   * errors are wrapped in an AggregateError.
    */
-  close(): Future<Result<void, TechnicalError>> {
-    return Future.fromPromise(this.channelWrapper.close())
-      .mapError((error: unknown) => new TechnicalError("Failed to close channel", error))
-      .flatMap((channelResult) =>
-        Future.fromPromise(
-          ConnectionManagerSingleton.getInstance().releaseConnection(
-            this.urls,
-            this.connectionOptions,
-          ),
-        )
-          .mapError((error: unknown) => new TechnicalError("Failed to release connection", error))
-          .map((releaseResult) => {
-            if (channelResult.isError() && releaseResult.isError()) {
-              return Result.Error(
-                new TechnicalError(
-                  "Failed to close channel and release connection",
-                  new AggregateError(
-                    [channelResult.error, releaseResult.error],
-                    "Failed to close channel and release connection",
-                  ),
-                ),
-              );
-            }
-
-            return channelResult.isError() ? channelResult : releaseResult;
-          }),
+  close(): ResultAsync<void, TechnicalError> {
+    const inner = (async (): Promise<Result<void, TechnicalError>> => {
+      const channelResult = await ResultAsync.fromPromise(
+        this.channelWrapper.close(),
+        (error: unknown) => new TechnicalError("Failed to close channel", error),
       );
+      const releaseResult = await ResultAsync.fromPromise(
+        ConnectionManagerSingleton.getInstance().releaseConnection(
+          this.urls,
+          this.connectionOptions,
+        ),
+        (error: unknown) => new TechnicalError("Failed to release connection", error),
+      );
+
+      if (channelResult.isErr() && releaseResult.isErr()) {
+        return err(
+          new TechnicalError(
+            "Failed to close channel and release connection",
+            new AggregateError(
+              [channelResult.error, releaseResult.error],
+              "Failed to close channel and release connection",
+            ),
+          ),
+        );
+      }
+
+      if (channelResult.isErr()) return channelResult;
+      if (releaseResult.isErr()) return releaseResult;
+      return ok(undefined);
+    })();
+
+    return new ResultAsync(inner);
   }
 
   /**

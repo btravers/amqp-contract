@@ -1,9 +1,9 @@
-import { Future, Result } from "@swan-io/boxed";
-import { deflate, gzip } from "node:zlib";
 import type { CompressionAlgorithm } from "@amqp-contract/contract";
 import { TechnicalError } from "@amqp-contract/core";
-import { match } from "ts-pattern";
+import { ResultAsync } from "neverthrow";
+import { deflate, gzip } from "node:zlib";
 import { promisify } from "node:util";
+import { match } from "ts-pattern";
 
 const gzipAsync = promisify(gzip);
 const deflateAsync = promisify(deflate);
@@ -13,22 +13,24 @@ const deflateAsync = promisify(deflate);
  *
  * @param buffer - The buffer to compress
  * @param algorithm - The compression algorithm to use
- * @returns A Future with the compressed buffer or a TechnicalError
+ * @returns A ResultAsync resolving to the compressed buffer or a TechnicalError
  *
  * @internal
  */
 export function compressBuffer(
   buffer: Buffer,
   algorithm: CompressionAlgorithm,
-): Future<Result<Buffer, TechnicalError>> {
+): ResultAsync<Buffer, TechnicalError> {
   return match(algorithm)
     .with("gzip", () =>
-      Future.fromPromise(gzipAsync(buffer)).mapError(
+      ResultAsync.fromPromise(
+        gzipAsync(buffer),
         (error) => new TechnicalError("Failed to compress with gzip", error),
       ),
     )
     .with("deflate", () =>
-      Future.fromPromise(deflateAsync(buffer)).mapError(
+      ResultAsync.fromPromise(
+        deflateAsync(buffer),
         (error) => new TechnicalError("Failed to compress with deflate", error),
       ),
     )

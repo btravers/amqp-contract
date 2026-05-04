@@ -111,7 +111,7 @@ import { describe, expect } from "vitest";
 import { it } from "@amqp-contract/testing/extension";
 import { TypedAmqpClient } from "@amqp-contract/client";
 import { TypedAmqpWorker } from "@amqp-contract/worker";
-import { Future, Result } from "@swan-io/boxed";
+import { ResultAsync, Result } from "neverthrow";
 import { contract } from "./contract.js";
 
 describe("Order Processing Contract", () => {
@@ -123,7 +123,7 @@ describe("Order Processing Contract", () => {
     const client = await TypedAmqpClient.create({
       contract,
       urls: [amqpConnectionUrl],
-    }).resultToPromise();
+    });
 
     // Create worker with handler
     const receivedPayloads: unknown[] = [];
@@ -132,21 +132,18 @@ describe("Order Processing Contract", () => {
       handlers: {
         processOrder: ({ payload }) => {
           receivedPayloads.push(payload);
-          return Future.value(Result.Ok(undefined));
+          return okAsync(undefined);
         },
       },
       urls: [amqpConnectionUrl],
-    }).resultToPromise();
+    });
 
     // Publish message
-    const result = await client
-      .publish("orderCreated", {
-        orderId: "123",
-        customerId: "456",
-        amount: 99.99,
-      })
-      .resultToPromise();
-
+    const result = await client.publish("orderCreated", {
+      orderId: "123",
+      customerId: "456",
+      amount: 99.99,
+    });
     expect(result.isOk()).toBe(true);
 
     // Wait for message to be processed
