@@ -214,7 +214,10 @@ Property 'orderId' does not exist on type 'never'.
    ```
 
 3. **Check consumer handler types:**
+
    ```typescript
+   import { okAsync } from "neverthrow";
+
    // ✅ Payload is automatically typed
    handlers: {
      processEmail: ({ payload }) => {

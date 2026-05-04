@@ -330,7 +330,7 @@ Use `NonRetryableError` when retrying would be pointless:
 
 ```typescript
 import { TypedAmqpWorker, NonRetryableError, RetryableError } from "@amqp-contract/worker";
-import { okAsync, ResultAsync, Result } from "neverthrow";
+import { errAsync, okAsync, ResultAsync } from "neverthrow";
 
 // Retry is configured at the queue level in the contract
 const worker = (
@@ -340,9 +340,7 @@ const worker = (
       processOrder: ({ payload }) => {
         // Validation errors should not be retried
         if (payload.amount <= 0) {
-          return ResultAsync.value(
-            err(new NonRetryableError("Invalid order amount - cannot be negative")),
-          );
+          return errAsync(new NonRetryableError("Invalid order amount - cannot be negative"));
         }
 
         // Business rule violations - check and fail fast
@@ -384,7 +382,7 @@ For the most explicit error handling, use safe handlers that return `ResultAsync
 
 ```typescript
 import { defineHandler, RetryableError, NonRetryableError } from "@amqp-contract/worker";
-import { okAsync, ResultAsync, Result } from "neverthrow";
+import { errAsync, okAsync, ResultAsync } from "neverthrow";
 import { match } from "ts-pattern";
 
 const processOrderHandler = defineHandler(contract, "processOrder", ({ payload }) => {
