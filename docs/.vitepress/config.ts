@@ -78,7 +78,6 @@ export default withMermaid(
         { text: "Guides", link: "/guide/getting-started" },
         { text: "API", link: "/api/" },
         { text: "Examples", link: "/examples/" },
-        { text: "Blog", link: "/blog/" },
       ],
 
       sidebar: {
@@ -163,22 +162,6 @@ export default withMermaid(
               {
                 text: "AsyncAPI Generation",
                 link: "/examples/asyncapi-generation",
-              },
-            ],
-          },
-        ],
-        "/blog/": [
-          {
-            text: "Blog",
-            items: [
-              { text: "Overview", link: "/blog/" },
-              {
-                text: "Resilient Message Handling with Retry",
-                link: "/blog/resilient-message-handling-with-retry-strategy",
-              },
-              {
-                text: "Building Type-Safe AMQP Messaging",
-                link: "/blog/introducing-amqp-contract",
               },
             ],
           },
