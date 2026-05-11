@@ -38,7 +38,7 @@ catalog:
   arktype: 2.2.0
   knip: 6.11.0
   lefthook: 2.1.6
-  mermaid: 11.14.0
+  mermaid: 11.15.0
   neverthrow: 8.2.0
   oxfmt: 0.47.0
   oxlint: 1.62.0
