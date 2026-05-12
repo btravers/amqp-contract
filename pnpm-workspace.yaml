@@ -36,7 +36,7 @@ catalog:
   amqp-connection-manager: 5.0.0
   amqplib: 0.10.9
   arktype: 2.2.0
-  knip: 6.11.0
+  knip: 6.12.2
   lefthook: 2.1.6
   mermaid: 11.14.0
   neverthrow: 8.2.0
