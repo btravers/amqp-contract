@@ -2,9 +2,6 @@ autoInstallPeers: false
 
 dedupePeerDependents: true
 
-publicHoistPattern:
-  - "@types/*"
-
 engineStrict: true
 
 saveExact: true

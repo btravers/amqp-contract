@@ -18,6 +18,7 @@
   "devDependencies": {
     "@amqp-contract/testing": "workspace:*",
     "@amqp-contract/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "neverthrow": "catalog:",
     "tsx": "catalog:",
